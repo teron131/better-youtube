@@ -8,7 +8,6 @@
 import { useEffect, useState } from 'react';
 
 import { api } from '@ui/services/api';
-import { ConfigurationResponse } from '@ui/services/types';
 import {
   AVAILABLE_MODELS,
   AVAILABLE_MODELS_LIST,
@@ -24,7 +23,7 @@ import {
   type AvailableModel,
   type SupportedLanguage,
 } from '@ui/services/config';
-import { deleteCookie, getCookieAsJSON, setCookieAsJSON } from '@ui/lib/cookie-utils';
+import { ConfigurationResponse } from '@ui/services/types';
 
 interface UseConfigReturn {
   config: ConfigurationResponse | null;
@@ -112,14 +111,14 @@ export function useLanguageSelection() {
   };
 }
 
+import { STORAGE_KEYS } from '@/lib/constants';
+
 interface UserPreferences {
   analysisModel: string;
   qualityModel: string;
   targetLanguage: string;
   fastMode: boolean;
 }
-
-const COOKIE_NAME = 'youtube-summarizer-prefs';
 
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   analysisModel: DEFAULT_ANALYSIS_MODEL,
@@ -147,31 +146,81 @@ function validatePreferences(
 }
 
 export function useUserPreferences() {
-  const [preferences, setPreferences] = useState<UserPreferences>(() => {
-    const cookieData = getCookieAsJSON<UserPreferences | null>(COOKIE_NAME, null);
-    return cookieData ? validatePreferences(cookieData, DEFAULT_USER_PREFERENCES) : DEFAULT_USER_PREFERENCES;
-  });
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setPreferences(prev => validatePreferences(prev, DEFAULT_USER_PREFERENCES));
+    // Load preferences from chrome.storage.local
+    const keys = [
+      STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+      STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
+      STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+      STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
+      STORAGE_KEYS.FAST_MODE,
+      STORAGE_KEYS.QUALITY_MODEL
+    ];
+
+    chrome.storage.local.get(keys, (result) => {
+      const loadedPrefs: Partial<UserPreferences> = {
+        analysisModel: result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
+        targetLanguage: result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
+        fastMode: result[STORAGE_KEYS.FAST_MODE],
+        qualityModel: result[STORAGE_KEYS.QUALITY_MODEL]
+      };
+      
+      setPreferences(validatePreferences(loadedPrefs, DEFAULT_USER_PREFERENCES));
+      setIsLoaded(true);
+    });
+
+    // Listen for changes from other parts of the extension
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      const updates: Partial<UserPreferences> = {};
+      if (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]) {
+        updates.analysisModel = (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]).newValue;
+      }
+      if (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]) {
+        updates.targetLanguage = (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]).newValue;
+      }
+      if (changes[STORAGE_KEYS.FAST_MODE]) updates.fastMode = changes[STORAGE_KEYS.FAST_MODE].newValue;
+      if (changes[STORAGE_KEYS.QUALITY_MODEL]) updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
+
+      if (Object.keys(updates).length > 0) {
+        setPreferences(prev => validatePreferences({ ...prev, ...updates }, DEFAULT_USER_PREFERENCES));
+      }
+    };
+
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  useEffect(() => {
-    setCookieAsJSON(COOKIE_NAME, preferences);
-  }, [preferences]);
-
   const updatePreferences = (updates: Partial<UserPreferences>) => {
-    setPreferences(prev => ({ ...prev, ...updates }));
+    const newPrefs = { ...preferences, ...updates };
+    setPreferences(newPrefs);
+
+    // Sync to chrome.storage.local
+    const storageUpdates: Record<string, any> = {};
+    if (updates.analysisModel) storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] = updates.analysisModel;
+    if (updates.targetLanguage) storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] = updates.targetLanguage;
+    if (updates.fastMode !== undefined) storageUpdates[STORAGE_KEYS.FAST_MODE] = updates.fastMode;
+    if (updates.qualityModel) storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
+
+    chrome.storage.local.set(storageUpdates);
   };
 
   const resetPreferences = () => {
     setPreferences(DEFAULT_USER_PREFERENCES);
-    deleteCookie(COOKIE_NAME);
+    chrome.storage.local.remove([
+      STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+      STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+      STORAGE_KEYS.FAST_MODE,
+      STORAGE_KEYS.QUALITY_MODEL
+    ]);
   };
 
   return {
     preferences,
     updatePreferences,
     resetPreferences,
+    isLoaded
   };
 }

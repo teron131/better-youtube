@@ -3,7 +3,7 @@
  * Handles communication with background script for video processing
  */
 
-import { MESSAGE_ACTIONS } from '@/lib/constants';
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from '@/lib/constants';
 import { extractVideoIdFromUrl } from '@ui/lib/video-utils';
 import {
   ApiError,
@@ -16,10 +16,10 @@ import {
  */
 async function getApiKeys(): Promise<{ scrapeCreatorsApiKey: string; openRouterApiKey: string }> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['scrapeCreatorsApiKey', 'openRouterApiKey'], (result) => {
+    chrome.storage.local.get([STORAGE_KEYS.SCRAPE_CREATORS_API_KEY, STORAGE_KEYS.OPENROUTER_API_KEY], (result) => {
       resolve({
-        scrapeCreatorsApiKey: result.scrapeCreatorsApiKey || '',
-        openRouterApiKey: result.openRouterApiKey || '',
+        scrapeCreatorsApiKey: result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || '',
+        openRouterApiKey: result[STORAGE_KEYS.OPENROUTER_API_KEY] || '',
       });
     });
   });
@@ -35,16 +35,20 @@ async function getModelSettings(): Promise<{
   return new Promise((resolve) => {
     chrome.storage.local.get(
       [
-        'summarizerRecommendedModel',
-        'summarizerCustomModel',
-        'targetLanguageRecommended',
-        'targetLanguageCustom',
+        STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
+        STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+        STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
+        STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
       ],
       (result) => {
         const summarizerModel =
-          result.summarizerCustomModel || result.summarizerRecommendedModel || 'x-ai/grok-4.1-fast';
+          result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || 
+          result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] || 
+          DEFAULTS.MODEL_SUMMARIZER;
         const targetLanguage =
-          result.targetLanguageCustom || result.targetLanguageRecommended || 'auto';
+          result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || 
+          result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] || 
+          DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
 
         resolve({ summarizerModel, targetLanguage });
       }
