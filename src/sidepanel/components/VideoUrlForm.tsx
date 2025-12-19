@@ -71,15 +71,15 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
 
   return (
     <Card className="rounded-[28px] p-0 border-border/50">
-      <div className="space-y-8 p-8 sm:p-10">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-3">
+      <div className="space-y-6 p-6 sm:p-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2.5">
             <Input
               type="url"
               placeholder="https://youtube.com/watch?v=..."
               value={url}
               onChange={handleUrlChange}
-              className={`h-16 rounded-2xl border-2 bg-card/70 px-6 text-lg shadow-inner transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-primary ${
+              className={`h-14 rounded-2xl border-2 bg-card/70 px-6 text-lg shadow-inner transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-primary ${
                 validationError
                   ? "border-destructive focus:ring-destructive"
                   : "border-border/60 hover:border-primary/40"
@@ -100,7 +100,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
           <Button
             type="submit"
             disabled={isLoading || !isFormValid(url)}
-            className="group relative flex h-16 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
+            className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
           >
             <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
             {isLoading ? (
