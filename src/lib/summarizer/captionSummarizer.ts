@@ -15,9 +15,9 @@ import { QualityUtils, SUMMARY_CONFIG } from "./qualityUtils";
 import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
 
-// ============================================================================
+// ============================================================================ 
 // Model Client
-// ============================================================================
+// ============================================================================ 
 
 /**
  * Create OpenRouter LLM instance using LangChain
@@ -37,33 +37,66 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
   });
 }
 
-// ============================================================================
+// ============================================================================ 
 // Tools
-// ============================================================================
+// ============================================================================ 
 
 /**
- * Tool for scraping YouTube transcript - aligned with summarizer_lite.py
- * Note: This tool assumes the background script handles the actual fetching if called via agent,
- * but for this implementation, we mostly pass the transcript directly.
+ * Functional scrap_youtube_tool factory
  */
-const scrapYoutubeTool = tool(
-  async ({ youtube_url }) => {
-    // In a real agent loop, this would call the API.
-    // For now, we return a message indicating this is handled by the orchestrator.
-    return `Transcript for ${youtube_url} is already being processed by the system.`;
-  },
-  {
-    name: "scrap_youtube_tool",
-    description: "Scrape a YouTube video and return the transcript.",
-    schema: z.object({
-      youtube_url: z.string().describe("The YouTube video URL to scrape"),
-    }),
-  }
-);
+function createScrapYoutubeTool(input: SummarizationInput) {
+  return tool(
+    async ({ youtube_url }) => {
+      // If we already have the transcript for this URL, just return it
+      const isUrl = isYoutubeUrl(input.transcript_or_url);
+      if (!isUrl && (youtube_url.includes(input.videoId || "") || !input.videoId)) {
+        return input.transcript_or_url;
+      }
 
-// ============================================================================
+      if (!input.scrapeCreatorsApiKey) {
+        return "Error: Scrape Creators API key not provided to the tool.";
+      }
+
+      try {
+        const response = await fetch(
+          `https://api.scrapecreators.com/v1/youtube/video?url=${youtube_url}&get_transcript=true`,
+          {
+            headers: {
+              "x-api-key": input.scrapeCreatorsApiKey,
+              "Accept": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          return `Error fetching transcript: ${response.status} ${response.statusText}`;
+        }
+
+        const data = await response.json();
+        const transcript = data.transcript_only_text || (data.transcript as any[])?.map((s) => s.text).join(" ") || "";
+        
+        if (!transcript) {
+          return "Error: No transcript found for this video.";
+        }
+
+        return transcript;
+      } catch (error) {
+        return `Error calling scrap API: ${String(error)}`;
+      }
+    },
+    {
+      name: "scrap_youtube_tool",
+      description: "Scrape a YouTube video and return the transcript.",
+      schema: z.object({
+        youtube_url: z.string().describe("The YouTube video URL to scrape"),
+      }),
+    }
+  );
+}
+
+// ============================================================================ 
 // Graph Nodes
-// ============================================================================
+// ============================================================================ 
 
 /**
  * Analysis node: Generate or refine analysis
@@ -133,7 +166,7 @@ Please provide an improved version that addresses the specific issues identified
     const targetLang = state.target_language || "auto";
     const analysisPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
 
-    const humanMessage =
+    const humanMessage = 
       targetLang === "auto"
         ? "{content}"
         : `{content}\n\nRemember: Write ALL output in ${PromptBuilder.LANGUAGE_DESCRIPTIONS[targetLang] || targetLang}. Do not use English or any other language.`;
@@ -188,7 +221,7 @@ async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
   QualityUtils.printQualityBreakdown(quality);
 
   const percentageScore = QualityUtils.calculateScore(quality);
-  const isComplete =
+  const isComplete = 
     percentageScore >= SUMMARY_CONFIG.MIN_QUALITY_SCORE ||
     state.iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS;
 
@@ -226,9 +259,9 @@ function shouldContinue(state: GraphState): string {
   return END;
 }
 
-// ============================================================================
+// ============================================================================ 
 // Graph Workflow
-// ============================================================================
+// ============================================================================ 
 
 /**
  * Create and compile the summarization graph
@@ -253,6 +286,12 @@ function createSummarizationGraph() {
 function formatAnalysisAsMarkdown(analysis: Analysis): string {
   const parts: string[] = [];
 
+  // Title
+  if (analysis.title) {
+    parts.push(`# ${analysis.title}`);
+    parts.push("");
+  }
+
   // Summary
   parts.push("## Summary");
   parts.push("");
@@ -269,13 +308,29 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
     parts.push("");
   }
 
-  // Key Facts
-  if (analysis.key_facts && analysis.key_facts.length > 0) {
-    parts.push("## Key Facts");
+  // Chapters
+  if (analysis.chapters && analysis.chapters.length > 0) {
+    parts.push("## Chapters");
     parts.push("");
-    analysis.key_facts.forEach((fact) => {
-      parts.push(`- ${fact}`);
+    analysis.chapters.forEach((chapter) => {
+      parts.push(`### ${chapter.header}`);
+      parts.push("");
+      parts.push(chapter.summary);
+      parts.push("");
+      if (chapter.key_points && chapter.key_points.length > 0) {
+        chapter.key_points.forEach((point) => {
+          parts.push(`- ${point}`);
+        });
+        parts.push("");
+      }
     });
+  }
+
+  // Keywords
+  if (analysis.keywords && analysis.keywords.length > 0) {
+    parts.push("## Keywords");
+    parts.push("");
+    parts.push(analysis.keywords.map((kw) => `\`${kw}\``).join("  "));
     parts.push("");
   }
 
@@ -283,11 +338,20 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
 }
 
 export interface SummarizationInput {
-  transcript: string;
+  transcript_or_url: string;
+  videoId?: string;
+  scrapeCreatorsApiKey?: string;
   analysis_model?: string;
   quality_model?: string;
   target_language?: string;
   fast_mode?: boolean;
+}
+
+/**
+ * Check if input is a YouTube URL
+ */
+function isYoutubeUrl(input: string): boolean {
+  return input.includes("youtube.com/watch") || input.includes("youtu.be/");
 }
 
 /**
@@ -298,20 +362,28 @@ async function executeFastSummarization(
   apiKey: string,
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
+  const isUrl = isYoutubeUrl(input.transcript_or_url);
+  
   if (progressCallback) {
-    progressCallback(`Generating analysis in Fast Mode (Agent). Transcript length: ${input.transcript.length} characters`);
+    const type = isUrl ? "URL" : "Transcript";
+    progressCallback(`Generating analysis in Fast Mode (Agent) from ${type}.`);
   }
 
   const model = input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL;
   const llm = createOpenRouterLLM(model, apiKey);
   const targetLang = input.target_language || "auto";
 
+  // Only provide the tool if the input is a URL
+  const tools = isUrl ? [createScrapYoutubeTool(input)] : [];
+
   const systemPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
-  const humanPrompt = `Analyze this transcript:\n\n${input.transcript}`;
+  const humanPrompt = isUrl 
+    ? `Analyze the video at this URL:\n\n${input.transcript_or_url}`
+    : `Analyze this transcript:\n\n${input.transcript_or_url}`;
 
   const agent = createAgent({
     model: llm,
-    tools: [scrapYoutubeTool],
+    tools: tools,
     systemPrompt: systemPrompt,
     responseFormat: AnalysisSchema,
   });
@@ -351,8 +423,23 @@ export async function executeSummarizationWorkflow(
 
   const graph = createSummarizationGraph();
 
+  // For the Graph workflow, we currently expect a transcript.
+  // We resolve it here if it's a URL.
+  let transcript = input.transcript_or_url;
+  if (isYoutubeUrl(transcript)) {
+    if (progressCallback) progressCallback("Resolving URL to transcript for workflow...");
+    // Note: Graph workflow doesn't have tools in analysisNode yet, 
+    // so we must resolve it before starting.
+    const tool = createScrapYoutubeTool(input);
+    transcript = await tool.invoke({ youtube_url: input.transcript_or_url });
+    
+    if (transcript.startsWith("Error")) {
+       throw new Error(transcript);
+    }
+  }
+
   const initialState: GraphState = {
-    transcript: input.transcript,
+    transcript: transcript,
     analysis_model: input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL,
     quality_model: input.quality_model || SUMMARY_CONFIG.QUALITY_MODEL,
     target_language: input.target_language || "auto",

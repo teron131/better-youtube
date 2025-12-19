@@ -6,7 +6,7 @@
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
-import { SubtitleSegment } from "@/lib/storage";
+import { SubtitleSegment, getStoredSubtitles } from "@/lib/storage";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -210,7 +210,16 @@ async function handleGenerateSummary(
   tabId: number | undefined,
   sendResponse: (response: any) => void
 ) {
-  const { videoId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection, qualityModel, targetLanguage, fastMode } = message;
+  const { 
+    videoId, 
+    transcript: messageTranscript,
+    scrapeCreatorsApiKey, 
+    openRouterApiKey, 
+    modelSelection, 
+    qualityModel, 
+    targetLanguage, 
+    fastMode 
+  } = message;
 
   if (!scrapeCreatorsApiKey || !openRouterApiKey) {
     sendResponse({ status: "error", message: "Missing API keys" });
@@ -218,60 +227,41 @@ async function handleGenerateSummary(
   }
 
   try {
-    // Check if auto-generation is enabled for coordination logging
-    const storage = await chrome.storage.local.get([STORAGE_KEYS.AUTO_GENERATE]);
-    const autoGenEnabled = storage[STORAGE_KEYS.AUTO_GENERATE] === true;
-    
-    if (autoGenEnabled) {
-      console.log(`Summary request for ${videoId} is coordinating with auto-generation natural flow.`);
+    // 1. Determine input source (Message Transcript -> Local Storage -> URL)
+    let transcript_or_url = "";
+    let videoInfo = null;
+
+    if (messageTranscript) {
+      transcript_or_url = messageTranscript;
+      console.log(`Using provided transcript for summary of ${videoId}`);
+    } else {
+      // Try local storage for auto-gen or refined transcripts
+      const storedSubtitles = await getStoredSubtitles(videoId);
+      if (storedSubtitles && storedSubtitles.length > 0) {
+        transcript_or_url = storedSubtitles.map((s) => s.text).join(" ");
+        console.log(`Using stored subtitles for summary of ${videoId}`);
+      } else {
+        // No transcript available, pass the URL
+        transcript_or_url = `https://www.youtube.com/watch?v=${videoId}`;
+        console.log(`No stored subtitles for ${videoId}, will use URL.`);
+      }
     }
 
-    // Fetch transcript (coordinated via deduplication and caching)
-    const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-    
-    if (!data) {
-      console.error(`Failed to fetch transcript for summary of ${videoId}`);
-      sendResponse({ status: "error", message: "Failed to fetch transcript from API" });
-      return;
-    }
-
-    // Extract transcript text from API response
-    let transcriptText = "";
-
-    // Check if we have transcript_only_text (preferred)
-    if (data.transcript_only_text) {
-      transcriptText = data.transcript_only_text;
-    }
-    // Otherwise, join the segments
-    else if (Array.isArray(data.transcript) && data.transcript.length > 0) {
-      transcriptText = data.transcript.map((s) => s.text).join(" ");
-    }
-
-    if (!transcriptText || transcriptText.trim() === "") {
-      console.error("No valid transcript text found in response for summary");
-      sendResponse({ status: "error", message: ERROR_MESSAGES.NO_TRANSCRIPT });
-      return;
-    }
-
-    // Extract video info
-    const videoInfo = {
-      url: data.url || `https://www.youtube.com/watch?v=${videoId}`,
-      title: data.title,
-      thumbnail: data.thumbnail,
-      author: data.channel?.title || null,
-      duration: data.durationFormatted || null,
-      upload_date: data.publishDate,
-      view_count: data.viewCountInt,
-      like_count: data.likeCountInt,
+    // Default video info
+    videoInfo = {
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      title: "YouTube Video",
     };
 
-    console.log(`Transcript ready for summary (${transcriptText.length} chars). Starting summarization workflow...`);
+    console.log(`Input ready for summary (type: ${transcript_or_url.startsWith("http") ? "URL" : "Transcript"}). Starting workflow...`);
     sendResponse({ status: "processing" });
 
     // Use the summarizer workflow
     const result = await executeSummarizationWorkflow(
       {
-        transcript: transcriptText,
+        transcript_or_url: transcript_or_url,
+        videoId: videoId,
+        scrapeCreatorsApiKey: scrapeCreatorsApiKey,
         analysis_model: modelSelection,
         quality_model: qualityModel || modelSelection,
         target_language: targetLanguage,
@@ -280,13 +270,16 @@ async function handleGenerateSummary(
       openRouterApiKey
     );
 
+    // If we resolved a transcript during the workflow (e.g. from URL), it would be nice to have it
+    // But since the workflow currently returns Analysis, we'll use what we have.
+
     // Send result back to sidepanel
     chrome.runtime.sendMessage({
       action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
       videoId,
       summary: result,
       videoInfo,
-      transcript: transcriptText
+      transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url
     });
     console.log(`Summarization workflow completed for video: ${videoId}`);
   } catch (error) {

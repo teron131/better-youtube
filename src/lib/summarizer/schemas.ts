@@ -1,22 +1,43 @@
 import * as z from "zod";
 
 /**
+ * Chapter output schema
+ */
+export const ChapterSchema = z.object({
+  header: z.string().describe("A descriptive title for the chapter"),
+  summary: z.string().describe("A comprehensive summary of the chapter content"),
+  key_points: z
+    .array(z.string())
+    .describe("Important takeaways and insights from this chapter"),
+});
+
+export type Chapter = z.infer<typeof ChapterSchema>;
+
+/**
  * Analysis output schema
  */
 export const AnalysisSchema = z.object({
+  title: z.string().describe("The main title or topic of the video content"),
   summary: z
     .string()
-    .describe("A comprehensive summary of the video content (150-400 words)"),
+    .describe("A comprehensive summary of the video content"),
   takeaways: z
     .array(z.string())
     .min(3)
     .max(8)
     .describe("Key insights and actionable takeaways for the audience"),
-  key_facts: z
+  chapters: z
+    .array(ChapterSchema)
+    .describe("Structured breakdown of content into logical chapters"),
+  keywords: z
     .array(z.string())
     .min(3)
-    .max(6)
-    .describe("Important facts, statistics, or data points mentioned"),
+    .max(3)
+    .describe("The most relevant keywords in the analysis worthy of highlighting"),
+  target_language: z
+    .string()
+    .nullable()
+    .describe("The language the content to be translated to"),
 });
 
 export type Analysis = z.infer<typeof AnalysisSchema>;

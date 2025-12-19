@@ -231,7 +231,7 @@ const Settings = () => {
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground">Auto-Generate Captions</h4>
+                      <h4 className="font-bold text-foreground">Auto-Generate</h4>
                       <p className="text-[10px] text-muted-foreground">Process on video load</p>
                     </div>
                   </div>

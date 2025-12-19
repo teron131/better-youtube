@@ -66,6 +66,7 @@ export async function streamAnalysis(
     qualityModel?: string;
     targetLanguage?: string | null;
     fastMode?: boolean;
+    transcript?: string;
   },
   onProgress?: (state: StreamingProgressState) => void
 ): Promise<StreamingProcessingResult> {
@@ -95,7 +96,7 @@ export async function streamAnalysis(
       step: 'scraping',
       stepName: 'Fetching Transcript',
       status: 'processing',
-      message: 'Fetching video transcript...',
+      message: options.transcript ? 'Using provided transcript...' : 'Fetching video transcript...',
     });
 
     // Send message to background script to generate summary
@@ -104,6 +105,7 @@ export async function streamAnalysis(
         {
           action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
           videoId,
+          transcript: options.transcript,
           scrapeCreatorsApiKey,
           openRouterApiKey,
           modelSelection: options.analysisModel || summarizerModel,

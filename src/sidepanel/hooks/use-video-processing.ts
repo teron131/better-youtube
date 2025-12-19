@@ -18,6 +18,7 @@ export interface VideoProcessingOptions {
   qualityModel?: string;
   targetLanguage?: string;
   fastMode?: boolean;
+  transcript?: string;
 }
 
 export interface VideoProcessingState {
