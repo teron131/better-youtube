@@ -13,6 +13,7 @@ interface VideoUrlFormProps {
     targetLanguage?: string;
     analysisModel?: string;
     qualityModel?: string;
+    fastMode?: boolean;
   }) => void;
   isLoading: boolean;
   initialUrl?: string;

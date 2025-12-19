@@ -1,11 +1,18 @@
 import path from "path";
 import { defineConfig } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig({
+  plugins: [
+    nodePolyfills({
+      include: ["async_hooks"],
+    }),
+  ],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
+    ],
   },
   build: {
     emptyOutDir: false,

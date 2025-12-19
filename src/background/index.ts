@@ -170,7 +170,7 @@ async function handleGenerateSummary(
   tabId: number | undefined,
   sendResponse: (response: any) => void
 ) {
-  const { videoId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection, targetLanguage } = message;
+  const { videoId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection, qualityModel, targetLanguage, fastMode } = message;
 
   if (!scrapeCreatorsApiKey || !openRouterApiKey) {
     sendResponse({ status: "error", message: "Missing API keys" });
@@ -224,8 +224,9 @@ async function handleGenerateSummary(
       {
         transcript: transcriptText,
         analysis_model: modelSelection,
-        quality_model: modelSelection, // Use same model for quality for now, or fetch from settings
+        quality_model: qualityModel || modelSelection, // Use same model if quality model not provided
         target_language: targetLanguage,
+        fast_mode: fastMode,
       },
       openRouterApiKey
     );

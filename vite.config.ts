@@ -1,15 +1,22 @@
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { defineConfig } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      include: ["async_hooks"],
+    }),
+  ],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@ui": path.resolve(__dirname, "./src/sidepanel"),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      { find: "@ui", replacement: path.resolve(__dirname, "./src/sidepanel") },
+      { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
+    ],
   },
   build: {
     outDir: "dist",
