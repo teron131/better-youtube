@@ -200,7 +200,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
               className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10"
             >
               <div
-                className="text-foreground leading-relaxed whitespace-pre-wrap font-mono text-sm"
+                className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text"
                 dangerouslySetInnerHTML={{ __html: highlightText(transcript, searchQuery) }}
               />
             </div>
