@@ -103,6 +103,8 @@ export const YOUTUBE = {
 
 // Message actions
 export const MESSAGE_ACTIONS = {
+  SCRAPE_VIDEO: "scrapeVideo",
+  SCRAPE_VIDEO_COMPLETED: "scrapeVideoCompleted",
   FETCH_SUBTITLES: "fetchSubtitles",
   GENERATE_SUBTITLES: "generateSubtitles",
   GENERATE_SUMMARY: "generateSummary",

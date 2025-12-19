@@ -1,5 +1,5 @@
 /**
- * Chrome storage management for subtitles and settings
+ * Chrome storage management for subtitles, video info, and settings
  */
 
 import { STORAGE, YOUTUBE, STORAGE_CLEANUP } from "./constants";
@@ -8,6 +8,45 @@ export interface SubtitleSegment {
   text: string;
   startTime: number;
   endTime: number;
+}
+
+export interface VideoMetadata {
+  url: string;
+  title: string | null;
+  thumbnail: string | null;
+  author: string | null;
+  duration: string | null;
+  upload_date: string | null;
+  view_count: number | null;
+  like_count: number | null;
+}
+
+/**
+ * Get video metadata storage key
+ */
+function getVideoMetadataKey(videoId: string): string {
+  return `video_info_${videoId}`;
+}
+
+/**
+ * Get video metadata from local storage
+ */
+export function getStoredVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
+  return new Promise((resolve) => {
+    const key = getVideoMetadataKey(videoId);
+    chrome.storage.local.get([key], (result) => {
+      resolve(result[key] || null);
+    });
+  });
+}
+
+/**
+ * Save video metadata to local storage
+ */
+export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
+  const key = getVideoMetadataKey(videoId);
+  await chromeStorageSet({ [key]: metadata });
+  console.log("Video metadata saved for video ID:", videoId);
 }
 
 /**
