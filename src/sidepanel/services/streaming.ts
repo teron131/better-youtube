@@ -142,8 +142,37 @@ export async function streamAnalysis(
         }
       );
 
-      // Listen for summary completion
+      // Listen for scrape completion and summary completion
       const messageListener = (message: any) => {
+        // Handle early video info from scrape
+        if (message.action === MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED && message.videoId === videoId) {
+          const { videoInfo: scrapedVideoInfo, transcript: scrapedTranscript } = message;
+
+          // Send progress update with video info
+          onProgress?.({
+            step: 'scraping',
+            stepName: 'Fetching Transcript',
+            status: 'completed',
+            message: 'Video data fetched',
+            data: {
+              videoInfo: scrapedVideoInfo ? {
+                url: scrapedVideoInfo.url || url,
+                title: scrapedVideoInfo.title || null,
+                thumbnail: scrapedVideoInfo.thumbnail || null,
+                author: scrapedVideoInfo.author || null,
+                duration: scrapedVideoInfo.duration || null,
+                upload_date: scrapedVideoInfo.upload_date || null,
+                view_count: scrapedVideoInfo.view_count ?? null,
+                like_count: scrapedVideoInfo.like_count ?? null,
+              } : undefined,
+              transcript: scrapedTranscript || undefined,
+            }
+          });
+
+          // Don't remove listener - wait for summary
+          return;
+        }
+
         if (message.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && message.videoId === videoId) {
           chrome.runtime.onMessage.removeListener(messageListener);
 
