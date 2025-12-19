@@ -7,7 +7,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { createAgent } from "langchain";
+import { createAgent, toolStrategy } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
@@ -385,14 +385,18 @@ async function executeFastSummarization(
     model: llm,
     tools: tools,
     systemPrompt: systemPrompt,
-    responseFormat: AnalysisSchema,
+    responseFormat: toolStrategy(AnalysisSchema),
   });
 
   const response = await agent.invoke({
     messages: [new HumanMessage(humanPrompt)],
   });
-  
-  const analysis = response.structuredResponse as Analysis;
+
+  const structuredResponse = response.structuredResponse;
+  if (structuredResponse === null || structuredResponse === undefined) {
+    throw new Error("Agent did not return structured response");
+  }
+  const analysis = structuredResponse as Analysis;
 
   if (progressCallback) {
     progressCallback("Fast analysis completed");
