@@ -11,20 +11,51 @@ import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoProcessing, VideoProcessingOptions } from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
-import { getVideoIdFromParams } from "@ui/lib/video-utils";
+import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@ui/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [initialUrl] = useState<string>(getVideoIdFromParams());
+  const [initialUrl, setInitialUrl] = useState<string>("");
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
   const { toast } = useToast();
+
+  // Get current tab URL on mount and when tab changes
+  useEffect(() => {
+    const loadCurrentTabUrl = async () => {
+      const url = await getVideoIdFromCurrentTab();
+      setInitialUrl(url);
+    };
+
+    // Load initial URL
+    loadCurrentTabUrl();
+
+    // Listen for tab updates
+    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+      if (changeInfo.url && tab.active) {
+        loadCurrentTabUrl();
+      }
+    };
+
+    const handleTabActivated = () => {
+      loadCurrentTabUrl();
+    };
+
+    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+
+    // Cleanup listeners on unmount
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
+  }, []);
 
   const {
     isLoading,
@@ -57,16 +88,37 @@ const Index = () => {
   const handleVideoSubmit = async (url: string, options?: VideoProcessingOptions) => {
     setIsExampleMode(false);
 
-    if (!url.trim()) {
-      loadExample();
-      return;
+    // If no URL provided, try to get from current tab
+    let videoUrl = url.trim();
+
+    if (!videoUrl) {
+      const currentTabUrl = await getVideoIdFromCurrentTab();
+
+      if (!currentTabUrl) {
+        // Not a YouTube page
+        const errorMsg = "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
+        updateState({
+          error: { message: errorMsg, type: "validation" },
+          currentStage: "❌ Not a YouTube page"
+        });
+
+        toast({
+          title: "Not a YouTube Page",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      videoUrl = currentTabUrl;
+      setInitialUrl(currentTabUrl);
     }
 
-    setLastProcessedUrl(url);
+    setLastProcessedUrl(videoUrl);
     setLastOptions(options);
 
     try {
-      await processVideo(url, options);
+      await processVideo(videoUrl, options);
     } catch (error) {
       const apiError = handleApiError(error);
       updateState({ error: apiError, currentStage: "❌ Processing failed" });
@@ -90,13 +142,13 @@ const Index = () => {
   const transcript = analysisResult?.transcript || scrapedTranscript;
 
   return (
-    <div className="min-h-screen bg-[#0b0b0c]">
+    <div className="app-shell">
       <div className="absolute top-4 right-4 z-50">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => navigate("/settings")}
-          className="text-gray-400 hover:text-white"
+          className="text-muted-foreground hover:text-foreground"
         >
           <SettingsIcon className="h-6 w-6" />
         </Button>

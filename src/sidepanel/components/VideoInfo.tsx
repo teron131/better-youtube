@@ -36,7 +36,7 @@ interface VideoInfoProps {
 
 export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like_count, upload_date, url }: VideoInfoProps) => {
   const displayDuration = formatDuration(duration || undefined);
-  const hasMetrics = view_count !== undefined || like_count !== undefined;
+  const hasMetrics = view_count != null || like_count != null;
 
   const convertedInfo = {
     title: title ? s2tw(title) : title,
@@ -87,11 +87,11 @@ export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like
 
             {hasMetrics && <div className="basis-full" />}
 
-            {view_count !== undefined && (
+            {view_count != null && (
               <InfoItem icon={<Eye className="w-4 h-4 text-primary" />} value={view_count.toLocaleString()} />
             )}
 
-            {like_count !== undefined && (
+            {like_count != null && (
               <InfoItem icon={<ThumbsUp className="w-4 h-4 text-primary" />} value={like_count.toLocaleString()} />
             )}
           </div>

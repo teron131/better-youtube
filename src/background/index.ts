@@ -11,18 +11,35 @@ import { SubtitleSegment } from "@/lib/storage";
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
-interface TranscriptSegment {
+interface ApiTranscriptSegment {
   text: string;
-  startTime: number;
-  endTime: number;
+  startMs: number;
+  endMs: number;
+  startTimeText: string;
+}
+
+interface ChannelInfo {
+  id: string;
+  url: string;
+  handle: string;
+  title: string;
 }
 
 interface ScrapeCreatorsResponse {
-  transcript: {
-    segments: TranscriptSegment[];
-  };
+  transcript: ApiTranscriptSegment[];
+  transcript_only_text?: string;
+  // Video Info
   title: string;
   description: string;
+  thumbnail?: string;
+  url?: string;
+  id?: string;
+  viewCountInt?: number;
+  likeCountInt?: number;
+  publishDate?: string;
+  channel?: ChannelInfo;
+  durationFormatted?: string;
+  keywords?: string[];
 }
 
 /**
@@ -32,24 +49,54 @@ async function fetchTranscript(
   videoId: string,
   apiKey: string
 ): Promise<ScrapeCreatorsResponse | null> {
+  const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  // NOTE: Do NOT encode the YouTube URL - Scrape Creators expects it raw
+  const url = `${API_ENDPOINTS.SCRAPE_CREATORS}?url=${youtubeUrl}&get_transcript=true`;
+  console.log("Fetching transcript for video:", videoId);
+
+  if (!apiKey || apiKey.trim() === "") {
+    console.error("API key is missing or empty");
+    return null;
+  }
+
   try {
-    const response = await fetch(
-      `${API_ENDPOINTS.SCRAPE_CREATORS}?id=${videoId}`,
-      {
-        headers: {
-          "x-api-key": apiKey,
-        },
-      }
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-api-key": apiKey,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log("Response status:", response.status);
 
     if (!response.ok) {
-      throw new Error(`Scrape API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error("API error response:", errorText);
+      throw new Error(`Scrape API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log("Transcript fetched successfully");
+    // console.log("Response data structure:", JSON.stringify(data, null, 2).substring(0, 500));
     return data;
   } catch (error) {
-    console.error("Fetch transcript error:", error);
+    if (error instanceof Error) {
+      if (error.name === "AbortError") {
+        console.error("Fetch transcript timeout after 30s");
+      } else {
+        console.error("Fetch transcript error:", error.message, error);
+      }
+    } else {
+      console.error("Fetch transcript error (unknown):", error);
+    }
     return null;
   }
 }
@@ -77,16 +124,16 @@ async function handleFetchSubtitles(
   try {
     // 1. Fetch transcript
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-    if (!data || !data.transcript) {
+    if (!data || !data.transcript || !Array.isArray(data.transcript)) {
       sendResponse({ status: "error", message: ERROR_MESSAGES.NO_TRANSCRIPT });
       return;
     }
 
-    // 2. Refine transcript
-    const segments: SubtitleSegment[] = data.transcript.segments.map((s) => ({
+    // 2. Convert API segments to internal format
+    const segments: SubtitleSegment[] = data.transcript.map((s) => ({
       text: s.text,
-      startTime: s.startTime,
-      endTime: s.endTime,
+      startTime: s.startMs,
+      endTime: s.endMs,
     }));
 
     // Inform content script that process started
@@ -132,20 +179,50 @@ async function handleGenerateSummary(
 
   try {
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-    if (!data || !data.transcript) {
+    console.log("Fetch transcript result:", data ? "Data received" : "No data");
+
+    if (!data) {
+      sendResponse({ status: "error", message: "Failed to fetch transcript from API" });
+      return;
+    }
+
+    // Extract transcript text from API response
+    let transcriptText = "";
+
+    // Check if we have transcript_only_text (preferred)
+    if (data.transcript_only_text) {
+      transcriptText = data.transcript_only_text;
+    }
+    // Otherwise, join the segments
+    else if (Array.isArray(data.transcript) && data.transcript.length > 0) {
+      transcriptText = data.transcript.map((s) => s.text).join(" ");
+    }
+
+    if (!transcriptText || transcriptText.trim() === "") {
+      console.error("No valid transcript text found in response");
       sendResponse({ status: "error", message: ERROR_MESSAGES.NO_TRANSCRIPT });
       return;
     }
 
-    // Convert segments to full text
-    const fullTranscript = data.transcript.segments.map((s) => s.text).join(" ");
+    // Extract video info
+    const videoInfo = {
+      url: data.url || `https://www.youtube.com/watch?v=${videoId}`,
+      title: data.title,
+      thumbnail: data.thumbnail,
+      author: data.channel?.title || null,
+      duration: data.durationFormatted || null,
+      upload_date: data.publishDate,
+      view_count: data.viewCountInt,
+      like_count: data.likeCountInt,
+    };
 
+    console.log("Transcript length:", transcriptText.length, "characters");
     sendResponse({ status: "processing" });
 
     // Use the summarizer workflow
     const result = await executeSummarizationWorkflow(
       {
-        transcript: fullTranscript,
+        transcript: transcriptText,
         analysis_model: modelSelection,
         quality_model: modelSelection, // Use same model for quality for now, or fetch from settings
         target_language: targetLanguage,
@@ -153,11 +230,13 @@ async function handleGenerateSummary(
       openRouterApiKey
     );
 
-    // Send result back to sidepanel (how to target sidepanel? usually via runtime message)
+    // Send result back to sidepanel
     chrome.runtime.sendMessage({
       action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
       videoId,
       summary: result,
+      videoInfo,
+      transcript: transcriptText
     });
   } catch (error) {
     console.error("Summary error:", error);

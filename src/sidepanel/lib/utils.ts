@@ -35,17 +35,21 @@ export function s2tw(content: string): string {
  * Only converts the final results that are displayed to the user
  */
 export function convertAnalysisChinese(analysis: AnalysisData): AnalysisData {
+  const takeaways = Array.isArray(analysis.takeaways) ? analysis.takeaways : [];
+  const keywords = Array.isArray(analysis.keywords) ? analysis.keywords : [];
+  const chapters = Array.isArray(analysis.chapters) ? analysis.chapters : [];
+
   return {
     ...analysis,
-    title: s2tw(analysis.title),
-    summary: s2tw(analysis.summary),
-    takeaways: analysis.takeaways.map(s2tw),
-    keywords: analysis.keywords.map(s2tw),
-    chapters: analysis.chapters.map(chapter => ({
+    title: s2tw(analysis.title || ''),
+    summary: s2tw(analysis.summary || ''),
+    takeaways: takeaways.map(s2tw),
+    keywords: keywords.map(s2tw),
+    chapters: chapters.map(chapter => ({
       ...chapter,
-      header: s2tw(chapter.header),
-      summary: s2tw(chapter.summary),
-      key_points: chapter.key_points.map(s2tw),
+      header: s2tw(chapter.header || ''),
+      summary: s2tw(chapter.summary || ''),
+      key_points: (Array.isArray(chapter.key_points) ? chapter.key_points : []).map(s2tw),
     })),
   };
 }

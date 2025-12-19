@@ -6,8 +6,8 @@
   "permissions": ["activeTab", "storage", "scripting", "sidePanel"],
   "host_permissions": [
     "https://*.youtube.com/*",
-    "https://api.scrapecreators.com/v1/youtube/*",
-    "https://openrouter.ai/api/v1/*"
+    "https://api.scrapecreators.com/*",
+    "https://openrouter.ai/*"
   ],
   "action": {
     "default_title": "Better YouTube",

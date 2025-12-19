@@ -18,12 +18,11 @@ export default defineConfig({
       input: {
         sidepanel: path.resolve(__dirname, "sidepanel.html"),
         background: path.resolve(__dirname, "src/background/index.ts"),
-        content: path.resolve(__dirname, "src/content/index.ts"),
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          // Output background and content scripts to root of dist
-          if (chunkInfo.name === "background" || chunkInfo.name === "content") {
+          // Output background script to root of dist
+          if (chunkInfo.name === "background") {
             return "[name].js";
           }
           return "assets/[name]-[hash].js";

@@ -44,9 +44,8 @@ export function ModelSelector({
         options={options}
         placeholder={placeholder}
         renderOption={renderModelOption}
-        inputClassName="bg-red-800 text-white border-red-500/30 hover:bg-red-800 focus:bg-red-800 placeholder:text-white/50"
+        inputClassName="bg-background/40 border-border/60 hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground"
       />
     </div>
   );
 }
-
