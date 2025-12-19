@@ -169,8 +169,8 @@ const Index = () => {
       />
 
       <div className="relative">
-        <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-16 -mt-12">
-          <div className="max-w-8xl w-full mx-auto space-y-10">
+        <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-12 -mt-10">
+          <div className="max-w-8xl w-full mx-auto space-y-8">
             {!isExampleMode && videoInfo && (
               <VideoInfo
                 url={videoInfo.url}

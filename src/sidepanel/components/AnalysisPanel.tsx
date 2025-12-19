@@ -147,7 +147,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
     <Card className="p-0 shadow-md">
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 via-transparent to-transparent" />
 
-      <div className="relative space-y-5 md:space-y-6 p-6 md:p-8">
+      <div className="relative space-y-4 md:space-y-5 p-6 md:p-8">
         {/* Main Header */}
         <div className="space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -249,10 +249,10 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
           </div>
         </div>
 
-        <div ref={contentRef}>
+        <div ref={contentRef} className="space-y-7 md:space-y-8">
           {/* Summary Section */}
           {convertedAnalysis.summary && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <SectionHeader icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />} title="Summary" />
               <div
                 className="summary-text text-foreground"
@@ -263,9 +263,9 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
 
           {/* Key Takeaways Section */}
           {convertedAnalysis.takeaways && convertedAnalysis.takeaways.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <SectionHeader icon={<Lightbulb className="w-4 h-4 md:w-5 md:h-5" />} title="Key Takeaways" />
-              <ul className="space-y-2.5">
+              <ul className="space-y-2">
                 {convertedAnalysis.takeaways.map((item, index) => (
                   <li key={index} className="flex items-start gap-2 md:gap-3">
                     <div className="mt-1.5 flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -285,10 +285,10 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
 
           {/* Video Chapters Section */}
           {convertedAnalysis.chapters && convertedAnalysis.chapters.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <SectionHeader icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />} title="Video Chapters" />
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {convertedAnalysis.chapters.map((chapter, index) => (
                   <div key={index} className="space-y-1.5">
                     <h5 className="summary-subheading font-semibold text-primary">
@@ -303,7 +303,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                     />
 
                     {chapter.key_points && chapter.key_points.length > 0 && (
-                      <ul className="mt-3 space-y-2">
+                      <ul className="mt-2.5 space-y-2">
                         {chapter.key_points.map((point, idx) => (
                           <li key={idx} className="flex items-start gap-2 md:gap-2 text-foreground/90 summary-text">
                             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
@@ -320,9 +320,9 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
 
           {/* Keywords Section */}
           {convertedAnalysis.keywords && convertedAnalysis.keywords.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <SectionHeader icon={<span className="text-sm md:text-base font-bold text-primary">#</span>} title="Keywords" />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 md:gap-2">
                 {convertedAnalysis.keywords.map((keyword, index) => (
                   <span
                     key={index}

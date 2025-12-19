@@ -24,16 +24,16 @@ const FEATURES = [
 export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-transparent">
-      <div className="relative container mx-auto px-6 sm:px-8 pt-14 pb-20 lg:pb-28">
-        <div className="flex flex-col items-center gap-10">
-          <div className="space-y-8 w-full max-w-8xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary shadow-sm fade-in-up">
+      <div className="relative container mx-auto px-6 sm:px-8 pt-10 pb-16 lg:pb-20">
+        <div className="flex flex-col items-center gap-8">
+          <div className="space-y-6 w-full max-w-8xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm fade-in-up">
               <Sparkles className="h-4 w-4" />
               Powered by Scrape Creators & OpenRouter
             </div>
 
-            <div className="space-y-4 fade-in-up stagger-1">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground">
+            <div className="space-y-3 fade-in-up stagger-1">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight">
                 YouTube Video
                 <span className="block bg-gradient-to-r from-primary via-primary/80 to-white bg-clip-text text-transparent animate-glow">
                   Structured Analysis
@@ -41,7 +41,7 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
               </h1>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 fade-in-up stagger-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 fade-in-up stagger-2">
               {FEATURES.map((item) => (
                 <div
                   key={item.label}
@@ -66,4 +66,3 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
     </section>
   );
 }
-
