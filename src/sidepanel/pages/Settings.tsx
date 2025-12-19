@@ -1,16 +1,16 @@
+import { RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/constants";
+import { getStorageValues, setStorageValue } from "@/lib/storage";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/components/ui/card";
+import { EditableCombobox } from "@ui/components/ui/editable-combobox";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { useToast } from "@ui/hooks/use-toast";
-import { ArrowLeft, Save, Key, Cpu, Globe, Type, Settings as SettingsIcon, Sparkles, ShieldCheck, Zap } from "lucide-react";
+import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, ShieldCheck, Sparkles, Type, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getStorageValues, setStorageValue } from "@/lib/storage";
-import { RECOMMENDED_SUMMARIZER_MODELS, RECOMMENDED_REFINER_MODELS, TARGET_LANGUAGES } from "@/lib/constants";
-import { EditableCombobox } from "@ui/components/ui/editable-combobox";
 
 const SETTINGS_KEYS = [
   "scrapeCreatorsApiKey",
@@ -136,7 +136,7 @@ const Settings = () => {
                   value={settings.scrapeCreatorsApiKey}
                   onChange={(e) => handleChange("scrapeCreatorsApiKey", e.target.value)}
                   className="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 focus:border-primary/30 text-white placeholder:text-zinc-600"
-                  placeholder="sc_..."
+                  placeholder="..."
                 />
               </div>
               <div className="space-y-3">
@@ -150,25 +150,25 @@ const Settings = () => {
                   value={settings.openRouterApiKey}
                   onChange={(e) => handleChange("openRouterApiKey", e.target.value)}
                   className="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 focus:border-primary/30 text-white placeholder:text-zinc-600"
-                  placeholder="sk-or-..."
+                  placeholder="sk-or-v1-..."
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* AI Intelligence */}
+          {/* Model Configuration */}
           <Card className="rounded-[24px] border-border/50 bg-background/60 backdrop-blur-xl shadow-2xl hover:border-primary/20 transition-all duration-500">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Cpu className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">AI Intelligence</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Model Configuration</span>
               </div>
               <CardTitle className="text-2xl font-bold text-white">Model Selection</CardTitle>
-              <CardDescription className="text-zinc-400">Choose which AI engines power your summaries and captions</CardDescription>
+              <CardDescription className="text-zinc-400">Choose which models power your summaries and captions</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label htmlFor="summarizerModel" className="text-sm font-semibold text-zinc-200">Analysis & Summary Engine</Label>
+                <Label htmlFor="summarizerModel" className="text-sm font-semibold text-zinc-200">Analysis & Summary Model</Label>
                 <EditableCombobox
                   value={settings.summarizerModel}
                   onChange={(val) => handleChange("summarizerModel", val)}
@@ -178,7 +178,7 @@ const Settings = () => {
                 />
               </div>
               <div className="space-y-3">
-                <Label htmlFor="refinerModel" className="text-sm font-semibold text-zinc-200">Caption Refinement Engine</Label>
+                <Label htmlFor="refinerModel" className="text-sm font-semibold text-zinc-200">Caption Refinement Model</Label>
                 <EditableCombobox
                   value={settings.refinerModel}
                   onChange={(val) => handleChange("refinerModel", val)}
@@ -264,15 +264,15 @@ const Settings = () => {
                 </div>
               </div>
 
-              {/* Typography */}
+              {/* Font Size */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-primary">
                   <Type className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Typography Control</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Font Size</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Caption Size (Overlay)</Label>
+                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Caption Overlay</Label>
                     <div className="flex bg-black/40 rounded-xl p-1 border border-zinc-800/50">
                       {['S', 'M', 'L'].map((size) => (
                         <button
@@ -290,7 +290,7 @@ const Settings = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Summary Size (Sidepanel)</Label>
+                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Analysis Panel</Label>
                     <div className="flex bg-black/40 rounded-xl p-1 border border-zinc-800/50">
                       {['S', 'M', 'L'].map((size) => (
                         <button
@@ -311,12 +311,6 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-zinc-600 text-[10px]">
-            Better YouTube v1.0.0 &bull; Developed with ❤️ for YouTube Power Users
-          </p>
         </div>
       </div>
     </div>
