@@ -1,13 +1,8 @@
-/**
- * Form component for YouTube URL input and video processing options.
- */
-
 import { ExampleUrls } from "@ui/components/ExampleUrls";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
-import { VideoProcessingOptions } from "@ui/components/VideoProcessingOptions";
 import { useUserPreferences } from "@ui/hooks/use-config";
 import { isFormValid, prepareProcessingOptions, validateYouTubeUrl } from "@ui/lib/form-validation";
 import { AlertCircle, Loader2, Play } from "lucide-react";
@@ -77,12 +72,10 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     <Card className="rounded-[28px] p-0 border-border/50">
       <div className="space-y-8 p-8 sm:p-10">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <VideoProcessingOptions />
-
           <div className="space-y-3">
             <Input
               type="url"
-              placeholder="https://youtube.com/watch?v=dQw4w9WgXcQ"
+              placeholder="https://youtube.com/watch?v=..."
               value={url}
               onChange={handleUrlChange}
               className={`h-16 rounded-2xl border-2 bg-card/70 px-6 text-lg shadow-inner transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-primary ${
