@@ -103,7 +103,9 @@ export async function streamAnalysis(
           scrapeCreatorsApiKey,
           openRouterApiKey,
           modelSelection: options.analysisModel || summarizerModel,
+          qualityModel: options.qualityModel,
           targetLanguage: options.targetLanguage || targetLanguage,
+          fastMode: options.fastMode,
         },
         (response) => {
           if (chrome.runtime.lastError) {

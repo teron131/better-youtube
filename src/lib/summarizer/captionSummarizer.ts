@@ -3,9 +3,13 @@
  * Implements analysis generation with quality verification and refinement loop
  */
 
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { tool } from "@langchain/core/tools";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { END, START, StateGraph } from "@langchain/langgraph/web";
+import { END, START, StateGraph } from "@langchain/langgraph";
+import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
 import { QualityUtils, SUMMARY_CONFIG } from "./qualityUtils";
 import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
@@ -32,6 +36,30 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
     temperature: 0.0,
   });
 }
+
+// ============================================================================
+// Tools
+// ============================================================================
+
+/**
+ * Tool for scraping YouTube transcript - aligned with summarizer_lite.py
+ * Note: This tool assumes the background script handles the actual fetching if called via agent,
+ * but for this implementation, we mostly pass the transcript directly.
+ */
+const scrapYoutubeTool = tool(
+  async ({ youtube_url }) => {
+    // In a real agent loop, this would call the API.
+    // For now, we return a message indicating this is handled by the orchestrator.
+    return `Transcript for ${youtube_url} is already being processed by the system.`;
+  },
+  {
+    name: "scrap_youtube_tool",
+    description: "Scrape a YouTube video and return the transcript.",
+    schema: z.object({
+      youtube_url: z.string().describe("The YouTube video URL to scrape"),
+    }),
+  }
+);
 
 // ============================================================================
 // Graph Nodes
@@ -259,6 +287,54 @@ export interface SummarizationInput {
   analysis_model?: string;
   quality_model?: string;
   target_language?: string;
+  fast_mode?: boolean;
+}
+
+/**
+ * Execute fast summarization using a ReAct Agent - aligned with summarizer_lite.py
+ */
+async function executeFastSummarization(
+  input: SummarizationInput,
+  apiKey: string,
+  progressCallback?: (message: string) => void
+): Promise<SummarizerOutput> {
+  if (progressCallback) {
+    progressCallback(`Generating analysis in Fast Mode (Agent). Transcript length: ${input.transcript.length} characters`);
+  }
+
+  const model = input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL;
+  const llm = createOpenRouterLLM(model, apiKey);
+  const targetLang = input.target_language || "auto";
+
+  const systemPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
+  const humanPrompt = `Analyze this transcript:\n\n${input.transcript}`;
+
+  const agent = createAgent({
+    model: llm,
+    tools: [scrapYoutubeTool],
+    systemPrompt: systemPrompt,
+    responseFormat: AnalysisSchema,
+  });
+
+  const response = await agent.invoke({
+    messages: [new HumanMessage(humanPrompt)],
+  });
+  
+  const analysis = response.structuredResponse as Analysis;
+
+  if (progressCallback) {
+    progressCallback("Fast analysis completed");
+  }
+
+  const summaryText = formatAnalysisAsMarkdown(analysis);
+
+  return {
+    analysis: analysis,
+    quality: null,
+    iteration_count: 1,
+    quality_score: 0,
+    summary_text: summaryText,
+  };
 }
 
 /**
@@ -269,6 +345,10 @@ export async function executeSummarizationWorkflow(
   apiKey: string,
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
+  if (input.fast_mode) {
+    return executeFastSummarization(input, apiKey, progressCallback);
+  }
+
   const graph = createSummarizationGraph();
 
   const initialState: GraphState = {

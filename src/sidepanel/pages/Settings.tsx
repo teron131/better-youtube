@@ -22,6 +22,7 @@ const SETTINGS_KEYS = [
   "summaryFontSize",
   "autoGenerate",
   "showSubtitles",
+  "fastMode",
 ];
 
 const DEFAULT_SETTINGS = {
@@ -34,6 +35,7 @@ const DEFAULT_SETTINGS = {
   summaryFontSize: "M",
   autoGenerate: false,
   showSubtitles: true,
+  fastMode: false,
 };
 
 const Settings = () => {
@@ -229,7 +231,7 @@ const Settings = () => {
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground">Auto-Generate</h4>
+                      <h4 className="font-bold text-foreground">Auto-Generate Captions</h4>
                       <p className="text-[10px] text-muted-foreground">Process on video load</p>
                     </div>
                   </div>
@@ -253,6 +255,23 @@ const Settings = () => {
                   <Switch
                     checked={settings.showSubtitles}
                     onCheckedChange={(checked) => handleChange("showSubtitles", checked)}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-foreground">Quality Check</h4>
+                      <p className="text-[10px] text-muted-foreground">Enable refinement loop (Slower)</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={!settings.fastMode}
+                    onCheckedChange={(checked) => handleChange("fastMode", !checked)}
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
