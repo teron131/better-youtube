@@ -3,11 +3,9 @@
  * Implements analysis generation with quality verification and refinement loop
  */
 
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
@@ -355,7 +353,8 @@ function isYoutubeUrl(input: string): boolean {
 }
 
 /**
- * Execute fast summarization using a ReAct Agent - aligned with summarizer_lite.py
+ * Execute fast summarization using direct LLM with structured output
+ * This is a lightweight single-pass approach without quality verification
  */
 async function executeFastSummarization(
   input: SummarizationInput,
@@ -363,36 +362,44 @@ async function executeFastSummarization(
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
-  
+
+  // If input is a URL, we need to fetch the transcript first
+  let transcript = input.transcript_or_url;
+  if (isUrl) {
+    if (progressCallback) {
+      progressCallback("Fast Mode: Fetching transcript from URL...");
+    }
+    const scrapeTool = createScrapYoutubeTool(input);
+    transcript = await scrapeTool.invoke({ youtube_url: input.transcript_or_url });
+
+    if (transcript.startsWith("Error")) {
+      throw new Error(transcript);
+    }
+  }
+
   if (progressCallback) {
-    const type = isUrl ? "URL" : "Transcript";
-    progressCallback(`Generating analysis in Fast Mode (Agent) from ${type}.`);
+    progressCallback(`Fast Mode: Generating analysis. Transcript length: ${transcript.length} characters`);
   }
 
   const model = input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL;
   const llm = createOpenRouterLLM(model, apiKey);
+  const structuredLLM = llm.withStructuredOutput(AnalysisSchema);
+
   const targetLang = input.target_language || "auto";
-
-  // Only provide the tool if the input is a URL
-  const tools = isUrl ? [createScrapYoutubeTool(input)] : [];
-
   const systemPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
-  const humanPrompt = isUrl 
-    ? `Analyze the video at this URL:\n\n${input.transcript_or_url}`
-    : `Analyze this transcript:\n\n${input.transcript_or_url}`;
 
-  const agent = createAgent({
-    model: llm,
-    tools: tools,
-    systemPrompt: systemPrompt,
-    responseFormat: AnalysisSchema,
-  });
+  const humanMessage =
+    targetLang === "auto"
+      ? transcript
+      : `${transcript}\n\nRemember: Write ALL output in ${PromptBuilder.LANGUAGE_DESCRIPTIONS[targetLang] || targetLang}. Do not use English or any other language.`;
 
-  const response = await agent.invoke({
-    messages: [new HumanMessage(humanPrompt)],
-  });
-  
-  const analysis = response.structuredResponse as Analysis;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ["system", systemPrompt],
+    ["human", "{content}"],
+  ]);
+
+  const chain = prompt.pipe(structuredLLM);
+  const analysis = await chain.invoke({ content: humanMessage }) as Analysis;
 
   if (progressCallback) {
     progressCallback("Fast analysis completed");
