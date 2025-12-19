@@ -126,7 +126,7 @@ function getLanguageInstruction(targetLanguage: string, isRefinement = false): s
   const instruction =
     targetLanguage === "auto"
       ? description
-      : `Write ALL output (summary, takeaways, key_facts) in ${description}. Do not use English or any other language.`;
+      : `Write ALL output (title, summary, takeaways, chapters, keywords) in ${description}. Do not use English or any other language.`;
 
   return `${prefix}${instruction}${suffix}`;
 }

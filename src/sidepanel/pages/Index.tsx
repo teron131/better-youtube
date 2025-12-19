@@ -115,10 +115,18 @@ const Index = () => {
     }
 
     setLastProcessedUrl(videoUrl);
-    setLastOptions(options);
+    
+    // Include current transcript if available to avoid re-fetching
+    const currentTranscript = analysisResult?.transcript || scrapedTranscript;
+    const processingOptions = {
+      ...options,
+      transcript: options?.transcript || currentTranscript || undefined
+    };
+    
+    setLastOptions(processingOptions);
 
     try {
-      await processVideo(videoUrl, options);
+      await processVideo(videoUrl, processingOptions);
     } catch (error) {
       const apiError = handleApiError(error);
       updateState({ error: apiError, currentStage: "❌ Processing failed" });
