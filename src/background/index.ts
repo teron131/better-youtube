@@ -42,74 +42,107 @@ interface ScrapeCreatorsResponse {
   keywords?: string[];
 }
 
+const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
+const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes cache is plenty for deduplication and quick retries
+
 /**
- * Fetch video transcript using Scrape Creators API
+ * Fetch video transcript using Scrape Creators API with deduplication, caching, and retries
  */
 async function fetchTranscript(
   videoId: string,
-  apiKey: string
+  apiKey: string,
+  retries = 2
 ): Promise<ScrapeCreatorsResponse | null> {
+  // 1. Check cache first
+  const cached = transcriptCache.get(videoId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log("Returning cached transcript for videoId:", videoId);
+    return cached.data;
+  }
+
+  // 2. Check if a fetch is already in progress
+  if (pendingTranscriptFetches.has(videoId)) {
+    console.log("Waiting for existing transcript fetch for videoId:", videoId);
+    return pendingTranscriptFetches.get(videoId)!;
+  }
+
   const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  // NOTE: Do NOT encode the YouTube URL - Scrape Creators expects it raw
   const url = `${API_ENDPOINTS.SCRAPE_CREATORS}?url=${youtubeUrl}&get_transcript=true`;
-  console.log("Fetching transcript for video:", videoId);
 
   if (!apiKey || apiKey.trim() === "") {
     console.error("API key is missing or empty");
     return null;
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const fetchPromise = (async () => {
+    let lastError: Error | null = null;
+    
+    for (let i = 0; i <= retries; i++) {
+      try {
+        if (i > 0) {
+          console.log(`Retry attempt ${i} for videoId: ${videoId}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * i)); // Exponential-ish backoff
+        } else {
+          console.log("Fetching transcript for video:", videoId);
+        }
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "x-api-key": apiKey,
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      signal: controller.signal,
-    });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    clearTimeout(timeoutId);
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "x-api-key": apiKey,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+        });
 
-    console.log("Response status:", response.status);
+        clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("API error response:", errorText);
-      throw new Error(`Scrape API error: ${response.status} - ${errorText}`);
-    }
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`API error response (attempt ${i+1}):`, errorText);
+          throw new Error(`Scrape API error: ${response.status} - ${errorText}`);
+        }
 
-    const data = await response.json();
-    console.log("Transcript fetched successfully");
-    // console.log("Response data structure:", JSON.stringify(data, null, 2).substring(0, 500));
-    return data;
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.name === "AbortError") {
-        console.error("Fetch transcript timeout after 30s");
-      } else {
-        console.error("Fetch transcript error:", error.message, error);
+        const data = await response.json();
+        console.log("Transcript fetched successfully");
+
+        // Update cache
+        transcriptCache.set(videoId, { data, timestamp: Date.now() });
+
+        return data;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (lastError.name === "AbortError") {
+          console.error(`Fetch transcript timeout after 30s (attempt ${i+1})`);
+        } else {
+          console.error(`Fetch transcript error (attempt ${i+1}):`, lastError.message);
+        }
+        
+        // If it's a 401/403, don't retry
+        if (lastError.message.includes("401") || lastError.message.includes("403")) {
+          break;
+        }
       }
-    } else {
-      console.error("Fetch transcript error (unknown):", error);
     }
+    
     return null;
-  }
+  })();
+
+  pendingTranscriptFetches.set(videoId, fetchPromise);
+  return fetchPromise;
 }
 
-/**
- * Handle fetch subtitles request
- */
 async function handleFetchSubtitles(
   message: any,
   tabId: number | undefined,
   sendResponse: (response: any) => void
 ) {
-  const { videoId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection } = message;
+  const { videoId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection, forceRegenerate } = message;
 
   if (!scrapeCreatorsApiKey) {
     sendResponse({ status: "error", message: ERROR_MESSAGES.SCRAPE_KEY_MISSING });
@@ -122,7 +155,12 @@ async function handleFetchSubtitles(
   }
 
   try {
-    // 1. Fetch transcript
+    // 1. Fetch transcript (checks cache/pending internally)
+    // If forceRegenerate is true, we should probably clear the cache first
+    if (forceRegenerate) {
+      transcriptCache.delete(videoId);
+    }
+
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
     if (!data || !data.transcript || !Array.isArray(data.transcript)) {
       sendResponse({ status: "error", message: ERROR_MESSAGES.NO_TRANSCRIPT });
@@ -139,6 +177,7 @@ async function handleFetchSubtitles(
     // Inform content script that process started
     sendResponse({ status: "processing" });
 
+    console.log(`Starting refinement for video: ${videoId}`);
     const refinedSegments = await refineTranscriptWithLLM(
       segments,
       data.title,
@@ -156,6 +195,7 @@ async function handleFetchSubtitles(
         subtitles: refinedSegments,
       });
     }
+    console.log(`Refinement completed for video: ${videoId}`);
   } catch (error) {
     console.error("Refinement error:", error);
     // Optionally notify tab about error
@@ -178,10 +218,19 @@ async function handleGenerateSummary(
   }
 
   try {
-    const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-    console.log("Fetch transcript result:", data ? "Data received" : "No data");
+    // Check if auto-generation is enabled for coordination logging
+    const storage = await chrome.storage.local.get([STORAGE_KEYS.AUTO_GENERATE]);
+    const autoGenEnabled = storage[STORAGE_KEYS.AUTO_GENERATE] === true;
+    
+    if (autoGenEnabled) {
+      console.log(`Summary request for ${videoId} is coordinating with auto-generation natural flow.`);
+    }
 
+    // Fetch transcript (coordinated via deduplication and caching)
+    const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+    
     if (!data) {
+      console.error(`Failed to fetch transcript for summary of ${videoId}`);
       sendResponse({ status: "error", message: "Failed to fetch transcript from API" });
       return;
     }
@@ -199,7 +248,7 @@ async function handleGenerateSummary(
     }
 
     if (!transcriptText || transcriptText.trim() === "") {
-      console.error("No valid transcript text found in response");
+      console.error("No valid transcript text found in response for summary");
       sendResponse({ status: "error", message: ERROR_MESSAGES.NO_TRANSCRIPT });
       return;
     }
@@ -216,7 +265,7 @@ async function handleGenerateSummary(
       like_count: data.likeCountInt,
     };
 
-    console.log("Transcript length:", transcriptText.length, "characters");
+    console.log(`Transcript ready for summary (${transcriptText.length} chars). Starting summarization workflow...`);
     sendResponse({ status: "processing" });
 
     // Use the summarizer workflow
@@ -224,7 +273,7 @@ async function handleGenerateSummary(
       {
         transcript: transcriptText,
         analysis_model: modelSelection,
-        quality_model: qualityModel || modelSelection, // Use same model if quality model not provided
+        quality_model: qualityModel || modelSelection,
         target_language: targetLanguage,
         fast_mode: fastMode,
       },
@@ -239,6 +288,7 @@ async function handleGenerateSummary(
       videoInfo,
       transcript: transcriptText
     });
+    console.log(`Summarization workflow completed for video: ${videoId}`);
   } catch (error) {
     console.error("Summary error:", error);
     chrome.runtime.sendMessage({
