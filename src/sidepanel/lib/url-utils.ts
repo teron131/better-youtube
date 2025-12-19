@@ -72,7 +72,6 @@ export function getThumbnailUrl(
  * Example YouTube URLs for demonstration
  */
 export const EXAMPLE_YOUTUBE_URLS = [
-  "https://youtu.be/dQw4w9WgXcQ",
-  "https://youtube.com/watch?v=jNQXAC9IVRw", 
-  "https://youtube.com/watch?v=9bZkp7q19f0"
+  "https://youtu.be/...",
+  "https://youtube.com/watch?v=...", 
 ] as const;
