@@ -141,7 +141,7 @@ function loadStoredSubtitles(): void {
 }
 
 /**
- * Trigger automatic processing (subtitles and/or summary)
+ * Trigger automatic processing: Scrape first, then refine + summarize in parallel
  */
 async function triggerAutoGeneration(
   videoId: string,
@@ -151,11 +151,48 @@ async function triggerAutoGeneration(
 
   const scrapeCreatorsApiKey = storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] as string;
   const openRouterApiKey = storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] as string;
-  
-  // Model for caption refinement
-  const refinerModel = await getRefinerModelFromStorage(storageResult);
 
-  // 1. Trigger Subtitle Generation
+  // Step 1: Scrape video data first (this saves video metadata and caches transcript)
+  console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
+
+  const scrapeResult = await new Promise<{ status: string; hasTranscript?: boolean }>((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
+        videoId,
+        scrapeCreatorsApiKey,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Error scraping video:", chrome.runtime.lastError.message);
+          resolve({ status: "error" });
+        } else {
+          resolve(response || { status: "error" });
+        }
+      }
+    );
+  });
+
+  if (scrapeResult.status !== "success") {
+    console.error(`[Auto-gen] Scrape failed for ${videoId}, aborting auto-generation`);
+    clearAutoGenerationTrigger(videoId);
+    return;
+  }
+
+  console.log(`[Auto-gen] Step 2: Scrape complete. Has transcript: ${scrapeResult.hasTranscript}. Starting refine + summarize in parallel...`);
+
+  // Step 2: Trigger Subtitle Refinement and Summary Generation in parallel
+  const refinerModel = await getRefinerModelFromStorage(storageResult);
+  const summarizerModel = (storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] as string) ||
+                          (storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] as string) ||
+                          DEFAULTS.MODEL_SUMMARIZER;
+  const qualityModel = (storageResult[STORAGE_KEYS.QUALITY_MODEL] as string) || summarizerModel;
+  const targetLanguage = (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] as string) ||
+                         (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] as string) ||
+                         DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
+  const fastMode = storageResult[STORAGE_KEYS.FAST_MODE] === true;
+
+  // Trigger caption refinement (non-blocking)
   chrome.runtime.sendMessage(
     {
       action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
@@ -169,24 +206,12 @@ async function triggerAutoGeneration(
         console.error("Error triggering subtitle auto-gen:", chrome.runtime.lastError.message);
         clearAutoGenerationTrigger(videoId);
       } else {
-        console.log("Subtitle auto-gen triggered, response:", response);
+        console.log("[Auto-gen] Subtitle refinement triggered:", response);
       }
     }
   );
 
-  // 2. Trigger Summary Generation
-  const summarizerModel = (storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] as string) || 
-                          (storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] as string) || 
-                          DEFAULTS.MODEL_SUMMARIZER;
-  
-  const qualityModel = (storageResult[STORAGE_KEYS.QUALITY_MODEL] as string) || summarizerModel;
-  
-  const targetLanguage = (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] as string) || 
-                         (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] as string) || 
-                         DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
-  
-  const fastMode = storageResult[STORAGE_KEYS.FAST_MODE] === true;
-
+  // Trigger summary generation (non-blocking)
   chrome.runtime.sendMessage(
     {
       action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
@@ -202,7 +227,7 @@ async function triggerAutoGeneration(
       if (chrome.runtime.lastError) {
         console.error("Error triggering summary auto-gen:", chrome.runtime.lastError.message);
       } else {
-        console.log("Summary auto-gen triggered, response:", response);
+        console.log("[Auto-gen] Summary generation triggered:", response);
       }
     }
   );
@@ -312,20 +337,6 @@ function clearSubtitles(): void {
   clearRenderer();
   console.log("Subtitles cleared.");
 }
-
-// Initialize immediately
-(function () {
-  const startInitialization = () => {
-    initialize();
-    monitorUrlChanges();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startInitialization);
-  } else {
-    setTimeout(startInitialization, TIMING.CONTENT_SCRIPT_INIT_DELAY_MS);
-  }
-})();
 
 // Initialize immediately since we're using document_end in manifest
 (function () {
