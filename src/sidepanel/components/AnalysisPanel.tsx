@@ -169,7 +169,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                       size="lg"
                       onClick={handleRegenerate}
                       disabled={isRegenerating}
-                      className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-action disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <RefreshCw className={`w-5 h-5 ${isRegenerating ? 'animate-spin' : ''}`} />
                     </Button>
@@ -185,7 +185,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                     variant="outline"
                     size="lg"
                     onClick={copyToClipboard}
-                    className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="btn-action"
                   >
                     <Copy className="w-5 h-5" />
                   </Button>
@@ -207,7 +207,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pl-10 pr-24 h-11 border-border/60 focus:border-primary/50"
+                className="input-base pl-10 pr-24"
               />
               {searchQuery && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
@@ -232,7 +232,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                   variant="outline"
                   size="lg"
                   onClick={() => navigateMatches('prev')}
-                  className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="btn-action"
                 >
                   <ChevronUp className="w-5 h-5" />
                 </Button>
@@ -240,7 +240,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                   variant="outline"
                   size="lg"
                   onClick={() => navigateMatches('next')}
-                  className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="btn-action"
                 >
                   <ChevronDown className="w-5 h-5" />
                 </Button>

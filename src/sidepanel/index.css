@@ -308,3 +308,50 @@ All colors MUST be HSL.
     filter: saturate(1.15) brightness(1.15);
   }
 }
+
+/* Application layout components */
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-background text-foreground;
+  }
+
+  .app-surface {
+    @apply rounded-2xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  .app-input {
+    @apply transition-colors duration-200;
+  }
+
+  /* Standardized button styles */
+  .btn-action {
+    @apply h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300;
+  }
+
+  .btn-action-lg {
+    @apply h-12 px-5 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300;
+  }
+
+  /* Standardized input styles */
+  .input-base {
+    @apply h-11 rounded-xl border-border/60 focus:border-primary/50;
+  }
+
+  .input-lg {
+    @apply h-12 rounded-xl border-border/60 focus:border-primary/50;
+  }
+
+  /* Standardized card styles */
+  .card-section {
+    @apply rounded-2xl hover:border-primary/20 transition-all duration-500;
+  }
+
+  /* Settings option row */
+  .settings-option {
+    @apply flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60;
+  }
+
+  .settings-icon-box {
+    @apply h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary;
+  }
+}

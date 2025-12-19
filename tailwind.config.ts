@@ -75,6 +75,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // Standardized larger radius values (replacing arbitrary [24px], [28px], [30px])
+        "2xl": "1rem",    // 16px - standard large cards
+        "3xl": "1.5rem",  // 24px - settings cards, forms
       },
       keyframes: {
         "accordion-down": {

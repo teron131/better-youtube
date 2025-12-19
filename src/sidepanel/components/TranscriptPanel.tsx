@@ -138,7 +138,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="pl-10 pr-24 h-12 border-border/60 focus:border-primary/50"
+                  className="input-base pl-10 pr-24"
                 />
                 {searchQuery && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
@@ -163,7 +163,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                     variant="outline"
                     size="lg"
                     onClick={() => navigateMatches('prev')}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="btn-action"
                   >
                     <ChevronUp className="w-5 h-5" />
                   </Button>
@@ -171,7 +171,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                     variant="outline"
                     size="lg"
                     onClick={() => navigateMatches('next')}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="btn-action"
                   >
                     <ChevronDown className="w-5 h-5" />
                   </Button>
@@ -184,7 +184,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                     variant="outline"
                     size="lg"
                     onClick={copyToClipboard}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="btn-action"
                   >
                     <Copy className="w-5 h-5" />
                   </Button>

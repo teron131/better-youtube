@@ -58,7 +58,7 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
           </div>
 
           <div className="relative fade-in-up stagger-3 w-full max-w-8xl">
-            <div className="absolute inset-0 -z-10 rounded-[30px] bg-gradient-to-br from-primary/20 via-transparent to-foreground/10 blur-3xl" />
+            <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-primary/20 via-transparent to-foreground/10 blur-3xl" />
             <VideoUrlForm onSubmit={onSubmit} isLoading={isLoading} initialUrl={initialUrl} />
           </div>
         </div>

@@ -131,7 +131,7 @@ const Settings = () => {
 
         <div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
           {/* API Configuration */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
+          <Card className="card-section">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Key className="h-4 w-4" />
@@ -144,28 +144,28 @@ const Settings = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold">Scrape Creators API Key</Label>
-                  <a href="https://scrapecreators.com" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
+                  <a href="https://scrapecreators.com" target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Get Key</a>
                 </div>
                 <Input
                   id="scrapeCreatorsApiKey"
                   type="password"
                   value={settings.scrapeCreatorsApiKey}
                   onChange={(e) => handleChange("scrapeCreatorsApiKey", e.target.value)}
-                  className="h-12 rounded-xl"
+                  className="input-lg"
                   placeholder="..."
                 />
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="openRouterApiKey" className="text-sm font-semibold">OpenRouter API Key</Label>
-                  <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
+                  <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Get Key</a>
                 </div>
                 <Input
                   id="openRouterApiKey"
                   type="password"
                   value={settings.openRouterApiKey}
                   onChange={(e) => handleChange("openRouterApiKey", e.target.value)}
-                  className="h-12 rounded-xl"
+                  className="input-lg"
                   placeholder="sk-or-v1-..."
                 />
               </div>
@@ -173,7 +173,7 @@ const Settings = () => {
           </Card>
 
           {/* Model Configuration */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
+          <Card className="card-section">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Cpu className="h-4 w-4" />
@@ -190,7 +190,7 @@ const Settings = () => {
                   onChange={(val) => handleChange("summarizerModel", val)}
                   options={RECOMMENDED_SUMMARIZER_MODELS.map(m => ({ value: m.value, label: m.label }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 rounded-xl"
+                  inputClassName="input-lg"
                   contentClassName="rounded-xl"
                 />
               </div>
@@ -201,7 +201,7 @@ const Settings = () => {
                   onChange={(val) => handleChange("refinerModel", val)}
                   options={RECOMMENDED_REFINER_MODELS.map(m => ({ value: m.value, label: m.label }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 rounded-xl"
+                  inputClassName="input-lg"
                   contentClassName="rounded-xl"
                 />
               </div>
@@ -209,7 +209,7 @@ const Settings = () => {
           </Card>
 
           {/* User Experience */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
+          <Card className="card-section">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Zap className="h-4 w-4" />
@@ -220,9 +220,9 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-8">
               {/* Language */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-border/60">
+              <div className="settings-option flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                  <div className="settings-icon-box">
                     <Globe className="h-5 w-5" />
                   </div>
                   <div>
@@ -234,7 +234,7 @@ const Settings = () => {
                   value={settings.targetLanguage}
                   onValueChange={(val) => handleChange("targetLanguage", val)}
                 >
-                  <SelectTrigger className="w-full md:w-[180px] h-10 rounded-xl">
+                  <SelectTrigger className="w-full md:w-[180px] h-11 rounded-xl">
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -247,14 +247,14 @@ const Settings = () => {
 
               {/* Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
+                <div className="settings-option">
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                    <div className="settings-icon-box">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
                       <h4 className="font-bold text-foreground">Auto-Generate</h4>
-                      <p className="text-[10px] text-muted-foreground">Process on video load</p>
+                      <p className="text-xs text-muted-foreground">Process on video load</p>
                     </div>
                   </div>
                   <Switch
@@ -264,14 +264,14 @@ const Settings = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
+                <div className="settings-option">
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                    <div className="settings-icon-box">
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
                       <h4 className="font-bold text-foreground">Subtitles Overlay</h4>
-                      <p className="text-[10px] text-muted-foreground">Show on video player</p>
+                      <p className="text-xs text-muted-foreground">Show on video player</p>
                     </div>
                   </div>
                   <Switch
@@ -281,14 +281,14 @@ const Settings = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
+                <div className="settings-option">
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                    <div className="settings-icon-box">
                       <Zap className="h-5 w-5" />
                     </div>
                     <div>
                       <h4 className="font-bold text-foreground">Quality Check</h4>
-                      <p className="text-[10px] text-muted-foreground">Enable refinement loop (Slower)</p>
+                      <p className="text-xs text-muted-foreground">Enable refinement loop (Slower)</p>
                     </div>
                   </div>
                   <Switch
