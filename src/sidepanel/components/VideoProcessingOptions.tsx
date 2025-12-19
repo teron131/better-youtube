@@ -28,7 +28,7 @@ export function VideoProcessingOptions() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4 md:p-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4 md:p-6">
       <ModelSelector
         label="Summarizer"
         icon={Bot}
@@ -63,11 +63,11 @@ export function VideoProcessingOptions() {
           </div>
           <span className="text-sm font-bold text-primary uppercase tracking-wide">QUALITY CHECK</span>
         </div>
-        <div className="flex h-10 w-full items-center rounded-md border border-red-500/30 bg-red-800 px-3 hover:bg-red-800">
+        <div className="flex h-10 w-full items-center rounded-md border border-border/60 bg-background/40 px-3 hover:border-primary/30 transition-colors">
           <Switch
             checked={!preferences.fastMode}
             onCheckedChange={(checked) => updatePreferences({ fastMode: !checked })}
-            className="data-[state=checked]:bg-white data-[state=unchecked]:bg-red-950/50 [&>span]:data-[state=checked]:bg-red-600"
+            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted [&>span]:data-[state=checked]:bg-white"
           />
         </div>
       </div>

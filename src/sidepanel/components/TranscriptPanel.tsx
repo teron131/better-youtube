@@ -40,6 +40,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
   };
 
   const highlightText = (text: string, query: string) => {
+    if (!text) return "";
     if (!query.trim()) return text;
 
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');

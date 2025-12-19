@@ -39,7 +39,55 @@ export const PROGRESS_STEPS = [
 ] as const;
 
 /**
- * Extract video ID from URL query parameters
+ * Get current YouTube video tab
+ */
+export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      if (currentTab?.url?.includes("youtube.com/watch")) {
+        resolve(currentTab);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Extract video ID from URL
+ */
+export function extractVideoIdFromUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.searchParams.get('v');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get video ID from current active tab
+ */
+export async function getVideoIdFromCurrentTab(): Promise<string> {
+  try {
+    const tab = await getCurrentVideoTab();
+    if (!tab?.url) return '';
+
+    const videoId = extractVideoIdFromUrl(tab.url);
+    if (videoId && VIDEO_ID_REGEX.test(videoId)) {
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+  } catch (error) {
+    console.error('Error getting video ID from tab:', error);
+  }
+
+  return '';
+}
+
+/**
+ * Extract video ID from URL query parameters (legacy - for backwards compatibility)
+ * @deprecated Use getVideoIdFromCurrentTab instead
  */
 export function getVideoIdFromParams(): string {
   try {

@@ -46,7 +46,7 @@ function computeLineSimilarity(a: string, b: string): number {
  */
 function normalizeLineToText(line: string): string {
   const normalized = line.split(/\s+/).join(" ").trim();
-  const timestampMatch = normalized.match(/^\ufffd\[([^\]]+)\]\s*(.*)$/);
+  const timestampMatch = normalized.match(/^\[([^\]]+)\]\s*(.*)$/);
   return timestampMatch ? timestampMatch[2].trim() : normalized;
 }
 

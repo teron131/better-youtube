@@ -1,119 +1,60 @@
 /**
- * Streaming Service
- * Handles Server-Sent Events (SSE) for real-time analysis
+ * Chrome Extension Messaging Service
+ * Handles communication with background script for video processing
  */
 
-import { api } from './api';
+import { MESSAGE_ACTIONS } from '@/lib/constants';
+import { extractVideoIdFromUrl } from '@ui/lib/video-utils';
 import {
-  AnalysisData,
   ApiError,
-  QualityData,
-  StreamingChunk,
   StreamingProcessingResult,
   StreamingProgressState,
-  SummarizeRequest,
-  VideoInfoResponse,
 } from './types';
 
-// --- Types & Constants ---
-
-type ChunkHandler = (data: StreamingChunk) => StreamingProgressState | null;
-
-const createCompleteHandler = (): ChunkHandler => (data) => {
-  if (data.type !== 'complete' && !data.is_complete) return null;
-  const qualityScore = data.quality?.percentage_score;
-  return {
-    step: 'complete',
-    stepName: 'Analysis Complete',
-    status: 'completed',
-    message: qualityScore !== undefined
-      ? `Analysis completed successfully with ${qualityScore}% quality score`
-      : 'Analysis completed successfully',
-    iterationCount: data.iteration_count,
-    qualityScore,
-  };
-};
-
-const createQualityHandler = (): ChunkHandler => (data) => {
-  if (!data.quality?.percentage_score) return null;
-  const { percentage_score: score, is_acceptable: passed } = data.quality;
-  return {
-    step: passed ? 'quality_check' : 'refinement',
-    stepName: passed ? 'Quality Check' : 'Refining',
-    status: 'processing',
-    message: passed ? 'Quality check passed' : 'Refining analysis...',
-    qualityScore: score,
-    iterationCount: data.iteration_count,
-  };
-};
-
-const createAnalysisHandler = (): ChunkHandler => (data) => {
-  if (!data.analysis || data.quality) return null;
-  return {
-    step: 'analysis_generation',
-    stepName: 'Analysis Generation',
-    status: 'completed',
-    message: 'Analysis generated',
-    iterationCount: data.iteration_count,
-  };
-};
-
-const CHUNK_HANDLERS: ChunkHandler[] = [
-  createCompleteHandler(),
-  createQualityHandler(),
-  createAnalysisHandler(),
-];
-
-// --- Helper Functions ---
-
-function processChunk(data: StreamingChunk, onProgress?: (state: StreamingProgressState) => void): void {
-  if (data.type === 'status') return;
-  for (const handler of CHUNK_HANDLERS) {
-    const state = handler(data);
-    if (state) {
-      onProgress?.(state);
-      return;
-    }
-  }
+/**
+ * Get API keys from chrome.storage
+ */
+async function getApiKeys(): Promise<{ scrapeCreatorsApiKey: string; openRouterApiKey: string }> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['scrapeCreatorsApiKey', 'openRouterApiKey'], (result) => {
+      resolve({
+        scrapeCreatorsApiKey: result.scrapeCreatorsApiKey || '',
+        openRouterApiKey: result.openRouterApiKey || '',
+      });
+    });
+  });
 }
 
-async function performScraping(url: string, onProgress?: (state: StreamingProgressState) => void) {
-  onProgress?.({
-    step: 'scraping',
-    stepName: 'Scraping Video',
-    status: 'processing',
-    message: 'Extracting video info...',
+/**
+ * Get model settings from chrome.storage
+ */
+async function getModelSettings(): Promise<{
+  summarizerModel: string;
+  targetLanguage: string;
+}> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      [
+        'summarizerRecommendedModel',
+        'summarizerCustomModel',
+        'targetLanguageRecommended',
+        'targetLanguageCustom',
+      ],
+      (result) => {
+        const summarizerModel =
+          result.summarizerCustomModel || result.summarizerRecommendedModel || 'x-ai/grok-4.1-fast';
+        const targetLanguage =
+          result.targetLanguageCustom || result.targetLanguageRecommended || 'auto';
+
+        resolve({ summarizerModel, targetLanguage });
+      }
+    );
   });
-
-  const scrapResult = await api.scrapVideo({ url });
-  if (scrapResult.status !== 'success') {
-    throw new Error(scrapResult.message || 'Scraping failed');
-  }
-
-  const videoInfo: VideoInfoResponse = {
-    url: scrapResult.url || url,
-    title: scrapResult.title || null,
-    thumbnail: scrapResult.thumbnail,
-    author: scrapResult.author || null,
-    duration: scrapResult.duration,
-    upload_date: scrapResult.upload_date,
-    view_count: scrapResult.view_count,
-    like_count: scrapResult.like_count,
-  };
-
-  onProgress?.({
-    step: 'scraping',
-    stepName: 'Scraping Video',
-    status: 'completed',
-    message: `Video scraped: ${videoInfo.title}`,
-    data: { videoInfo, transcript: scrapResult.transcript },
-  });
-
-  return { scrapResult, videoInfo };
 }
 
-// --- Main Function ---
-
+/**
+ * Stream analysis using Chrome messaging to background script
+ */
 export async function streamAnalysis(
   url: string,
   options: {
@@ -122,79 +63,149 @@ export async function streamAnalysis(
     targetLanguage?: string | null;
     fastMode?: boolean;
   },
-  onProgress?: (state: StreamingProgressState) => void,
+  onProgress?: (state: StreamingProgressState) => void
 ): Promise<StreamingProcessingResult> {
   const startTime = Date.now();
-  let iterationCount = 0;
-  let chunksProcessed = 0;
 
   try {
-    // 1. Scraping Phase
-    const { scrapResult, videoInfo } = await performScraping(url, onProgress);
-
-    // 2. Analysis Phase (Streaming)
-    onProgress?.({
-      step: 'analyzing',
-      stepName: 'AI Analysis',
-      status: 'processing',
-      message: 'Connecting to analysis stream...',
-    });
-
-    const requestBody: SummarizeRequest = {
-      content: scrapResult.transcript || url,
-      content_type: scrapResult.transcript ? 'transcript' : 'url',
-      analysis_model: options.analysisModel || 'google/gemini-2.5-pro',
-      quality_model: options.qualityModel || 'google/gemini-2.5-flash',
-      target_language: options.targetLanguage === 'auto' ? null : options.targetLanguage,
-      fast_mode: options.fastMode || false,
-    };
-
-    const response = await fetch(`${api.baseUrl}/stream-summarize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) throw new Error(`Stream connection failed: ${response.statusText}`);
-    if (!response.body) throw new Error('No response body');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    let analysis: AnalysisData | undefined;
-    let quality: QualityData | undefined;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunkText = decoder.decode(value, { stream: true });
-      for (const line of chunkText.split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const data: StreamingChunk = JSON.parse(line.slice(6));
-          chunksProcessed++;
-          if (data.analysis) analysis = data.analysis;
-          if (data.quality) quality = data.quality;
-          if (data.iteration_count) iterationCount = data.iteration_count;
-          processChunk(data, onProgress);
-        } catch {
-          // Ignore partial chunks
-        }
-      }
+    // Extract video ID from URL
+    const videoId = extractVideoIdFromUrl(url);
+    if (!videoId) {
+      throw new Error('Invalid YouTube URL');
     }
 
-    return {
-      success: true,
-      videoInfo,
-      transcript: scrapResult.transcript,
-      analysis,
-      quality,
-      totalTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
-      iterationCount,
-      chunksProcessed,
-    };
+    // Get API keys and settings
+    const { scrapeCreatorsApiKey, openRouterApiKey } = await getApiKeys();
+    const { summarizerModel, targetLanguage } = await getModelSettings();
 
+    if (!scrapeCreatorsApiKey) {
+      throw new Error('Scrape Creators API key not configured');
+    }
+
+    if (!openRouterApiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
+    // Update progress: Starting
+    onProgress?.({
+      step: 'scraping',
+      stepName: 'Fetching Transcript',
+      status: 'processing',
+      message: 'Fetching video transcript...',
+    });
+
+    // Send message to background script to generate summary
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
+          videoId,
+          scrapeCreatorsApiKey,
+          openRouterApiKey,
+          modelSelection: options.analysisModel || summarizerModel,
+          targetLanguage: options.targetLanguage || targetLanguage,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            const error: ApiError = {
+              message: chrome.runtime.lastError.message || 'Chrome runtime error',
+              type: 'network',
+            };
+            reject(error);
+            return;
+          }
+
+          if (response?.status === 'error') {
+            const error: ApiError = {
+              message: response.message || 'Processing failed',
+              type: 'processing',
+            };
+            reject(error);
+            return;
+          }
+
+          // Processing started, listen for completion
+          onProgress?.({
+            step: 'analyzing',
+            stepName: 'Analyzing',
+            status: 'processing',
+            message: 'Generating summary...',
+          });
+        }
+      );
+
+      // Listen for summary completion
+      const messageListener = (message: any) => {
+        if (message.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && message.videoId === videoId) {
+          chrome.runtime.onMessage.removeListener(messageListener);
+
+          const { summary, videoInfo, transcript } = message;
+
+          if (summary) {
+            onProgress?.({
+              step: 'complete',
+              stepName: 'Complete',
+              status: 'completed',
+              message: 'Summary generated successfully',
+            });
+
+            resolve({
+              success: true,
+              videoInfo: videoInfo ? {
+                url: videoInfo.url || url,
+                title: videoInfo.title || null,
+                thumbnail: videoInfo.thumbnail || null,
+                author: videoInfo.author || null,
+                duration: videoInfo.duration || null,
+                upload_date: videoInfo.upload_date || null,
+                view_count: videoInfo.view_count || null,
+                like_count: videoInfo.like_count || null,
+              } : {
+                url,
+                title: null,
+                thumbnail: null,
+                author: null,
+                duration: null,
+                upload_date: null,
+                view_count: null,
+                like_count: null,
+              },
+              transcript: transcript || null,
+              analysis: summary.analysis,
+              quality: summary.quality,
+              totalTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
+              iterationCount: summary.iteration_count || 0,
+              chunksProcessed: 0,
+            });
+          } else {
+            const error: ApiError = {
+              message: 'No summary data received',
+              type: 'processing',
+            };
+            reject(error);
+          }
+        } else if (message.action === MESSAGE_ACTIONS.SHOW_ERROR) {
+          chrome.runtime.onMessage.removeListener(messageListener);
+
+          const error: ApiError = {
+            message: message.error || 'Processing failed',
+            type: 'processing',
+          };
+          reject(error);
+        }
+      };
+
+      chrome.runtime.onMessage.addListener(messageListener);
+
+      // Timeout after 2 minutes
+      setTimeout(() => {
+        chrome.runtime.onMessage.removeListener(messageListener);
+        reject({
+          message: 'Processing timeout after 2 minutes',
+          type: 'processing',
+        } as ApiError);
+      }, 120000);
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     const apiError: ApiError = { message: msg, type: 'processing' };
@@ -210,8 +221,8 @@ export async function streamAnalysis(
     return {
       success: false,
       totalTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
-      iterationCount,
-      chunksProcessed,
+      iterationCount: 0,
+      chunksProcessed: 0,
       error: apiError,
     };
   }

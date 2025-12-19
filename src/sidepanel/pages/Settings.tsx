@@ -73,25 +73,19 @@ const Settings = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0b0b0c] flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
             <SettingsIcon className="h-6 w-6 text-primary animate-spin-slow" />
           </div>
-          <p className="text-zinc-500 font-medium">Loading settings...</p>
+          <p className="text-muted-foreground font-medium">Loading settings...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0c] text-foreground pb-20">
-      {/* Background Decor */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/10 blur-[120px] rounded-full" />
-      </div>
-
+    <div className="app-shell pb-20">
       <div className="container mx-auto px-6 max-w-4xl pt-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-12 fade-in-up">
@@ -105,29 +99,27 @@ const Settings = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-white">
-                Settings
-              </h1>
-              <p className="text-zinc-400 mt-1">Configure your AI models and display preferences</p>
+              <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
+              <p className="text-muted-foreground mt-1">Configure your AI models and display preferences</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
           {/* API Configuration */}
-          <Card className="rounded-[24px] border-border/50 bg-background/60 backdrop-blur-xl shadow-2xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Key className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">API Configuration</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-white">Authentication</CardTitle>
-              <CardDescription className="text-zinc-400">Manage your access keys for transcription and AI services</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">Authentication</CardTitle>
+              <CardDescription>Manage your access keys for transcription and AI services</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold text-zinc-200">Scrape Creators API Key</Label>
+                  <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold">Scrape Creators API Key</Label>
                   <a href="https://scrapecreators.com" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
                 </div>
                 <Input
@@ -135,13 +127,13 @@ const Settings = () => {
                   type="password"
                   value={settings.scrapeCreatorsApiKey}
                   onChange={(e) => handleChange("scrapeCreatorsApiKey", e.target.value)}
-                  className="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 focus:border-primary/30 text-white placeholder:text-zinc-600"
+                  className="h-12 rounded-xl"
                   placeholder="..."
                 />
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="openRouterApiKey" className="text-sm font-semibold text-zinc-200">OpenRouter API Key</Label>
+                  <Label htmlFor="openRouterApiKey" className="text-sm font-semibold">OpenRouter API Key</Label>
                   <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
                 </div>
                 <Input
@@ -149,7 +141,7 @@ const Settings = () => {
                   type="password"
                   value={settings.openRouterApiKey}
                   onChange={(e) => handleChange("openRouterApiKey", e.target.value)}
-                  className="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 focus:border-primary/30 text-white placeholder:text-zinc-600"
+                  className="h-12 rounded-xl"
                   placeholder="sk-or-v1-..."
                 />
               </div>
@@ -157,69 +149,71 @@ const Settings = () => {
           </Card>
 
           {/* Model Configuration */}
-          <Card className="rounded-[24px] border-border/50 bg-background/60 backdrop-blur-xl shadow-2xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Cpu className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">Model Configuration</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-white">Model Selection</CardTitle>
-              <CardDescription className="text-zinc-400">Choose which models power your summaries and captions</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">Model Selection</CardTitle>
+              <CardDescription>Choose which models power your summaries and captions</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label htmlFor="summarizerModel" className="text-sm font-semibold text-zinc-200">Analysis & Summary Model</Label>
+                <Label htmlFor="summarizerModel" className="text-sm font-semibold">Analysis & Summary Model</Label>
                 <EditableCombobox
                   value={settings.summarizerModel}
                   onChange={(val) => handleChange("summarizerModel", val)}
                   options={RECOMMENDED_SUMMARIZER_MODELS.map(m => ({ value: m.value, label: m.label }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 text-white"
+                  inputClassName="h-12 rounded-xl"
+                  contentClassName="rounded-xl"
                 />
               </div>
               <div className="space-y-3">
-                <Label htmlFor="refinerModel" className="text-sm font-semibold text-zinc-200">Caption Refinement Model</Label>
+                <Label htmlFor="refinerModel" className="text-sm font-semibold">Caption Refinement Model</Label>
                 <EditableCombobox
                   value={settings.refinerModel}
                   onChange={(val) => handleChange("refinerModel", val)}
                   options={RECOMMENDED_REFINER_MODELS.map(m => ({ value: m.value, label: m.label }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 bg-black/40 border-zinc-800/50 rounded-xl focus:ring-primary/20 text-white"
+                  inputClassName="h-12 rounded-xl"
+                  contentClassName="rounded-xl"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* User Experience */}
-          <Card className="rounded-[24px] border-border/50 bg-background/60 backdrop-blur-xl shadow-2xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Zap className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">User Experience</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-white">Display & Automation</CardTitle>
-              <CardDescription className="text-zinc-400">Fine-tune how the extension interacts with your viewing experience</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">Display & Automation</CardTitle>
+              <CardDescription>Fine-tune how the extension interacts with your viewing experience</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
               {/* Language */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-border/60">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                     <Globe className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white">Target Language</h4>
-                    <p className="text-xs text-zinc-400">Summaries and captions will be in this language</p>
+                    <h4 className="font-bold text-foreground">Target Language</h4>
+                    <p className="text-xs text-muted-foreground">Summaries and captions will be in this language</p>
                   </div>
                 </div>
                 <Select
                   value={settings.targetLanguage}
                   onValueChange={(val) => handleChange("targetLanguage", val)}
                 >
-                  <SelectTrigger className="w-full md:w-[180px] h-10 bg-black/40 border-zinc-800/50 rounded-xl text-white">
+                  <SelectTrigger className="w-full md:w-[180px] h-10 rounded-xl">
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800 text-white rounded-xl">
+                  <SelectContent className="rounded-xl">
                     {TARGET_LANGUAGES.map(lang => (
                       <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
                     ))}
@@ -229,14 +223,14 @@ const Settings = () => {
 
               {/* Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-white">Auto-Generate</h4>
-                      <p className="text-[10px] text-zinc-400">Process on video load</p>
+                      <h4 className="font-bold text-foreground">Auto-Generate</h4>
+                      <p className="text-[10px] text-muted-foreground">Process on video load</p>
                     </div>
                   </div>
                   <Switch
@@ -246,14 +240,14 @@ const Settings = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-white">Subtitles Overlay</h4>
-                      <p className="text-[10px] text-zinc-400">Show on video player</p>
+                      <h4 className="font-bold text-foreground">Subtitles Overlay</h4>
+                      <p className="text-[10px] text-muted-foreground">Show on video player</p>
                     </div>
                   </div>
                   <Switch
@@ -272,8 +266,8 @@ const Settings = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Caption Overlay</Label>
-                    <div className="flex bg-black/40 rounded-xl p-1 border border-zinc-800/50">
+                    <Label className="text-[11px] text-muted-foreground uppercase ml-1">Caption Overlay</Label>
+                    <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
                       {['S', 'M', 'L'].map((size) => (
                         <button
                           key={size}
@@ -281,7 +275,7 @@ const Settings = () => {
                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                             settings.captionFontSize === size 
                               ? 'bg-primary text-white shadow-lg' 
-                              : 'text-zinc-500 hover:text-zinc-300'
+                              : 'text-muted-foreground hover:text-foreground'
                           }`}
                         >
                           {size}
@@ -290,8 +284,8 @@ const Settings = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[11px] text-zinc-500 uppercase ml-1">Analysis Panel</Label>
-                    <div className="flex bg-black/40 rounded-xl p-1 border border-zinc-800/50">
+                    <Label className="text-[11px] text-muted-foreground uppercase ml-1">Analysis Panel</Label>
+                    <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
                       {['S', 'M', 'L'].map((size) => (
                         <button
                           key={size}
@@ -299,7 +293,7 @@ const Settings = () => {
                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                             settings.summaryFontSize === size 
                               ? 'bg-primary text-white shadow-lg' 
-                              : 'text-zinc-500 hover:text-zinc-300'
+                              : 'text-muted-foreground hover:text-foreground'
                           }`}
                         >
                           {size}

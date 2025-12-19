@@ -19,6 +19,7 @@ interface EditableComboboxProps {
   placeholder?: string
   className?: string
   inputClassName?: string
+  contentClassName?: string
   renderOption?: (option: ComboboxOption) => React.ReactNode
   renderIcon?: (value: string) => React.ReactNode
   type?: "text" | "url"
@@ -31,6 +32,7 @@ export function EditableCombobox({
   placeholder,
   className,
   inputClassName,
+  contentClassName,
   renderOption,
   renderIcon,
   type = "text",
@@ -153,7 +155,10 @@ export function EditableCombobox({
 
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
-            className="z-[9999] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
+            className={cn(
+              "z-[9999] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95",
+              contentClassName
+            )}
             style={{ width: triggerWidth }}
             align="start"
             sideOffset={4}
@@ -165,9 +170,9 @@ export function EditableCombobox({
               }
             }}
           >
-            <div className="max-h-60 overflow-y-auto p-1 bg-zinc-900 border-zinc-800">
+            <div className="max-h-60 overflow-y-auto p-1 bg-popover border-border/60">
               {filteredOptions.length === 0 ? (
-                <div className="py-6 text-center text-sm text-zinc-500">
+                <div className="py-6 text-center text-sm text-muted-foreground">
                   No options found. Type a custom value.
                 </div>
               ) : (
@@ -176,14 +181,18 @@ export function EditableCombobox({
                     <div
                       key={option.value}
                       className={cn(
-                        "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none hover:bg-primary/20 hover:text-white transition-colors",
-                        value === option.value && "bg-primary/10 text-primary font-medium"
+                        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors"
                       )}
                       onMouseDown={(e) => {
                         e.preventDefault() // Prevent focus loss from input
                         handleOptionSelect(option.value)
                       }}
                     >
+                      {value === option.value && (
+                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                          <Check className="h-4 w-4" />
+                        </span>
+                      )}
                       <div className="flex items-center gap-2 w-full">
                         {renderOption ? (
                           renderOption(option)
@@ -194,9 +203,6 @@ export function EditableCombobox({
                           </>
                         )}
                       </div>
-                      {value === option.value && (
-                        <Check className="ml-auto h-4 w-4 text-primary" />
-                      )}
                     </div>
                   ))}
                 </div>

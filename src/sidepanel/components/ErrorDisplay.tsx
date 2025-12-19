@@ -14,10 +14,10 @@ interface ErrorDisplayProps {
 }
 
 const getErrorTypeStyle = (type: string) => {
-  if (type === 'server') return 'bg-red-100 text-red-800';
-  if (type === 'validation') return 'bg-yellow-100 text-yellow-800';
-  if (type === 'network') return 'bg-blue-100 text-blue-800';
-  return 'bg-gray-100 text-gray-800';
+  if (type === 'server') return 'border-destructive/40 bg-destructive/10 text-destructive';
+  if (type === 'validation') return 'border-primary/30 bg-primary/10 text-primary';
+  if (type === 'network') return 'border-border/60 bg-muted/40 text-foreground';
+  return 'border-border/60 bg-muted/40 text-foreground';
 };
 
 const getStatusColor = (status: string) => {
@@ -39,7 +39,7 @@ export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisp
 
           <div className="flex items-center gap-4 mb-3 text-base">
             {error.type && (
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getErrorTypeStyle(error.type)}`}>
+              <span className={`px-2 py-1 rounded-full border text-xs font-medium ${getErrorTypeStyle(error.type)}`}>
                 {error.type.toUpperCase()}
               </span>
             )}
@@ -70,8 +70,8 @@ export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisp
           )}
 
           {hasScrapeCretorsIssue && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-base text-blue-800">
+            <div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
+              <p className="text-base text-foreground">
                 <strong>Configuration Issue:</strong> The Scrape Creators API key is not configured on the backend server.
                 Please contact the administrator to configure the required API keys.
               </p>
@@ -79,8 +79,8 @@ export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisp
           )}
 
           {hasGeminiIssue && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-base text-blue-800">
+            <div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
+              <p className="text-base text-foreground">
                 <strong>Configuration Issue:</strong> The Gemini API key is not configured on the backend server.
                 Please contact the administrator to configure the required API keys.
               </p>
@@ -97,4 +97,3 @@ export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisp
     </Card>
   );
 }
-

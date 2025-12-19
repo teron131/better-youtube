@@ -61,6 +61,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
   };
 
   const highlightText = (text: string) => {
+    if (!text) return "";
     if (!searchQuery.trim()) return text;
 
     const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');

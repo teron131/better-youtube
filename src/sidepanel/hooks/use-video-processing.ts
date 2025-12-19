@@ -94,8 +94,8 @@ function reducer(state: VideoProcessingState, action: Action): VideoProcessingSt
     case 'COMPLETE':
       return {
         ...state,
-        scrapedVideoInfo: action.payload.videoInfo || null,
-        scrapedTranscript: action.payload.transcript || null,
+        scrapedVideoInfo: action.payload.videoInfo || state.scrapedVideoInfo,
+        scrapedTranscript: action.payload.transcript || state.scrapedTranscript,
         analysisResult: action.payload,
         currentStage: 'Processing completed',
         isLoading: false,
