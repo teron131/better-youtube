@@ -255,7 +255,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
             <div className="space-y-3">
               <SectionHeader icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />} title="Summary" />
               <div
-                className="text-foreground leading-7 md:leading-8 text-sm md:text-base"
+                className="summary-text text-foreground"
                 dangerouslySetInnerHTML={{ __html: highlightText(convertedAnalysis.summary) }}
               />
             </div>
@@ -274,7 +274,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                       </svg>
                     </div>
                     <span
-                      className="text-foreground leading-7 md:leading-8 text-sm md:text-base"
+                      className="summary-text text-foreground"
                       dangerouslySetInnerHTML={{ __html: highlightText(item) }}
                     />
                   </li>
@@ -291,21 +291,21 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
               <div className="space-y-4">
                 {convertedAnalysis.chapters.map((chapter, index) => (
                   <div key={index} className="space-y-1.5">
-                    <h5 className="text-base md:text-lg font-semibold text-primary">
+                    <h5 className="summary-subheading font-semibold text-primary">
                       <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
                         {index + 1}
                       </span>
                       <span dangerouslySetInnerHTML={{ __html: highlightText(chapter.header) }} />
                     </h5>
                     <div
-                      className="text-foreground leading-7 md:leading-8 text-sm md:text-base"
+                      className="summary-text text-foreground"
                       dangerouslySetInnerHTML={{ __html: highlightText(chapter.summary) }}
                     />
 
                     {chapter.key_points && chapter.key_points.length > 0 && (
                       <ul className="mt-3 space-y-2">
                         {chapter.key_points.map((point, idx) => (
-                          <li key={idx} className="flex items-start gap-2 md:gap-2 text-foreground/90 text-sm md:text-base">
+                          <li key={idx} className="flex items-start gap-2 md:gap-2 text-foreground/90 summary-text">
                             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
                             <span dangerouslySetInnerHTML={{ __html: highlightText(point) }} />
                           </li>

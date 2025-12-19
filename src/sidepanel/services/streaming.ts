@@ -181,6 +181,8 @@ export async function streamAnalysis(
               transcript: transcript || null,
               analysis: summary.analysis,
               quality: summary.quality,
+              summaryText: summary.summary_text,
+              qualityScore: summary.quality_score,
               totalTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
               iterationCount: summary.iteration_count || 0,
               chunksProcessed: 0,

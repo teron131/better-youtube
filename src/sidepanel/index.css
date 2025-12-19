@@ -77,6 +77,11 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Summary font sizing (defaults align with M) */
+    --summary-font-size-base: 18px;
+    --summary-font-size-h2: 26px;
+    --summary-font-size-h3: 22px;
   }
 
   .dark {
@@ -123,6 +128,11 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Summary font sizing (defaults align with M) */
+    --summary-font-size-base: 18px;
+    --summary-font-size-h2: 26px;
+    --summary-font-size-h3: 22px;
   }
 }
 
@@ -133,6 +143,21 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .summary-text {
+    font-size: var(--summary-font-size-base);
+    line-height: 1.6;
+  }
+
+  .summary-heading {
+    font-size: var(--summary-font-size-h2);
+    line-height: 1.4;
+  }
+
+  .summary-subheading {
+    font-size: var(--summary-font-size-h3);
+    line-height: 1.4;
   }
 }
 
