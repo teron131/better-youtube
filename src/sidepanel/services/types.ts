@@ -151,6 +151,8 @@ export interface StreamingProcessingResult {
   transcript?: string;
   analysis?: AnalysisData;
   quality?: QualityData;
+  summaryText?: string;
+  qualityScore?: number;
   error?: ApiError;
   totalTime: string;
   iterationCount: number;
@@ -164,4 +166,3 @@ export interface ApiError {
   details?: string;
   type?: 'network' | 'validation' | 'server' | 'processing' | 'unknown';
 }
-
