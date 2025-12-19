@@ -1,4 +1,5 @@
-import { RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/constants";
+import { MESSAGE_ACTIONS, RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/constants";
+import type { FontSize } from "@/lib/constants";
 import { getStorageValues, setStorageValue } from "@/lib/storage";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/components/ui/card";
@@ -11,6 +12,7 @@ import { useToast } from "@ui/hooks/use-toast";
 import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, ShieldCheck, Sparkles, Type, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
   "scrapeCreatorsApiKey",
@@ -49,6 +51,9 @@ const Settings = () => {
       try {
         const stored = await getStorageValues(SETTINGS_KEYS);
         setSettings((prev) => ({ ...prev, ...stored }));
+        if (stored.summaryFontSize) {
+          applySummaryFontSize(stored.summaryFontSize as FontSize);
+        }
       } catch (error) {
         console.error("Failed to load settings:", error);
         toast({
@@ -63,11 +68,28 @@ const Settings = () => {
     loadSettings();
   }, [toast]);
 
+  const notifyCaptionFontSizeChange = (fontSize: FontSize) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      tabs.forEach((tab) => {
+        if (!tab.id) return;
+        chrome.tabs.sendMessage(tab.id, {
+          action: MESSAGE_ACTIONS.UPDATE_CAPTION_FONT_SIZE,
+          fontSize,
+        });
+      });
+    });
+  };
+
   const handleChange = async (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
     try {
       await setStorageValue(key, value);
       console.log(`Auto-saved ${key}:`, value);
+      if (key === "summaryFontSize") {
+        applySummaryFontSize(value as FontSize);
+      } else if (key === "captionFontSize") {
+        notifyCaptionFontSizeChange(value as FontSize);
+      }
     } catch (error) {
       console.error(`Failed to auto-save setting ${key}:`, error);
     }
