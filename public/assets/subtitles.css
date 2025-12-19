@@ -1,0 +1,43 @@
+#youtube-gemini-subtitles-container {
+  position: absolute;
+  bottom: 10%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+  box-sizing: border-box;
+  padding: 0 2%;
+}
+
+#youtube-gemini-subtitles-text {
+  background-color: rgba(8, 8, 8, 0.75);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-size: clamp(
+    var(--caption-font-size-min, 14px),
+    var(--caption-font-size-base, 1.8vw),
+    var(--caption-font-size-max, 28px)
+  );
+  font-family: "YouTube Noto", Roboto, Arial, Helvetica, sans-serif;
+  max-width: 80%;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  line-height: 1.4;
+  display: inline;
+  white-space: pre-wrap;
+}
+
+/* Fullscreen adjustments */
+ytd-player[fullscreen] #youtube-gemini-subtitles-container {
+  bottom: 12%;
+}
+
+ytd-player[fullscreen] #youtube-gemini-subtitles-text {
+  font-size: clamp(
+    var(--caption-font-size-min, 14px),
+    var(--caption-font-size-fullscreen, 2.2vw),
+    var(--caption-font-size-fullscreen-max, 36px)
+  );
+}

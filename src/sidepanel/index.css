@@ -1,0 +1,285 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light mode colors */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 5%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+
+    --primary: 0 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 0 100% 50%;
+
+    /* YouTube Pure Red Design System */
+    --youtube-red: 0 100% 50%;
+    --youtube-red-light: 0 100% 60%;
+    --youtube-red-dark: 0 100% 40%;
+    
+    /* Modern Gradients - Light Mode */
+    --gradient-primary: linear-gradient(135deg, hsl(0 100% 50%), hsl(350 100% 55%));
+    --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%) 0%, hsl(0 0% 96%) 50%, hsl(0 0% 94%) 100%);
+    --gradient-button: linear-gradient(135deg, hsl(0 100% 50%), hsl(15 100% 55%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+    
+    /* Modern Shadows & Effects - Light Mode */
+    --shadow-glow: 0 0 40px hsl(0 100% 50% / 0.2);
+    --shadow-card: 0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,0,0,0.1);
+    --shadow-button: 0 4px 24px hsl(0 100% 50% / 0.3);
+    --shadow-glass: 0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
+    
+    /* Modern Transitions */
+    --transition-smooth: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --transition-glow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark mode colors */
+    --background: 0 0% 3%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 0 20% 18%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 12%;
+    --ring: 0 100% 50%;
+
+    /* Dark mode gradients and effects */
+    --gradient-card: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(15,15,15,0.9));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 2%) 0%, hsl(0 5% 8%) 50%, hsl(0 10% 12%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    --shadow-card: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,0,0,0.1);
+    --shadow-glass: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Markdown styling */
+.markdown-content {
+  @apply text-foreground;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  @apply font-semibold mb-2 text-foreground;
+}
+
+.markdown-content h1 { @apply text-2xl mb-4; }
+.markdown-content h2 { @apply text-xl mb-3; }
+.markdown-content h3 { @apply text-lg mb-2; }
+
+.markdown-content p {
+  @apply mb-4 leading-relaxed;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  @apply mb-4 pl-6 space-y-1;
+}
+
+.markdown-content li {
+  @apply leading-relaxed;
+}
+
+.markdown-content strong {
+  @apply font-semibold text-primary;
+}
+
+.markdown-content em {
+  @apply italic;
+}
+
+.markdown-content code {
+  @apply bg-muted px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.markdown-content pre {
+  @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent p-0;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-primary pl-4 italic text-muted-foreground mb-4;
+}
+
+/* Modern animations and effects */
+.animate-glow {
+  animation: glow 3s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+  }
+  to {
+    text-shadow: 0 0 40px hsl(var(--primary) / 1), 0 0 60px hsl(var(--primary) / 0.8);
+  }
+}
+
+.hover-lift {
+  transition: var(--transition-smooth);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-glass);
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.glass-effect {
+  background: var(--gradient-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.youtube-pulse {
+  animation: youtubePulse 2s infinite;
+}
+
+@keyframes youtubePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 20px hsl(var(--primary) / 0);
+  }
+}
+
+.modern-blur {
+  backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.dark .modern-blur {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.stagger-1 { animation-delay: 0.2s; }
+.stagger-2 { animation-delay: 0.4s; }
+.stagger-3 { animation-delay: 0.6s; }
+.stagger-4 { animation-delay: 0.8s; }
+
+/* Glowing red timeline styles */
+.timeline-track {
+  background: hsl(var(--youtube-red) / 0.15);
+}
+
+.timeline-fill {
+  background-image: linear-gradient(90deg, hsl(var(--youtube-red)), hsl(350 100% 55%));
+  box-shadow: 0 0 24px hsl(var(--youtube-red) / 0.6), 0 0 48px hsl(var(--youtube-red) / 0.4);
+  height: 100%;
+  border-radius: 9999px;
+  animation: timelineGlow 1.8s ease-in-out infinite alternate;
+}
+@keyframes timelineGlow {
+  from {
+    box-shadow: 0 0 16px hsl(var(--youtube-red) / 0.35), 0 0 32px hsl(var(--youtube-red) / 0.2);
+    filter: saturate(1) brightness(1);
+  }
+  to {
+    box-shadow: 0 0 28px hsl(var(--youtube-red) / 0.75), 0 0 64px hsl(var(--youtube-red) / 0.5);
+    filter: saturate(1.15) brightness(1.15);
+  }
+}
