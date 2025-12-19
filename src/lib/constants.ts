@@ -14,6 +14,8 @@ export const STORAGE_KEYS = {
   SUMMARY_FONT_SIZE: "summaryFontSize",
   TARGET_LANGUAGE_RECOMMENDED: "targetLanguageRecommended",
   TARGET_LANGUAGE_CUSTOM: "targetLanguageCustom",
+  FAST_MODE: "fastMode",
+  QUALITY_MODEL: "qualityModel",
 } as const;
 
 // Timing constants

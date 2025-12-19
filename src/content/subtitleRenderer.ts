@@ -3,9 +3,9 @@
  * Handles creation, display, and updates of subtitle elements on the YouTube video player.
  */
 
+import type { FontSize } from "@/lib/constants";
 import { ELEMENT_IDS, FONT_SIZES, TIMING, YOUTUBE } from "@/lib/constants";
 import type { SubtitleSegment } from "@/lib/storage";
-import type { FontSize } from "@/lib/constants";
 
 let subtitleContainer: HTMLDivElement | null = null;
 let subtitleText: HTMLDivElement | null = null;
@@ -90,6 +90,29 @@ export function applyCaptionFontSize(size: FontSize): void {
 }
 
 /**
+ * Find the subtitle for the current time using binary search
+ */
+function findSubtitleAtTime(subtitles: SubtitleSegment[], timeMs: number): SubtitleSegment | null {
+  let low = 0;
+  let high = subtitles.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const subtitle = subtitles[mid];
+
+    if (timeMs >= subtitle.startTime && timeMs <= subtitle.endTime) {
+      return subtitle;
+    } else if (timeMs < subtitle.startTime) {
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Update subtitles based on the current video time
  */
 function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
@@ -100,14 +123,7 @@ function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
   if (isNaN(videoPlayer.currentTime)) return;
 
   const currentTime = videoPlayer.currentTime * 1000; // Convert to ms
-  let foundSubtitle: SubtitleSegment | null = null;
-
-  for (const subtitle of currentSubtitles) {
-    if (currentTime >= subtitle.startTime && currentTime <= subtitle.endTime) {
-      foundSubtitle = subtitle;
-      break;
-    }
-  }
+  const foundSubtitle = findSubtitleAtTime(currentSubtitles, currentTime);
 
   if (foundSubtitle) {
     if (subtitleText.textContent !== foundSubtitle.text) {
