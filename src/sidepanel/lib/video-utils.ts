@@ -2,6 +2,7 @@
  * Video processing utilities
  */
 
+import { extractVideoId } from '@/lib/url';
 import { StreamingProgressState } from '@ui/services/types';
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
@@ -55,18 +56,6 @@ export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
 }
 
 /**
- * Extract video ID from URL
- */
-export function extractVideoIdFromUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.searchParams.get('v');
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Get video ID from current active tab
  */
 export async function getVideoIdFromCurrentTab(): Promise<string> {
@@ -74,7 +63,7 @@ export async function getVideoIdFromCurrentTab(): Promise<string> {
     const tab = await getCurrentVideoTab();
     if (!tab?.url) return '';
 
-    const videoId = extractVideoIdFromUrl(tab.url);
+    const videoId = extractVideoId(tab.url);
     if (videoId && VIDEO_ID_REGEX.test(videoId)) {
       return `https://www.youtube.com/watch?v=${videoId}`;
     }
@@ -147,27 +136,6 @@ export function isStepProcessing(
   step: StreamingProgressState['step'],
 ): boolean {
   return states.some((s) => s.step === step && s.status === 'processing');
-}
-
-/**
- * Format duration string (e.g. PT1H2M3S -> 1:02:03)
- */
-export function formatDuration(duration: string): string {
-  if (!duration) return '0:00';
-
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return duration;
-
-  const hours = (match[1] || '').replace('H', '');
-  const minutes = (match[2] || '').replace('M', '');
-  const seconds = (match[3] || '').replace('S', '');
-
-  const parts = [];
-  if (hours) parts.push(hours);
-  parts.push(minutes || (hours ? '00' : '0'));
-  parts.push((seconds || '00').padStart(2, '0'));
-
-  return parts.join(':');
 }
 
 /**

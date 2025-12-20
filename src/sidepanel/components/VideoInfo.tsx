@@ -3,7 +3,7 @@
  */
 
 import { Card } from "@ui/components/ui/card";
-import { formatDate, formatDuration } from "@ui/lib/date-utils";
+import { formatDate, trimDurationLeadingZeros } from "@ui/lib/date-utils";
 import { cleanVideoUrl } from "@ui/lib/url-utils";
 import { s2tw } from "@ui/lib/utils";
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";
@@ -35,7 +35,7 @@ interface VideoInfoProps {
 }
 
 export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like_count, upload_date, url }: VideoInfoProps) => {
-  const displayDuration = formatDuration(duration || undefined);
+  const displayDuration = trimDurationLeadingZeros(duration || undefined);
   const hasMetrics = view_count != null || like_count != null;
 
   const convertedInfo = {
