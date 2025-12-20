@@ -11,7 +11,7 @@ import { createAgent, toolStrategy } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
-import { QualityUtils, SUMMARY_CONFIG } from "./qualityUtils";
+import { calculateScore, isAcceptable, printQualityBreakdown, SUMMARY_CONFIG } from "./qualityUtils";
 import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
 
@@ -218,9 +218,9 @@ async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
   const chain = prompt.pipe(structuredLLM);
   const quality = await chain.invoke({ analysis_text: analysisText });
 
-  QualityUtils.printQualityBreakdown(quality);
+  printQualityBreakdown(quality);
 
-  const percentageScore = QualityUtils.calculateScore(quality);
+  const percentageScore = calculateScore(quality);
   const isComplete = 
     percentageScore >= SUMMARY_CONFIG.MIN_QUALITY_SCORE ||
     state.iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS;
@@ -240,11 +240,11 @@ function shouldContinue(state: GraphState): string {
     return END;
   }
 
-  const percentageScore = state.quality ? QualityUtils.calculateScore(state.quality) : 0;
+  const percentageScore = state.quality ? calculateScore(state.quality) : 0;
 
   if (
     state.quality &&
-    !QualityUtils.isAcceptable(state.quality) &&
+    !isAcceptable(state.quality) &&
     state.iteration_count < SUMMARY_CONFIG.MAX_ITERATIONS
   ) {
     console.log(
@@ -457,7 +457,7 @@ export async function executeSummarizationWorkflow(
 
   const result = await graph.invoke(initialState);
 
-  const percentageScore = result.quality ? QualityUtils.calculateScore(result.quality) : 0;
+  const percentageScore = result.quality ? calculateScore(result.quality) : 0;
   const summaryText = formatAnalysisAsMarkdown(result.analysis!);
 
   return {
@@ -469,4 +469,4 @@ export async function executeSummarizationWorkflow(
   };
 }
 
-export { PromptBuilder, QualityUtils };
+export { PromptBuilder };

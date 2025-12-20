@@ -65,8 +65,4 @@ function printQualityBreakdown(quality: Quality): void {
   }
 }
 
-export class QualityUtils {
-  static calculateScore = calculateScore;
-  static isAcceptable = isAcceptable;
-  static printQualityBreakdown = printQualityBreakdown;
-}
+export { calculateScore, isAcceptable, printQualityBreakdown };
