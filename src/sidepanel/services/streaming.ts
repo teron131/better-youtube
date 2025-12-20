@@ -78,6 +78,7 @@ export async function streamAnalysis(
     targetLanguage?: string | null;
     fastMode?: boolean;
     transcript?: string;
+    forceRegenerate?: boolean;
   },
   onProgress?: (state: StreamingProgressState) => void
 ): Promise<StreamingProcessingResult> {
@@ -207,6 +208,7 @@ export async function streamAnalysis(
           qualityModel: options.qualityModel,
           targetLanguage: options.targetLanguage || targetLanguage,
           fastMode: options.fastMode,
+          forceRegenerate: options.forceRegenerate,
         },
         (response) => {
           if (chrome.runtime.lastError) {
