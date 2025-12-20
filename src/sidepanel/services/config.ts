@@ -6,25 +6,19 @@
  * These values should be kept in sync with the backend configuration.
  */
 
+import {
+  RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
+  RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
+  DEFAULTS,
+  TARGET_LANGUAGES,
+} from '@/lib/constants';
+
 // ================================
 // MODEL CONFIGURATION
 // ================================
 
-export const RECOMMENDED_SUMMARIZER_MODELS = [
-  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
-  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro" },
-  { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-  { value: "openai/gpt-5.2", label: "GPT-5.2" },
-  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-] as const;
-
-export const RECOMMENDED_REFINER_MODELS = [
-  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
-  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro" },
-  { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-  { value: "openai/gpt-5.2", label: "GPT-5.2" },
-  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-] as const;
+export const RECOMMENDED_SUMMARIZER_MODELS = SUMMARIZER_MODELS;
+export const RECOMMENDED_REFINER_MODELS = REFINER_MODELS;
 
 export const AVAILABLE_MODELS = [
   ...RECOMMENDED_SUMMARIZER_MODELS,
@@ -37,8 +31,8 @@ export const AVAILABLE_MODELS = [
   {} as Record<string, string>,
 );
 
-export const DEFAULT_ANALYSIS_MODEL = "x-ai/grok-4.1-fast";
-export const DEFAULT_QUALITY_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025";
+export const DEFAULT_ANALYSIS_MODEL = DEFAULTS.MODEL_SUMMARIZER;
+export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 
 // ================================
 // LANGUAGE CONFIGURATION
@@ -50,14 +44,7 @@ export const SUPPORTED_LANGUAGES = {
   "zh-TW": "🇭🇰 Chinese",
 } as const;
 
-export const DEFAULT_TARGET_LANGUAGE = null;
-
-// ================================
-// QUALITY THRESHOLDS
-// ================================
-
-export const MIN_QUALITY_SCORE = 90;
-export const MAX_ITERATIONS = 2;
+export const DEFAULT_TARGET_LANGUAGE = DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
 
 // ================================
 // TRANSLATION CONFIGURATION
@@ -225,8 +212,6 @@ export default {
   DEFAULT_QUALITY_MODEL,
   SUPPORTED_LANGUAGES,
   DEFAULT_TARGET_LANGUAGE,
-  MIN_QUALITY_SCORE,
-  MAX_ITERATIONS,
   ENABLE_TRANSLATION_DEFAULT,
   UI_CONFIG,
   AVAILABLE_MODELS_LIST,
