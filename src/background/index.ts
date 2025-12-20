@@ -3,7 +3,7 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
 import { SubtitleSegment, VideoMetadata, getStoredSubtitles, getStoredVideoMetadata, saveVideoMetadata } from "@/lib/storage";
@@ -44,7 +44,6 @@ interface ScrapeCreatorsResponse {
 
 const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
 const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes cache is plenty for deduplication and quick retries
 
 /**
  * Extract video info from ScrapeCreatorsResponse in the expected format
@@ -72,7 +71,7 @@ async function fetchTranscript(
 ): Promise<ScrapeCreatorsResponse | null> {
   // 1. Check cache first
   const cached = transcriptCache.get(videoId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS) {
     console.log("Returning cached transcript for videoId:", videoId);
     return cached.data;
   }
@@ -98,13 +97,13 @@ async function fetchTranscript(
       try {
         if (i > 0) {
           console.log(`Retry attempt ${i} for videoId: ${videoId}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * i)); // Exponential-ish backoff
+          await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i));
         } else {
           console.log("Fetching transcript for video:", videoId);
         }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
 
         const response = await fetch(url, {
           method: "GET",
