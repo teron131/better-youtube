@@ -30,27 +30,37 @@ async function getApiKeys(): Promise<{ scrapeCreatorsApiKey: string; openRouterA
  */
 async function getModelSettings(): Promise<{
   summarizerModel: string;
+  refinerModel: string;
   targetLanguage: string;
+  showSubtitles: boolean;
 }> {
   return new Promise((resolve) => {
     chrome.storage.local.get(
       [
         STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
         STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+        STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
+        STORAGE_KEYS.REFINER_CUSTOM_MODEL,
         STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
         STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+        STORAGE_KEYS.SHOW_SUBTITLES,
       ],
       (result) => {
         const summarizerModel =
-          result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || 
-          result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] || 
+          result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+          result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
           DEFAULTS.MODEL_SUMMARIZER;
+        const refinerModel =
+          result[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
+          result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
+          DEFAULTS.MODEL_REFINER;
         const targetLanguage =
-          result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || 
-          result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] || 
+          result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+          result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
           DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
+        const showSubtitles = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
 
-        resolve({ summarizerModel, targetLanguage });
+        resolve({ summarizerModel, refinerModel, targetLanguage, showSubtitles });
       }
     );
   });
@@ -58,6 +68,7 @@ async function getModelSettings(): Promise<{
 
 /**
  * Stream analysis using Chrome messaging to background script
+ * Flow: 1) Scrape video first, 2) Then refine (if captions enabled) + summarize in parallel
  */
 export async function streamAnalysis(
   url: string,
@@ -81,7 +92,7 @@ export async function streamAnalysis(
 
     // Get API keys and settings
     const { scrapeCreatorsApiKey, openRouterApiKey } = await getApiKeys();
-    const { summarizerModel, targetLanguage } = await getModelSettings();
+    const { summarizerModel, refinerModel, targetLanguage, showSubtitles } = await getModelSettings();
 
     if (!scrapeCreatorsApiKey) {
       throw new Error('Scrape Creators API key not configured');
@@ -91,15 +102,99 @@ export async function streamAnalysis(
       throw new Error('OpenRouter API key not configured');
     }
 
-    // Update progress: Starting
+    // Step 1: Scrape video data first (unless transcript is already provided)
+    let scrapedTranscript = options.transcript || null;
+    let scrapedVideoInfo: any = null;
+
+    if (!options.transcript) {
+      onProgress?.({
+        step: 'scraping',
+        stepName: 'Fetching Transcript',
+        status: 'processing',
+        message: 'Fetching video transcript...',
+      });
+
+      // Wait for scrape to complete
+      const scrapeResult = await new Promise<{ status: string; videoInfo?: any; hasTranscript?: boolean }>((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
+            videoId,
+            scrapeCreatorsApiKey,
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('Scrape error:', chrome.runtime.lastError.message);
+              resolve({ status: 'error' });
+            } else {
+              resolve(response || { status: 'error' });
+            }
+          }
+        );
+      });
+
+      if (scrapeResult.status !== 'success') {
+        throw new Error('Failed to fetch video data');
+      }
+
+      scrapedVideoInfo = scrapeResult.videoInfo;
+
+      onProgress?.({
+        step: 'scraping',
+        stepName: 'Fetching Transcript',
+        status: 'completed',
+        message: 'Video data fetched',
+        data: {
+          videoInfo: scrapedVideoInfo ? {
+            url: scrapedVideoInfo.url || url,
+            title: scrapedVideoInfo.title || null,
+            thumbnail: scrapedVideoInfo.thumbnail || null,
+            author: scrapedVideoInfo.author || null,
+            duration: scrapedVideoInfo.duration || null,
+            upload_date: scrapedVideoInfo.upload_date || null,
+            view_count: scrapedVideoInfo.view_count ?? null,
+            like_count: scrapedVideoInfo.like_count ?? null,
+          } : undefined,
+        },
+      });
+    } else {
+      onProgress?.({
+        step: 'scraping',
+        stepName: 'Fetching Transcript',
+        status: 'completed',
+        message: 'Using provided transcript',
+      });
+    }
+
+    // Step 2: Trigger refine (if captions enabled) + summarize in parallel
+    // Trigger caption refinement first (fire-and-forget, non-blocking)
+    if (showSubtitles && !options.transcript) {
+      chrome.runtime.sendMessage(
+        {
+          action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
+          videoId,
+          scrapeCreatorsApiKey,
+          openRouterApiKey,
+          modelSelection: refinerModel,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Caption refinement error:', chrome.runtime.lastError.message);
+          } else {
+            console.log('Caption refinement triggered:', response);
+          }
+        }
+      );
+    }
+
+    // Now trigger summarization and wait for completion
     onProgress?.({
-      step: 'scraping',
-      stepName: 'Fetching Transcript',
+      step: 'analyzing',
+      stepName: 'Analyzing',
       status: 'processing',
-      message: options.transcript ? 'Using provided transcript...' : 'Fetching video transcript...',
+      message: 'Generating summary...',
     });
 
-    // Send message to background script to generate summary
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         {
@@ -131,48 +226,11 @@ export async function streamAnalysis(
             reject(error);
             return;
           }
-
-          // Processing started, listen for completion
-          onProgress?.({
-            step: 'analyzing',
-            stepName: 'Analyzing',
-            status: 'processing',
-            message: 'Generating summary...',
-          });
         }
       );
 
-      // Listen for scrape completion and summary completion
+      // Listen for summary completion
       const messageListener = (message: any) => {
-        // Handle early video info from scrape
-        if (message.action === MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED && message.videoId === videoId) {
-          const { videoInfo: scrapedVideoInfo, transcript: scrapedTranscript } = message;
-
-          // Send progress update with video info
-          onProgress?.({
-            step: 'scraping',
-            stepName: 'Fetching Transcript',
-            status: 'completed',
-            message: 'Video data fetched',
-            data: {
-              videoInfo: scrapedVideoInfo ? {
-                url: scrapedVideoInfo.url || url,
-                title: scrapedVideoInfo.title || null,
-                thumbnail: scrapedVideoInfo.thumbnail || null,
-                author: scrapedVideoInfo.author || null,
-                duration: scrapedVideoInfo.duration || null,
-                upload_date: scrapedVideoInfo.upload_date || null,
-                view_count: scrapedVideoInfo.view_count ?? null,
-                like_count: scrapedVideoInfo.like_count ?? null,
-              } : undefined,
-              transcript: scrapedTranscript || undefined,
-            }
-          });
-
-          // Don't remove listener - wait for summary
-          return;
-        }
-
         if (message.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && message.videoId === videoId) {
           chrome.runtime.onMessage.removeListener(messageListener);
 
@@ -197,6 +255,15 @@ export async function streamAnalysis(
                 upload_date: videoInfo.upload_date || null,
                 view_count: videoInfo.view_count || null,
                 like_count: videoInfo.like_count || null,
+              } : scrapedVideoInfo ? {
+                url: scrapedVideoInfo.url || url,
+                title: scrapedVideoInfo.title || null,
+                thumbnail: scrapedVideoInfo.thumbnail || null,
+                author: scrapedVideoInfo.author || null,
+                duration: scrapedVideoInfo.duration || null,
+                upload_date: scrapedVideoInfo.upload_date || null,
+                view_count: scrapedVideoInfo.view_count || null,
+                like_count: scrapedVideoInfo.like_count || null,
               } : {
                 url,
                 title: null,
@@ -207,7 +274,7 @@ export async function streamAnalysis(
                 view_count: null,
                 like_count: null,
               },
-              transcript: transcript || null,
+              transcript: transcript || scrapedTranscript || null,
               analysis: summary.analysis,
               quality: summary.quality,
               summaryText: summary.summary_text,
