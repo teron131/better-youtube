@@ -6,8 +6,8 @@ const MAX_SCORE_PER_ASPECT = 2;
 export const SUMMARY_CONFIG = {
   ANALYSIS_MODEL: "x-ai/grok-4.1-fast",
   QUALITY_MODEL: "x-ai/grok-4.1-fast",
-  MIN_QUALITY_SCORE: 80, // Aligned with Python backend (was 90)
-  MAX_ITERATIONS: 2, // Aligned with Python backend
+  MIN_QUALITY_SCORE: 80,
+  MAX_ITERATIONS: 2,
 } as const;
 
 /**
