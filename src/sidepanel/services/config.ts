@@ -10,7 +10,6 @@ import {
   RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
   RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
   DEFAULTS,
-  TARGET_LANGUAGES,
 } from '@/lib/constants';
 
 // ================================

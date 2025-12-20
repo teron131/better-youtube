@@ -75,25 +75,6 @@ export async function getVideoIdFromCurrentTab(): Promise<string> {
 }
 
 /**
- * Extract video ID from URL query parameters (legacy - for backwards compatibility)
- * @deprecated Use getVideoIdFromCurrentTab instead
- */
-export function getVideoIdFromParams(): string {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const videoId = params.get('v');
-
-    if (videoId && VIDEO_ID_REGEX.test(videoId)) {
-      return `https://www.youtube.com/watch?v=${videoId}`;
-    }
-  } catch (error) {
-    console.error('Error parsing URL parameters:', error);
-  }
-
-  return '';
-}
-
-/**
  * Normalize step names for consistent UI display
  */
 export function normalizeStepName(step: StreamingProgressState['step']): NormalizedStep {
