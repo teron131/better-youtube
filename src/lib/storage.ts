@@ -1,8 +1,12 @@
 /**
- * Chrome storage management for subtitles, video info, and settings
+ * Chrome storage management
  */
 
 import { STORAGE, YOUTUBE, STORAGE_CLEANUP } from "./constants";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface SubtitleSegment {
   text: string;
@@ -21,68 +25,35 @@ export interface VideoMetadata {
   like_count: number | null;
 }
 
-/**
- * Get video metadata storage key
- */
-function getVideoMetadataKey(videoId: string): string {
-  return `video_info_${videoId}`;
+export interface StoredAnalysis {
+  analysis: any;
+  quality?: any;
+  timestamp: number;
+  modelUsed: string;
+  targetLanguage?: string | null;
 }
 
-/**
- * Get video metadata from local storage
- */
-export function getStoredVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
-  return new Promise((resolve) => {
-    const key = getVideoMetadataKey(videoId);
-    chrome.storage.local.get([key], (result) => {
-      resolve(result[key] || null);
-    });
-  });
+export interface StorageUsage {
+  bytesUsed: number;
+  bytesAvailable: number;
+  percentageUsed: number;
 }
 
-/**
- * Save video metadata to local storage
- */
-export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
-  const key = getVideoMetadataKey(videoId);
-  await chromeStorageSet({ [key]: metadata });
-  console.log("Video metadata saved for video ID:", videoId);
-}
+// ============================================================================
+// Storage Keys
+// ============================================================================
 
-/**
- * Get subtitles for a video from local storage
- */
-export function getStoredSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([videoId], (result) => {
-      resolve(result[videoId] || null);
-    });
-  });
-}
+const StorageKeys = {
+  subtitles: (videoId: string) => videoId,
+  metadata: (videoId: string) => `video_info_${videoId}`,
+  analysis: (videoId: string) => `analysis_${videoId}`,
+} as const;
 
-/**
- * Save subtitles for a video to local storage
- */
-export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
-  try {
-    await chromeStorageSet({ [videoId]: subtitles });
-    console.log("Subtitles saved to local storage for video ID:", videoId);
-  } catch (error) {
-    if (error instanceof Error && error.message?.includes("QUOTA")) {
-      console.warn("Storage quota exceeded, attempting cleanup...");
-      await cleanupOldSubtitles(STORAGE.CLEANUP_BATCH_SIZE);
-      await chromeStorageSet({ [videoId]: subtitles });
-      console.log("Subtitles saved after cleanup for video:", videoId);
-    } else {
-      throw error;
-    }
-  }
-}
+// ============================================================================
+// Core Storage Operations
+// ============================================================================
 
-/**
- * Wrapper for chrome.storage.local.set with promise interface
- */
-function chromeStorageSet(items: Record<string, unknown>): Promise<void> {
+async function storageSet(items: Record<string, unknown>): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.storage.local.set(items, () => {
       if (chrome.runtime.lastError) {
@@ -94,16 +65,144 @@ function chromeStorageSet(items: Record<string, unknown>): Promise<void> {
   });
 }
 
-export interface StorageUsage {
-  bytesUsed: number;
-  bytesAvailable: number;
-  percentageUsed: number;
+async function storageGet<T>(key: string): Promise<T | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => {
+      resolve(result[key] ?? null);
+    });
+  });
 }
 
-/**
- * Get storage usage information
- */
-export function getStorageUsage(): Promise<StorageUsage> {
+async function storageGetMultiple<T extends Record<string, unknown>>(
+  keys: string[]
+): Promise<Partial<T>> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(keys, (result) => {
+      resolve(result as Partial<T>);
+    });
+  });
+}
+
+async function storageRemove(keys: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.remove(keys, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+async function storageGetAll(): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(null, (allItems) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(allItems);
+      }
+    });
+  });
+}
+
+// ============================================================================
+// Video Data Storage
+// ============================================================================
+
+export async function getStoredSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
+  const key = StorageKeys.subtitles(videoId);
+  return storageGet<SubtitleSegment[]>(key);
+}
+
+export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
+  const key = StorageKeys.subtitles(videoId);
+  try {
+    await storageSet({ [key]: subtitles });
+    console.log(`Subtitles saved for video: ${videoId}`);
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes("QUOTA")) {
+      console.warn("Storage quota exceeded, cleaning up...");
+      await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
+      await storageSet({ [key]: subtitles });
+      console.log(`Subtitles saved after cleanup: ${videoId}`);
+    } else {
+      throw error;
+    }
+  }
+}
+
+export async function getStoredVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
+  const key = StorageKeys.metadata(videoId);
+  return storageGet<VideoMetadata>(key);
+}
+
+export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
+  const key = StorageKeys.metadata(videoId);
+  await storageSet({ [key]: metadata });
+  console.log(`Video metadata saved: ${videoId}`);
+}
+
+export async function getStoredAnalysis(videoId: string): Promise<StoredAnalysis | null> {
+  const key = StorageKeys.analysis(videoId);
+  return storageGet<StoredAnalysis>(key);
+}
+
+export async function saveAnalysis(
+  videoId: string,
+  analysis: any,
+  modelUsed: string,
+  targetLanguage?: string | null,
+  quality?: any
+): Promise<void> {
+  const key = StorageKeys.analysis(videoId);
+  const storedAnalysis: StoredAnalysis = {
+    analysis,
+    quality,
+    timestamp: Date.now(),
+    modelUsed,
+    targetLanguage,
+  };
+
+  try {
+    await storageSet({ [key]: storedAnalysis });
+    console.log(`Analysis saved: ${videoId}`);
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes("QUOTA")) {
+      console.warn("Storage quota exceeded, cleaning up...");
+      await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
+      await storageSet({ [key]: storedAnalysis });
+      console.log(`Analysis saved after cleanup: ${videoId}`);
+    } else {
+      throw error;
+    }
+  }
+}
+
+// ============================================================================
+// Settings Storage
+// ============================================================================
+
+export async function getStorageValue<T>(key: string): Promise<T | null> {
+  return storageGet<T>(key);
+}
+
+export async function setStorageValue<T>(key: string, value: T): Promise<void> {
+  return storageSet({ [key]: value });
+}
+
+export async function getStorageValues<T extends Record<string, unknown>>(
+  keys: string[]
+): Promise<Partial<T>> {
+  return storageGetMultiple<T>(keys);
+}
+
+// ============================================================================
+// Storage Cleanup
+// ============================================================================
+
+export async function getStorageUsage(): Promise<StorageUsage> {
   return new Promise((resolve) => {
     chrome.storage.local.getBytesInUse(null, (bytesInUse) => {
       resolve({
@@ -115,121 +214,62 @@ export function getStorageUsage(): Promise<StorageUsage> {
   });
 }
 
-/**
- * Clean up old subtitles when storage is full
- */
-export async function cleanupOldSubtitles(countToRemove = 10): Promise<void> {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, (allItems) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
+async function getVideoRelatedKeys(allItems: Record<string, unknown>): Promise<string[]> {
+  const keys: string[] = [];
 
-      const videoKeys = getVideoKeys(allItems);
-      const keysToRemove = selectKeysToRemove(videoKeys, countToRemove);
+  for (const key of Object.keys(allItems)) {
+    // Subtitle keys (raw video ID, 11 chars, array value)
+    if (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) {
+      keys.push(key);
+    }
+    // Metadata and analysis keys (prefixed)
+    else if (key.startsWith('video_info_') || key.startsWith('analysis_')) {
+      keys.push(key);
+    }
+  }
 
-      chrome.storage.local.remove(keysToRemove, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          console.log(`Removed ${keysToRemove.length} old video transcripts`);
-          resolve();
-        }
-      });
-    });
-  });
+  return keys;
 }
 
-/**
- * Get all video keys from storage items
- */
-function getVideoKeys(allItems: Record<string, unknown>): string[] {
-  return Object.keys(allItems).filter(
-    (key) => key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])
-  );
-}
+async function cleanupOldVideos(countToRemove: number): Promise<void> {
+  const allItems = await storageGetAll();
+  const videoKeys = await getVideoRelatedKeys(allItems);
 
-/**
- * Select which keys to remove during cleanup
- */
-function selectKeysToRemove(videoKeys: string[], countToRemove: number): string[] {
+  if (videoKeys.length === 0) {
+    console.log("No video data to clean up");
+    return;
+  }
+
   const removeCount =
     videoKeys.length <= countToRemove
       ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
       : countToRemove;
 
-  return videoKeys.slice(0, removeCount);
+  const keysToRemove = videoKeys.slice(0, removeCount);
+  await storageRemove(keysToRemove);
+  console.log(`Cleaned up ${keysToRemove.length} video data entries`);
 }
 
-/**
- * Proactively check and clean storage if nearing limit
- */
 export async function ensureStorageSpace(): Promise<void> {
   const usage = await getStorageUsage();
 
   if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
-    console.log(`Storage usage at ${usage.percentageUsed.toFixed(1)}%, cleaning up...`);
+    console.log(`Storage at ${usage.percentageUsed.toFixed(1)}%, cleaning up...`);
     const videosToRemove = Math.ceil(
       (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) / STORAGE.ESTIMATED_VIDEO_SIZE_BYTES
     );
-    await cleanupOldSubtitles(videosToRemove);
+    await cleanupOldVideos(videosToRemove);
   }
 }
 
-/**
- * Get value from storage
- */
-export function getStorageValue<T>(keyName: string): Promise<T | null> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([keyName], (result) => {
-      resolve(result[keyName] ?? null);
-    });
-  });
-}
+// ============================================================================
+// Deprecated (kept for backward compatibility)
+// ============================================================================
 
-/**
- * Get API key from storage
- */
+/** @deprecated Use getStorageValue instead */
 export const getApiKeyFromStorage = getStorageValue;
 
-/**
- * Save value to storage
- */
-export function setStorageValue<T>(key: string, value: T): Promise<void> {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set({ [key]: value }, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * Save setting to storage (synchronous callback-based)
- */
-export function saveSetting(key: string, value: unknown): void {
-  chrome.storage.local.set({ [key]: value }, () => {
-    if (chrome.runtime.lastError) {
-      console.error("Failed to save setting:", key, chrome.runtime.lastError);
-    } else {
-      console.log("Auto-saved:", key, value);
-    }
-  });
-}
-
-/**
- * Get multiple values from storage
- */
-export function getStorageValues<T extends Record<string, unknown>>(
-  keys: string[]
-): Promise<Partial<T>> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(keys, (result) => {
-      resolve(result as Partial<T>);
-    });
-  });
+/** @deprecated Use cleanupOldVideos instead */
+export async function cleanupOldSubtitles(countToRemove: number = 10): Promise<void> {
+  return cleanupOldVideos(countToRemove);
 }

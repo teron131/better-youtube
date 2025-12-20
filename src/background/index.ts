@@ -6,7 +6,7 @@
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
-import { SubtitleSegment, VideoMetadata, getStoredSubtitles, getStoredVideoMetadata, saveVideoMetadata } from "@/lib/storage";
+import { SubtitleSegment, VideoMetadata, getStoredSubtitles, getStoredVideoMetadata, saveVideoMetadata, saveAnalysis, getStoredAnalysis } from "@/lib/storage";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -290,7 +290,8 @@ async function handleGenerateSummary(
     modelSelection,
     qualityModel,
     targetLanguage,
-    fastMode
+    fastMode,
+    forceRegenerate
   } = message;
 
   if (!scrapeCreatorsApiKey || !openRouterApiKey) {
@@ -301,6 +302,33 @@ async function handleGenerateSummary(
   sendResponse({ status: "processing" });
 
   try {
+    // Check for stored analysis first (unless force regenerate)
+    if (!forceRegenerate) {
+      const storedAnalysis = await getStoredAnalysis(videoId);
+      if (storedAnalysis &&
+          storedAnalysis.modelUsed === modelSelection &&
+          storedAnalysis.targetLanguage === targetLanguage) {
+        console.log(`Using stored analysis for video: ${videoId}`);
+
+        // Get video info
+        const videoInfo = await getStoredVideoMetadata(videoId);
+
+        // Return stored analysis
+        chrome.runtime.sendMessage({
+          action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
+          videoId,
+          summary: {
+            analysis: storedAnalysis.analysis,
+            quality: storedAnalysis.quality
+          },
+          videoInfo,
+          transcript: null
+        });
+        console.log(`Returned stored analysis for video: ${videoId}`);
+        return;
+      }
+    }
+
     // 1. Determine input source (Message Transcript -> Cached Transcript -> URL)
     let transcript_or_url = "";
 
@@ -377,6 +405,15 @@ async function handleGenerateSummary(
         fast_mode: fastMode,
       },
       openRouterApiKey
+    );
+
+    // Save analysis to storage for future retrieval
+    await saveAnalysis(
+      videoId,
+      result.analysis,
+      modelSelection,
+      targetLanguage,
+      result.quality
     );
 
     // Send result back to sidepanel with proper video info
