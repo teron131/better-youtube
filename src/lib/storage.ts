@@ -261,15 +261,3 @@ export async function ensureStorageSpace(): Promise<void> {
     await cleanupOldVideos(videosToRemove);
   }
 }
-
-// ============================================================================
-// Deprecated (kept for backward compatibility)
-// ============================================================================
-
-/** @deprecated Use getStorageValue instead */
-export const getApiKeyFromStorage = getStorageValue;
-
-/** @deprecated Use cleanupOldVideos instead */
-export async function cleanupOldSubtitles(countToRemove: number = 10): Promise<void> {
-  return cleanupOldVideos(countToRemove);
-}
