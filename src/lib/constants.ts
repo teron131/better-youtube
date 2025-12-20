@@ -124,7 +124,7 @@ export const ELEMENT_IDS = {
 } as const;
 
 export const REFINER_CONFIG = {
-  MAX_SEGMENTS_PER_CHUNK: 30,
+  MAX_SEGMENTS_PER_CHUNK: 20,
   CHUNK_SENTINEL: "<<<__CHUNK_END__>>>",
 } as const;
 
