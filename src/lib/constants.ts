@@ -28,6 +28,10 @@ export const TIMING = {
   STATUS_MESSAGE_DISPLAY_MS: 2000,
   SUMMARY_SUCCESS_DISPLAY_MS: 3000,
   CAPTION_CHECK_DELAY_MS: 500,
+  TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
+  SCRAPE_API_TIMEOUT_MS: 30 * 1000, // 30 seconds
+  PROCESSING_TIMEOUT_MS: 2 * 60 * 1000, // 2 minutes
+  RETRY_BACKOFF_MULTIPLIER_MS: 1000, // Base unit for exponential backoff
 } as const;
 
 // Storage constants
@@ -59,10 +63,10 @@ export const TARGET_LANGUAGES = [
   { value: "zh-TW", label: "Chinese" },
 ] as const;
 
-// Default values
+// Default values (first item from recommended lists)
 export const DEFAULTS = {
-  MODEL_SUMMARIZER: "x-ai/grok-4.1-fast",
-  MODEL_REFINER: "google/gemini-2.5-flash-lite-preview-09-2025",
+  MODEL_SUMMARIZER: RECOMMENDED_SUMMARIZER_MODELS[0].value,
+  MODEL_REFINER: RECOMMENDED_REFINER_MODELS[0].value,
   AUTO_GENERATE: false,
   SHOW_SUBTITLES: true,
   CAPTION_FONT_SIZE: "M" as const,
