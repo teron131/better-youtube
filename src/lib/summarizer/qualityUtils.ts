@@ -1,12 +1,13 @@
 import type { Quality } from "./schemas";
+import { DEFAULTS } from "../constants";
 
 const SCORE_MAP: Record<string, number> = { Fail: 0, Refine: 1, Pass: 2 };
 const MAX_SCORE_PER_ASPECT = 2;
 
 export const SUMMARY_CONFIG = {
-  ANALYSIS_MODEL: "x-ai/grok-4.1-fast",
-  QUALITY_MODEL: "x-ai/grok-4.1-fast",
-  MIN_QUALITY_SCORE: 80,
+  ANALYSIS_MODEL: DEFAULTS.MODEL_SUMMARIZER,
+  QUALITY_MODEL: DEFAULTS.MODEL_REFINER,
+  MIN_QUALITY_SCORE: 80, // Threshold for acceptable quality (aligned with Python backend)
   MAX_ITERATIONS: 2,
 } as const;
 

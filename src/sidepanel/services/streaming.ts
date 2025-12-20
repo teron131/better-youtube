@@ -3,7 +3,7 @@
  * Handles communication with background script for video processing
  */
 
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from '@/lib/constants';
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from '@/lib/constants';
 import { extractVideoId } from '@/lib/url';
 import {
   ApiError,
@@ -310,7 +310,7 @@ export async function streamAnalysis(
           message: 'Processing timeout after 2 minutes',
           type: 'processing',
         } as ApiError);
-      }, 120000);
+      }, TIMING.PROCESSING_TIMEOUT_MS);
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
