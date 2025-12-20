@@ -12,7 +12,7 @@ import { useToast } from "@ui/hooks/use-toast";
 import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, ShieldCheck, Sparkles, Type, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { applySummaryFontSize } from "../lib/font-size";
+import { applyAnalysisFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
   "scrapeCreatorsApiKey",
@@ -21,7 +21,7 @@ const SETTINGS_KEYS = [
   "refinerModel",
   "targetLanguage",
   "captionFontSize",
-  "summaryFontSize",
+  "analysisFontSize",
   "autoGenerate",
   "showSubtitles",
   "fastMode",
@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS = {
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
   targetLanguage: "auto",
   captionFontSize: "M",
-  summaryFontSize: "M",
+  analysisFontSize: "M",
   autoGenerate: false,
   showSubtitles: true,
   fastMode: false,
@@ -51,8 +51,8 @@ const Settings = () => {
       try {
         const stored = await getStorageValues(SETTINGS_KEYS);
         setSettings((prev) => ({ ...prev, ...stored }));
-        if (stored.summaryFontSize) {
-          applySummaryFontSize(stored.summaryFontSize as FontSize);
+        if (stored.analysisFontSize) {
+          applyAnalysisFontSize(stored.analysisFontSize as FontSize);
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -85,8 +85,8 @@ const Settings = () => {
     try {
       await setStorageValue(key, value);
       console.log(`Auto-saved ${key}:`, value);
-      if (key === "summaryFontSize") {
-        applySummaryFontSize(value as FontSize);
+      if (key === "analysisFontSize") {
+        applyAnalysisFontSize(value as FontSize);
       } else if (key === "captionFontSize") {
         notifyCaptionFontSizeChange(value as FontSize);
       }
@@ -330,10 +330,10 @@ const Settings = () => {
                       {['S', 'M', 'L'].map((size) => (
                         <button
                           key={size}
-                          onClick={() => handleChange("summaryFontSize", size)}
+                          onClick={() => handleChange("analysisFontSize", size)}
                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                            settings.summaryFontSize === size 
-                              ? 'bg-primary text-white shadow-lg' 
+                            settings.analysisFontSize === size
+                              ? 'bg-primary text-white shadow-lg'
                               : 'text-muted-foreground hover:text-foreground'
                           }`}
                         >

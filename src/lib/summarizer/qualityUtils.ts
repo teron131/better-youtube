@@ -4,9 +4,9 @@ import { DEFAULTS } from "../constants";
 const SCORE_MAP: Record<string, number> = { Fail: 0, Refine: 1, Pass: 2 };
 const MAX_SCORE_PER_ASPECT = 2;
 
-export const SUMMARY_CONFIG = {
-  ANALYSIS_MODEL: DEFAULTS.MODEL_SUMMARIZER,
-  QUALITY_MODEL: DEFAULTS.MODEL_REFINER,
+export const ANALYSIS_CONFIG = {
+  MODEL: DEFAULTS.MODEL_SUMMARIZER,
+  QUALITY_MODEL: DEFAULTS.MODEL_SUMMARIZER,
   MIN_QUALITY_SCORE: 80, // Threshold for acceptable quality (aligned with Python backend)
   MAX_ITERATIONS: 2,
 } as const;
@@ -35,7 +35,7 @@ function calculateScore(quality: Quality): number {
  * Check if quality score meets minimum threshold
  */
 function isAcceptable(quality: Quality): boolean {
-  return calculateScore(quality) >= SUMMARY_CONFIG.MIN_QUALITY_SCORE;
+  return calculateScore(quality) >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE;
 }
 
 /**
@@ -61,7 +61,7 @@ function printQualityBreakdown(quality: Quality): void {
 
   if (!isAcceptable(quality)) {
     console.log(
-      `⚠️  Quality below threshold (${SUMMARY_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`
+      `⚠️  Quality below threshold (${ANALYSIS_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`
     );
   }
 }

@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
-import { loadSummaryFontSize } from "./lib/font-size";
+import { loadAnalysisFontSize } from "./lib/font-size";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +33,7 @@ function AppRoutes() {
 
 const App = () => {
   useEffect(() => {
-    loadSummaryFontSize();
+    loadAnalysisFontSize();
   }, []);
 
   return (

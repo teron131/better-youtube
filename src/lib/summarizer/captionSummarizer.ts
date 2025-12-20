@@ -11,7 +11,7 @@ import { createAgent, toolStrategy } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
-import { calculateScore, isAcceptable, printQualityBreakdown, SUMMARY_CONFIG } from "./qualityUtils";
+import { calculateScore, isAcceptable, printQualityBreakdown, ANALYSIS_CONFIG } from "./qualityUtils";
 import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
 
@@ -221,9 +221,9 @@ async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
   printQualityBreakdown(quality);
 
   const percentageScore = calculateScore(quality);
-  const isComplete = 
-    percentageScore >= SUMMARY_CONFIG.MIN_QUALITY_SCORE ||
-    state.iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS;
+  const isComplete =
+    percentageScore >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE ||
+    state.iteration_count >= ANALYSIS_CONFIG.MAX_ITERATIONS;
 
   return {
     quality: quality,
@@ -245,10 +245,10 @@ function shouldContinue(state: GraphState): string {
   if (
     state.quality &&
     !isAcceptable(state.quality) &&
-    state.iteration_count < SUMMARY_CONFIG.MAX_ITERATIONS
+    state.iteration_count < ANALYSIS_CONFIG.MAX_ITERATIONS
   ) {
     console.log(
-      `Quality ${percentageScore}% below threshold ${SUMMARY_CONFIG.MIN_QUALITY_SCORE}%, refining (iteration ${state.iteration_count + 1})`
+      `Quality ${percentageScore}% below threshold ${ANALYSIS_CONFIG.MIN_QUALITY_SCORE}%, refining (iteration ${state.iteration_count + 1})`
     );
     return "analysisNode";
   }
@@ -369,7 +369,7 @@ async function executeFastSummarization(
     progressCallback(`Generating analysis in Fast Mode (Agent) from ${type}.`);
   }
 
-  const model = input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL;
+  const model = input.analysis_model || ANALYSIS_CONFIG.MODEL;
   const llm = createOpenRouterLLM(model, apiKey);
   const targetLang = input.target_language || "auto";
 
@@ -444,8 +444,8 @@ export async function executeSummarizationWorkflow(
 
   const initialState: GraphState = {
     transcript: transcript,
-    analysis_model: input.analysis_model || SUMMARY_CONFIG.ANALYSIS_MODEL,
-    quality_model: input.quality_model || SUMMARY_CONFIG.QUALITY_MODEL,
+    analysis_model: input.analysis_model || ANALYSIS_CONFIG.MODEL,
+    quality_model: input.quality_model || ANALYSIS_CONFIG.QUALITY_MODEL,
     target_language: input.target_language || "auto",
     analysis: null,
     quality: null,
