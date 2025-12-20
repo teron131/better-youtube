@@ -4,7 +4,7 @@
  */
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from '@/lib/constants';
-import { extractVideoIdFromUrl } from '@ui/lib/video-utils';
+import { extractVideoId } from '@/lib/url';
 import {
   ApiError,
   StreamingProcessingResult,
@@ -85,7 +85,7 @@ export async function streamAnalysis(
 
   try {
     // Extract video ID from URL
-    const videoId = extractVideoIdFromUrl(url);
+    const videoId = extractVideoId(url);
     if (!videoId) {
       throw new Error('Invalid YouTube URL');
     }

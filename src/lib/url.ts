@@ -4,15 +4,33 @@
 
 /**
  * Extract video ID from YouTube URL
+ * Supports both youtube.com and youtu.be formats
  */
 export function extractVideoId(url: string): string | null {
+  if (!url) return null;
+
   try {
     const urlObj = new URL(url);
-    return urlObj.searchParams.get("v");
+    const host = urlObj.hostname.replace(/^www\./, "");
+
+    // youtube.com format
+    if (host.includes("youtube.com")) {
+      const v = urlObj.searchParams.get("v");
+      if (v) return v;
+    }
+
+    // youtu.be format
+    if (host === "youtu.be") {
+      const id = urlObj.pathname.replace(/^\//, "");
+      if (id) return id;
+    }
   } catch (e) {
-    console.error("Error extracting video ID:", url, e);
-    return null;
+    // Fallback regex for partial or malformed URLs
+    const match = url.match(/(?:v=|youtu\.be\/)([\w-]+)/);
+    if (match && match[1]) return match[1];
   }
+
+  return null;
 }
 
 /**

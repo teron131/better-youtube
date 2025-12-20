@@ -37,9 +37,9 @@ export function formatDate(dateStr?: string | null): string | null {
 }
 
 /**
- * Format duration string (remove leading zeros)
+ * Trim leading zeros from duration string (e.g. 00:45:30 -> 0:45:30)
  */
-export function formatDuration(duration?: string | null): string | null {
+export function trimDurationLeadingZeros(duration?: string | null): string | null {
   if (!duration) return null;
   return duration.replace(/^0{1,2}:/, "");
 }
