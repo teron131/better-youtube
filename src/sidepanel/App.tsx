@@ -20,6 +20,17 @@ function isExtensionRuntime() {
   return typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/settings" element={<Settings />} />
+      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 const App = () => {
   useEffect(() => {
     loadSummaryFontSize();
@@ -37,12 +48,7 @@ const App = () => {
               v7_relativeSplatPath: true,
             }}
           >
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/settings" element={<Settings />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AppRoutes />
           </HashRouter>
         ) : (
           <BrowserRouter
@@ -51,12 +57,7 @@ const App = () => {
               v7_relativeSplatPath: true,
             }}
           >
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/settings" element={<Settings />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AppRoutes />
           </BrowserRouter>
         )}
       </TooltipProvider>
