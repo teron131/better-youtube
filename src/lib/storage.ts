@@ -53,7 +53,16 @@ const StorageKeys = {
 // Core Storage Operations
 // ============================================================================
 
+const isExtension = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+
 async function storageSet(items: Record<string, unknown>): Promise<void> {
+  if (!isExtension) {
+    Object.entries(items).forEach(([key, value]) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    });
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.set(items, () => {
       if (chrome.runtime.lastError) {
@@ -66,6 +75,11 @@ async function storageSet(items: Record<string, unknown>): Promise<void> {
 }
 
 async function storageGet<T>(key: string): Promise<T | null> {
+  if (!isExtension) {
+    const item = localStorage.getItem(key);
+    return Promise.resolve(item ? JSON.parse(item) as T : null);
+  }
+
   return new Promise((resolve) => {
     chrome.storage.local.get([key], (result) => {
       resolve(result[key] ?? null);
@@ -76,6 +90,17 @@ async function storageGet<T>(key: string): Promise<T | null> {
 async function storageGetMultiple<T extends Record<string, unknown>>(
   keys: string[]
 ): Promise<Partial<T>> {
+  if (!isExtension) {
+    const result: Partial<T> = {};
+    keys.forEach(key => {
+      const item = localStorage.getItem(key);
+      if (item) {
+        (result as any)[key] = JSON.parse(item);
+      }
+    });
+    return Promise.resolve(result);
+  }
+
   return new Promise((resolve) => {
     chrome.storage.local.get(keys, (result) => {
       resolve(result as Partial<T>);
@@ -84,6 +109,11 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
 }
 
 async function storageRemove(keys: string[]): Promise<void> {
+  if (!isExtension) {
+    keys.forEach(key => localStorage.removeItem(key));
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.remove(keys, () => {
       if (chrome.runtime.lastError) {
@@ -96,6 +126,24 @@ async function storageRemove(keys: string[]): Promise<void> {
 }
 
 async function storageGetAll(): Promise<Record<string, unknown>> {
+  if (!isExtension) {
+    const allItems: Record<string, unknown> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          try {
+            allItems[key] = JSON.parse(item);
+          } catch (e) {
+            allItems[key] = item;
+          }
+        }
+      }
+    }
+    return Promise.resolve(allItems);
+  }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, (allItems) => {
       if (chrome.runtime.lastError) {
@@ -203,6 +251,14 @@ export async function getStorageValues<T extends Record<string, unknown>>(
 // ============================================================================
 
 export async function getStorageUsage(): Promise<StorageUsage> {
+  if (!isExtension) {
+    return Promise.resolve({
+      bytesUsed: 0,
+      bytesAvailable: STORAGE.QUOTA_BYTES,
+      percentageUsed: 0,
+    });
+  }
+
   return new Promise((resolve) => {
     chrome.storage.local.getBytesInUse(null, (bytesInUse) => {
       resolve({

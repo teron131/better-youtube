@@ -2,21 +2,22 @@
  * Root application component with routing and global providers.
  */
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as Sonner } from "@ui/components/ui/sonner";
 import { Toaster } from "@ui/components/ui/toaster";
 import { TooltipProvider } from "@ui/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
-import Index from "./pages/Index";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
+import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
 import { loadAnalysisFontSize } from "./lib/font-size";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
 function isExtensionRuntime() {
   if (import.meta.env.MODE === "extension") return true;
+  if (import.meta.env.DEV) return true; // Use HashRouter in dev for easier previewing
   return typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
 }
 
