@@ -37,7 +37,7 @@ export const TIMING = {
 // Storage constants
 export const STORAGE = {
   QUOTA_BYTES: 10 * 1024 * 1024,
-  MAX_STORAGE_BYTES: 9.5 * 1024 * 1024,
+  MAX_STORAGE_BYTES: 9.9 * 1024 * 1024, // 10 MB max
   ESTIMATED_VIDEO_SIZE_BYTES: 30 * 1024,
   CLEANUP_BATCH_SIZE: 10,
 } as const;
