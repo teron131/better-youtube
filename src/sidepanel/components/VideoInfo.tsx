@@ -46,7 +46,7 @@ export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like
   const cleanedUrl = cleanVideoUrl(url);
 
   return (
-    <Card className="p-8 shadow-md">
+    <Card className="p-6 shadow-md">
       <div className="flex flex-col sm:flex-row gap-6">
         <div className="flex-shrink-0 w-full sm:w-64 md:w-80">
           <div className="relative rounded-xl border border-border/60 shadow-lg overflow-hidden">
@@ -60,7 +60,7 @@ export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like
         </div>
         
         <div className="flex-1 space-y-4">
-          <h3 className="text-2xl font-bold text-foreground line-clamp-2 leading-tight">
+          <h3 className="text-2xl font-black tracking-tight text-foreground line-clamp-2 leading-tight">
             {convertedInfo.title || "Title not available"}
           </h3>
           {cleanedUrl && (

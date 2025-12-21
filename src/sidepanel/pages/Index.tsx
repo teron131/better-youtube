@@ -154,7 +154,7 @@ const Index = () => {
   const transcript = analysisResult?.transcript || scrapedTranscript;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell pb-10">
       <div className="absolute top-6 left-0 right-0 z-50">
         <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm fade-in-up">
@@ -165,7 +165,7 @@ const Index = () => {
             variant="ghost"
             size="icon"
             onClick={() => navigate("/settings")}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground transition-all"
           >
             <SettingsIcon className="h-6 w-6" />
           </Button>
@@ -180,7 +180,7 @@ const Index = () => {
 
       <div className="relative">
         <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-12 -mt-10">
-          <div className="max-w-8xl w-full mx-auto space-y-8">
+          <div className="max-w-8xl w-full mx-auto space-y-4">
             {!isExampleMode && videoInfo && (
               <VideoInfo
                 url={videoInfo.url}

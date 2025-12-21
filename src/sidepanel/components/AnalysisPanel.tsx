@@ -147,17 +147,17 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
     <Card className="p-0 shadow-md">
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 via-transparent to-transparent" />
 
-      <div className="relative space-y-4 md:space-y-5 p-6 md:p-8">
+      <div className="relative space-y-4 md:space-y-5 p-6 md:p-6">
         {/* Main Header */}
         <div className="space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
                 <ListChecks className="h-4 w-4" />
                 AI Analysis
               </div>
-              <h3 className="text-2xl md:text-3xl font-bold text-foreground">Structured Analysis</h3>
-              <p className="text-sm text-muted-foreground">Save time on long videos, and keywords in one view.</p>
+              <h3 className="text-2xl md:text-2xl font-black tracking-tight text-foreground">Structured Analysis</h3>
+              <p className="text-sm text-muted-foreground">Detailed breakdown and key takeaways from the video.</p>
             </div>
 
             <div className="flex gap-2">
