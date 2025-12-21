@@ -43,6 +43,10 @@ export const PROGRESS_STEPS = [
  * Get current YouTube video tab
  */
 export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
+  if (typeof chrome === 'undefined' || !chrome.tabs) {
+    return null;
+  }
+
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTab = tabs[0];

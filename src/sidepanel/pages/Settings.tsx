@@ -109,39 +109,35 @@ const Settings = () => {
   }
 
   return (
-    <div className="app-shell pb-20">
-      <div className="container mx-auto px-6 max-w-4xl pt-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-12 fade-in-up">
-          <div className="flex items-center gap-6">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => navigate("/")} 
-              className="rounded-xl border-border/50 bg-background/60 hover:bg-primary/10 hover:border-primary/30 transition-all"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
-              <p className="text-muted-foreground mt-1">Configure your AI models and display preferences</p>
-            </div>
+    <div className="app-shell pb-10">
+      <div className="absolute top-6 left-0 right-0 z-50">
+        <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
+          <div className="fade-in-up px-5">
+            <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
           </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate("/")} 
+            className="text-muted-foreground hover:text-foreground transition-all"
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
+      <div className="container mx-auto px-6 sm:px-8 max-w-4xl pt-24">
+        <div className="grid grid-cols-1 gap-3 fade-in-up stagger-1">
           {/* API Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2 text-primary mb-1">
+            <CardHeader className="p-5 pb-1">
+              <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Key className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">API Configuration</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-foreground">Authentication</CardTitle>
-              <CardDescription>Manage your access keys for transcription and AI services</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
+            <CardContent className="p-5 pt-2 space-y-4">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold">Scrape Creators API Key</Label>
                   <a href="https://scrapecreators.com" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
@@ -155,7 +151,7 @@ const Settings = () => {
                   placeholder="..."
                 />
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="openRouterApiKey" className="text-sm font-semibold">OpenRouter API Key</Label>
                   <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
@@ -174,16 +170,14 @@ const Settings = () => {
 
           {/* Model Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2 text-primary mb-1">
+            <CardHeader className="p-5 pb-1">
+              <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Cpu className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">Model Configuration</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-foreground">Model Selection</CardTitle>
-              <CardDescription>Choose which models power your summaries and captions</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
+            <CardContent className="p-5 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="summarizerModel" className="text-sm font-semibold">Analysis & Summary Model</Label>
                 <EditableCombobox
                   value={settings.summarizerModel}
@@ -194,7 +188,7 @@ const Settings = () => {
                   contentClassName="rounded-xl"
                 />
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label htmlFor="refinerModel" className="text-sm font-semibold">Caption Refinement Model</Label>
                 <EditableCombobox
                   value={settings.refinerModel}
@@ -210,17 +204,15 @@ const Settings = () => {
 
           {/* User Experience */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2 text-primary mb-1">
+            <CardHeader className="p-5 pb-1">
+              <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Zap className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">User Experience</span>
               </div>
-              <CardTitle className="text-2xl font-bold text-foreground">Display & Automation</CardTitle>
-              <CardDescription>Fine-tune how the extension interacts with your viewing experience</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="p-5 pt-2 space-y-4">
               {/* Language */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-border/60">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 rounded-2xl bg-muted/30 border border-border/60">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                     <Globe className="h-5 w-5" />
@@ -246,14 +238,14 @@ const Settings = () => {
               </div>
 
               {/* Toggles */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground">Auto-Generate</h4>
+                      <h4 className="font-bold text-foreground text-sm">Auto-Generate</h4>
                       <p className="text-[10px] text-muted-foreground">Process on video load</p>
                     </div>
                   </div>
@@ -264,13 +256,13 @@ const Settings = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground">Subtitles Overlay</h4>
+                      <h4 className="font-bold text-foreground text-sm">Subtitles Overlay</h4>
                       <p className="text-[10px] text-muted-foreground">Show on video player</p>
                     </div>
                   </div>
@@ -281,13 +273,13 @@ const Settings = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                       <Zap className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground">Quality Check</h4>
+                      <h4 className="font-bold text-foreground text-sm">Quality Check</h4>
                       <p className="text-[10px] text-muted-foreground">Enable refinement loop (Slower)</p>
                     </div>
                   </div>
@@ -298,49 +290,53 @@ const Settings = () => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Font Size */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-primary">
-                  <Type className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Font Size</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[11px] text-muted-foreground uppercase ml-1">Caption Overlay</Label>
-                    <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                      {['S', 'M', 'L'].map((size) => (
-                        <button
-                          key={size}
-                          onClick={() => handleChange("captionFontSize", size)}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                            settings.captionFontSize === size 
-                              ? 'bg-primary text-white shadow-lg' 
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
+          {/* Appearance */}
+          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
+            <CardHeader className="p-5 pb-1">
+              <div className="flex items-center gap-2 text-primary mb-0.5">
+                <Type className="h-4 w-4" />
+                <span className="text-xs font-bold uppercase tracking-widest">Font Size</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-2 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Caption Overlay</Label>
+                  <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
+                    {['S', 'M', 'L'].map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => handleChange("captionFontSize", size)}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                          settings.captionFontSize === size 
+                            ? 'bg-primary text-white shadow-lg' 
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] text-muted-foreground uppercase ml-1">Analysis Panel</Label>
-                    <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                      {['S', 'M', 'L'].map((size) => (
-                        <button
-                          key={size}
-                          onClick={() => handleChange("analysisFontSize", size)}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                            settings.analysisFontSize === size
-                              ? 'bg-primary text-white shadow-lg'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Analysis Panel</Label>
+                  <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
+                    {['S', 'M', 'L'].map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => handleChange("analysisFontSize", size)}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                          settings.analysisFontSize === size
+                            ? 'bg-primary text-white shadow-lg'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

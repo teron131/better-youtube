@@ -14,7 +14,7 @@ import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Button } from "@ui/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -47,13 +47,17 @@ const Index = () => {
       loadCurrentTabUrl();
     };
 
-    chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    chrome.tabs.onActivated.addListener(handleTabActivated);
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.onUpdated.addListener(handleTabUpdate);
+      chrome.tabs.onActivated.addListener(handleTabActivated);
+    }
 
     // Cleanup listeners on unmount
     return () => {
-      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-      chrome.tabs.onActivated.removeListener(handleTabActivated);
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+        chrome.tabs.onActivated.removeListener(handleTabActivated);
+      }
     };
   }, []);
 
@@ -151,15 +155,21 @@ const Index = () => {
 
   return (
     <div className="app-shell">
-      <div className="absolute top-4 right-4 z-50">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/settings")}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <SettingsIcon className="h-6 w-6" />
-        </Button>
+      <div className="absolute top-6 left-0 right-0 z-50">
+        <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm fade-in-up">
+            <Sparkles className="h-4 w-4" />
+            Powered by Scrape Creators & OpenRouter
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/settings")}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <SettingsIcon className="h-6 w-6" />
+          </Button>
+        </div>
       </div>
 
       <HeroSection
