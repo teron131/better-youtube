@@ -108,26 +108,26 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full p-8 h-auto justify-between hover:bg-transparent transition-all duration-300"
+            className="w-full p-6 h-auto justify-between hover:bg-transparent transition-all duration-300"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
+                <FileText className="w-6 h-6" />
               </div>
               <div className="text-left">
-                <span className="text-2xl font-bold text-foreground block">Transcript</span>
-                <span className="text-muted-foreground">Complete video transcription</span>
+                <span className="text-2xl font-black tracking-tight text-foreground block">Transcript</span>
+                <span className="text-muted-foreground text-sm">Complete video transcription</span>
               </div>
             </div>
             {isOpen ? (
-              <ChevronUp className="w-6 h-6 text-primary" />
+              <ChevronUp className="h-6 w-6 text-primary" />
             ) : (
-              <ChevronDown className="w-6 h-6 text-primary" />
+              <ChevronDown className="h-6 w-6 text-primary" />
             )}
           </Button>
         </CollapsibleTrigger>
         
-        <CollapsibleContent className="px-8 pb-8">
+        <CollapsibleContent className="px-6 pb-6">
           <div className="space-y-6">
             <div className="flex gap-3 items-center">
               <div className="relative flex-1">

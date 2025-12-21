@@ -112,7 +112,7 @@ const Settings = () => {
     <div className="app-shell pb-10">
       <div className="absolute top-6 left-0 right-0 z-50">
         <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
-          <div className="fade-in-up px-5">
+          <div className="fade-in-up px-6">
             <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
           </div>
           <Button 
@@ -130,13 +130,13 @@ const Settings = () => {
         <div className="grid grid-cols-1 gap-3 fade-in-up stagger-1">
           {/* API Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-5 pb-1">
+            <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Key className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">API Configuration</span>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2 space-y-4">
+            <CardContent className="p-6 pt-2 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold">Scrape Creators API Key</Label>
@@ -170,13 +170,13 @@ const Settings = () => {
 
           {/* Model Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-5 pb-1">
+            <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Cpu className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">Model Configuration</span>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="summarizerModel" className="text-sm font-semibold">Analysis & Summary Model</Label>
                 <EditableCombobox
@@ -204,13 +204,13 @@ const Settings = () => {
 
           {/* User Experience */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-5 pb-1">
+            <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Zap className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">User Experience</span>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2 space-y-4">
+            <CardContent className="p-6 pt-2 space-y-4">
               {/* Language */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 rounded-2xl bg-muted/30 border border-border/60">
                 <div className="flex items-center gap-4">
@@ -295,13 +295,13 @@ const Settings = () => {
 
           {/* Appearance */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-5 pb-1">
+            <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Type className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">Font Size</span>
               </div>
             </CardHeader>
-            <CardContent className="p-5 pt-2 space-y-3">
+            <CardContent className="p-6 pt-2 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[11px] text-muted-foreground uppercase ml-1">Caption Overlay</Label>

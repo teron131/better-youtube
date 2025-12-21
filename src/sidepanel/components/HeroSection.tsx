@@ -44,7 +44,7 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
                 >
                   <div className="flex items-center gap-2 text-primary">
                     {item.icon}
-                    <span className="text-xs uppercase tracking-wide">{item.label}</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
                   </div>
                   <p className="mt-2 text-sm font-semibold text-foreground">{item.value}</p>
                 </div>
