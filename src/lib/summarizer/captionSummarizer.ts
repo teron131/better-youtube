@@ -3,13 +3,19 @@
  * Implements analysis generation with quality verification and refinement loop
  */
 
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { createAgent, toolStrategy } from "langchain";
+import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
+import {
+  filterContent,
+  GarbageIdentificationSchema,
+  tagContent,
+  untagContent,
+} from "../lineTag";
 import { PromptBuilder } from "./promptBuilder";
 import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
@@ -18,6 +24,8 @@ import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 // ============================================================================ 
 // Model Client
 // ============================================================================ 
+
+const FAST_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025";
 
 /**
  * Create OpenRouter LLM instance using LangChain
@@ -92,6 +100,63 @@ function createScrapYoutubeTool(input: SummarizationInput) {
       }),
     }
   );
+}
+
+// ============================================================================ 
+// Middleware
+// ============================================================================ 
+
+const GARBAGE_FILTER_PROMPT = "Identify and remove garbage sections such as promotional and meaningless content such as cliche intros, outros, filler, sponsorships, and other irrelevant segments from the transcript. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed to clean the transcript.";
+
+function createGarbageFilterMiddleware(apiKey: string) {
+  return createMiddleware({
+    name: "garbageFilterMiddleware",
+    wrapToolCall: async (request, handler) => {
+      const toolName = request.tool?.name ?? request.toolCall.name;
+      if (toolName !== "scrap_youtube_tool") {
+        return handler(request);
+      }
+
+      const result = await handler(request);
+      if (!ToolMessage.isInstance(result) || result.status === "error") {
+        return result;
+      }
+
+      const transcript = typeof result.content === "string" ? result.content : "";
+      if (!transcript.trim() || transcript.startsWith("Error")) {
+        return result;
+      }
+
+      const taggedTranscript = tagContent(transcript);
+      const llm = createOpenRouterLLM(FAST_MODEL, apiKey);
+      const structuredLLM = llm.withStructuredOutput(GarbageIdentificationSchema, {
+        method: "jsonMode",
+      });
+
+      const prompt = ChatPromptTemplate.fromMessages([
+        ["system", GARBAGE_FILTER_PROMPT],
+        ["human", "{tagged_transcript}"],
+      ]);
+
+      try {
+        const garbage = await prompt.pipe(structuredLLM).invoke({
+          tagged_transcript: taggedTranscript,
+        });
+
+        if (garbage.garbage_ranges?.length) {
+          const filteredTranscript = filterContent(taggedTranscript, garbage.garbage_ranges);
+          result.content = untagContent(filteredTranscript);
+          console.log(
+            `🧹 Middleware removed ${garbage.garbage_ranges.length} garbage sections from tool result.`
+          );
+        }
+      } catch (error) {
+        console.warn("Garbage filter middleware failed, using raw transcript.", error);
+      }
+
+      return result;
+    },
+  });
 }
 
 // ============================================================================ 
@@ -378,6 +443,7 @@ async function executeFastSummarization(
     tools: tools,
     systemPrompt: systemPrompt,
     responseFormat: toolStrategy(AnalysisSchema),
+    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey)] : [],
   });
 
   const response = await agent.invoke({
