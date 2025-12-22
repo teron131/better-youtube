@@ -14,6 +14,8 @@ import { useVideoProcessing, VideoProcessingOptions } from "@ui/hooks/use-video-
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { getStorageValue, setStorageValue } from "@/lib/storage";
 import { Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +26,7 @@ const Index = () => {
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
+  const [showSubtitles, setShowSubtitles] = useState<boolean>(DEFAULTS.SHOW_SUBTITLES);
   const { toast } = useToast();
 
   // Get current tab URL on mount and when tab changes
@@ -60,6 +63,55 @@ const Index = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const loadShowSubtitles = async () => {
+      try {
+        const stored = await getStorageValue<boolean>(STORAGE_KEYS.SHOW_SUBTITLES);
+        if (stored !== null) {
+          setShowSubtitles(stored !== false);
+        }
+      } catch (error) {
+        console.error("Failed to load subtitles overlay setting:", error);
+      }
+    };
+
+    loadShowSubtitles();
+  }, []);
+
+  const handleToggleSubtitles = async (nextState: boolean) => {
+    setShowSubtitles(nextState);
+
+    try {
+      await setStorageValue(STORAGE_KEYS.SHOW_SUBTITLES, nextState);
+    } catch (error) {
+      console.error("Failed to save subtitles overlay setting:", error);
+      setShowSubtitles(!nextState);
+      toast({
+        title: "Update Failed",
+        description: "Couldn't update subtitles overlay setting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (typeof chrome !== "undefined" && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        tabs.forEach((tab) => {
+          if (!tab.id) return;
+          chrome.tabs.sendMessage(tab.id, {
+            action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES,
+            showSubtitles: nextState,
+          }, () => {
+            if (chrome.runtime.lastError) {
+              // Ignore when the content script isn't present (non-YouTube pages).
+              return;
+            }
+          });
+        });
+      });
+    }
+  };
 
   const {
     isLoading,
@@ -157,9 +209,34 @@ const Index = () => {
     <div className="app-shell pb-10">
       <div className="absolute top-6 left-0 right-0 z-50">
         <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm fade-in-up">
-            <Sparkles className="h-4 w-4" />
-            Powered by Scrape Creators & OpenRouter
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleToggleSubtitles(!showSubtitles)}
+              aria-pressed={showSubtitles}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
+                showSubtitles
+                  ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_rgba(239,68,68,0.2)]"
+                  : "border-border/60 bg-muted/30 text-muted-foreground"
+              }`}
+              title="Toggle subtitles overlay on the video player"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  showSubtitles
+                    ? "bg-primary shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                    : "bg-muted-foreground/60"
+                }`}
+              />
+              Subtitles Overlay
+              <span
+                className={`text-[10px] font-bold ${
+                  showSubtitles ? "text-primary/80" : "text-muted-foreground/70"
+                }`}
+              >
+                {showSubtitles ? "On" : "Off"}
+              </span>
+            </button>
           </div>
           <Button
             variant="ghost"

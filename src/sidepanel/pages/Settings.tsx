@@ -9,7 +9,7 @@ import { Label } from "@ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { useToast } from "@ui/hooks/use-toast";
-import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, ShieldCheck, Sparkles, Type, Zap } from "lucide-react";
+import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, Sparkles, Type, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { applyAnalysisFontSize } from "../lib/font-size";
@@ -23,7 +23,6 @@ const SETTINGS_KEYS = [
   "captionFontSize",
   "analysisFontSize",
   "autoGenerate",
-  "showSubtitles",
   "fastMode",
 ];
 
@@ -36,7 +35,6 @@ const DEFAULT_SETTINGS = {
   captionFontSize: "M",
   analysisFontSize: "M",
   autoGenerate: false,
-  showSubtitles: true,
   fastMode: false,
 };
 
@@ -252,23 +250,6 @@ const Settings = () => {
                   <Switch
                     checked={settings.autoGenerate}
                     onCheckedChange={(checked) => handleChange("autoGenerate", checked)}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-foreground text-sm">Subtitles Overlay</h4>
-                      <p className="text-[10px] text-muted-foreground">Show on video player</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={settings.showSubtitles}
-                    onCheckedChange={(checked) => handleChange("showSubtitles", checked)}
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
