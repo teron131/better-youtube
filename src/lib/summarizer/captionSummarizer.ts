@@ -3,17 +3,17 @@
  * Implements analysis generation with quality verification and refinement loop
  */
 
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { tool } from "@langchain/core/tools";
+import { HumanMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { createAgent, toolStrategy } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
+import { createAgent, toolStrategy } from "langchain";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
-import { calculateScore, isAcceptable, printQualityBreakdown, ANALYSIS_CONFIG } from "./qualityUtils";
-import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
+import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
+import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 
 // ============================================================================ 
 // Model Client
@@ -134,17 +134,14 @@ ${JSON.stringify(state.quality, null, 2)}
 
 Please provide an improved version that addresses the specific issues identified above to improve the overall quality score.`;
 
-    const improvementSystemPrompt = PromptBuilder.buildImprovementPrompt();
+    const improvementSystemPrompt = PromptBuilder.buildImprovementPrompt(
+      state.target_language || "auto"
+    );
     const transcriptContext = `Original Transcript:\n${state.transcript}`;
     const fullImprovementPrompt = `${transcriptContext}\n\n${improvementContext}`;
 
-    const languageInstruction = PromptBuilder._getLanguageInstruction(
-      state.target_language || "auto",
-      true
-    );
-
     prompt = ChatPromptTemplate.fromMessages([
-      ["system", improvementSystemPrompt + languageInstruction],
+      ["system", improvementSystemPrompt],
       ["human", "{improvement_prompt}"],
     ]);
 
@@ -166,14 +163,9 @@ Please provide an improved version that addresses the specific issues identified
     const targetLang = state.target_language || "auto";
     const analysisPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
 
-    const humanMessage = 
-      targetLang === "auto"
-        ? "{content}"
-        : `{content}\n\nRemember: Write ALL output in ${PromptBuilder.LANGUAGE_DESCRIPTIONS[targetLang] || targetLang}. Do not use English or any other language.`;
-
     prompt = ChatPromptTemplate.fromMessages([
       ["system", analysisPrompt],
-      ["human", humanMessage],
+      ["human", "{content}"],
     ]);
 
     const chain = prompt.pipe(structuredLLM);
