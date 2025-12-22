@@ -7,15 +7,15 @@ import { ErrorDisplay } from "@ui/components/ErrorDisplay";
 import { HeroSection } from "@ui/components/HeroSection";
 import { ProcessingStatus } from "@ui/components/ProcessingStatus";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
+import { Button } from "@ui/components/ui/button";
 import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoProcessing, VideoProcessingOptions } from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
-import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Sparkles } from "lucide-react";
-import { Button } from "@ui/components/ui/button";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
