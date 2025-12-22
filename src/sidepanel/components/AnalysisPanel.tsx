@@ -147,17 +147,17 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
     <Card className="p-0 shadow-md">
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 via-transparent to-transparent" />
 
-      <div className="relative space-y-4 md:space-y-5 p-6 md:p-6">
+      <div className="relative space-y-6 p-6 md:p-7">
         {/* Main Header */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary shadow-sm">
                 <ListChecks className="h-4 w-4" />
                 AI Analysis
               </div>
-              <h3 className="text-2xl md:text-2xl font-black tracking-tight text-foreground">Structured Analysis</h3>
-              <p className="text-sm text-muted-foreground">Detailed breakdown and key takeaways from the video.</p>
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Structured Analysis</h3>
+              <p className="text-sm md:text-base text-muted-foreground">Detailed breakdown and key takeaways from the video.</p>
             </div>
 
             <div className="flex gap-2">
@@ -166,10 +166,10 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline"
-                      size="lg"
+                      size="icon"
                       onClick={handleRegenerate}
                       disabled={isRegenerating}
-                      className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <RefreshCw className={`w-5 h-5 ${isRegenerating ? 'animate-spin' : ''}`} />
                     </Button>
@@ -183,9 +183,9 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="icon"
                     onClick={copyToClipboard}
-                    className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
                     <Copy className="w-5 h-5" />
                   </Button>
@@ -198,7 +198,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
           </div>
 
           {/* Search Bar */}
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -207,7 +207,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pl-10 pr-24 h-11 border-border/60 focus:border-primary/50"
+                className="pl-10 pr-24 h-10 border-border/60 focus:border-primary/50"
               />
               {searchQuery && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
@@ -230,17 +230,17 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
+                  size="icon"
                   onClick={() => navigateMatches('prev')}
-                  className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
                   <ChevronUp className="w-5 h-5" />
                 </Button>
                 <Button
                   variant="outline"
-                  size="lg"
+                  size="icon"
                   onClick={() => navigateMatches('next')}
-                  className="gap-3 h-11 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
                   <ChevronDown className="w-5 h-5" />
                 </Button>
@@ -249,7 +249,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
           </div>
         </div>
 
-        <div ref={contentRef} className="space-y-7 md:space-y-8">
+        <div ref={contentRef} className="space-y-6 md:space-y-7">
           {/* Summary Section */}
           {convertedAnalysis.summary && (
             <div className="space-y-2.5">
@@ -265,7 +265,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
           {convertedAnalysis.takeaways && convertedAnalysis.takeaways.length > 0 && (
             <div className="space-y-2.5">
               <SectionHeader icon={<Lightbulb className="w-4 h-4 md:w-5 md:h-5" />} title="Key Takeaways" />
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {convertedAnalysis.takeaways.map((item, index) => (
                   <li key={index} className="flex items-start gap-2 md:gap-3">
                     <div className="mt-1.5 flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -288,10 +288,10 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
             <div className="space-y-2.5">
               <SectionHeader icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />} title="Video Chapters" />
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 {convertedAnalysis.chapters.map((chapter, index) => (
-                  <div key={index} className="space-y-1.5">
-                    <h5 className="summary-subheading font-semibold text-primary">
+                  <div key={index} className="space-y-2">
+                    <h5 className="summary-subheading text-sm md:text-base font-semibold text-primary">
                       <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
                         {index + 1}
                       </span>
@@ -326,7 +326,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                 {convertedAnalysis.keywords.map((keyword, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
                     dangerouslySetInnerHTML={{ __html: highlightText(keyword) }}
                   />
                 ))}
