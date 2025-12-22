@@ -289,6 +289,7 @@ async function handleGenerateSummary(
     openRouterApiKey,
     modelSelection,
     qualityModel,
+    refinerModel,
     targetLanguage,
     fastMode,
     forceRegenerate
@@ -401,6 +402,7 @@ async function handleGenerateSummary(
         scrapeCreatorsApiKey: scrapeCreatorsApiKey,
         analysis_model: modelSelection,
         quality_model: qualityModel || modelSelection,
+        refiner_model: refinerModel,
         target_language: targetLanguage,
         fast_mode: fastMode,
       },
