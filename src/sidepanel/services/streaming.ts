@@ -197,19 +197,20 @@ export async function streamAnalysis(
     });
 
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        {
-          action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-          videoId,
-          transcript: options.transcript,
-          scrapeCreatorsApiKey,
-          openRouterApiKey,
-          modelSelection: options.analysisModel || summarizerModel,
-          qualityModel: options.qualityModel,
-          targetLanguage: options.targetLanguage || targetLanguage,
-          fastMode: options.fastMode,
-          forceRegenerate: options.forceRegenerate,
-        },
+        chrome.runtime.sendMessage(
+          {
+            action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
+            videoId,
+            transcript: options.transcript,
+            scrapeCreatorsApiKey,
+            openRouterApiKey,
+            modelSelection: options.analysisModel || summarizerModel,
+            qualityModel: options.qualityModel,
+            refinerModel,
+            targetLanguage: options.targetLanguage || targetLanguage,
+            fastMode: options.fastMode,
+            forceRegenerate: options.forceRegenerate,
+          },
         (response) => {
           if (chrome.runtime.lastError) {
             const error: ApiError = {

@@ -16,6 +16,7 @@ import {
   tagContent,
   untagContent,
 } from "../lineTag";
+import { DEFAULTS } from "../constants";
 import { PromptBuilder } from "./promptBuilder";
 import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
@@ -24,8 +25,6 @@ import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 // ============================================================================ 
 // Model Client
 // ============================================================================ 
-
-const FAST_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025";
 
 /**
  * Create OpenRouter LLM instance using LangChain
@@ -108,7 +107,7 @@ function createScrapYoutubeTool(input: SummarizationInput) {
 
 const GARBAGE_FILTER_PROMPT = "Identify and remove garbage sections such as promotional and meaningless content such as cliche intros, outros, filler, sponsorships, and other irrelevant segments from the transcript. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed to clean the transcript.";
 
-function createGarbageFilterMiddleware(apiKey: string) {
+function createGarbageFilterMiddleware(apiKey: string, model: string) {
   return createMiddleware({
     name: "garbageFilterMiddleware",
     wrapToolCall: async (request, handler) => {
@@ -128,7 +127,7 @@ function createGarbageFilterMiddleware(apiKey: string) {
       }
 
       const taggedTranscript = tagContent(transcript);
-      const llm = createOpenRouterLLM(FAST_MODEL, apiKey);
+      const llm = createOpenRouterLLM(model, apiKey);
       const structuredLLM = llm.withStructuredOutput(GarbageIdentificationSchema, {
         method: "jsonMode",
       });
@@ -400,6 +399,7 @@ export interface SummarizationInput {
   scrapeCreatorsApiKey?: string;
   analysis_model?: string;
   quality_model?: string;
+  refiner_model?: string;
   target_language?: string;
   fast_mode?: boolean;
 }
@@ -427,6 +427,7 @@ async function executeFastSummarization(
   }
 
   const model = input.analysis_model || ANALYSIS_CONFIG.MODEL;
+  const refinerModel = input.refiner_model || DEFAULTS.MODEL_REFINER;
   const llm = createOpenRouterLLM(model, apiKey);
   const targetLang = input.target_language || "auto";
 
@@ -443,7 +444,7 @@ async function executeFastSummarization(
     tools: tools,
     systemPrompt: systemPrompt,
     responseFormat: toolStrategy(AnalysisSchema),
-    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey)] : [],
+    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey, refinerModel)] : [],
   });
 
   const response = await agent.invoke({
