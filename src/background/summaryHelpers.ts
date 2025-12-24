@@ -33,16 +33,23 @@ export async function broadcastStoredAnalysis(
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
-  chrome.runtime.sendMessage({
-    action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-    videoId,
-    summary: {
-      analysis: storedAnalysis.analysis,
-      quality: storedAnalysis.quality,
+  chrome.runtime.sendMessage(
+    {
+      action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
+      videoId,
+      summary: {
+        analysis: storedAnalysis.analysis,
+        quality: storedAnalysis.quality,
+      },
+      videoInfo,
+      transcript: null,
     },
-    videoInfo,
-    transcript: null,
-  });
+    () => {
+      if (chrome.runtime.lastError) {
+        // Ignore when no listeners exist.
+      }
+    }
+  );
 
   console.log(`Returned stored analysis for video: ${videoId}`);
 }
@@ -144,13 +151,20 @@ export async function broadcastSummaryResult(
   );
 
   // Send result to sidepanel
-  chrome.runtime.sendMessage({
-    action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-    videoId,
-    summary: result,
-    videoInfo,
-    transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
-  });
+  chrome.runtime.sendMessage(
+    {
+      action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
+      videoId,
+      summary: result,
+      videoInfo,
+      transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // Ignore when no listeners exist.
+      }
+    }
+  );
 
   console.log(`Summarization workflow completed for video: ${videoId}`);
 }

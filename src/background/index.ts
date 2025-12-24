@@ -128,7 +128,11 @@ async function fetchTranscript(
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`API error response (attempt ${i+1}):`, errorText);
+          if (i === retries) {
+            console.error(`API error response (attempt ${i + 1}):`, errorText);
+          } else {
+            console.warn(`API error response (attempt ${i + 1}):`, errorText);
+          }
           const error = new Error(`Scrape API error: ${response.status} - ${errorText}`);
           if (response.status === 401 || response.status === 403) {
             return null;
@@ -144,10 +148,15 @@ async function fetchTranscript(
       } catch (error) {
         clearTimeout(timeoutId);
         const err = error instanceof Error ? error : new Error(String(error));
+        const isLastAttempt = i === retries;
         if (err.name === "AbortError") {
-          console.error(`Fetch transcript timeout after 30s (attempt ${i+1})`);
+          const message = `Fetch transcript timeout after 30s (attempt ${i + 1})`;
+          if (isLastAttempt) console.error(message);
+          else console.warn(message);
         } else {
-          console.error(`Fetch transcript error (attempt ${i+1}):`, err.message);
+          const message = `Fetch transcript error (attempt ${i + 1}): ${err.message}`;
+          if (isLastAttempt) console.error(message);
+          else console.warn(message);
         }
         if (i === retries) return null;
       }
@@ -198,12 +207,19 @@ async function handleScrapeVideo(
     hasTranscript: !!transcriptText && transcriptText.length > 0
   });
 
-  chrome.runtime.sendMessage({
-    action: MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED,
-    videoId,
-    videoInfo,
-    transcript: transcriptText
-  });
+  chrome.runtime.sendMessage(
+    {
+      action: MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED,
+      videoId,
+      videoInfo,
+      transcript: transcriptText,
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // No listeners (e.g., sidepanel closed) is expected sometimes.
+      }
+    }
+  );
 }
 
 async function handleFetchSubtitles(
@@ -255,11 +271,19 @@ async function handleFetchSubtitles(
     );
 
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
-        videoId,
-        subtitles: refinedSegments,
-      });
+      chrome.tabs.sendMessage(
+        tabId,
+        {
+          action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
+          videoId,
+          subtitles: refinedSegments,
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            // Ignore when content script isn't available.
+          }
+        }
+      );
     }
     console.log(`Refinement completed for video: ${videoId}`);
   })().catch(error => console.error("Refinement error:", error));
@@ -358,10 +382,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case MESSAGE_ACTIONS.GENERATE_SUMMARY:
       handleGenerateSummary(message, tabId, sendResponse).catch(error => {
         console.error("Summary error:", error);
-        chrome.runtime.sendMessage({
-          action: MESSAGE_ACTIONS.SHOW_ERROR,
-          error: String(error),
-        });
+        chrome.runtime.sendMessage(
+          {
+            action: MESSAGE_ACTIONS.SHOW_ERROR,
+            error: String(error),
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              // Ignore when no listeners exist.
+            }
+          }
+        );
       });
       return true;
 
