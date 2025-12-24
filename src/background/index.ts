@@ -7,6 +7,8 @@ import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
 import { SubtitleSegment, VideoMetadata, getStoredAnalysis, getStoredSubtitles, getStoredVideoMetadata, saveAnalysis, saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
+import { checkStoredAnalysis, broadcastStoredAnalysis, resolveTranscriptSource, resolveVideoInfo, broadcastSummaryResult } from "./summaryHelpers";
+import { validateApiKeys, validateVideoId } from "./validation";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -25,7 +27,7 @@ interface ChannelInfo {
   title: string;
 }
 
-interface ScrapeCreatorsResponse {
+export interface ScrapeCreatorsResponse {
   transcript: ApiTranscriptSegment[];
   transcript_only_text?: string;
   // Video Info
@@ -297,111 +299,43 @@ async function handleGenerateSummary(
     forceRegenerate
   } = message;
 
-  if (!scrapeCreatorsApiKey || !openRouterApiKey) {
-    sendResponse({ status: "error", message: "Missing API keys" });
+  // Validate API keys
+  const validation = validateApiKeys({ scrapeCreatorsApiKey, openRouterApiKey });
+  if (!validation.valid) {
+    sendResponse({ status: "error", message: validation.error });
     return;
   }
 
   sendResponse({ status: "processing" });
 
   try {
-    // Check for stored analysis first (unless force regenerate)
-    if (!forceRegenerate) {
-      const storedAnalysis = await getStoredAnalysis(videoId);
-      if (storedAnalysis &&
-          storedAnalysis.modelUsed === modelSelection &&
-          storedAnalysis.targetLanguage === targetLanguage) {
-        console.log(`Using stored analysis for video: ${videoId}`);
-
-        // Get video info
-        const videoInfo = await getStoredVideoMetadata(videoId);
-
-        // Return stored analysis
-        chrome.runtime.sendMessage({
-          action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-          videoId,
-          summary: {
-            analysis: storedAnalysis.analysis,
-            quality: storedAnalysis.quality
-          },
-          videoInfo,
-          transcript: null
-        });
-        console.log(`Returned stored analysis for video: ${videoId}`);
-        return;
-      }
+    // Check for stored analysis (unless force regenerate)
+    const storedAnalysis = await checkStoredAnalysis(videoId, modelSelection, targetLanguage, forceRegenerate);
+    if (storedAnalysis) {
+      await broadcastStoredAnalysis(videoId, storedAnalysis);
+      return;
     }
 
-    // 1. Determine input source (Message Transcript -> Cached Transcript -> URL)
-    let transcript_or_url = "";
+    // Resolve transcript source (message → cache → stored → URL)
+    const transcript_or_url = await resolveTranscriptSource(videoId, messageTranscript, transcriptCache);
 
-    if (messageTranscript) {
-      transcript_or_url = messageTranscript;
-      console.log(`Using provided transcript for summary of ${videoId}`);
-    } else {
-      // Try to get transcript from cache (should be available from scrape step)
-      const cached = transcriptCache.get(videoId);
-      if (cached && cached.data.transcript_only_text) {
-        transcript_or_url = cached.data.transcript_only_text;
-        console.log(`Using cached transcript for summary of ${videoId}`);
-      } else if (cached && cached.data.transcript?.length > 0) {
-        transcript_or_url = cached.data.transcript.map(s => s.text).join(" ");
-        console.log(`Using cached transcript segments for summary of ${videoId}`);
-      } else {
-        // Fallback: Try stored subtitles (refined captions)
-        const storedSubtitles = await getStoredSubtitles(videoId);
-        if (storedSubtitles && storedSubtitles.length > 0) {
-          transcript_or_url = storedSubtitles.map((s) => s.text).join(" ");
-          console.log(`Using stored subtitles for summary of ${videoId}`);
-        } else {
-          // Last resort: pass the URL and let workflow fetch
-          transcript_or_url = `https://www.youtube.com/watch?v=${videoId}`;
-          console.log(`No cached transcript for ${videoId}, will use URL.`);
-        }
-      }
-    }
-
-    // 2. Get video info from storage first, then cache, then fetch
-    let videoInfo: VideoMetadata | null = await getStoredVideoMetadata(videoId);
-
-    if (!videoInfo) {
-      const cached = transcriptCache.get(videoId);
-      if (cached) {
-        videoInfo = extractVideoInfo(cached.data, videoId);
-        console.log(`Using cached video info for ${videoId}`);
-      } else {
-        // Fetch video info if not available (shouldn't happen if scrape was called first)
-        console.log(`No stored/cached video info for ${videoId}, fetching...`);
-        const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-        if (data) {
-          videoInfo = extractVideoInfo(data, videoId);
-          await saveVideoMetadata(videoId, videoInfo);
-        } else {
-          // Fallback to minimal info
-          videoInfo = {
-            url: `https://www.youtube.com/watch?v=${videoId}`,
-            title: null,
-            thumbnail: null,
-            author: null,
-            duration: null,
-            upload_date: null,
-            view_count: null,
-            like_count: null,
-          };
-        }
-      }
-    } else {
-      console.log(`Using stored video info for ${videoId}`);
-    }
+    // Resolve video info (stored → cache → fetch)
+    const videoInfo = await resolveVideoInfo(
+      videoId,
+      transcriptCache,
+      extractVideoInfo,
+      fetchTranscript,
+      scrapeCreatorsApiKey
+    );
 
     console.log(`Input ready for summary (type: ${transcript_or_url.startsWith("http") ? "URL" : "Transcript"}). Starting workflow...`);
 
-    // Use the summarizer workflow
+    // Execute summarization workflow
     const result = await executeSummarizationWorkflow(
       {
-        transcript_or_url: transcript_or_url,
-        videoId: videoId,
-        scrapeCreatorsApiKey: scrapeCreatorsApiKey,
+        transcript_or_url,
+        videoId,
+        scrapeCreatorsApiKey,
         analysis_model: modelSelection,
         quality_model: qualityModel || modelSelection,
         refiner_model: refinerModel,
@@ -411,24 +345,15 @@ async function handleGenerateSummary(
       openRouterApiKey
     );
 
-    // Save analysis to storage for future retrieval
-    await saveAnalysis(
+    // Broadcast result and save to storage
+    await broadcastSummaryResult(
       videoId,
-      result.analysis,
-      modelSelection,
-      targetLanguage,
-      result.quality
-    );
-
-    // Send result back to sidepanel with proper video info
-    chrome.runtime.sendMessage({
-      action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-      videoId,
-      summary: result,
+      result,
       videoInfo,
-      transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url
-    });
-    console.log(`Summarization workflow completed for video: ${videoId}`);
+      transcript_or_url,
+      modelSelection,
+      targetLanguage
+    );
   } catch (error) {
     console.error("Summary error:", error);
     chrome.runtime.sendMessage({
