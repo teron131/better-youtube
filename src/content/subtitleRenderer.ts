@@ -126,8 +126,18 @@ function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
   const foundSubtitle = findSubtitleAtTime(currentSubtitles, currentTime);
 
   if (foundSubtitle) {
-    if (subtitleText.textContent !== foundSubtitle.text) {
-      subtitleText.textContent = foundSubtitle.text;
+    const normalizedText = (foundSubtitle.text || "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
+
+    if (!normalizedText) {
+      hideCurrentSubtitle();
+      return;
+    }
+
+    if (subtitleText.textContent !== normalizedText) {
+      subtitleText.textContent = normalizedText;
     }
     subtitleContainer.style.display = "block";
   } else {

@@ -16,7 +16,7 @@ import {
   tagContent,
   untagContent,
 } from "../lineTag";
-import { DEFAULTS } from "../constants";
+import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import { PromptBuilder } from "./promptBuilder";
 import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
@@ -65,13 +65,18 @@ function createScrapYoutubeTool(input: SummarizationInput) {
       }
 
       try {
+        const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
+        requestUrl.searchParams.set("url", youtube_url);
+        requestUrl.searchParams.set("get_transcript", "true");
+
         const response = await fetch(
-          `https://api.scrapecreators.com/v1/youtube/video?url=${youtube_url}&get_transcript=true`,
+          requestUrl.toString(),
           {
             headers: {
               "x-api-key": input.scrapeCreatorsApiKey,
               "Accept": "application/json",
             },
+            cache: "no-store",
           }
         );
 
