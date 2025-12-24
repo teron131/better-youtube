@@ -3,9 +3,8 @@
  * Handles subtitle display, auto-generation, and communication with background script
  */
 
-import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/lib/constants";
+import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import {
@@ -14,6 +13,16 @@ import {
   scheduleAutoGeneration,
   validateAutoGenerationConditions,
 } from "./autoGeneration";
+import {
+  buildStorageKeysForVideo,
+  determineToggleState,
+  executeScrapeForAutoGen,
+  getAutoGenModels,
+  getRefinerModelFromStorage,
+  triggerCaptionRefinement,
+  triggerSummaryGeneration,
+  validateLoadContext,
+} from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
 import {
   applyCaptionFontSize,
@@ -35,17 +44,6 @@ let urlObserver: MutationObserver | null = null;
 
 interface StorageResult {
   [key: string]: unknown;
-}
-
-/**
- * Get refiner model from storage
- */
-async function getRefinerModelFromStorage(storageResult: StorageResult): Promise<string> {
-  const customModel = storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] as string | undefined;
-  if (customModel) return customModel;
-
-  const recommendedModel = storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] as string | undefined;
-  return recommendedModel || DEFAULTS.MODEL_REFINER;
 }
 
 /**
@@ -86,32 +84,13 @@ function loadStoredSubtitles(): void {
       return;
     }
 
-    if (!window.location.href.includes("youtube.com/watch")) {
-      console.log("Not on a video page, skipping subtitle load.");
+    const validation = validateLoadContext();
+    if (!validation.isValid || !validation.videoId) {
       return;
     }
 
-    const videoId = extractVideoId(window.location.href);
-    if (!videoId) {
-      console.warn("Could not extract video ID, skipping subtitle load.");
-      return;
-    }
-
-    const keysToFetch = [
-      videoId,
-      STORAGE_KEYS.AUTO_GENERATE,
-      STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-      STORAGE_KEYS.OPENROUTER_API_KEY,
-      STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-      STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-      STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
-      STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-      STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-      STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-      STORAGE_KEYS.SHOW_SUBTITLES,
-      STORAGE_KEYS.FAST_MODE,
-      STORAGE_KEYS.QUALITY_MODEL,
-    ];
+    const videoId = validation.videoId;
+    const keysToFetch = [videoId, ...buildStorageKeysForVideo()];
 
     chrome.storage.local.get(keysToFetch, (result) => {
       try {
@@ -153,75 +132,25 @@ async function triggerAutoGeneration(
   const scrapeCreatorsApiKey = storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] as string;
   const openRouterApiKey = storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] as string;
 
-  // Step 1: Scrape video data first (this saves video metadata and caches transcript)
-  console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
-
-  const scrapeResult = await sendChromeMessage<{ status: string; hasTranscript?: boolean }>({
-    action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
-    videoId,
-    scrapeCreatorsApiKey,
-  }).catch((error) => {
-    console.error("Error scraping video:", error.message);
-    return { status: "error" as const, hasTranscript: undefined };
-  });
-
-  if (scrapeResult.status !== "success") {
-    console.error(`[Auto-gen] Scrape failed for ${videoId}, aborting auto-generation`);
+  // Step 1: Scrape video data first
+  const scrapeSuccess = await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey);
+  if (!scrapeSuccess) {
     clearAutoGenerationTrigger(videoId);
     return;
   }
 
-  console.log(`[Auto-gen] Step 2: Scrape complete. Has transcript: ${scrapeResult.hasTranscript}. Starting refine + summarize in parallel...`);
-
-  // Step 2: Trigger Subtitle Refinement (if enabled) and Summary Generation in parallel
+  // Step 2: Trigger refine + summarize in parallel
   const showSubtitles = storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
-  const summarizerModel = (storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] as string) ||
-                          (storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] as string) ||
-                          DEFAULTS.MODEL_SUMMARIZER;
-  const qualityModel = (storageResult[STORAGE_KEYS.QUALITY_MODEL] as string) || summarizerModel;
-  const targetLanguage = (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] as string) ||
-                         (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] as string) ||
-                         DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
-  const fastMode = storageResult[STORAGE_KEYS.FAST_MODE] === true;
+  const models = getAutoGenModels(storageResult);
 
-  // Trigger caption refinement only if showSubtitles is enabled (non-blocking)
   if (showSubtitles) {
-    const refinerModel = await getRefinerModelFromStorage(storageResult);
-    sendChromeMessage({
-      action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
-      videoId,
-      scrapeCreatorsApiKey,
-      openRouterApiKey,
-      modelSelection: refinerModel,
-    })
-      .then((response) => {
-        console.log("[Auto-gen] Subtitle refinement triggered:", response);
-      })
-      .catch((error) => {
-        console.error("Error triggering subtitle auto-gen:", error.message);
-        clearAutoGenerationTrigger(videoId);
-      });
+    const refinerModel = getRefinerModelFromStorage(storageResult);
+    triggerCaptionRefinement(videoId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
   } else {
     console.log("[Auto-gen] Skipping caption refinement (showSubtitles disabled)");
   }
 
-  // Trigger summary generation (non-blocking)
-  sendChromeMessage({
-    action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-    videoId,
-    scrapeCreatorsApiKey,
-    openRouterApiKey,
-    modelSelection: summarizerModel,
-    qualityModel,
-    targetLanguage,
-    fastMode,
-  })
-    .then((response) => {
-      console.log("[Auto-gen] Summary generation triggered:", response);
-    })
-    .catch((error) => {
-      console.error("Error triggering summary auto-gen:", error.message);
-    });
+  triggerSummaryGeneration(videoId, scrapeCreatorsApiKey, openRouterApiKey, models);
 }
 
 /**
