@@ -12,6 +12,7 @@ export interface SubtitleSegment {
   text: string;
   startTime: number;
   endTime: number;
+  startTimeText?: string | null;
 }
 
 export interface VideoMetadata {

@@ -44,6 +44,13 @@ export interface ScrapeCreatorsResponse {
   keywords?: string[];
 }
 
+function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
 const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
 
@@ -234,6 +241,7 @@ async function handleFetchSubtitles(
       text: s.text,
       startTime: s.startMs,
       endTime: s.endMs,
+      startTimeText: s.startTimeText || formatTimestamp(s.startMs),
     }));
 
     console.log(`Starting refinement for video: ${videoId}`);
