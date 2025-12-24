@@ -1,11 +1,7 @@
 .claude/
 CLAUDE.md
-better-youtube-caption/
-youtube-summarizer/
-youtube-summarizer-ui/
 
 # Nestjs specific
-/dist
 /node_modules
 /build
 /tmp
