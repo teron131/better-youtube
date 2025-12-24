@@ -11,10 +11,12 @@ let subtitleContainer: HTMLDivElement | null = null;
 let subtitleText: HTMLDivElement | null = null;
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;
-let checkInterval: ReturnType<typeof setInterval> | null = null;
+let rafId: number | null = null;
 
 interface VideoPlayerWithCallback extends HTMLVideoElement {
   _subtitleUpdateFn?: () => void;
+  _subtitleStartLoopFn?: () => void;
+  _subtitleStopLoopFn?: () => void;
 }
 
 /**
@@ -154,31 +156,70 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[]): void 
   console.log("Starting subtitle display interval.");
 
   const updateFn = () => updateSubtitlesInternal(currentSubtitles);
+  const startLoop = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+    }
+    const tick = () => {
+      updateFn();
+      if (videoPlayer && !videoPlayer.paused && !videoPlayer.ended) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+  };
+  const stopLoop = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
 
-  checkInterval = setInterval(updateFn, TIMING.SUBTITLE_UPDATE_INTERVAL_MS);
+  updateFn();
+  if (!videoPlayer.paused && !videoPlayer.ended) {
+    startLoop();
+  }
 
-  videoPlayer.addEventListener("play", updateFn);
-  videoPlayer.addEventListener("seeked", updateFn);
+  videoPlayer.addEventListener("play", startLoop);
+  videoPlayer.addEventListener("pause", stopLoop);
+  videoPlayer.addEventListener("ended", stopLoop);
+  videoPlayer.addEventListener("seeked", () => {
+    updateFn();
+    if (!videoPlayer?.paused && !videoPlayer?.ended) {
+      startLoop();
+    }
+  });
 
-  (videoPlayer as VideoPlayerWithCallback)._subtitleUpdateFn = updateFn;
+  const player = videoPlayer as VideoPlayerWithCallback;
+  player._subtitleUpdateFn = updateFn;
+  player._subtitleStartLoopFn = startLoop;
+  player._subtitleStopLoopFn = stopLoop;
 }
 
 /**
  * Stop displaying subtitles
  */
 export function stopSubtitleDisplay(): void {
-  if (checkInterval) {
-    clearInterval(checkInterval);
-    checkInterval = null;
-    console.log("Stopped subtitle display interval.");
-  }
   if (videoPlayer) {
     const player = videoPlayer as VideoPlayerWithCallback;
     if (player._subtitleUpdateFn) {
-      videoPlayer.removeEventListener("play", player._subtitleUpdateFn);
-      videoPlayer.removeEventListener("seeked", player._subtitleUpdateFn);
+      if (player._subtitleStartLoopFn) {
+        videoPlayer.removeEventListener("play", player._subtitleStartLoopFn);
+      }
+      if (player._subtitleStopLoopFn) {
+        videoPlayer.removeEventListener("pause", player._subtitleStopLoopFn);
+        videoPlayer.removeEventListener("ended", player._subtitleStopLoopFn);
+      }
       delete player._subtitleUpdateFn;
+      delete player._subtitleStartLoopFn;
+      delete player._subtitleStopLoopFn;
     }
+  }
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
   }
 }
 
