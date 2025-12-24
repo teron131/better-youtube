@@ -2,17 +2,18 @@
  * Message Handler for Content Script
  */
 
-import { MESSAGE_ACTIONS, STORAGE_KEYS, DEFAULTS } from "@/lib/constants";
+import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
-import { extractVideoId } from "@/lib/url";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
 import { SubtitleSegment, saveSubtitles } from "@/lib/storage";
-import { 
-  applyCaptionFontSize, 
-  startSubtitleDisplay, 
-  stopSubtitleDisplay, 
-  clearRenderer 
-} from "./subtitleRenderer";
+import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger } from "./autoGeneration";
+import {
+  applyCaptionFontSize,
+  clearRenderer,
+  startSubtitleDisplay,
+  stopSubtitleDisplay
+} from "./subtitleRenderer";
 
 export function setupMessageListener(
   state: {
@@ -67,7 +68,7 @@ function handleGenerateSummary(
     return;
   }
 
-  chrome.runtime.sendMessage({
+  sendChromeMessage({
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
     videoId,
     scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
@@ -76,6 +77,8 @@ function handleGenerateSummary(
     targetLanguage: message.targetLanguage,
     fastMode: message.fastMode,
     qualityModel: message.qualityModel
+  }).catch((error) => {
+    console.error("Error sending generate summary message:", error.message);
   });
 
   sendResponse({ status: "started" });
@@ -94,20 +97,22 @@ function handleGenerateSubtitles(
 
   clearSubtitles();
 
-  chrome.runtime.sendMessage({
+  sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
     openRouterApiKey: message.openRouterApiKey,
     modelSelection: message.modelSelection,
     forceRegenerate: message.forceRegenerate === true,
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error("Error communicating with background:", chrome.runtime.lastError);
-    } else if (response?.status === "error") {
-      clearAutoGenerationTrigger(videoId);
-    }
-  });
+  })
+    .then((response) => {
+      if (response?.status === "error") {
+        clearAutoGenerationTrigger(videoId);
+      }
+    })
+    .catch((error) => {
+      console.error("Error communicating with background:", error.message);
+    });
 
   sendResponse({ status: "started" });
 }

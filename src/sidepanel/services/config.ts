@@ -11,6 +11,7 @@ import {
   RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
   DEFAULTS,
 } from '@/lib/constants';
+import { UI_TIMING, UI_BEHAVIOR, FILE_LIMITS } from '@/lib/chromeConstants';
 
 // ================================
 // MODEL CONFIGURATION
@@ -55,24 +56,25 @@ export const ENABLE_TRANSLATION_DEFAULT = false;
 // UI CONFIGURATION
 // ================================
 
+// Re-export from centralized constants
 export const UI_CONFIG = {
   // Streaming configuration
-  STREAM_CHUNK_THROTTLE_MS: 100,
-  MAX_LOG_ENTRIES: 100,
+  STREAM_CHUNK_THROTTLE_MS: UI_TIMING.STREAM_CHUNK_THROTTLE_MS,
+  MAX_LOG_ENTRIES: UI_BEHAVIOR.MAX_LOG_ENTRIES,
 
   // Progress configuration
-  PROGRESS_UPDATE_INTERVAL: 500,
+  PROGRESS_UPDATE_INTERVAL: UI_TIMING.PROGRESS_UPDATE_INTERVAL,
 
   // File size limits (in MB)
-  MAX_FILE_SIZE_MB: 100,
+  MAX_FILE_SIZE_MB: FILE_LIMITS.MAX_FILE_SIZE_MB,
 
   // Timeout configurations
-  API_TIMEOUT_MS: 300000, // 5 minutes
-  SCRAPING_TIMEOUT_MS: 120000, // 2 minutes
+  API_TIMEOUT_MS: UI_TIMING.API_TIMEOUT_MS,
+  SCRAPING_TIMEOUT_MS: UI_TIMING.SCRAPING_TIMEOUT_MS,
 
   // Retry configuration
-  MAX_RETRIES: 3,
-  RETRY_DELAY_MS: 1000,
+  MAX_RETRIES: UI_TIMING.MAX_RETRIES,
+  RETRY_DELAY_MS: UI_TIMING.RETRY_DELAY_MS,
 } as const;
 
 // ================================

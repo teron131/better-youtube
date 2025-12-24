@@ -11,6 +11,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
 import { API_ENDPOINTS, DEFAULTS } from "../constants";
+import { CHROME_API } from "../chromeConstants";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -34,7 +35,7 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
     model: model,
     apiKey: apiKey,
     configuration: {
-      baseURL: "https://openrouter.ai/api/v1",
+      baseURL: CHROME_API.OPENROUTER_BASE_URL,
       defaultHeaders: {
         "HTTP-Referer": chrome.runtime.getURL(""),
         "X-Title": "Better YouTube",
