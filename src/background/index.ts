@@ -3,10 +3,10 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
+import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
+import { SubtitleSegment, VideoMetadata, getStoredAnalysis, getStoredSubtitles, getStoredVideoMetadata, saveAnalysis, saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
-import { SubtitleSegment, VideoMetadata, getStoredSubtitles, getStoredVideoMetadata, saveVideoMetadata, saveAnalysis, getStoredAnalysis } from "@/lib/storage";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -83,7 +83,9 @@ async function fetchTranscript(
   }
 
   const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const url = `${API_ENDPOINTS.SCRAPE_CREATORS}?url=${youtubeUrl}&get_transcript=true`;
+  const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
+  requestUrl.searchParams.set("url", youtubeUrl);
+  requestUrl.searchParams.set("get_transcript", "true");
 
   if (!apiKey || apiKey.trim() === "") {
     console.error("API key is missing or empty");
@@ -105,13 +107,13 @@ async function fetchTranscript(
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
 
-        const response = await fetch(url, {
+        const response = await fetch(requestUrl.toString(), {
           method: "GET",
           headers: {
             "x-api-key": apiKey,
             "Accept": "application/json",
-            "Content-Type": "application/json",
           },
+          cache: "no-store",
           signal: controller.signal,
         });
 

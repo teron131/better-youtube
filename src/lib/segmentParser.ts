@@ -248,7 +248,12 @@ function parseWithChunks(
  * Parse refined text without sentinels
  */
 function parseGlobal(refinedText: string, originalSegments: SubtitleSegment[]): SubtitleSegment[] {
-  const refinedTexts = refinedText.trim().split("\n").map(normalizeLineToText);
+  const refinedTexts = refinedText
+    .replace(/\r\n?/g, "\n")
+    .trim()
+    .split("\n")
+    .map(normalizeLineToText)
+    .filter((t) => t.trim().length > 0);
 
   if (refinedTexts.length !== originalSegments.length) {
     console.warn(
