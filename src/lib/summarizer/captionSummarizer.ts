@@ -10,8 +10,8 @@ import { END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
-import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import { CHROME_API } from "../chromeConstants";
+import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -402,9 +402,6 @@ export interface SummarizationInput {
   fast_mode?: boolean;
 }
 
-/**
- * Check if input is a YouTube URL
- */
 function isYoutubeUrl(input: string): boolean {
   return input.includes("youtube.com/watch") || input.includes("youtu.be/");
 }
@@ -447,11 +444,10 @@ async function executeFastSummarization(
     messages: [new HumanMessage(humanPrompt)],
   });
 
-  const structuredResponse = response.structuredResponse;
-  if (structuredResponse === null || structuredResponse === undefined) {
+  if (!response.structuredResponse) {
     throw new Error("Agent did not return structured response");
   }
-  const analysis = structuredResponse as Analysis;
+  const analysis = response.structuredResponse as Analysis;
 
   progressCallback?.("Fast analysis completed");
 
@@ -485,13 +481,10 @@ export async function executeSummarizationWorkflow(
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
     progressCallback?.("Resolving URL to transcript for workflow...");
-    // Note: Graph workflow doesn't have tools in analysisNode yet, 
-    // so we must resolve it before starting.
     const tool = createScrapYoutubeTool(input);
     transcript = await tool.invoke({ youtube_url: input.transcript_or_url });
-    
     if (transcript.startsWith("Error")) {
-       throw new Error(transcript);
+      throw new Error(transcript);
     }
   }
 

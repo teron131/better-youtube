@@ -5,10 +5,10 @@
 
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
-import { SubtitleSegment, VideoMetadata, getStoredAnalysis, getStoredSubtitles, getStoredVideoMetadata, saveAnalysis, saveVideoMetadata } from "@/lib/storage";
+import { SubtitleSegment, saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
-import { checkStoredAnalysis, broadcastStoredAnalysis, resolveTranscriptSource, resolveVideoInfo, broadcastSummaryResult } from "./summaryHelpers";
-import { validateApiKeys, validateVideoId } from "./validation";
+import { broadcastStoredAnalysis, broadcastSummaryResult, checkStoredAnalysis, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
+import { validateApiKeys } from "./validation";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -95,20 +95,18 @@ async function fetchTranscript(
   }
 
   const fetchPromise = (async () => {
-    let lastError: Error | null = null;
-    
     for (let i = 0; i <= retries; i++) {
+      if (i > 0) {
+        console.log(`Retry attempt ${i} for videoId: ${videoId}`);
+        await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i));
+      } else {
+        console.log("Fetching transcript for video:", videoId);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
+
       try {
-        if (i > 0) {
-          console.log(`Retry attempt ${i} for videoId: ${videoId}`);
-          await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i));
-        } else {
-          console.log("Fetching transcript for video:", videoId);
-        }
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
-
         const response = await fetch(requestUrl.toString(), {
           method: "GET",
           headers: {
@@ -124,28 +122,27 @@ async function fetchTranscript(
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`API error response (attempt ${i+1}):`, errorText);
-          throw new Error(`Scrape API error: ${response.status} - ${errorText}`);
+          const error = new Error(`Scrape API error: ${response.status} - ${errorText}`);
+          if (response.status === 401 || response.status === 403) {
+            return null;
+          }
+          if (i === retries) return null;
+          continue;
         }
 
         const data = await response.json();
         console.log("Transcript fetched successfully");
-
-        // Update cache
         transcriptCache.set(videoId, { data, timestamp: Date.now() });
-
         return data;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (lastError.name === "AbortError") {
+        clearTimeout(timeoutId);
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (err.name === "AbortError") {
           console.error(`Fetch transcript timeout after 30s (attempt ${i+1})`);
         } else {
-          console.error(`Fetch transcript error (attempt ${i+1}):`, lastError.message);
+          console.error(`Fetch transcript error (attempt ${i+1}):`, err.message);
         }
-        
-        // If it's a 401/403, don't retry
-        if (lastError.message.includes("401") || lastError.message.includes("403")) {
-          break;
-        }
+        if (i === retries) return null;
       }
     }
     
@@ -172,44 +169,34 @@ async function handleScrapeVideo(
     return;
   }
 
-  try {
-    console.log(`Scraping video data for ${videoId}...`);
-    const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+  console.log(`Scraping video data for ${videoId}...`);
+  const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
 
-    if (!data) {
-      sendResponse({ status: "error", message: "Failed to fetch video data" });
-      return;
-    }
-
-    // Extract and save video metadata to persistent storage
-    const videoInfo = extractVideoInfo(data, videoId);
-    await saveVideoMetadata(videoId, videoInfo);
-
-    // Extract transcript text
-    const transcriptText = data.transcript_only_text ||
-      (data.transcript?.map(s => s.text).join(" ") || null);
-
-    console.log(`Video data scraped and saved for ${videoId}`);
-
-    // Send response back
-    sendResponse({
-      status: "success",
-      videoInfo,
-      hasTranscript: !!transcriptText && transcriptText.length > 0
-    });
-
-    // Also broadcast to sidepanel so it can display video info immediately
-    chrome.runtime.sendMessage({
-      action: MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED,
-      videoId,
-      videoInfo,
-      transcript: transcriptText
-    });
-
-  } catch (error) {
-    console.error("Scrape video error:", error);
-    sendResponse({ status: "error", message: String(error) });
+  if (!data) {
+    sendResponse({ status: "error", message: "Failed to fetch video data" });
+    return;
   }
+
+  const videoInfo = extractVideoInfo(data, videoId);
+  await saveVideoMetadata(videoId, videoInfo);
+
+  const transcriptText = data.transcript_only_text ||
+    (data.transcript?.map(s => s.text).join(" ") || null);
+
+  console.log(`Video data scraped and saved for ${videoId}`);
+
+  sendResponse({
+    status: "success",
+    videoInfo,
+    hasTranscript: !!transcriptText && transcriptText.length > 0
+  });
+
+  chrome.runtime.sendMessage({
+    action: MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED,
+    videoId,
+    videoInfo,
+    transcript: transcriptText
+  });
 }
 
 async function handleFetchSubtitles(
@@ -232,49 +219,42 @@ async function handleFetchSubtitles(
   // Inform content script that process started
   sendResponse({ status: "processing" });
 
-  // Run refinement in background (don't await)
   (async () => {
-    try {
-      // 1. Fetch transcript (checks cache/pending internally)
-      if (forceRegenerate) {
-        transcriptCache.delete(videoId);
-      }
-
-      const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-      if (!data || !data.transcript || !Array.isArray(data.transcript)) {
-        throw new Error(ERROR_MESSAGES.NO_TRANSCRIPT);
-      }
-
-      // 2. Convert API segments to internal format
-      const segments: SubtitleSegment[] = data.transcript.map((s) => ({
-        text: s.text,
-        startTime: s.startMs,
-        endTime: s.endMs,
-      }));
-
-      console.log(`Starting refinement for video: ${videoId}`);
-      const refinedSegments = await refineTranscriptWithLLM(
-        segments,
-        data.title,
-        data.description,
-        openRouterApiKey,
-        undefined, // No progress callback for now
-        modelSelection
-      );
-
-      // 3. Send back results to content script
-      if (tabId) {
-        chrome.tabs.sendMessage(tabId, {
-          action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
-          videoId,
-          subtitles: refinedSegments,
-        });
-      }
-      console.log(`Refinement completed for video: ${videoId}`);
-    } catch (error) {
-      console.error("Refinement error:", error);
+    if (forceRegenerate) {
+      transcriptCache.delete(videoId);
     }
-  })();
+
+    const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+    if (!data?.transcript?.length) {
+      console.error("Refinement error: No transcript available");
+      return;
+    }
+
+    const segments: SubtitleSegment[] = data.transcript.map((s) => ({
+      text: s.text,
+      startTime: s.startMs,
+      endTime: s.endMs,
+    }));
+
+    console.log(`Starting refinement for video: ${videoId}`);
+    const refinedSegments = await refineTranscriptWithLLM(
+      segments,
+      data.title,
+      data.description,
+      openRouterApiKey,
+      undefined,
+      modelSelection
+    );
+
+    if (tabId) {
+      chrome.tabs.sendMessage(tabId, {
+        action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
+        videoId,
+        subtitles: refinedSegments,
+      });
+    }
+    console.log(`Refinement completed for video: ${videoId}`);
+  })().catch(error => console.error("Refinement error:", error));
 }
 
 /**
@@ -308,59 +288,45 @@ async function handleGenerateSummary(
 
   sendResponse({ status: "processing" });
 
-  try {
-    // Check for stored analysis (unless force regenerate)
-    const storedAnalysis = await checkStoredAnalysis(videoId, modelSelection, targetLanguage, forceRegenerate);
-    if (storedAnalysis) {
-      await broadcastStoredAnalysis(videoId, storedAnalysis);
-      return;
-    }
-
-    // Resolve transcript source (message → cache → stored → URL)
-    const transcript_or_url = await resolveTranscriptSource(videoId, messageTranscript, transcriptCache);
-
-    // Resolve video info (stored → cache → fetch)
-    const videoInfo = await resolveVideoInfo(
-      videoId,
-      transcriptCache,
-      extractVideoInfo,
-      fetchTranscript,
-      scrapeCreatorsApiKey
-    );
-
-    console.log(`Input ready for summary (type: ${transcript_or_url.startsWith("http") ? "URL" : "Transcript"}). Starting workflow...`);
-
-    // Execute summarization workflow
-    const result = await executeSummarizationWorkflow(
-      {
-        transcript_or_url,
-        videoId,
-        scrapeCreatorsApiKey,
-        analysis_model: modelSelection,
-        quality_model: qualityModel || modelSelection,
-        refiner_model: refinerModel,
-        target_language: targetLanguage,
-        fast_mode: fastMode,
-      },
-      openRouterApiKey
-    );
-
-    // Broadcast result and save to storage
-    await broadcastSummaryResult(
-      videoId,
-      result,
-      videoInfo,
-      transcript_or_url,
-      modelSelection,
-      targetLanguage
-    );
-  } catch (error) {
-    console.error("Summary error:", error);
-    chrome.runtime.sendMessage({
-      action: MESSAGE_ACTIONS.SHOW_ERROR,
-      error: String(error),
-    });
+  const storedAnalysis = await checkStoredAnalysis(videoId, modelSelection, targetLanguage, forceRegenerate);
+  if (storedAnalysis) {
+    await broadcastStoredAnalysis(videoId, storedAnalysis);
+    return;
   }
+
+  const transcript_or_url = await resolveTranscriptSource(videoId, messageTranscript, transcriptCache);
+  const videoInfo = await resolveVideoInfo(
+    videoId,
+    transcriptCache,
+    extractVideoInfo,
+    fetchTranscript,
+    scrapeCreatorsApiKey
+  );
+
+  console.log(`Input ready for summary (type: ${transcript_or_url.startsWith("http") ? "URL" : "Transcript"}). Starting workflow...`);
+
+  const result = await executeSummarizationWorkflow(
+    {
+      transcript_or_url,
+      videoId,
+      scrapeCreatorsApiKey,
+      analysis_model: modelSelection,
+      quality_model: qualityModel || modelSelection,
+      refiner_model: refinerModel,
+      target_language: targetLanguage,
+      fast_mode: fastMode,
+    },
+    openRouterApiKey
+  );
+
+  await broadcastSummaryResult(
+    videoId,
+    result,
+    videoInfo,
+    transcript_or_url,
+    modelSelection,
+    targetLanguage
+  );
 }
 
 /**
@@ -371,7 +337,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   switch (message.action) {
     case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-      handleScrapeVideo(message, tabId, sendResponse);
+      handleScrapeVideo(message, tabId, sendResponse).catch(error => {
+        console.error("Scrape video error:", error);
+        sendResponse({ status: "error", message: String(error) });
+      });
       return true;
 
     case MESSAGE_ACTIONS.FETCH_SUBTITLES:
@@ -379,11 +348,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case MESSAGE_ACTIONS.GENERATE_SUMMARY:
-      handleGenerateSummary(message, tabId, sendResponse);
+      handleGenerateSummary(message, tabId, sendResponse).catch(error => {
+        console.error("Summary error:", error);
+        chrome.runtime.sendMessage({
+          action: MESSAGE_ACTIONS.SHOW_ERROR,
+          error: String(error),
+        });
+      });
       return true;
 
     case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
-      // This is usually handled by content script, but if background gets it, we can't help much
       sendResponse({ status: "error", message: "Use content script for title" });
       return false;
 

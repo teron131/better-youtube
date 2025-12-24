@@ -15,13 +15,12 @@ import {
 } from "./autoGeneration";
 import {
   buildStorageKeysForVideo,
-  determineToggleState,
   executeScrapeForAutoGen,
   getAutoGenModels,
   getRefinerModelFromStorage,
   triggerCaptionRefinement,
   triggerSummaryGeneration,
-  validateLoadContext,
+  validateLoadContext
 } from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
 import {
@@ -74,50 +73,39 @@ async function checkAndTriggerAutoGeneration(
   return true;
 }
 
-/**
- * Load stored subtitles for the current video
- */
 function loadStoredSubtitles(): void {
-  try {
-    if (!isExtensionContextValid()) {
-      console.warn("Extension context invalidated, skipping subtitle load.");
-      return;
-    }
-
-    const validation = validateLoadContext();
-    if (!validation.isValid || !validation.videoId) {
-      return;
-    }
-
-    const videoId = validation.videoId;
-    const keysToFetch = [videoId, ...buildStorageKeysForVideo()];
-
-    chrome.storage.local.get(keysToFetch, (result) => {
-      try {
-        if (chrome.runtime.lastError) {
-          console.error("Error loading subtitles from storage:", chrome.runtime.lastError.message);
-          return;
-        }
-
-        state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
-
-        if (result && result[videoId]) {
-          console.log("Found stored subtitles for this video.");
-          state.currentSubtitles = result[videoId] as SubtitleSegment[];
-          if (state.showSubtitlesEnabled) {
-            startSubtitleDisplay(state.currentSubtitles);
-          }
-        } else {
-          console.log("No stored subtitles found for this video.");
-          checkAndTriggerAutoGeneration(videoId, result, true, true);
-        }
-      } catch (error) {
-        console.error("Error processing stored subtitles:", error);
-      }
-    });
-  } catch (error) {
-    console.error("Error in loadStoredSubtitles:", error);
+  if (!isExtensionContextValid()) {
+    console.warn("Extension context invalidated, skipping subtitle load.");
+    return;
   }
+
+  const validation = validateLoadContext();
+  if (!validation.isValid || !validation.videoId) {
+    return;
+  }
+
+  const videoId = validation.videoId;
+  const keysToFetch = [videoId, ...buildStorageKeysForVideo()];
+
+  chrome.storage.local.get(keysToFetch, (result) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error loading subtitles from storage:", chrome.runtime.lastError.message);
+      return;
+    }
+
+    state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
+
+    if (result[videoId]) {
+      console.log("Found stored subtitles for this video.");
+      state.currentSubtitles = result[videoId] as SubtitleSegment[];
+      if (state.showSubtitlesEnabled) {
+        startSubtitleDisplay(state.currentSubtitles);
+      }
+    } else {
+      console.log("No stored subtitles found for this video.");
+      checkAndTriggerAutoGeneration(videoId, result, true, true);
+    }
+  });
 }
 
 /**
@@ -227,26 +215,14 @@ function initialize(): void {
   });
 }
 
-/**
- * Load and apply caption font size from storage
- */
 function loadCaptionFontSize(): void {
-  try {
-    if (!isExtensionContextValid()) return;
+  if (!isExtensionContextValid()) return;
 
-    chrome.storage.local.get([STORAGE_KEYS.CAPTION_FONT_SIZE], (result) => {
-      try {
-        if (chrome.runtime.lastError) return;
-        const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] ||
-          DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
-        applyCaptionFontSize(fontSize);
-      } catch (error) {
-        console.error("Error applying caption font size:", error);
-      }
-    });
-  } catch (error) {
-    console.error("Error in loadCaptionFontSize:", error);
-  }
+  chrome.storage.local.get([STORAGE_KEYS.CAPTION_FONT_SIZE], (result) => {
+    if (chrome.runtime.lastError) return;
+    const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
+    applyCaptionFontSize(fontSize);
+  });
 }
 
 /**

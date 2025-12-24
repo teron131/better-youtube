@@ -5,8 +5,8 @@
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { DEFAULTS, REFINER_CONFIG } from "./constants";
 import { CHROME_API } from "./chromeConstants";
+import { DEFAULTS, REFINER_CONFIG } from "./constants";
 import { chunkSegmentsByCount, parseRefinedSegments } from "./segmentParser";
 import { SubtitleSegment } from "./storage";
 
@@ -43,16 +43,10 @@ had been had, you missed out big time. I`;
 // Utility Functions
 // ============================================================================ 
 
-/**
- * Normalize segment text
- */
 function normalizeSegmentText(text: string): string {
   return text.split(/\s+/).join(" ");
 }
 
-/**
- * Build user preamble with video metadata
- */
 function buildUserPreamble(title: string, description: string): string {
   return [
     `Video Title: ${title || ""}`,
@@ -66,9 +60,6 @@ function buildUserPreamble(title: string, description: string): string {
 // Main Refinement Function
 // ============================================================================ 
 
-/**
- * Create LLM instance
- */
 function createLLM(apiKey: string, model: string): ChatOpenAI {
   return new ChatOpenAI({
     model,
@@ -84,29 +75,14 @@ function createLLM(apiKey: string, model: string): ChatOpenAI {
   });
 }
 
-/**
- * Extract text from LLM response
- */
 function extractResponseText(response: any): string {
   const content = response?.content;
   if (typeof content === "string") {
     return content;
   }
-
   if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (!part) {
-          return "";
-        }
-        if (typeof part === "string") {
-          return part;
-        }
-        return part.text || "";
-      })
-      .join("");
+    return content.map(part => typeof part === "string" ? part : part?.text || "").join("");
   }
-
   return content != null ? String(content) : "";
 }
 
@@ -132,12 +108,10 @@ export async function refineTranscriptWithLLM(
   const batchMessages: (SystemMessage | HumanMessage)[][] = [];
   const chunkInfo: { chunkIdx: number; expectedLineCount: number }[] = [];
 
-  for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx += 1) {
+  for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
     const [startIdx, endIdx] = ranges[chunkIdx];
     const chunkSegments = segments.slice(startIdx, endIdx);
-    const chunkTextOnly = chunkSegments
-      .map((seg) => normalizeSegmentText(seg.text))
-      .join("\n");
+    const chunkTextOnly = chunkSegments.map(seg => normalizeSegmentText(seg.text)).join("\n");
 
     batchMessages.push([
       new SystemMessage({ content: SYSTEM_PROMPT }),
@@ -155,23 +129,18 @@ export async function refineTranscriptWithLLM(
   const responses = await llm.batch(batchMessages);
 
   const allRefinedLines: string[] = [];
-  for (let i = 0; i < responses.length; i += 1) {
-    const response = responses[i];
+  for (let i = 0; i < responses.length; i++) {
     const { chunkIdx, expectedLineCount } = chunkInfo[i];
-
-    const refinedText = extractResponseText(response);
+    const refinedText = extractResponseText(responses[i]);
     const refinedLines = refinedText.trim().split("\n");
 
     progressCallback?.(chunkIdx, batchMessages.length);
 
     if (refinedLines.length !== expectedLineCount) {
-      console.warn(
-        `Line count mismatch in chunk ${chunkIdx}: expected ${expectedLineCount}, got ${refinedLines.length}`
-      );
+      console.warn(`Line count mismatch in chunk ${chunkIdx}: expected ${expectedLineCount}, got ${refinedLines.length}`);
     }
 
-    allRefinedLines.push(...refinedLines);
-    allRefinedLines.push(REFINER_CONFIG.CHUNK_SENTINEL);
+    allRefinedLines.push(...refinedLines, REFINER_CONFIG.CHUNK_SENTINEL);
   }
 
   const refinedText = allRefinedLines.join("\n");

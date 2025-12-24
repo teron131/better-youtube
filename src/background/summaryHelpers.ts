@@ -17,16 +17,10 @@ export async function checkStoredAnalysis(
   forceRegenerate: boolean
 ): Promise<any | null> {
   if (forceRegenerate) return null;
-
   const storedAnalysis = await getStoredAnalysis(videoId);
-  if (
-    storedAnalysis &&
-    storedAnalysis.modelUsed === modelSelection &&
-    storedAnalysis.targetLanguage === targetLanguage
-  ) {
+  if (storedAnalysis?.modelUsed === modelSelection && storedAnalysis.targetLanguage === targetLanguage) {
     return storedAnalysis;
   }
-
   return null;
 }
 
@@ -61,34 +55,27 @@ export async function resolveTranscriptSource(
   messageTranscript: string | undefined,
   transcriptCache: Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>
 ): Promise<string> {
-  // 1. Use message-provided transcript if available
   if (messageTranscript) {
     console.log(`Using provided transcript for summary of ${videoId}`);
     return messageTranscript;
   }
 
-  // 2. Try cached transcript
   const cached = transcriptCache.get(videoId);
-  if (cached) {
-    if (cached.data.transcript_only_text) {
-      console.log(`Using cached transcript for summary of ${videoId}`);
-      return cached.data.transcript_only_text;
-    }
-
-    if (cached.data.transcript?.length > 0) {
-      console.log(`Using cached transcript segments for summary of ${videoId}`);
-      return cached.data.transcript.map((s) => s.text).join(" ");
-    }
+  if (cached?.data.transcript_only_text) {
+    console.log(`Using cached transcript for summary of ${videoId}`);
+    return cached.data.transcript_only_text;
+  }
+  if (cached?.data.transcript?.length) {
+    console.log(`Using cached transcript segments for summary of ${videoId}`);
+    return cached.data.transcript.map((s) => s.text).join(" ");
   }
 
-  // 3. Try stored subtitles (refined captions)
   const storedSubtitles = await getStoredSubtitles(videoId);
-  if (storedSubtitles && storedSubtitles.length > 0) {
+  if (storedSubtitles?.length) {
     console.log(`Using stored subtitles for summary of ${videoId}`);
     return storedSubtitles.map((s) => s.text).join(" ");
   }
 
-  // 4. Last resort: return URL for workflow to fetch
   console.log(`No cached transcript for ${videoId}, will use URL.`);
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
@@ -103,31 +90,27 @@ export async function resolveVideoInfo(
   fetchTranscriptFn: (videoId: string, apiKey: string) => Promise<ScrapeCreatorsResponse | null>,
   scrapeCreatorsApiKey: string
 ): Promise<VideoMetadata> {
-  // 1. Try stored video info
-  let videoInfo: VideoMetadata | null = await getStoredVideoMetadata(videoId);
-  if (videoInfo) {
+  const stored = await getStoredVideoMetadata(videoId);
+  if (stored) {
     console.log(`Using stored video info for ${videoId}`);
-    return videoInfo;
+    return stored;
   }
 
-  // 2. Try cached data
   const cached = transcriptCache.get(videoId);
   if (cached) {
-    videoInfo = extractVideoInfoFn(cached.data, videoId);
+    const videoInfo = extractVideoInfoFn(cached.data, videoId);
     console.log(`Using cached video info for ${videoId}`);
     return videoInfo;
   }
 
-  // 3. Fetch if not available
   console.log(`No stored/cached video info for ${videoId}, fetching...`);
   const data = await fetchTranscriptFn(videoId, scrapeCreatorsApiKey);
   if (data) {
-    videoInfo = extractVideoInfoFn(data, videoId);
+    const videoInfo = extractVideoInfoFn(data, videoId);
     await saveVideoMetadata(videoId, videoInfo);
     return videoInfo;
   }
 
-  // 4. Return minimal fallback
   return {
     url: `https://www.youtube.com/watch?v=${videoId}`,
     title: null,
