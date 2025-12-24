@@ -44,7 +44,24 @@ had been had, you missed out big time. I`;
 // ============================================================================ 
 
 function normalizeSegmentText(text: string): string {
-  return text.split(/\s+/).join(" ");
+  return (text || "").split(/\s+/).join(" ");
+}
+
+function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatTranscriptSegments(segments: SubtitleSegment[]): string {
+  return segments
+    .map((seg) => {
+      const normalizedText = normalizeSegmentText(seg.text);
+      const timestamp = seg.startTimeText || formatTimestamp(seg.startTime);
+      return `[${timestamp}] ${normalizedText}`;
+    })
+    .join("\n");
 }
 
 function buildUserPreamble(title: string, description: string): string {
@@ -111,7 +128,7 @@ export async function refineTranscriptWithLLM(
   for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
     const [startIdx, endIdx] = ranges[chunkIdx];
     const chunkSegments = segments.slice(startIdx, endIdx);
-    const chunkTextOnly = chunkSegments.map(seg => normalizeSegmentText(seg.text)).join("\n");
+    const chunkTextOnly = formatTranscriptSegments(chunkSegments);
 
     batchMessages.push([
       new SystemMessage({ content: SYSTEM_PROMPT }),

@@ -105,7 +105,12 @@ function dpAlignSegments(
         text = origSeg.text;
       }
     }
-    return { text: text || origSeg.text, startTime: origSeg.startTime, endTime: origSeg.endTime };
+    return {
+      text: text || origSeg.text,
+      startTime: origSeg.startTime,
+      endTime: origSeg.endTime,
+      startTimeText: origSeg.startTimeText ?? null,
+    };
   });
 }
 
