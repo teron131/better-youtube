@@ -100,7 +100,7 @@ function findSubtitleAtTime(subtitles: SubtitleSegment[], timeMs: number): Subti
     const mid = Math.floor((low + high) / 2);
     const subtitle = subtitles[mid];
 
-    if (timeMs >= subtitle.startTime && timeMs <= subtitle.endTime) {
+    if (timeMs >= subtitle.startTime && timeMs < subtitle.endTime) {
       return subtitle;
     } else if (timeMs < subtitle.startTime) {
       high = mid - 1;
