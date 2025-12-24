@@ -6,6 +6,7 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { DEFAULTS, REFINER_CONFIG } from "./constants";
+import { CHROME_API } from "./chromeConstants";
 import { chunkSegmentsByCount, parseRefinedSegments } from "./segmentParser";
 import { SubtitleSegment } from "./storage";
 
@@ -73,7 +74,7 @@ function createLLM(apiKey: string, model: string): ChatOpenAI {
     model,
     apiKey,
     configuration: {
-      baseURL: "https://openrouter.ai/api/v1",
+      baseURL: CHROME_API.OPENROUTER_BASE_URL,
       defaultHeaders: {
         "HTTP-Referer": chrome.runtime.getURL(""),
         "X-Title": "Better YouTube",

@@ -1,14 +1,15 @@
 import type { Quality } from "./schemas";
 import { DEFAULTS } from "../constants";
+import { QUALITY_THRESHOLDS } from "../chromeConstants";
 
-const SCORE_MAP: Record<string, number> = { Fail: 0, Refine: 1, Pass: 2 };
-const MAX_SCORE_PER_ASPECT = 2;
+const SCORE_MAP = QUALITY_THRESHOLDS.SCORE_MAP;
+const MAX_SCORE_PER_ASPECT = QUALITY_THRESHOLDS.MAX_SCORE_PER_ASPECT;
 
 export const ANALYSIS_CONFIG = {
   MODEL: DEFAULTS.MODEL_SUMMARIZER,
   QUALITY_MODEL: DEFAULTS.MODEL_SUMMARIZER,
-  MIN_QUALITY_SCORE: 80, // Threshold for acceptable quality (aligned with Python backend)
-  MAX_ITERATIONS: 2,
+  MIN_QUALITY_SCORE: QUALITY_THRESHOLDS.MIN_QUALITY_SCORE,
+  MAX_ITERATIONS: QUALITY_THRESHOLDS.MAX_ITERATIONS,
 } as const;
 
 /**

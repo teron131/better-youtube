@@ -3,6 +3,7 @@
  * Handles subtitle display, auto-generation, and communication with background script
  */
 
+import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { type SubtitleSegment } from "@/lib/storage";
@@ -155,22 +156,13 @@ async function triggerAutoGeneration(
   // Step 1: Scrape video data first (this saves video metadata and caches transcript)
   console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
 
-  const scrapeResult = await new Promise<{ status: string; hasTranscript?: boolean }>((resolve) => {
-    chrome.runtime.sendMessage(
-      {
-        action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
-        videoId,
-        scrapeCreatorsApiKey,
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Error scraping video:", chrome.runtime.lastError.message);
-          resolve({ status: "error" });
-        } else {
-          resolve(response || { status: "error" });
-        }
-      }
-    );
+  const scrapeResult = await sendChromeMessage<{ status: string; hasTranscript?: boolean }>({
+    action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
+    videoId,
+    scrapeCreatorsApiKey,
+  }).catch((error) => {
+    console.error("Error scraping video:", error.message);
+    return { status: "error" as const, hasTranscript: undefined };
   });
 
   if (scrapeResult.status !== "success") {
@@ -195,47 +187,41 @@ async function triggerAutoGeneration(
   // Trigger caption refinement only if showSubtitles is enabled (non-blocking)
   if (showSubtitles) {
     const refinerModel = await getRefinerModelFromStorage(storageResult);
-    chrome.runtime.sendMessage(
-      {
-        action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
-        videoId,
-        scrapeCreatorsApiKey,
-        openRouterApiKey,
-        modelSelection: refinerModel,
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Error triggering subtitle auto-gen:", chrome.runtime.lastError.message);
-          clearAutoGenerationTrigger(videoId);
-        } else {
-          console.log("[Auto-gen] Subtitle refinement triggered:", response);
-        }
-      }
-    );
+    sendChromeMessage({
+      action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
+      videoId,
+      scrapeCreatorsApiKey,
+      openRouterApiKey,
+      modelSelection: refinerModel,
+    })
+      .then((response) => {
+        console.log("[Auto-gen] Subtitle refinement triggered:", response);
+      })
+      .catch((error) => {
+        console.error("Error triggering subtitle auto-gen:", error.message);
+        clearAutoGenerationTrigger(videoId);
+      });
   } else {
     console.log("[Auto-gen] Skipping caption refinement (showSubtitles disabled)");
   }
 
   // Trigger summary generation (non-blocking)
-  chrome.runtime.sendMessage(
-    {
-      action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-      videoId,
-      scrapeCreatorsApiKey,
-      openRouterApiKey,
-      modelSelection: summarizerModel,
-      qualityModel,
-      targetLanguage,
-      fastMode,
-    },
-    (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error triggering summary auto-gen:", chrome.runtime.lastError.message);
-      } else {
-        console.log("[Auto-gen] Summary generation triggered:", response);
-      }
-    }
-  );
+  sendChromeMessage({
+    action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
+    videoId,
+    scrapeCreatorsApiKey,
+    openRouterApiKey,
+    modelSelection: summarizerModel,
+    qualityModel,
+    targetLanguage,
+    fastMode,
+  })
+    .then((response) => {
+      console.log("[Auto-gen] Summary generation triggered:", response);
+    })
+    .catch((error) => {
+      console.error("Error triggering summary auto-gen:", error.message);
+    });
 }
 
 /**

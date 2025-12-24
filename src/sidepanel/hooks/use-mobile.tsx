@@ -3,8 +3,9 @@
  */
 
 import { useEffect, useState } from 'react';
+import { UI_DIMENSIONS } from '@/lib/chromeConstants';
 
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = UI_DIMENSIONS.MOBILE_BREAKPOINT;
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
