@@ -46,7 +46,7 @@ had been had, you missed out big time. I`;
  * Normalize segment text
  */
 function normalizeSegmentText(text: string): string {
-  return (text || "").split(/\s+/).join(" ");
+  return text.split(/\s+/).join(" ");
 }
 
 /**
@@ -88,13 +88,19 @@ function createLLM(apiKey: string, model: string): ChatOpenAI {
  */
 function extractResponseText(response: any): string {
   const content = response?.content;
-  if (typeof content === "string") return content;
+  if (typeof content === "string") {
+    return content;
+  }
 
   if (Array.isArray(content)) {
     return content
       .map((part) => {
-        if (!part) return "";
-        if (typeof part === "string") return part;
+        if (!part) {
+          return "";
+        }
+        if (typeof part === "string") {
+          return part;
+        }
         return part.text || "";
       })
       .join("");
@@ -114,7 +120,7 @@ export async function refineTranscriptWithLLM(
   progressCallback?: (chunkIdx: number, totalChunks: number) => void,
   model: string = DEFAULTS.MODEL_REFINER
 ): Promise<SubtitleSegment[]> {
-  if (!segments || segments.length === 0) {
+  if (!segments.length) {
     return [];
   }
 
@@ -125,7 +131,7 @@ export async function refineTranscriptWithLLM(
   const batchMessages: (SystemMessage | HumanMessage)[][] = [];
   const chunkInfo: { chunkIdx: number; expectedLineCount: number }[] = [];
 
-  for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
+  for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx += 1) {
     const [startIdx, endIdx] = ranges[chunkIdx];
     const chunkSegments = segments.slice(startIdx, endIdx);
     const chunkTextOnly = chunkSegments
@@ -143,23 +149,19 @@ export async function refineTranscriptWithLLM(
     });
   }
 
-  if (progressCallback) {
-    progressCallback(0, batchMessages.length);
-  }
+  progressCallback?.(0, batchMessages.length);
 
   const responses = await llm.batch(batchMessages);
 
   const allRefinedLines: string[] = [];
-  for (let i = 0; i < responses.length; i++) {
+  for (let i = 0; i < responses.length; i += 1) {
     const response = responses[i];
     const { chunkIdx, expectedLineCount } = chunkInfo[i];
 
     const refinedText = extractResponseText(response);
     const refinedLines = refinedText.trim().split("\n");
 
-    if (progressCallback) {
-      progressCallback(chunkIdx, batchMessages.length);
-    }
+    progressCallback?.(chunkIdx, batchMessages.length);
 
     if (refinedLines.length !== expectedLineCount) {
       console.warn(

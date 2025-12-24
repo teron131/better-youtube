@@ -2,7 +2,7 @@
  * Chrome storage management
  */
 
-import { STORAGE, YOUTUBE, STORAGE_CLEANUP } from "./constants";
+import { STORAGE, STORAGE_CLEANUP, YOUTUBE } from "./constants";
 
 // ============================================================================
 // Types
@@ -53,14 +53,14 @@ const StorageKeys = {
 // Core Storage Operations
 // ============================================================================
 
-const isExtension = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
 
 async function storageSet(items: Record<string, unknown>): Promise<void> {
   if (!isExtension) {
-    Object.entries(items).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(items)) {
       localStorage.setItem(key, JSON.stringify(value));
-    });
-    return Promise.resolve();
+    }
+    return;
   }
 
   return new Promise((resolve, reject) => {
@@ -77,7 +77,7 @@ async function storageSet(items: Record<string, unknown>): Promise<void> {
 async function storageGet<T>(key: string): Promise<T | null> {
   if (!isExtension) {
     const item = localStorage.getItem(key);
-    return Promise.resolve(item ? JSON.parse(item) as T : null);
+    return item ? (JSON.parse(item) as T) : null;
   }
 
   return new Promise((resolve) => {
@@ -92,13 +92,13 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
 ): Promise<Partial<T>> {
   if (!isExtension) {
     const result: Partial<T> = {};
-    keys.forEach(key => {
+    for (const key of keys) {
       const item = localStorage.getItem(key);
       if (item) {
-        (result as any)[key] = JSON.parse(item);
+        (result as Record<string, unknown>)[key] = JSON.parse(item);
       }
-    });
-    return Promise.resolve(result);
+    }
+    return result;
   }
 
   return new Promise((resolve) => {
@@ -110,8 +110,10 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
 
 async function storageRemove(keys: string[]): Promise<void> {
   if (!isExtension) {
-    keys.forEach(key => localStorage.removeItem(key));
-    return Promise.resolve();
+    for (const key of keys) {
+      localStorage.removeItem(key);
+    }
+    return;
   }
 
   return new Promise((resolve, reject) => {
@@ -133,15 +135,11 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
       if (key) {
         const item = localStorage.getItem(key);
         if (item) {
-          try {
-            allItems[key] = JSON.parse(item);
-          } catch (e) {
-            allItems[key] = item;
-          }
+          allItems[key] = JSON.parse(item);
         }
       }
     }
-    return Promise.resolve(allItems);
+    return allItems;
   }
 
   return new Promise((resolve, reject) => {
