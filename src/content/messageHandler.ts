@@ -9,6 +9,10 @@ import { SubtitleSegment, saveSubtitles } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger } from "./autoGeneration";
 import {
+  buildStorageKeysForToggle,
+  determineToggleState,
+} from "./contentHelpers";
+import {
   applyCaptionFontSize,
   clearRenderer,
   startSubtitleDisplay,
@@ -147,19 +151,12 @@ function handleToggleSubtitles(
   checkAndTriggerAutoGeneration: (videoId: string, storageResult: any, checkCaptionsEnabled: boolean, withDelay: boolean) => Promise<boolean>,
   sendResponse: (response: any) => void
 ): void {
-  const hasShowSubtitles = Object.prototype.hasOwnProperty.call(message, "showSubtitles");
-  const hasEnabled = Object.prototype.hasOwnProperty.call(message, "enabled");
-  
-  const nextState = hasShowSubtitles
-    ? message.showSubtitles !== false
-    : hasEnabled
-      ? message.enabled !== false
-      : true;
-
+  const nextState = determineToggleState(message);
   const wasEnabled = state.showSubtitlesEnabled;
   state.showSubtitlesEnabled = nextState;
   chrome.storage.local.set({ [STORAGE_KEYS.SHOW_SUBTITLES]: state.showSubtitlesEnabled });
 
+  // Update subtitle display based on new state
   if (state.showSubtitlesEnabled && state.currentSubtitles.length > 0) {
     startSubtitleDisplay(state.currentSubtitles);
   } else {
@@ -167,28 +164,33 @@ function handleToggleSubtitles(
     clearRenderer();
   }
 
+  // If enabling subtitles when previously disabled and no cached subtitles, trigger auto-gen
   if (state.showSubtitlesEnabled && !wasEnabled && state.currentSubtitles.length === 0) {
-    const videoId = extractVideoId(window.location.href);
-    if (videoId) {
-      chrome.storage.local.get([
-        videoId,
-        STORAGE_KEYS.AUTO_GENERATE,
-        STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-        STORAGE_KEYS.OPENROUTER_API_KEY,
-        STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-        STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-      ], (result) => {
-        if (result[videoId] && result[videoId].length > 0) {
-          state.currentSubtitles = result[videoId];
-          startSubtitleDisplay(state.currentSubtitles);
-        } else {
-          checkAndTriggerAutoGeneration(videoId, result, false, false);
-        }
-      });
-    }
+    triggerSubtitleAutoGenOnToggle(state, checkAndTriggerAutoGeneration);
   }
 
   sendResponse({ status: "success" });
+}
+
+/**
+ * Trigger subtitle auto-generation when toggle is enabled without cached subtitles
+ */
+function triggerSubtitleAutoGenOnToggle(
+  state: { currentSubtitles: SubtitleSegment[]; showSubtitlesEnabled: boolean },
+  checkAndTriggerAutoGeneration: (videoId: string, storageResult: any, checkCaptionsEnabled: boolean, withDelay: boolean) => Promise<boolean>
+): void {
+  const videoId = extractVideoId(window.location.href);
+  if (!videoId) return;
+
+  const keysToFetch = [videoId, ...buildStorageKeysForToggle()];
+  chrome.storage.local.get(keysToFetch, (result) => {
+    if (result[videoId] && result[videoId].length > 0) {
+      state.currentSubtitles = result[videoId];
+      startSubtitleDisplay(state.currentSubtitles);
+    } else {
+      checkAndTriggerAutoGeneration(videoId, result, false, false);
+    }
+  });
 }
 
 function handleUpdateCaptionFontSize(
