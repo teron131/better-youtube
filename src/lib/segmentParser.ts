@@ -13,9 +13,10 @@ function computeCharSimilarity(a: string, b: string): number {
   const [longer, shorter] = a.length > b.length ? [a, b] : [b, a];
   if (!longer.length) return 1.0;
 
+  const longerChars = new Set(longer);
   let matches = 0;
   for (let i = 0; i < shorter.length; i++) {
-    if (longer.includes(shorter[i])) matches++;
+    if (longerChars.has(shorter[i])) matches++;
   }
   return matches / longer.length;
 }
@@ -124,7 +125,7 @@ function dpAlignSegments(
     j = nRef;
 
   while (i > 0 || j > 0) {
-    const ptr = i >= 0 && j >= 0 ? back[i][j] : null;
+    const ptr = back[i][j];
 
     if (ptr === "M" && i > 0 && j > 0) {
       mapping[i - 1] = j - 1;

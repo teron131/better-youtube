@@ -31,18 +31,14 @@ export function filterContent(taggedText: string, ranges: TagRange[]): string {
   }
 
   const tagToIndex = new Map<string, number>();
-  lines.forEach((line, index) => {
-    if (!line.startsWith("[L")) {
-      return;
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(/^\[L\d+\]/);
+    if (match) {
+      tagToIndex.set(match[0], index);
     }
-    const endBracket = line.indexOf("]");
-    if (endBracket === -1) {
-      return;
-    }
-    tagToIndex.set(line.slice(0, endBracket + 1), index);
-  });
+  }
 
-  const keepMask = Array.from({ length: lines.length }, () => true);
+  const keepMask = new Array(lines.length).fill(true);
 
   for (const range of ranges) {
     const startIndex = tagToIndex.get(range.start_tag);

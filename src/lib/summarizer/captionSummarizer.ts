@@ -10,13 +10,13 @@ import { END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
+import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import {
   filterContent,
   GarbageIdentificationSchema,
   tagContent,
   untagContent,
 } from "../lineTag";
-import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import { PromptBuilder } from "./promptBuilder";
 import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
@@ -55,9 +55,10 @@ function createScrapYoutubeTool(input: SummarizationInput) {
   return tool(
     async ({ youtube_url }) => {
       // If we already have the transcript for this URL, just return it
-      const isUrl = isYoutubeUrl(input.transcript_or_url);
-      if (!isUrl && (youtube_url.includes(input.videoId || "") || !input.videoId)) {
-        return input.transcript_or_url;
+      const transcriptInput = input.transcript_or_url;
+      const isUrl = isYoutubeUrl(transcriptInput);
+      if (!isUrl && (!input.videoId || youtube_url.includes(input.videoId))) {
+        return transcriptInput;
       }
 
       if (!input.scrapeCreatorsApiKey) {
@@ -69,23 +70,24 @@ function createScrapYoutubeTool(input: SummarizationInput) {
         requestUrl.searchParams.set("url", youtube_url);
         requestUrl.searchParams.set("get_transcript", "true");
 
-        const response = await fetch(
-          requestUrl.toString(),
-          {
-            headers: {
-              "x-api-key": input.scrapeCreatorsApiKey,
-              "Accept": "application/json",
-            },
-            cache: "no-store",
-          }
-        );
+        const response = await fetch(requestUrl.toString(), {
+          headers: {
+            "x-api-key": input.scrapeCreatorsApiKey,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           return `Error fetching transcript: ${response.status} ${response.statusText}`;
         }
 
         const data = await response.json();
-        const transcript = data.transcript_only_text || (data.transcript as any[])?.map((s) => s.text).join(" ") || "";
+        const transcript =
+          data.transcript_only_text ??
+          (Array.isArray(data.transcript)
+            ? data.transcript.map((segment) => segment.text).join(" ")
+            : "");
         
         if (!transcript) {
           return "Error: No transcript found for this video.";
@@ -173,15 +175,12 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 async function analysisNode(state: GraphState): Promise<Partial<GraphState>> {
   const apiKey = state.apiKey!;
   const progressCallback = state.progressCallback as ((msg: string) => void) | undefined;
-
-  if (progressCallback) {
-    if (state.quality && state.analysis) {
-      progressCallback("Refining analysis based on quality feedback...");
-    } else {
-      progressCallback(
-        `Generating initial analysis. Transcript length: ${state.transcript.length} characters`
-      );
-    }
+  if (state.quality && state.analysis) {
+    progressCallback?.("Refining analysis based on quality feedback...");
+  } else {
+    progressCallback?.(
+      `Generating initial analysis. Transcript length: ${state.transcript.length} characters`
+    );
   }
 
   const llm = createOpenRouterLLM(state.analysis_model!, apiKey);
@@ -219,9 +218,7 @@ Please provide an improved version that addresses the specific issues identified
       improvement_prompt: fullImprovementPrompt,
     });
 
-    if (progressCallback) {
-      progressCallback("Analysis refined successfully");
-    }
+    progressCallback?.("Analysis refined successfully");
 
     return {
       analysis: result as Analysis,
@@ -240,9 +237,7 @@ Please provide an improved version that addresses the specific issues identified
     const chain = prompt.pipe(structuredLLM);
     const result = await chain.invoke({ content: state.transcript });
 
-    if (progressCallback) {
-      progressCallback("Analysis completed");
-    }
+    progressCallback?.("Analysis completed");
 
     return {
       analysis: result as Analysis,
@@ -257,11 +252,8 @@ Please provide an improved version that addresses the specific issues identified
 async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
   const apiKey = state.apiKey!;
   const progressCallback = state.progressCallback as ((msg: string) => void) | undefined;
-
-  if (progressCallback) {
-    progressCallback("Performing quality check...");
-    progressCallback(`Using model: ${state.quality_model}`);
-  }
+  progressCallback?.("Performing quality check...");
+  progressCallback?.(`Using model: ${state.quality_model}`);
 
   const llm = createOpenRouterLLM(state.quality_model!, apiKey);
   const structuredLLM = llm.withStructuredOutput(QualitySchema, {
@@ -360,7 +352,7 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
   parts.push("");
 
   // Takeaways
-  if (analysis.takeaways && analysis.takeaways.length > 0) {
+  if (analysis.takeaways?.length) {
     parts.push("## Key Takeaways");
     parts.push("");
     analysis.takeaways.forEach((takeaway) => {
@@ -370,7 +362,7 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
   }
 
   // Chapters
-  if (analysis.chapters && analysis.chapters.length > 0) {
+  if (analysis.chapters?.length) {
     parts.push("## Chapters");
     parts.push("");
     analysis.chapters.forEach((chapter) => {
@@ -378,7 +370,7 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
       parts.push("");
       parts.push(chapter.summary);
       parts.push("");
-      if (chapter.key_points && chapter.key_points.length > 0) {
+      if (chapter.key_points?.length) {
         chapter.key_points.forEach((point) => {
           parts.push(`- ${point}`);
         });
@@ -388,7 +380,7 @@ function formatAnalysisAsMarkdown(analysis: Analysis): string {
   }
 
   // Keywords
-  if (analysis.keywords && analysis.keywords.length > 0) {
+  if (analysis.keywords?.length) {
     parts.push("## Keywords");
     parts.push("");
     parts.push(analysis.keywords.map((kw) => `\`${kw}\``).join("  "));
@@ -426,15 +418,13 @@ async function executeFastSummarization(
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
   
-  if (progressCallback) {
-    const type = isUrl ? "URL" : "Transcript";
-    progressCallback(`Generating analysis in Fast Mode (Agent) from ${type}.`);
-  }
+  const type = isUrl ? "URL" : "Transcript";
+  progressCallback?.(`Generating analysis in Fast Mode (Agent) from ${type}.`);
 
-  const model = input.analysis_model || ANALYSIS_CONFIG.MODEL;
-  const refinerModel = input.refiner_model || DEFAULTS.MODEL_REFINER;
+  const model = input.analysis_model ?? ANALYSIS_CONFIG.MODEL;
+  const refinerModel = input.refiner_model ?? DEFAULTS.MODEL_REFINER;
   const llm = createOpenRouterLLM(model, apiKey);
-  const targetLang = input.target_language || "auto";
+  const targetLang = input.target_language ?? "auto";
 
   // Only provide the tool if the input is a URL
   const tools = isUrl ? [createScrapYoutubeTool(input)] : [];
@@ -462,9 +452,7 @@ async function executeFastSummarization(
   }
   const analysis = structuredResponse as Analysis;
 
-  if (progressCallback) {
-    progressCallback("Fast analysis completed");
-  }
+  progressCallback?.("Fast analysis completed");
 
   const summaryText = formatAnalysisAsMarkdown(analysis);
 
@@ -495,7 +483,7 @@ export async function executeSummarizationWorkflow(
   // We resolve it here if it's a URL.
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
-    if (progressCallback) progressCallback("Resolving URL to transcript for workflow...");
+    progressCallback?.("Resolving URL to transcript for workflow...");
     // Note: Graph workflow doesn't have tools in analysisNode yet, 
     // so we must resolve it before starting.
     const tool = createScrapYoutubeTool(input);
@@ -508,9 +496,9 @@ export async function executeSummarizationWorkflow(
 
   const initialState: GraphState = {
     transcript: transcript,
-    analysis_model: input.analysis_model || ANALYSIS_CONFIG.MODEL,
-    quality_model: input.quality_model || ANALYSIS_CONFIG.QUALITY_MODEL,
-    target_language: input.target_language || "auto",
+    analysis_model: input.analysis_model ?? ANALYSIS_CONFIG.MODEL,
+    quality_model: input.quality_model ?? ANALYSIS_CONFIG.QUALITY_MODEL,
+    target_language: input.target_language ?? "auto",
     analysis: null,
     quality: null,
     iteration_count: 0,

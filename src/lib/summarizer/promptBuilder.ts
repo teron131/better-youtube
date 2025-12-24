@@ -9,16 +9,16 @@ const LANGUAGE_DESCRIPTIONS: Record<string, string> = {
  * Get language instruction for prompts
  */
 function getLanguageInstruction(targetLanguage: string, isRefinement = false): string {
-  const prefix = isRefinement
-    ? "\n\nOUTPUT LANGUAGE (REQUIRED): "
-    : "- OUTPUT LANGUAGE (REQUIRED): ";
-  const suffix = isRefinement ? " All text must be in this language." : "";
-
   const description = LANGUAGE_DESCRIPTIONS[targetLanguage] || targetLanguage;
   const instruction =
     targetLanguage === "auto"
       ? description
       : `Write ALL output in ${description}. Do not use English or any other language.`;
+
+  const prefix = isRefinement
+    ? "\n\nOUTPUT LANGUAGE (REQUIRED): "
+    : "- OUTPUT LANGUAGE (REQUIRED): ";
+  const suffix = isRefinement ? " All text must be in this language." : "";
 
   return `${prefix}${instruction}${suffix}`;
 }
@@ -50,9 +50,7 @@ export class PromptBuilder {
    * Build prompt for quality assessment
    */
   static buildQualityPrompt(): string {
-    return [
-      "Evaluate the analysis. Rate each aspect 'Fail', 'Refine', or 'Pass' with a specific reason.",
-    ].join("\n");
+    return "Evaluate the analysis. Rate each aspect 'Fail', 'Refine', or 'Pass' with a specific reason.";
   }
 
   /**
