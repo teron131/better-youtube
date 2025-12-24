@@ -52,21 +52,16 @@ function normalizeLineToText(line: string): string {
 }
 
 /**
- * Align original segments to refined texts using dynamic programming
+ * Initialize DP matrices for segment alignment
  */
-function dpAlignSegments(
-  origSegments: SubtitleSegment[],
-  refTexts: string[],
-  applyTailGuard = false
-): SubtitleSegment[] {
-  const nOrig = origSegments.length;
-  const nRef = refTexts.length;
-
-  if (nOrig === 0) return [];
-
-  const { GAP_PENALTY, TAIL_GUARD_SIZE, LENGTH_TOLERANCE } = SEGMENT_PARSER_CONFIG;
-
-  // Initialize DP matrices
+function initializeDPMatrices(
+  nOrig: number,
+  nRef: number,
+  gapPenalty: number
+): {
+  dp: number[][];
+  back: (string | null)[][];
+} {
   const dp: number[][] = Array(nOrig + 1)
     .fill(null)
     .map(() => Array(nRef + 1).fill(-Infinity));
@@ -75,51 +70,58 @@ function dpAlignSegments(
     .fill(null)
     .map(() => Array(nRef + 1).fill(null));
 
-  // Base case
   dp[0][0] = 0.0;
 
-  // Initialize boundaries
   for (let i = 1; i <= nOrig; i++) {
-    dp[i][0] = dp[i - 1][0] + GAP_PENALTY;
+    dp[i][0] = dp[i - 1][0] + gapPenalty;
     back[i][0] = "O";
   }
 
   for (let j = 1; j <= nRef; j++) {
-    dp[0][j] = dp[0][j - 1] + GAP_PENALTY;
+    dp[0][j] = dp[0][j - 1] + gapPenalty;
     back[0][j] = "R";
   }
 
-  // Fill DP table
-  for (let i = 1; i <= nOrig; i++) {
-    const origText = origSegments[i - 1].text;
+  return { dp, back };
+}
 
-    for (let j = 1; j <= nRef; j++) {
-      const refText = refTexts[j - 1];
+/**
+ * Compute best score for a single DP cell
+ */
+function computeDPCell(
+  i: number,
+  j: number,
+  dp: number[][],
+  origText: string,
+  refText: string,
+  gapPenalty: number
+): { score: number; ptr: string } {
+  let bestScore = dp[i - 1][j - 1] + computeLineSimilarity(origText, refText);
+  let bestPtr = "M";
 
-      // Option 1: Match
-      let bestScore = dp[i - 1][j - 1] + computeLineSimilarity(origText, refText);
-      let bestPtr = "M";
-
-      // Option 2: Gap in original
-      const oScore = dp[i - 1][j] + GAP_PENALTY;
-      if (oScore > bestScore) {
-        bestScore = oScore;
-        bestPtr = "O";
-      }
-
-      // Option 3: Gap in refined
-      const rScore = dp[i][j - 1] + GAP_PENALTY;
-      if (rScore > bestScore) {
-        bestScore = rScore;
-        bestPtr = "R";
-      }
-
-      dp[i][j] = bestScore;
-      back[i][j] = bestPtr;
-    }
+  const oScore = dp[i - 1][j] + gapPenalty;
+  if (oScore > bestScore) {
+    bestScore = oScore;
+    bestPtr = "O";
   }
 
-  // Backtrack
+  const rScore = dp[i][j - 1] + gapPenalty;
+  if (rScore > bestScore) {
+    bestScore = rScore;
+    bestPtr = "R";
+  }
+
+  return { score: bestScore, ptr: bestPtr };
+}
+
+/**
+ * Backtrack through DP table to find alignment mapping
+ */
+function backtrackAlignment(
+  nOrig: number,
+  nRef: number,
+  back: (string | null)[][]
+): (number | null)[] {
   const mapping: (number | null)[] = Array(nOrig).fill(null);
   let i = nOrig,
     j = nRef;
@@ -148,7 +150,21 @@ function dpAlignSegments(
     }
   }
 
-  // Build refined segments
+  return mapping;
+}
+
+/**
+ * Build refined segments from alignment mapping
+ */
+function buildRefinedSegments(
+  origSegments: SubtitleSegment[],
+  refTexts: string[],
+  mapping: (number | null)[],
+  applyTailGuard: boolean
+): SubtitleSegment[] {
+  const { TAIL_GUARD_SIZE, LENGTH_TOLERANCE } = SEGMENT_PARSER_CONFIG;
+  const nOrig = origSegments.length;
+  const nRef = refTexts.length;
   const refinedSegments: SubtitleSegment[] = [];
   const tailStart = applyTailGuard ? nOrig - TAIL_GUARD_SIZE : nOrig + 1;
 
@@ -178,6 +194,43 @@ function dpAlignSegments(
   }
 
   return refinedSegments;
+}
+
+/**
+ * Align original segments to refined texts using dynamic programming
+ */
+function dpAlignSegments(
+  origSegments: SubtitleSegment[],
+  refTexts: string[],
+  applyTailGuard = false
+): SubtitleSegment[] {
+  const nOrig = origSegments.length;
+  const nRef = refTexts.length;
+
+  if (nOrig === 0) return [];
+
+  const { GAP_PENALTY } = SEGMENT_PARSER_CONFIG;
+
+  // Initialize matrices
+  const { dp, back } = initializeDPMatrices(nOrig, nRef, GAP_PENALTY);
+
+  // Fill DP table
+  for (let i = 1; i <= nOrig; i++) {
+    const origText = origSegments[i - 1].text;
+
+    for (let j = 1; j <= nRef; j++) {
+      const refText = refTexts[j - 1];
+      const { score, ptr } = computeDPCell(i, j, dp, origText, refText, GAP_PENALTY);
+      dp[i][j] = score;
+      back[i][j] = ptr;
+    }
+  }
+
+  // Get alignment mapping via backtracking
+  const mapping = backtrackAlignment(nOrig, nRef, back);
+
+  // Build and return refined segments
+  return buildRefinedSegments(origSegments, refTexts, mapping, applyTailGuard);
 }
 
 /**
