@@ -112,21 +112,16 @@ function findSubtitleAtTime(subtitles: SubtitleSegment[], timeMs: number): Subti
   return null;
 }
 
-/**
- * Update subtitles based on the current video time
- */
 function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
-  if (!videoPlayer || !subtitleText || !subtitleContainer) {
+  if (!videoPlayer || !subtitleText || !subtitleContainer || isNaN(videoPlayer.currentTime)) {
     return;
   }
 
-  if (isNaN(videoPlayer.currentTime)) return;
-
-  const currentTime = videoPlayer.currentTime * 1000; // Convert to ms
+  const currentTime = videoPlayer.currentTime * 1000;
   const foundSubtitle = findSubtitleAtTime(currentSubtitles, currentTime);
 
   if (foundSubtitle) {
-    const normalizedText = (foundSubtitle.text || "")
+    const normalizedText = foundSubtitle.text
       .replace(/\r\n?/g, "\n")
       .replace(/\n{2,}/g, "\n")
       .trim();

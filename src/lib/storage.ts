@@ -62,14 +62,9 @@ async function storageSet(items: Record<string, unknown>): Promise<void> {
     }
     return;
   }
-
   return new Promise((resolve, reject) => {
     chrome.storage.local.set(items, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
+      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve();
     });
   });
 }
@@ -110,19 +105,12 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
 
 async function storageRemove(keys: string[]): Promise<void> {
   if (!isExtension) {
-    for (const key of keys) {
-      localStorage.removeItem(key);
-    }
+    keys.forEach(key => localStorage.removeItem(key));
     return;
   }
-
   return new Promise((resolve, reject) => {
     chrome.storage.local.remove(keys, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
+      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve();
     });
   });
 }
@@ -141,14 +129,9 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
     }
     return allItems;
   }
-
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, (allItems) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(allItems);
-      }
+      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(allItems);
     });
   });
 }
@@ -168,7 +151,7 @@ export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[
     await storageSet({ [key]: subtitles });
     console.log(`Subtitles saved for video: ${videoId}`);
   } catch (error) {
-    if (error instanceof Error && error.message?.includes("QUOTA")) {
+    if (error instanceof Error && error.message.includes("QUOTA")) {
       console.warn("Storage quota exceeded, cleaning up...");
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: subtitles });
@@ -215,7 +198,7 @@ export async function saveAnalysis(
     await storageSet({ [key]: storedAnalysis });
     console.log(`Analysis saved: ${videoId}`);
   } catch (error) {
-    if (error instanceof Error && error.message?.includes("QUOTA")) {
+    if (error instanceof Error && error.message.includes("QUOTA")) {
       console.warn("Storage quota exceeded, cleaning up...");
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: storedAnalysis });
@@ -270,18 +253,12 @@ export async function getStorageUsage(): Promise<StorageUsage> {
 
 async function getVideoRelatedKeys(allItems: Record<string, unknown>): Promise<string[]> {
   const keys: string[] = [];
-
   for (const key of Object.keys(allItems)) {
-    // Subtitle keys (raw video ID, 11 chars, array value)
-    if (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) {
-      keys.push(key);
-    }
-    // Metadata and analysis keys (prefixed)
-    else if (key.startsWith('video_info_') || key.startsWith('analysis_')) {
+    if ((key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) ||
+        key.startsWith('video_info_') || key.startsWith('analysis_')) {
       keys.push(key);
     }
   }
-
   return keys;
 }
 

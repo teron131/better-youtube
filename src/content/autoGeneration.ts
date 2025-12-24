@@ -9,9 +9,6 @@ import { extractVideoId } from "@/lib/url";
 // Track which videos have had auto-generation triggered
 const autoGenerationTriggered = new Set<string>();
 
-/**
- * Check if extension context is still valid
- */
 export function isExtensionContextValid(): boolean {
   try {
     return !!chrome.runtime?.id;
@@ -82,9 +79,6 @@ export function validateAutoGenerationConditions(
   return { isValid: true };
 }
 
-/**
- * Verify video ID hasn't changed
- */
 function verifyVideoIdUnchanged(originalVideoId: string): boolean {
   const currentVideoId = extractVideoId(window.location.href);
   if (currentVideoId !== originalVideoId) {

@@ -35,11 +35,9 @@ export function buildStorageKeysForVideo(): string[] {
 }
 
 export function getRefinerModelFromStorage(storageResult: any): string {
-  return (
-    (storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] as string) ||
-    (storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] as string) ||
-    DEFAULTS.MODEL_REFINER
-  );
+  return storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
+    storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
+    DEFAULTS.MODEL_REFINER;
 }
 
 export function getAutoGenModels(storageResult: any): {
@@ -48,17 +46,14 @@ export function getAutoGenModels(storageResult: any): {
   targetLanguage: string;
   fastMode: boolean;
 } {
-  const summarizerModel =
-    (storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] as string) ||
-    (storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] as string) ||
+  const summarizerModel = storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+    storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
     DEFAULTS.MODEL_SUMMARIZER;
   return {
     summarizerModel,
-    qualityModel:
-      (storageResult[STORAGE_KEYS.QUALITY_MODEL] as string) || summarizerModel,
-    targetLanguage:
-      (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] as string) ||
-      (storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] as string) ||
+    qualityModel: storageResult[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
+    targetLanguage: storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+      storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
       DEFAULTS.TARGET_LANGUAGE_RECOMMENDED,
     fastMode: storageResult[STORAGE_KEYS.FAST_MODE] === true,
   };
@@ -68,24 +63,17 @@ export async function executeScrapeForAutoGen(
   videoId: string,
   scrapeCreatorsApiKey: string
 ): Promise<boolean> {
-  console.log(
-    `[Auto-gen] Step 1: Scraping video data for ${videoId}...`
-  );
-  const result = await sendChromeMessage<{
-    status: string;
-    hasTranscript?: boolean;
-  }>({
+  console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
+  const result = await sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
     scrapeCreatorsApiKey,
-  }).catch(() => ({ status: "error" as const, hasTranscript: undefined }));
+  }).catch(() => ({ status: "error" }));
   if (result.status !== "success") {
     console.error(`[Auto-gen] Scrape failed for ${videoId}`);
     return false;
   }
-  console.log(
-    `[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`
-  );
+  console.log(`[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`);
   return true;
 }
 
@@ -138,13 +126,13 @@ export function triggerSummaryGeneration(
 }
 
 export function determineToggleState(message: any): boolean {
-  const hasShow = Object.prototype.hasOwnProperty.call(message, "showSubtitles");
-  const hasEnabled = Object.prototype.hasOwnProperty.call(message, "enabled");
-  return hasShow
-    ? message.showSubtitles !== false
-    : hasEnabled
-      ? message.enabled !== false
-      : true;
+  if ("showSubtitles" in message) {
+    return message.showSubtitles !== false;
+  }
+  if ("enabled" in message) {
+    return message.enabled !== false;
+  }
+  return true;
 }
 
 export function buildStorageKeysForToggle(): string[] {

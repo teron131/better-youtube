@@ -12,12 +12,8 @@ import type { SubtitleSegment } from "./storage";
 function computeCharSimilarity(a: string, b: string): number {
   const [longer, shorter] = a.length > b.length ? [a, b] : [b, a];
   if (!longer.length) return 1.0;
-
   const longerChars = new Set(longer);
-  let matches = 0;
-  for (let i = 0; i < shorter.length; i++) {
-    if (longerChars.has(shorter[i])) matches++;
-  }
+  const matches = [...shorter].filter(c => longerChars.has(c)).length;
   return matches / longer.length;
 }
 
@@ -47,8 +43,8 @@ function computeLineSimilarity(a: string, b: string): number {
  */
 function normalizeLineToText(line: string): string {
   const normalized = line.split(/\s+/).join(" ").trim();
-  const timestampMatch = normalized.match(/^\[([^\]]+)\]\s*(.*)$/);
-  return timestampMatch ? timestampMatch[2].trim() : normalized;
+  const timestampMatch = normalized.match(/^\[[^\]]+\]\s*(.*)$/);
+  return timestampMatch ? timestampMatch[1].trim() : normalized;
 }
 
 /** Align original segments to refined texts using dynamic programming */
@@ -99,14 +95,15 @@ function dpAlignSegments(
     else break;
   }
 
-  // Build refined segments
   const tailStart = applyTailGuard ? nOrig - TAIL_GUARD_SIZE : nOrig + 1;
   return origSegments.map((origSeg, idx) => {
     const refIdx = mapping[idx];
-    let text = refIdx !== null && refIdx >= 0 && refIdx < nRef ? refTexts[refIdx] : origSeg.text;
+    let text = (refIdx !== null && refIdx >= 0 && refIdx < nRef) ? refTexts[refIdx] : origSeg.text;
     if (idx >= tailStart && text) {
       const origLen = origSeg.text.length || 1;
-      if (Math.abs(text.length - origLen) / origLen > LENGTH_TOLERANCE) text = origSeg.text;
+      if (Math.abs(text.length - origLen) / origLen > LENGTH_TOLERANCE) {
+        text = origSeg.text;
+      }
     }
     return { text: text || origSeg.text, startTime: origSeg.startTime, endTime: origSeg.endTime };
   });

@@ -31,12 +31,12 @@ export function filterContent(taggedText: string, ranges: TagRange[]): string {
   }
 
   const tagToIndex = new Map<string, number>();
-  for (let index = 0; index < lines.length; index += 1) {
-    const match = lines[index].match(/^\[L\d+\]/);
+  lines.forEach((line, index) => {
+    const match = line.match(/^\[L\d+\]/);
     if (match) {
       tagToIndex.set(match[0], index);
     }
-  }
+  });
 
   const keepMask = new Array(lines.length).fill(true);
 
@@ -48,7 +48,7 @@ export function filterContent(taggedText: string, ranges: TagRange[]): string {
     }
     const start = Math.min(startIndex, endIndex);
     const end = Math.max(startIndex, endIndex);
-    for (let i = start; i <= end; i += 1) {
+    for (let i = start; i <= end; i++) {
       keepMask[i] = false;
     }
   }

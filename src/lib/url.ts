@@ -13,21 +13,17 @@ export function extractVideoId(url: string): string | null {
     const urlObj = new URL(url);
     const host = urlObj.hostname.replace(/^www\./, "");
 
-    // youtube.com format
     if (host.includes("youtube.com")) {
       const v = urlObj.searchParams.get("v");
       if (v) return v;
     }
-
-    // youtu.be format
     if (host === "youtu.be") {
       const id = urlObj.pathname.replace(/^\//, "");
       if (id) return id;
     }
-  } catch (e) {
-    // Fallback regex for partial or malformed URLs
+  } catch {
     const match = url.match(/(?:v=|youtu\.be\/)([\w-]+)/);
-    if (match && match[1]) return match[1];
+    if (match?.[1]) return match[1];
   }
 
   return null;

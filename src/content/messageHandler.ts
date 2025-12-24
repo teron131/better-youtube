@@ -58,8 +58,7 @@ export function setupMessageListener(
 
 function handleGetVideoTitle(sendResponse: (response: any) => void): void {
   const titleElement = document.querySelector("h1.ytd-watch-metadata yt-formatted-string");
-  const title = titleElement ? titleElement.textContent : null;
-  sendResponse({ title });
+  sendResponse({ title: titleElement?.textContent ?? null });
 }
 
 function handleGenerateSummary(
@@ -197,7 +196,6 @@ function handleUpdateCaptionFontSize(
   message: any,
   sendResponse: (response: any) => void
 ): void {
-  const fontSize = (message.fontSize || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
-  applyCaptionFontSize(fontSize);
+  applyCaptionFontSize((message.fontSize || DEFAULTS.CAPTION_FONT_SIZE) as FontSize);
   sendResponse({ status: "success" });
 }

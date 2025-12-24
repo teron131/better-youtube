@@ -24,15 +24,10 @@ export async function sendChromeMessage<T = any>(
     let timeoutId: NodeJS.Timeout | undefined;
 
     chrome.runtime.sendMessage(message, (response) => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(response);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      chrome.runtime.lastError
+        ? reject(new Error(chrome.runtime.lastError.message))
+        : resolve(response);
     });
 
     if (timeout) {
@@ -61,11 +56,9 @@ export async function sendTabMessage<T = any>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(response);
-      }
+      chrome.runtime.lastError
+        ? reject(new Error(chrome.runtime.lastError.message))
+        : resolve(response);
     });
   });
 }
