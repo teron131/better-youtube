@@ -20,6 +20,16 @@ interface ApiTranscriptSegment {
   startTimeText: string;
 }
 
+/**
+ * Raw segment from API (can have strings for numbers)
+ */
+interface RawTranscriptSegment {
+  text: string;
+  startMs: string | number;
+  endMs: string | number;
+  startTimeText: string;
+}
+
 interface ChannelInfo {
   id: string;
   url: string;
@@ -42,6 +52,20 @@ export interface ScrapeCreatorsResponse {
   channel?: ChannelInfo;
   durationFormatted?: string;
   keywords?: string[];
+}
+
+/**
+ * Normalizes raw API response to ensure numbers are numbers
+ */
+function normalizeApiResponse(data: any): ScrapeCreatorsResponse {
+  if (data.transcript && Array.isArray(data.transcript)) {
+    data.transcript = data.transcript.map((s: RawTranscriptSegment) => ({
+      ...s,
+      startMs: Number(s.startMs),
+      endMs: Number(s.endMs),
+    }));
+  }
+  return data as ScrapeCreatorsResponse;
 }
 
 function formatTimestamp(ms: number): string {
@@ -141,7 +165,8 @@ async function fetchTranscript(
           continue;
         }
 
-        const data = await response.json();
+        const rawData = await response.json();
+        const data = normalizeApiResponse(rawData);
         console.log("Transcript fetched successfully");
         transcriptCache.set(videoId, { data, timestamp: Date.now() });
         return data;

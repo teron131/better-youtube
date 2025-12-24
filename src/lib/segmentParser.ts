@@ -96,7 +96,7 @@ function dpAlignSegments(
   }
 
   const tailStart = applyTailGuard ? nOrig - TAIL_GUARD_SIZE : nOrig + 1;
-  return origSegments.map((origSeg, idx) => {
+  const aligned = origSegments.map((origSeg, idx) => {
     const refIdx = mapping[idx];
     let text = (refIdx !== null && refIdx >= 0 && refIdx < nRef) ? refTexts[refIdx] : origSeg.text;
     if (idx >= tailStart && text) {
@@ -112,6 +112,15 @@ function dpAlignSegments(
       startTimeText: origSeg.startTimeText ?? null,
     };
   });
+
+  // Ensure no overlaps in aligned segments by clamping to next segment's start
+  for (let i = 0; i < aligned.length - 1; i++) {
+    if (aligned[i].endTime > aligned[i + 1].startTime) {
+      aligned[i].endTime = aligned[i + 1].startTime;
+    }
+  }
+
+  return aligned;
 }
 
 /**
