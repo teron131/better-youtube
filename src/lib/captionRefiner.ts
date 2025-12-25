@@ -143,7 +143,41 @@ export async function refineTranscriptWithLLM(
 
   progressCallback?.(0, batchMessages.length);
 
-  const responses = await llm.batch(batchMessages);
+  // Custom concurrency handler to replace llm.batch
+  // This allows immediate progress updates and ensures sequential-priority processing (start of video first)
+  const runConcurrentBatch = async <T, R>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T, index: number) => Promise<R>
+  ): Promise<R[]> => {
+    const results = new Array(items.length);
+    const queue = items.map((item, index) => ({ item, index }));
+    
+    const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(async () => {
+      while (queue.length > 0) {
+        const { item, index } = queue.shift()!;
+        try {
+          results[index] = await fn(item, index);
+        } catch (error) {
+          console.error(`Error processing chunk ${index}:`, error);
+          results[index] = null; // Handle error gracefully-ish
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
+  };
+
+  const responses = await runConcurrentBatch(
+    batchMessages, 
+    8, // Max Concurrency
+    async (messages, idx) => {
+      const response = await llm.invoke(messages);
+      progressCallback?.(idx + 1, batchMessages.length);
+      return response;
+    }
+  );
 
   const allRefinedLines: string[] = [];
   for (let i = 0; i < responses.length; i++) {
@@ -151,8 +185,7 @@ export async function refineTranscriptWithLLM(
     const refinedText = extractResponseText(responses[i]);
     const refinedLines = refinedText.trim().split("\n");
 
-    progressCallback?.(chunkIdx, batchMessages.length);
-
+    // Log warning if count mismatch (progress callback already handled during execution)
     if (refinedLines.length !== expectedLineCount) {
       console.warn(`Line count mismatch in chunk ${chunkIdx}: expected ${expectedLineCount}, got ${refinedLines.length}`);
     }
