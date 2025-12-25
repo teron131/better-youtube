@@ -1,5 +1,6 @@
 .claude/
 CLAUDE.md
+dist/
 
 # Nestjs specific
 /node_modules
