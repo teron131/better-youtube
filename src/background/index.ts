@@ -292,7 +292,27 @@ async function handleFetchSubtitles(
       data.description,
       openRouterApiKey,
       undefined,
-      modelSelection
+      modelSelection,
+      (prioritySegments) => {
+        // Callback when priority part is done
+        console.log(`Priority segments ready (${prioritySegments.length})`);
+        if (tabId) {
+          chrome.tabs.sendMessage(
+            tabId,
+            {
+              action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
+              videoId,
+              subtitles: prioritySegments,
+              isPartial: true
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                // Ignore when content script isn't available.
+              }
+            }
+          );
+        }
+      }
     );
 
     if (tabId) {

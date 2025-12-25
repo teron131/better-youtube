@@ -112,7 +112,8 @@ export async function refineTranscriptWithLLM(
   description: string,
   apiKey: string,
   progressCallback?: (chunkIdx: number, totalChunks: number) => void,
-  model: string = DEFAULTS.MODEL_REFINER
+  model: string = DEFAULTS.MODEL_REFINER,
+  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) {
     return [];
@@ -120,6 +121,22 @@ export async function refineTranscriptWithLLM(
 
   const llm = createLLM(apiKey, model);
   const preambleText = buildUserPreamble(title, description);
+
+  // Determine priority window (First 5 mins or 50% of video)
+  const durationMs = segments[segments.length - 1].endTime;
+  const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
+  
+  let splitIndex = segments.length;
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i].endTime > PRIORITY_DURATION_MS) {
+      splitIndex = i + 1;
+      break;
+    }
+  }
+
+  // Calculate how many chunks cover the priority segments
+  const prioritySegmentCount = splitIndex;
+  const priorityRangeCount = Math.ceil(prioritySegmentCount / REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
 
   const ranges = chunkSegmentsByCount(segments, REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
   const batchMessages: (SystemMessage | HumanMessage)[][] = [];
@@ -152,12 +169,45 @@ export async function refineTranscriptWithLLM(
   ): Promise<R[]> => {
     const results = new Array(items.length);
     const queue = items.map((item, index) => ({ item, index }));
+    let completedPriorityChunks = 0;
+    let priorityReported = false;
     
     const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(async () => {
       while (queue.length > 0) {
         const { item, index } = queue.shift()!;
         try {
           results[index] = await fn(item, index);
+          
+          // Track priority completion
+          if (index < priorityRangeCount) {
+            completedPriorityChunks++;
+          }
+          
+          // Check if Priority Block is done
+          if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
+             priorityReported = true;
+             
+             // We need to parse just the priority segments now
+             // This requires extracting the text from the results we have so far (indices 0 to priorityRangeCount-1)
+             const priorityLines: string[] = [];
+             for(let p = 0; p < priorityRangeCount; p++) {
+                 const pResponse = results[p];
+                 const pText = extractResponseText(pResponse);
+                 const pLines = pText.trim().split("\n");
+                 priorityLines.push(...pLines, REFINER_CONFIG.CHUNK_SENTINEL);
+             }
+             
+             const priorityFullText = priorityLines.join("\n");
+             const prioritySegments = parseRefinedSegments(
+                priorityFullText, 
+                segments.slice(0, prioritySegmentCount), // Only source segments for this range
+                REFINER_CONFIG.CHUNK_SENTINEL, 
+                REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+             );
+             
+             onPriorityComplete(prioritySegments);
+          }
+          
         } catch (error) {
           console.error(`Error processing chunk ${index}:`, error);
           results[index] = null; // Handle error gracefully-ish
