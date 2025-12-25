@@ -138,7 +138,8 @@ async function triggerAutoGeneration(
     console.log("[Auto-gen] Skipping caption refinement (showSubtitles disabled)");
   }
 
-  triggerSummaryGeneration(videoId, scrapeCreatorsApiKey, openRouterApiKey, models);
+  // triggerSummaryGeneration(videoId, scrapeCreatorsApiKey, openRouterApiKey, models);
+  console.log("[Auto-gen] Skipping automatic summary generation (disabled by default)");
 }
 
 /**
