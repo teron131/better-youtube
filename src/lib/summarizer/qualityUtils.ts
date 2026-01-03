@@ -1,6 +1,5 @@
+import { DEFAULTS, QUALITY_THRESHOLDS } from "../constants";
 import type { Quality } from "./schemas";
-import { DEFAULTS } from "../constants";
-import { QUALITY_THRESHOLDS } from "../chromeConstants";
 
 const SCORE_MAP = QUALITY_THRESHOLDS.SCORE_MAP;
 const MAX_SCORE_PER_ASPECT = QUALITY_THRESHOLDS.MAX_SCORE_PER_ASPECT;

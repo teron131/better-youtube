@@ -1,10 +1,10 @@
-import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
+import * as React from "react"
 
+import { UI_BEHAVIOR, UI_DIMENSIONS } from "@/lib/constants"
 import { useIsMobile } from "@ui/hooks/use-mobile"
-import { cn } from "./utils"
 import { Button } from "./button"
 import { Input } from "./input"
 import { Separator } from "./separator"
@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip"
-import { UI_BEHAVIOR, UI_DIMENSIONS } from "@/lib/chromeConstants"
+import { cn } from "./utils"
 
 const SIDEBAR_COOKIE_NAME = UI_BEHAVIOR.SIDEBAR_COOKIE_NAME
 const SIDEBAR_COOKIE_MAX_AGE = UI_BEHAVIOR.SIDEBAR_COOKIE_MAX_AGE
@@ -758,5 +758,5 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-  useSidebar,
+  useSidebar
 }

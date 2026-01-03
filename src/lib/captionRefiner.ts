@@ -5,14 +5,13 @@
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { CHROME_API } from "./chromeConstants";
-import { DEFAULTS, REFINER_CONFIG } from "./constants";
+import { API_ENDPOINTS, DEFAULTS, REFINER_CONFIG } from "./constants";
 import { chunkSegmentsByCount, parseRefinedSegments } from "./segmentParser";
 import { SubtitleSegment } from "./storage";
 
-// ============================================================================ 
+// ============================================================================
 // Constants
-// ============================================================================ 
+// ============================================================================
 
 const SYSTEM_PROMPT = `You are correcting segments of a YouTube video transcript. These segments could be from anywhere in the video (beginning, middle, or end). Use the video title and description for context.
 
@@ -39,9 +38,9 @@ If you sold at the reasonable
 valuations, when the gains that already
 had been had, you missed out big time. I`;
 
-// ============================================================================ 
+// ============================================================================
 // Utility Functions
-// ============================================================================ 
+// ============================================================================
 
 function normalizeSegmentText(text: string): string {
   return (text || "").split(/\s+/).join(" ");
@@ -73,16 +72,12 @@ function buildUserPreamble(title: string, description: string): string {
   ].join("\n");
 }
 
-// ============================================================================ 
-// Main Refinement Function
-// ============================================================================ 
-
 function createLLM(apiKey: string, model: string): ChatOpenAI {
   return new ChatOpenAI({
     model,
     apiKey,
     configuration: {
-      baseURL: CHROME_API.OPENROUTER_BASE_URL,
+      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {
         "HTTP-Referer": chrome.runtime.getURL(""),
         "X-Title": "Better YouTube",
@@ -94,14 +89,46 @@ function createLLM(apiKey: string, model: string): ChatOpenAI {
 
 function extractResponseText(response: any): string {
   const content = response?.content;
-  if (typeof content === "string") {
-    return content;
-  }
+  if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content.map(part => typeof part === "string" ? part : part?.text || "").join("");
   }
   return content != null ? String(content) : "";
 }
+
+/**
+ * Custom concurrency handler for batch processing
+ */
+async function runConcurrentBatch<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+  onEachComplete?: (result: R, index: number, allResults: (R | null)[]) => void
+): Promise<R[]> {
+  const results = new Array(items.length);
+  const queue = items.map((item, index) => ({ item, index }));
+  
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(async () => {
+    while (queue.length > 0) {
+      const { item, index } = queue.shift()!;
+      try {
+        const result = await fn(item, index);
+        results[index] = result;
+        onEachComplete?.(result, index, results);
+      } catch (error) {
+        console.error(`Error processing batch item ${index}:`, error);
+        results[index] = null;
+      }
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+// ============================================================================
+// Main Refinement Logic
+// ============================================================================
 
 /**
  * Refine video transcript using LLM inference
@@ -115,9 +142,7 @@ export async function refineTranscriptWithLLM(
   model: string = DEFAULTS.MODEL_REFINER,
   onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void
 ): Promise<SubtitleSegment[]> {
-  if (!segments.length) {
-    return [];
-  }
+  if (!segments.length) return [];
 
   const llm = createLLM(apiKey, model);
   const preambleText = buildUserPreamble(title, description);
@@ -126,124 +151,61 @@ export async function refineTranscriptWithLLM(
   const durationMs = segments[segments.length - 1].endTime;
   const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
   
-  let splitIndex = segments.length;
-  for (let i = 0; i < segments.length; i++) {
-    if (segments[i].endTime > PRIORITY_DURATION_MS) {
-      splitIndex = i + 1;
-      break;
-    }
-  }
+  let splitIndex = segments.findIndex(s => s.endTime > PRIORITY_DURATION_MS);
+  if (splitIndex === -1) splitIndex = segments.length;
 
-  // Calculate how many chunks cover the priority segments
-  const prioritySegmentCount = splitIndex;
-  const priorityRangeCount = Math.ceil(prioritySegmentCount / REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
-
+  const priorityRangeCount = Math.ceil(splitIndex / REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
   const ranges = chunkSegmentsByCount(segments, REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
-  const batchMessages: (SystemMessage | HumanMessage)[][] = [];
-  const chunkInfo: { chunkIdx: number; expectedLineCount: number }[] = [];
-
-  for (let chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
-    const [startIdx, endIdx] = ranges[chunkIdx];
-    const chunkSegments = segments.slice(startIdx, endIdx);
-    const chunkTextOnly = formatTranscriptSegments(chunkSegments);
-
-    batchMessages.push([
-      new SystemMessage({ content: SYSTEM_PROMPT }),
-      new HumanMessage({ content: `${preambleText}\n${chunkTextOnly}` }),
-    ]);
-
-    chunkInfo.push({
-      chunkIdx: chunkIdx + 1,
-      expectedLineCount: chunkSegments.length,
-    });
-  }
+  
+  const batchMessages = ranges.map(([start, end]) => [
+    new SystemMessage({ content: SYSTEM_PROMPT }),
+    new HumanMessage({ content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}` }),
+  ]);
 
   progressCallback?.(0, batchMessages.length);
 
-  // Custom concurrency handler to replace llm.batch
-  // This allows immediate progress updates and ensures sequential-priority processing (start of video first)
-  const runConcurrentBatch = async <T, R>(
-    items: T[],
-    concurrency: number,
-    fn: (item: T, index: number) => Promise<R>
-  ): Promise<R[]> => {
-    const results = new Array(items.length);
-    const queue = items.map((item, index) => ({ item, index }));
-    let completedPriorityChunks = 0;
-    let priorityReported = false;
-    
-    const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(async () => {
-      while (queue.length > 0) {
-        const { item, index } = queue.shift()!;
-        try {
-          results[index] = await fn(item, index);
-          
-          // Track priority completion
-          if (index < priorityRangeCount) {
-            completedPriorityChunks++;
-          }
-          
-          // Check if Priority Block is done
-          if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
-             priorityReported = true;
-             
-             // We need to parse just the priority segments now
-             // This requires extracting the text from the results we have so far (indices 0 to priorityRangeCount-1)
-             const priorityLines: string[] = [];
-             for(let p = 0; p < priorityRangeCount; p++) {
-                 const pResponse = results[p];
-                 const pText = extractResponseText(pResponse);
-                 const pLines = pText.trim().split("\n");
-                 priorityLines.push(...pLines, REFINER_CONFIG.CHUNK_SENTINEL);
-             }
-             
-             const priorityFullText = priorityLines.join("\n");
-             const prioritySegments = parseRefinedSegments(
-                priorityFullText, 
-                segments.slice(0, prioritySegmentCount), // Only source segments for this range
-                REFINER_CONFIG.CHUNK_SENTINEL, 
-                REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
-             );
-             
-             onPriorityComplete(prioritySegments);
-          }
-          
-        } catch (error) {
-          console.error(`Error processing chunk ${index}:`, error);
-          results[index] = null; // Handle error gracefully-ish
-        }
-      }
-    });
-
-    await Promise.all(workers);
-    return results;
-  };
+  let completedPriorityChunks = 0;
+  let priorityReported = false;
 
   const responses = await runConcurrentBatch(
-    batchMessages, 
-    8, // Max Concurrency
+    batchMessages,
+    8,
     async (messages, idx) => {
-      const response = await llm.invoke(messages);
+      const res = await llm.invoke(messages);
       progressCallback?.(idx + 1, batchMessages.length);
-      return response;
+      return res;
+    },
+    (result, index, allResults) => {
+      if (index < priorityRangeCount) completedPriorityChunks++;
+      
+      if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
+        priorityReported = true;
+        const priorityText = allResults
+          .slice(0, priorityRangeCount)
+          .map(r => r ? extractResponseText(r).trim() : "")
+          .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
+          
+        onPriorityComplete(parseRefinedSegments(
+          priorityText,
+          segments.slice(0, splitIndex),
+          REFINER_CONFIG.CHUNK_SENTINEL,
+          REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+        ));
+      }
     }
   );
 
-  const allRefinedLines: string[] = [];
-  for (let i = 0; i < responses.length; i++) {
-    const { chunkIdx, expectedLineCount } = chunkInfo[i];
-    const refinedText = extractResponseText(responses[i]);
-    const refinedLines = refinedText.trim().split("\n");
+  const refinedText = responses
+    .map((res, i) => {
+      const text = extractResponseText(res).trim();
+      const expectedCount = ranges[i][1] - ranges[i][0];
+      if (text.split("\n").length !== expectedCount) {
+        console.warn(`Line count mismatch in chunk ${i+1}: expected ${expectedCount}, got ${text.split("\n").length}`);
+      }
+      return text;
+    })
+    .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
-    // Log warning if count mismatch (progress callback already handled during execution)
-    if (refinedLines.length !== expectedLineCount) {
-      console.warn(`Line count mismatch in chunk ${chunkIdx}: expected ${expectedLineCount}, got ${refinedLines.length}`);
-    }
-
-    allRefinedLines.push(...refinedLines, REFINER_CONFIG.CHUNK_SENTINEL);
-  }
-
-  const refinedText = allRefinedLines.join("\n");
   return parseRefinedSegments(
     refinedText,
     segments,
