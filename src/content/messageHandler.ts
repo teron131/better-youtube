@@ -7,7 +7,7 @@ import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
 import { saveSubtitles } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
-import { clearAutoGenerationTrigger } from "./autoGeneration";
+import { clearAutoGenerationTrigger, markAutoGenerationTriggered } from "./autoGeneration";
 import {
   ContentScriptState,
   buildStorageKeysForToggle,
@@ -98,6 +98,7 @@ function handleGenerateSubtitles(
   }
 
   clearSubtitles();
+  markAutoGenerationTriggered(videoId);
 
   sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,

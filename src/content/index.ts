@@ -125,11 +125,17 @@ function monitorUrlChanges(): void {
       return;
     }
 
-    if (currentUrl !== window.location.href) {
+    const newUrl = window.location.href;
+    if (currentUrl !== newUrl) {
       const oldVideoId = extractVideoId(currentUrl);
-      currentUrl = window.location.href;
-      if (oldVideoId) clearAutoGenerationTrigger(oldVideoId);
-      onUrlChange();
+      const newVideoId = extractVideoId(newUrl);
+      currentUrl = newUrl;
+
+      // Only trigger updates if the video ID actually changed
+      if (oldVideoId !== newVideoId) {
+        if (oldVideoId) clearAutoGenerationTrigger(oldVideoId);
+        onUrlChange();
+      }
     }
   });
   urlObserver.observe(document.body, { childList: true, subtree: true });
