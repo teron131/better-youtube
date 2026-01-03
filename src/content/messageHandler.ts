@@ -5,12 +5,14 @@
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
-import { SubtitleSegment, saveSubtitles } from "@/lib/storage";
+import { saveSubtitles } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger } from "./autoGeneration";
 import {
+  ContentScriptState,
   buildStorageKeysForToggle,
   determineToggleState,
+  isCurrentVideo,
 } from "./contentHelpers";
 import {
   applyCaptionFontSize,
@@ -20,10 +22,7 @@ import {
 } from "./subtitleRenderer";
 
 export function setupMessageListener(
-  state: {
-    currentSubtitles: SubtitleSegment[];
-    showSubtitlesEnabled: boolean;
-  },
+  state: ContentScriptState,
   actions: {
     clearSubtitles: () => void;
     checkAndTriggerAutoGeneration: (videoId: string, storageResult: any, checkCaptionsEnabled: boolean, withDelay: boolean) => Promise<boolean>;
@@ -122,20 +121,39 @@ function handleGenerateSubtitles(
 
 function handleSubtitlesGenerated(
   message: any,
-  state: { currentSubtitles: SubtitleSegment[]; showSubtitlesEnabled: boolean },
+  state: ContentScriptState,
   sendResponse: (response: any) => void
 ): void {
-  state.currentSubtitles = message.subtitles || [];
+  const subtitles = message.subtitles || [];
+  const messageVideoId = message.videoId;
+
+  // Always save if we have an ID and subtitles, so they are available if user returns to that video
+  if (messageVideoId && subtitles.length > 0) {
+    saveSubtitles(messageVideoId, subtitles).catch(console.error);
+  }
+
+  // Only display if the subtitles are for the CURRENT video
+  if (messageVideoId && !isCurrentVideo(messageVideoId)) {
+    console.log(`Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`);
+    sendResponse({ status: "saved_but_not_displayed" });
+    return;
+  }
+
+  state.currentSubtitles = subtitles;
   
   if (state.currentSubtitles.length > 0) {
     if (state.showSubtitlesEnabled) {
       startSubtitleDisplay(state.currentSubtitles);
     }
 
-    const videoId = message.videoId || extractVideoId(window.location.href);
-    if (videoId) {
-      saveSubtitles(videoId, state.currentSubtitles).catch(console.error);
+    // Fallback save using current URL ID if message ID was missing (though it should be there)
+    if (!messageVideoId) {
+      const currentVideoId = extractVideoId(window.location.href);
+      if (currentVideoId) {
+        saveSubtitles(currentVideoId, state.currentSubtitles).catch(console.error);
+      }
     }
+    
     sendResponse({ status: "success" });
   } else {
     state.currentSubtitles = [];
@@ -146,13 +164,14 @@ function handleSubtitlesGenerated(
 
 function handleToggleSubtitles(
   message: any,
-  state: { currentSubtitles: SubtitleSegment[]; showSubtitlesEnabled: boolean },
+  state: ContentScriptState,
   checkAndTriggerAutoGeneration: (videoId: string, storageResult: any, checkCaptionsEnabled: boolean, withDelay: boolean) => Promise<boolean>,
   sendResponse: (response: any) => void
 ): void {
   const nextState = determineToggleState(message);
   const wasEnabled = state.showSubtitlesEnabled;
   state.showSubtitlesEnabled = nextState;
+  state.userInteractedWithToggle = true;
   chrome.storage.local.set({ [STORAGE_KEYS.SHOW_SUBTITLES]: state.showSubtitlesEnabled });
 
   // Update subtitle display based on new state
@@ -175,7 +194,7 @@ function handleToggleSubtitles(
  * Trigger subtitle auto-generation when toggle is enabled without cached subtitles
  */
 function triggerSubtitleAutoGenOnToggle(
-  state: { currentSubtitles: SubtitleSegment[]; showSubtitlesEnabled: boolean },
+  state: ContentScriptState,
   checkAndTriggerAutoGeneration: (videoId: string, storageResult: any, checkCaptionsEnabled: boolean, withDelay: boolean) => Promise<boolean>
 ): void {
   const videoId = extractVideoId(window.location.href);
@@ -183,6 +202,11 @@ function triggerSubtitleAutoGenOnToggle(
 
   const keysToFetch = [videoId, ...buildStorageKeysForToggle()];
   chrome.storage.local.get(keysToFetch, (result) => {
+    // Verify we are still on the same video
+    if (!isCurrentVideo(videoId)) {
+      return;
+    }
+
     if (result[videoId] && result[videoId].length > 0) {
       state.currentSubtitles = result[videoId];
       startSubtitleDisplay(state.currentSubtitles);

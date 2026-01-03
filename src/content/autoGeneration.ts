@@ -5,6 +5,7 @@
 
 import { STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { extractVideoId } from "@/lib/url";
+import { isCurrentVideo } from "./contentHelpers";
 
 // Track which videos have had auto-generation triggered
 const autoGenerationTriggered = new Set<string>();
@@ -80,8 +81,8 @@ export function validateAutoGenerationConditions(
 }
 
 function verifyVideoIdUnchanged(originalVideoId: string): boolean {
-  const currentVideoId = extractVideoId(window.location.href);
-  if (currentVideoId !== originalVideoId) {
+  if (!isCurrentVideo(originalVideoId)) {
+    const currentVideoId = extractVideoId(window.location.href);
     console.log("Auto-gen cancel: video ID changed", originalVideoId, "->", currentVideoId);
     clearAutoGenerationTrigger(originalVideoId);
     return false;
@@ -122,6 +123,10 @@ async function executeAutoGenerationTrigger(
   if (checkCaptionsEnabled) {
     const captionsEnabled = await verifyCaptionsStillEnabled(videoId);
     if (!captionsEnabled) {
+      return;
+    }
+    // Re-verify video ID after async operation
+    if (!verifyVideoIdUnchanged(videoId)) {
       return;
     }
   }
