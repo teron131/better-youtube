@@ -10,7 +10,6 @@ import { END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
-import { CHROME_API } from "../chromeConstants";
 import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import {
   filterContent,
@@ -23,19 +22,19 @@ import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } 
 import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
 import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
 
-// ============================================================================ 
+// ============================================================================
 // Model Client
-// ============================================================================ 
+// ============================================================================
 
 /**
  * Create OpenRouter LLM instance using LangChain
  */
 function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
   return new ChatOpenAI({
-    model: model,
-    apiKey: apiKey,
+    model,
+    apiKey,
     configuration: {
-      baseURL: CHROME_API.OPENROUTER_BASE_URL,
+      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {
         "HTTP-Referer": chrome.runtime.getURL(""),
         "X-Title": "Better YouTube",
@@ -45,9 +44,9 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
   });
 }
 
-// ============================================================================ 
+// ============================================================================
 // Tools
-// ============================================================================ 
+// ============================================================================
 
 /**
  * Functional scrap_youtube_tool factory
@@ -55,46 +54,33 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
 function createScrapYoutubeTool(input: SummarizationInput) {
   return tool(
     async ({ youtube_url }) => {
-      // If we already have the transcript for this URL, just return it
-      const transcriptInput = input.transcript_or_url;
-      const isUrl = isYoutubeUrl(transcriptInput);
-      if (!isUrl && (!input.videoId || youtube_url.includes(input.videoId))) {
-        return transcriptInput;
+      const { transcript_or_url, videoId, scrapeCreatorsApiKey } = input;
+      
+      if (!isYoutubeUrl(transcript_or_url) && (!videoId || youtube_url.includes(videoId))) {
+        return transcript_or_url;
       }
 
-      if (!input.scrapeCreatorsApiKey) {
+      if (!scrapeCreatorsApiKey) {
         return "Error: Scrape Creators API key not provided to the tool.";
       }
 
       try {
-        const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
-        requestUrl.searchParams.set("url", youtube_url);
-        requestUrl.searchParams.set("get_transcript", "true");
+        const url = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
+        url.searchParams.set("url", youtube_url);
+        url.searchParams.set("get_transcript", "true");
 
-        const response = await fetch(requestUrl.toString(), {
-          headers: {
-            "x-api-key": input.scrapeCreatorsApiKey,
-            Accept: "application/json",
-          },
+        const response = await fetch(url.toString(), {
+          headers: { "x-api-key": scrapeCreatorsApiKey, Accept: "application/json" },
           cache: "no-store",
         });
 
-        if (!response.ok) {
-          return `Error fetching transcript: ${response.status} ${response.statusText}`;
-        }
+        if (!response.ok) return `Error fetching transcript: ${response.status} ${response.statusText}`;
 
         const data = await response.json();
-        const transcript =
-          data.transcript_only_text ??
-          (Array.isArray(data.transcript)
-            ? data.transcript.map((segment) => segment.text).join(" ")
-            : "");
+        const transcript = data.transcript_only_text ?? 
+          (Array.isArray(data.transcript) ? data.transcript.map((s: any) => s.text).join(" ") : "");
         
-        if (!transcript) {
-          return "Error: No transcript found for this video.";
-        }
-
-        return transcript;
+        return transcript || "Error: No transcript found for this video.";
       } catch (error) {
         return `Error calling scrap API: ${String(error)}`;
       }
@@ -109,53 +95,36 @@ function createScrapYoutubeTool(input: SummarizationInput) {
   );
 }
 
-// ============================================================================ 
+// ============================================================================
 // Middleware
-// ============================================================================ 
+// ============================================================================
 
-const GARBAGE_FILTER_PROMPT = "Identify and remove garbage sections such as promotional and meaningless content such as cliche intros, outros, filler, sponsorships, and other irrelevant segments from the transcript. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed to clean the transcript.";
+const GARBAGE_FILTER_PROMPT = "Identify and remove garbage sections such as promotional and meaningless content like cliche intros, outros, filler, sponsorships, and other irrelevant segments. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed.";
 
 function createGarbageFilterMiddleware(apiKey: string, model: string) {
   return createMiddleware({
     name: "garbageFilterMiddleware",
     wrapToolCall: async (request, handler) => {
-      const toolName = request.tool?.name ?? request.toolCall.name;
-      if (toolName !== "scrap_youtube_tool") {
-        return handler(request);
-      }
+      if ((request.tool?.name ?? request.toolCall.name) !== "scrap_youtube_tool") return handler(request);
 
       const result = await handler(request);
-      if (!ToolMessage.isInstance(result) || result.status === "error") {
-        return result;
-      }
+      if (!ToolMessage.isInstance(result) || result.status === "error") return result;
 
       const transcript = typeof result.content === "string" ? result.content : "";
-      if (!transcript.trim() || transcript.startsWith("Error")) {
-        return result;
-      }
-
-      const taggedTranscript = tagContent(transcript);
-      const llm = createOpenRouterLLM(model, apiKey);
-      const structuredLLM = llm.withStructuredOutput(GarbageIdentificationSchema, {
-        method: "jsonMode",
-      });
-
-      const prompt = ChatPromptTemplate.fromMessages([
-        ["system", GARBAGE_FILTER_PROMPT],
-        ["human", "{tagged_transcript}"],
-      ]);
+      if (!transcript.trim() || transcript.startsWith("Error")) return result;
 
       try {
-        const garbage = await prompt.pipe(structuredLLM).invoke({
-          tagged_transcript: taggedTranscript,
-        });
+        const taggedTranscript = tagContent(transcript);
+        const garbage = await createOpenRouterLLM(model, apiKey)
+          .withStructuredOutput(GarbageIdentificationSchema, { method: "jsonMode" })
+          .invoke([
+            ["system", GARBAGE_FILTER_PROMPT],
+            ["human", taggedTranscript],
+          ]);
 
         if (garbage.garbage_ranges?.length) {
-          const filteredTranscript = filterContent(taggedTranscript, garbage.garbage_ranges);
-          result.content = untagContent(filteredTranscript);
-          console.log(
-            `🧹 Middleware removed ${garbage.garbage_ranges.length} garbage sections from tool result.`
-          );
+          result.content = untagContent(filterContent(taggedTranscript, garbage.garbage_ranges));
+          console.log(`🧹 Middleware removed ${garbage.garbage_ranges.length} garbage sections.`);
         }
       } catch (error) {
         console.warn("Garbage filter middleware failed, using raw transcript.", error);
@@ -166,162 +135,79 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
   });
 }
 
-// ============================================================================ 
+// ============================================================================
 // Graph Nodes
-// ============================================================================ 
+// ============================================================================
 
-/**
- * Analysis node: Generate or refine analysis
- */
 async function analysisNode(state: GraphState): Promise<Partial<GraphState>> {
-  const apiKey = state.apiKey!;
-  const progressCallback = state.progressCallback as ((msg: string) => void) | undefined;
-  if (state.quality && state.analysis) {
-    progressCallback?.("Refining analysis based on quality feedback...");
-  } else {
-    progressCallback?.(
-      `Generating initial analysis. Transcript length: ${state.transcript.length} characters`
-    );
-  }
+  const { apiKey, analysis_model, target_language, transcript, quality, analysis, iteration_count, progressCallback } = state;
+  const progress = progressCallback as ((msg: string) => void) | undefined;
+  
+  progress?.(quality && analysis ? "Refining analysis based on quality feedback..." : `Generating initial analysis. Transcript length: ${transcript.length} characters`);
 
-  const llm = createOpenRouterLLM(state.analysis_model!, apiKey);
-  const structuredLLM = llm.withStructuredOutput(AnalysisSchema);
+  const llm = createOpenRouterLLM(analysis_model!, apiKey!).withStructuredOutput(AnalysisSchema);
+  const targetLang = target_language || "auto";
 
-  let prompt: ChatPromptTemplate;
-
-  // Refinement path
-  if (state.quality && state.analysis) {
-    const improvementContext = `# Improve this video analysis based on the following feedback:
-
-## Analysis:
-
-${JSON.stringify(state.analysis, null, 2)}
-
-## Quality Assessment:
-
-${JSON.stringify(state.quality, null, 2)}
-
-Please provide an improved version that addresses the specific issues identified above to improve the overall quality score.`;
-
-    const improvementSystemPrompt = PromptBuilder.buildImprovementPrompt(
-      state.target_language || "auto"
-    );
-    const transcriptContext = `Original Transcript:\n${state.transcript}`;
-    const fullImprovementPrompt = `${transcriptContext}\n\n${improvementContext}`;
-
-    prompt = ChatPromptTemplate.fromMessages([
-      ["system", improvementSystemPrompt],
+  let result;
+  if (quality && analysis) {
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", PromptBuilder.buildImprovementPrompt(targetLang)],
       ["human", "{improvement_prompt}"],
     ]);
-
-    const chain = prompt.pipe(structuredLLM);
-    const result = await chain.invoke({
-      improvement_prompt: fullImprovementPrompt,
+    result = await prompt.pipe(llm).invoke({
+      improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video analysis based on the following feedback:\n\n## Analysis:\n\n${JSON.stringify(analysis, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
     });
-
-    progressCallback?.("Analysis refined successfully");
-
-    return {
-      analysis: result as Analysis,
-      iteration_count: state.iteration_count + 1,
-    };
   } else {
-    // Generation path
-    const targetLang = state.target_language || "auto";
-    const analysisPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
-
-    prompt = ChatPromptTemplate.fromMessages([
-      ["system", analysisPrompt],
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", PromptBuilder.buildAnalysisPrompt(targetLang)],
       ["human", "{content}"],
     ]);
-
-    const chain = prompt.pipe(structuredLLM);
-    const result = await chain.invoke({ content: state.transcript });
-
-    progressCallback?.("Analysis completed");
-
-    return {
-      analysis: result as Analysis,
-      iteration_count: state.iteration_count + 1,
-    };
+    result = await prompt.pipe(llm).invoke({ content: transcript });
   }
+
+  progress?.(quality && analysis ? "Analysis refined successfully" : "Analysis completed");
+  return { analysis: result as Analysis, iteration_count: iteration_count + 1 };
 }
 
-/**
- * Quality node: Evaluate analysis quality
- */
 async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
-  const apiKey = state.apiKey!;
-  const progressCallback = state.progressCallback as ((msg: string) => void) | undefined;
-  progressCallback?.("Performing quality check...");
-  progressCallback?.(`Using model: ${state.quality_model}`);
+  const { apiKey, quality_model, analysis, iteration_count, progressCallback } = state;
+  const progress = progressCallback as ((msg: string) => void) | undefined;
+  
+  progress?.(`Performing quality check using model: ${quality_model}...`);
 
-  const llm = createOpenRouterLLM(state.quality_model!, apiKey);
-  const structuredLLM = llm.withStructuredOutput(QualitySchema, {
-    method: "jsonMode",
-  });
-
-  const qualityPrompt = PromptBuilder.buildQualityPrompt();
-  const analysisText = JSON.stringify(state.analysis, null, 2);
-
-  const prompt = ChatPromptTemplate.fromMessages([
-    ["system", qualityPrompt],
-    ["human", "{analysis_text}"],
-  ]);
-
-  const chain = prompt.pipe(structuredLLM);
-  const quality = await chain.invoke({ analysis_text: analysisText });
+  const quality = await createOpenRouterLLM(quality_model!, apiKey!)
+    .withStructuredOutput(QualitySchema, { method: "jsonMode" })
+    .invoke([
+      ["system", PromptBuilder.buildQualityPrompt()],
+      ["human", JSON.stringify(analysis, null, 2)],
+    ]);
 
   printQualityBreakdown(quality);
-
-  const percentageScore = calculateScore(quality);
-  const isComplete =
-    percentageScore >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE ||
-    state.iteration_count >= ANALYSIS_CONFIG.MAX_ITERATIONS;
-
+  const score = calculateScore(quality);
+  
   return {
-    quality: quality,
-    is_complete: isComplete,
+    quality,
+    is_complete: score >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE || iteration_count >= ANALYSIS_CONFIG.MAX_ITERATIONS,
   };
 }
 
-/**
- * Conditional routing function
- */
 function shouldContinue(state: GraphState): string {
-  if (state.is_complete) {
-    console.log("Workflow complete (is_complete=True)");
-    return END;
-  }
-
-  const percentageScore = state.quality ? calculateScore(state.quality) : 0;
-
-  if (
-    state.quality &&
-    !isAcceptable(state.quality) &&
-    state.iteration_count < ANALYSIS_CONFIG.MAX_ITERATIONS
-  ) {
-    console.log(
-      `Quality ${percentageScore}% below threshold ${ANALYSIS_CONFIG.MIN_QUALITY_SCORE}%, refining (iteration ${state.iteration_count + 1})`
-    );
+  if (state.is_complete) return END;
+  
+  if (state.quality && !isAcceptable(state.quality) && state.iteration_count < ANALYSIS_CONFIG.MAX_ITERATIONS) {
+    console.log(`Quality ${calculateScore(state.quality)}% below threshold, refining...`);
     return "analysisNode";
   }
 
-  console.log(
-    `Workflow ending (quality: ${percentageScore}%, iterations: ${state.iteration_count})`
-  );
   return END;
 }
 
-// ============================================================================ 
-// Graph Workflow
-// ============================================================================ 
+// ============================================================================
+// Workflow & Execution
+// ============================================================================
 
-/**
- * Create and compile the summarization graph
- */
 function createSummarizationGraph() {
-  const workflow = new StateGraph(GraphStateSchema)
+  return new StateGraph(GraphStateSchema)
     .addNode("analysisNode", analysisNode)
     .addNode("qualityNode", qualityNode)
     .addEdge(START, "analysisNode")
@@ -329,63 +215,32 @@ function createSummarizationGraph() {
     .addConditionalEdges("qualityNode", shouldContinue, {
       analysisNode: "analysisNode",
       [END]: END,
-    });
-
-  return workflow.compile();
+    })
+    .compile();
 }
 
-/**
- * Format analysis as markdown
- */
 function formatAnalysisAsMarkdown(analysis: Analysis): string {
   const parts: string[] = [];
+  if (analysis.title) parts.push(`# ${analysis.title}\n`);
+  parts.push("## Summary\n\n", analysis.summary, "\n");
 
-  // Title
-  if (analysis.title) {
-    parts.push(`# ${analysis.title}`);
-    parts.push("");
-  }
-
-  // Summary
-  parts.push("## Summary");
-  parts.push("");
-  parts.push(analysis.summary);
-  parts.push("");
-
-  // Takeaways
   if (analysis.takeaways?.length) {
-    parts.push("## Key Takeaways");
-    parts.push("");
-    analysis.takeaways.forEach((takeaway) => {
-      parts.push(`- ${takeaway}`);
-    });
+    parts.push("## Key Takeaways\n");
+    analysis.takeaways.forEach(t => parts.push(`- ${t}`));
     parts.push("");
   }
 
-  // Chapters
   if (analysis.chapters?.length) {
-    parts.push("## Chapters");
-    parts.push("");
-    analysis.chapters.forEach((chapter) => {
-      parts.push(`### ${chapter.header}`);
+    parts.push("## Chapters\n");
+    analysis.chapters.forEach(c => {
+      parts.push(`### ${c.header}\n\n`, c.summary, "\n");
+      c.key_points?.forEach(p => parts.push(`- ${p}`));
       parts.push("");
-      parts.push(chapter.summary);
-      parts.push("");
-      if (chapter.key_points?.length) {
-        chapter.key_points.forEach((point) => {
-          parts.push(`- ${point}`);
-        });
-        parts.push("");
-      }
     });
   }
 
-  // Keywords
   if (analysis.keywords?.length) {
-    parts.push("## Keywords");
-    parts.push("");
-    parts.push(analysis.keywords.map((kw) => `\`${kw}\``).join("  "));
-    parts.push("");
+    parts.push("## Keywords\n\n", analysis.keywords.map(kw => `\`${kw}\``).join("  "), "\n");
   }
 
   return parts.join("\n");
@@ -402,94 +257,60 @@ export interface SummarizationInput {
   fast_mode?: boolean;
 }
 
-function isYoutubeUrl(input: string): boolean {
-  return input.includes("youtube.com/watch") || input.includes("youtu.be/");
-}
+const isYoutubeUrl = (input: string) => input.includes("youtube.com/watch") || input.includes("youtu.be/");
 
-/**
- * Execute fast summarization using a ReAct Agent - aligned with summarizer_lite.py
- */
 async function executeFastSummarization(
   input: SummarizationInput,
   apiKey: string,
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
-  
-  const type = isUrl ? "URL" : "Transcript";
-  progressCallback?.(`Generating analysis in Fast Mode (Agent) from ${type}.`);
+  progressCallback?.(`Generating analysis in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`);
 
   const model = input.analysis_model ?? ANALYSIS_CONFIG.MODEL;
-  const refinerModel = input.refiner_model ?? DEFAULTS.MODEL_REFINER;
-  const llm = createOpenRouterLLM(model, apiKey);
   const targetLang = input.target_language ?? "auto";
-
-  // Only provide the tool if the input is a URL
-  const tools = isUrl ? [createScrapYoutubeTool(input)] : [];
-
-  const systemPrompt = PromptBuilder.buildAnalysisPrompt(targetLang);
-  const humanPrompt = isUrl 
-    ? `Analyze the video at this URL:\n\n${input.transcript_or_url}`
-    : `Analyze this transcript:\n\n${input.transcript_or_url}`;
-
   const agent = createAgent({
-    model: llm,
-    tools: tools,
-    systemPrompt: systemPrompt,
+    model: createOpenRouterLLM(model, apiKey),
+    tools: isUrl ? [createScrapYoutubeTool(input)] : [],
+    systemPrompt: PromptBuilder.buildAnalysisPrompt(targetLang),
     responseFormat: toolStrategy(AnalysisSchema),
-    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey, refinerModel)] : [],
+    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey, input.refiner_model ?? DEFAULTS.MODEL_REFINER)] : [],
   });
 
   const response = await agent.invoke({
-    messages: [new HumanMessage(humanPrompt)],
+    messages: [new HumanMessage(isUrl ? `Analyze the video at: ${input.transcript_or_url}` : `Analyze this transcript:\n\n${input.transcript_or_url}`)],
   });
 
-  if (!response.structuredResponse) {
-    throw new Error("Agent did not return structured response");
-  }
+  if (!response.structuredResponse) throw new Error("Agent did not return structured response");
+  
   const analysis = response.structuredResponse as Analysis;
-
   progressCallback?.("Fast analysis completed");
 
-  const summaryText = formatAnalysisAsMarkdown(analysis);
-
   return {
-    analysis: analysis,
+    analysis,
     quality: null,
     iteration_count: 1,
     quality_score: 0,
-    summary_text: summaryText,
+    summary_text: formatAnalysisAsMarkdown(analysis),
   };
 }
 
-/**
- * Execute the summarization workflow
- */
 export async function executeSummarizationWorkflow(
   input: SummarizationInput,
   apiKey: string,
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
-  if (input.fast_mode) {
-    return executeFastSummarization(input, apiKey, progressCallback);
-  }
+  if (input.fast_mode) return executeFastSummarization(input, apiKey, progressCallback);
 
-  const graph = createSummarizationGraph();
-
-  // For the Graph workflow, we currently expect a transcript.
-  // We resolve it here if it's a URL.
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
     progressCallback?.("Resolving URL to transcript for workflow...");
-    const tool = createScrapYoutubeTool(input);
-    transcript = await tool.invoke({ youtube_url: input.transcript_or_url });
-    if (transcript.startsWith("Error")) {
-      throw new Error(transcript);
-    }
+    transcript = await createScrapYoutubeTool(input).invoke({ youtube_url: transcript });
+    if (transcript.startsWith("Error")) throw new Error(transcript);
   }
 
-  const initialState: GraphState = {
-    transcript: transcript,
+  const result = await createSummarizationGraph().invoke({
+    transcript,
     analysis_model: input.analysis_model ?? ANALYSIS_CONFIG.MODEL,
     quality_model: input.quality_model ?? ANALYSIS_CONFIG.QUALITY_MODEL,
     target_language: input.target_language ?? "auto",
@@ -497,21 +318,16 @@ export async function executeSummarizationWorkflow(
     quality: null,
     iteration_count: 0,
     is_complete: false,
-    apiKey: apiKey,
-    progressCallback: progressCallback,
-  };
-
-  const result = await graph.invoke(initialState);
-
-  const percentageScore = result.quality ? calculateScore(result.quality) : 0;
-  const summaryText = formatAnalysisAsMarkdown(result.analysis!);
+    apiKey,
+    progressCallback,
+  });
 
   return {
     analysis: result.analysis!,
     quality: result.quality,
     iteration_count: result.iteration_count,
-    quality_score: percentageScore,
-    summary_text: summaryText,
+    quality_score: result.quality ? calculateScore(result.quality) : 0,
+    summary_text: formatAnalysisAsMarkdown(result.analysis!),
   };
 }
 

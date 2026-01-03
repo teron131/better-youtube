@@ -56,20 +56,31 @@ const StorageKeys = {
 
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
 
+/**
+ * Low-level storage setter
+ */
 async function storageSet(items: Record<string, unknown>): Promise<void> {
   if (!isExtension) {
-    for (const [key, value] of Object.entries(items)) {
+    Object.entries(items).forEach(([key, value]) => {
       localStorage.setItem(key, JSON.stringify(value));
-    }
+    });
     return;
   }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.set(items, () => {
-      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve();
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
     });
   });
 }
 
+/**
+ * Low-level storage getter for a single key
+ */
 async function storageGet<T>(key: string): Promise<T | null> {
   if (!isExtension) {
     const item = localStorage.getItem(key);
@@ -83,17 +94,20 @@ async function storageGet<T>(key: string): Promise<T | null> {
   });
 }
 
+/**
+ * Low-level storage getter for multiple keys
+ */
 async function storageGetMultiple<T extends Record<string, unknown>>(
   keys: string[]
 ): Promise<Partial<T>> {
   if (!isExtension) {
     const result: Partial<T> = {};
-    for (const key of keys) {
+    keys.forEach(key => {
       const item = localStorage.getItem(key);
       if (item) {
-        (result as Record<string, unknown>)[key] = JSON.parse(item);
+        (result as any)[key] = JSON.parse(item);
       }
-    }
+    });
     return result;
   }
 
@@ -104,18 +118,29 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
   });
 }
 
+/**
+ * Low-level storage remover
+ */
 async function storageRemove(keys: string[]): Promise<void> {
   if (!isExtension) {
     keys.forEach(key => localStorage.removeItem(key));
     return;
   }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.remove(keys, () => {
-      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve();
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
     });
   });
 }
 
+/**
+ * Low-level storage getter for everything
+ */
 async function storageGetAll(): Promise<Record<string, unknown>> {
   if (!isExtension) {
     const allItems: Record<string, unknown> = {};
@@ -123,16 +148,19 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
       const key = localStorage.key(i);
       if (key) {
         const item = localStorage.getItem(key);
-        if (item) {
-          allItems[key] = JSON.parse(item);
-        }
+        if (item) allItems[key] = JSON.parse(item);
       }
     }
     return allItems;
   }
+
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, (allItems) => {
-      chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(allItems);
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(allItems);
+      }
     });
   });
 }
@@ -142,21 +170,17 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
 // ============================================================================
 
 export async function getStoredSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
-  const key = StorageKeys.subtitles(videoId);
-  return storageGet<SubtitleSegment[]>(key);
+  return storageGet<SubtitleSegment[]>(StorageKeys.subtitles(videoId));
 }
 
 export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
   const key = StorageKeys.subtitles(videoId);
   try {
     await storageSet({ [key]: subtitles });
-    console.log(`Subtitles saved for video: ${videoId}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("QUOTA")) {
-      console.warn("Storage quota exceeded, cleaning up...");
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: subtitles });
-      console.log(`Subtitles saved after cleanup: ${videoId}`);
     } else {
       throw error;
     }
@@ -164,19 +188,15 @@ export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[
 }
 
 export async function getStoredVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
-  const key = StorageKeys.metadata(videoId);
-  return storageGet<VideoMetadata>(key);
+  return storageGet<VideoMetadata>(StorageKeys.metadata(videoId));
 }
 
 export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
-  const key = StorageKeys.metadata(videoId);
-  await storageSet({ [key]: metadata });
-  console.log(`Video metadata saved: ${videoId}`);
+  return storageSet({ [StorageKeys.metadata(videoId)]: metadata });
 }
 
 export async function getStoredAnalysis(videoId: string): Promise<StoredAnalysis | null> {
-  const key = StorageKeys.analysis(videoId);
-  return storageGet<StoredAnalysis>(key);
+  return storageGet<StoredAnalysis>(StorageKeys.analysis(videoId));
 }
 
 export async function saveAnalysis(
@@ -197,13 +217,10 @@ export async function saveAnalysis(
 
   try {
     await storageSet({ [key]: storedAnalysis });
-    console.log(`Analysis saved: ${videoId}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("QUOTA")) {
-      console.warn("Storage quota exceeded, cleaning up...");
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: storedAnalysis });
-      console.log(`Analysis saved after cleanup: ${videoId}`);
     } else {
       throw error;
     }
@@ -229,64 +246,55 @@ export async function getStorageValues<T extends Record<string, unknown>>(
 }
 
 // ============================================================================
-// Storage Cleanup
+// Storage Cleanup & Usage
 // ============================================================================
 
 export async function getStorageUsage(): Promise<StorageUsage> {
   if (!isExtension) {
-    return Promise.resolve({
+    return {
       bytesUsed: 0,
       bytesAvailable: STORAGE.QUOTA_BYTES,
       percentageUsed: 0,
-    });
+    };
   }
 
   return new Promise((resolve) => {
     chrome.storage.local.getBytesInUse(null, (bytesInUse) => {
+      const used = bytesInUse || 0;
       resolve({
-        bytesUsed: bytesInUse || 0,
-        bytesAvailable: STORAGE.QUOTA_BYTES - (bytesInUse || 0),
-        percentageUsed: ((bytesInUse || 0) / STORAGE.QUOTA_BYTES) * 100,
+        bytesUsed: used,
+        bytesAvailable: Math.max(0, STORAGE.QUOTA_BYTES - used),
+        percentageUsed: (used / STORAGE.QUOTA_BYTES) * 100,
       });
     });
   });
 }
 
 async function getVideoRelatedKeys(allItems: Record<string, unknown>): Promise<string[]> {
-  const keys: string[] = [];
-  for (const key of Object.keys(allItems)) {
-    if ((key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) ||
-        key.startsWith('video_info_') || key.startsWith('analysis_')) {
-      keys.push(key);
-    }
-  }
-  return keys;
+  return Object.keys(allItems).filter(key => 
+    (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) ||
+    key.startsWith('video_info_') || 
+    key.startsWith('analysis_')
+  );
 }
 
 async function cleanupOldVideos(countToRemove: number): Promise<void> {
   const allItems = await storageGetAll();
   const videoKeys = await getVideoRelatedKeys(allItems);
 
-  if (videoKeys.length === 0) {
-    console.log("No video data to clean up");
-    return;
-  }
+  if (videoKeys.length === 0) return;
 
-  const removeCount =
-    videoKeys.length <= countToRemove
-      ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
-      : countToRemove;
+  const removeCount = videoKeys.length <= countToRemove
+    ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
+    : countToRemove;
 
-  const keysToRemove = videoKeys.slice(0, removeCount);
-  await storageRemove(keysToRemove);
-  console.log(`Cleaned up ${keysToRemove.length} video data entries`);
+  await storageRemove(videoKeys.slice(0, removeCount));
 }
 
 export async function ensureStorageSpace(): Promise<void> {
   const usage = await getStorageUsage();
 
   if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
-    console.log(`Storage at ${usage.percentageUsed.toFixed(1)}%, cleaning up...`);
     const videosToRemove = Math.ceil(
       (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) / STORAGE.ESTIMATED_VIDEO_SIZE_BYTES
     );

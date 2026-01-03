@@ -17,7 +17,6 @@ import {
   ContentScriptState,
   buildStorageKeysForVideo,
   executeScrapeForAutoGen,
-  getAutoGenModels,
   getRefinerModelFromStorage,
   isCurrentVideo,
   triggerCaptionRefinement,
@@ -32,27 +31,22 @@ import {
   startSubtitleDisplay
 } from "./subtitleRenderer";
 
-// Global state wrapped in an object for shared reference
+// Global state
 const state: ContentScriptState = {
   currentSubtitles: [],
   showSubtitlesEnabled: true,
   userInteractedWithToggle: false,
 };
 
-let initAttempts = 0;
 let currentUrl = window.location.href;
 let urlObserver: MutationObserver | null = null;
-
-interface StorageResult {
-  [key: string]: unknown;
-}
 
 /**
  * Check if auto-generation should be triggered
  */
 async function checkAndTriggerAutoGeneration(
   videoId: string,
-  storageResult: StorageResult,
+  storageResult: Record<string, unknown>,
   checkCaptionsEnabled = true,
   withDelay = false
 ): Promise<boolean> {
@@ -63,156 +57,99 @@ async function checkAndTriggerAutoGeneration(
     checkCaptionsEnabled
   );
 
-  if (!validation.isValid) {
-    return false;
-  }
+  if (!validation.isValid) return false;
 
-  const triggerFn = () => {
-    triggerAutoGeneration(videoId, storageResult);
-  };
-
-  scheduleAutoGeneration(videoId, triggerFn, checkCaptionsEnabled, withDelay);
+  scheduleAutoGeneration(videoId, () => triggerAutoGeneration(videoId, storageResult), checkCaptionsEnabled, withDelay);
   return true;
 }
 
+/**
+ * Load subtitles from storage and initialize display
+ */
 function loadStoredSubtitles(): void {
-  if (!isExtensionContextValid()) {
-    console.warn("Extension context invalidated, skipping subtitle load.");
-    return;
-  }
+  if (!isExtensionContextValid()) return;
 
   const validation = validateLoadContext();
-  if (!validation.isValid || !validation.videoId) {
-    return;
-  }
+  if (!validation.isValid || !validation.videoId) return;
 
   const videoId = validation.videoId;
   const keysToFetch = [videoId, ...buildStorageKeysForVideo()];
 
   chrome.storage.local.get(keysToFetch, (result) => {
-    if (chrome.runtime.lastError) {
-      console.error("Error loading subtitles from storage:", chrome.runtime.lastError.message);
-      return;
-    }
-
-    // Verify we are still on the same video
-    if (!isCurrentVideo(videoId)) {
-      console.log(`Navigation occurred during storage load for ${videoId}, skipping subtitle load.`);
-      return;
-    }
+    if (chrome.runtime.lastError || !isCurrentVideo(videoId)) return;
 
     if (!state.userInteractedWithToggle) {
       state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
     }
 
     if (result[videoId]) {
-      console.log("Found stored subtitles for this video.");
+      console.log("Found stored subtitles.");
       state.currentSubtitles = result[videoId] as SubtitleSegment[];
-      if (state.showSubtitlesEnabled) {
-        startSubtitleDisplay(state.currentSubtitles);
-      }
+      if (state.showSubtitlesEnabled) startSubtitleDisplay(state.currentSubtitles);
     } else {
-      console.log("No stored subtitles found for this video.");
       checkAndTriggerAutoGeneration(videoId, result, true, true);
     }
   });
 }
 
 /**
- * Trigger automatic processing: Scrape first, then refine + summarize in parallel
+ * Trigger automatic processing: Scrape first, then refine
  */
 async function triggerAutoGeneration(
   videoId: string,
-  storageResult: StorageResult
+  storageResult: Record<string, unknown>
 ): Promise<void> {
   clearSubtitles();
 
   const scrapeCreatorsApiKey = storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] as string;
   const openRouterApiKey = storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] as string;
 
-  // Step 1: Scrape video data first
-  const scrapeSuccess = await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey);
-  if (!scrapeSuccess) {
-    clearAutoGenerationTrigger(videoId);
-    return;
-  }
-
-  // Step 2: Trigger refine + summarize in parallel
-  const showSubtitles = storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
-  const models = getAutoGenModels(storageResult);
-
-  if (showSubtitles) {
-    const refinerModel = getRefinerModelFromStorage(storageResult);
-    triggerCaptionRefinement(videoId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
+  if (await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey)) {
+    if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
+      const refinerModel = getRefinerModelFromStorage(storageResult);
+      triggerCaptionRefinement(videoId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
+    }
   } else {
-    console.log("[Auto-gen] Skipping caption refinement (showSubtitles disabled)");
+    clearAutoGenerationTrigger(videoId);
   }
-
-  // triggerSummaryGeneration(videoId, scrapeCreatorsApiKey, openRouterApiKey, models);
-  console.log("[Auto-gen] Skipping automatic summary generation (disabled by default)");
 }
 
 /**
- * Monitor URL changes on YouTube (SPA behavior)
+ * Monitor URL changes on YouTube
  */
 function monitorUrlChanges(): void {
-  if (urlObserver) {
-    urlObserver.disconnect();
-    urlObserver = null;
-  }
-
+  urlObserver?.disconnect();
   urlObserver = new MutationObserver(() => {
     if (!isExtensionContextValid()) {
-      if (urlObserver) {
-        urlObserver.disconnect();
-        urlObserver = null;
-      }
+      urlObserver?.disconnect();
       return;
     }
 
     if (currentUrl !== window.location.href) {
-      console.log("URL changed (mutation).");
       const oldVideoId = extractVideoId(currentUrl);
       currentUrl = window.location.href;
-
-      if (oldVideoId) {
-        clearAutoGenerationTrigger(oldVideoId);
-      }
-
+      if (oldVideoId) clearAutoGenerationTrigger(oldVideoId);
       onUrlChange();
     }
   });
-
   urlObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-/**
- * Handle actions when the URL changes
- */
 function onUrlChange(): void {
-  console.log("Reinitializing for new video...");
   clearSubtitles();
   state.userInteractedWithToggle = false;
-  initAttempts = 0;
   initialize();
 }
 
 /**
  * Initialize the content script
  */
-function initialize(): void {
-  console.log("Initializing content script...");
-
-  if (!window.location.href.includes("youtube.com/watch")) {
-    return;
-  }
+function initialize(attempts = 0): void {
+  if (!window.location.href.includes("youtube.com/watch")) return;
 
   if (!findVideoElements()) {
-    initAttempts++;
-    if (initAttempts < TIMING.MAX_INIT_ATTEMPTS) {
-      setTimeout(initialize, TIMING.INIT_RETRY_DELAY_MS);
-    } else {
-      console.error("Video player or container not found after multiple attempts.");
+    if (attempts < TIMING.MAX_INIT_ATTEMPTS) {
+      setTimeout(() => initialize(attempts + 1), TIMING.INIT_RETRY_DELAY_MS);
     }
     return;
   }
@@ -220,16 +157,10 @@ function initialize(): void {
   createSubtitleElements();
   loadStoredSubtitles();
   loadCaptionFontSize();
-  
-  setupMessageListener(state, {
-    clearSubtitles,
-    checkAndTriggerAutoGeneration
-  });
 }
 
 function loadCaptionFontSize(): void {
   if (!isExtensionContextValid()) return;
-
   chrome.storage.local.get([STORAGE_KEYS.CAPTION_FONT_SIZE], (result) => {
     if (chrome.runtime.lastError) return;
     const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
@@ -237,27 +168,24 @@ function loadCaptionFontSize(): void {
   });
 }
 
-/**
- * Clear subtitles and stop display
- */
 function clearSubtitles(): void {
   state.currentSubtitles = [];
   clearRenderer();
-  console.log("Subtitles cleared.");
 }
 
-// Initialize immediately since we're using document_end in manifest
-(function () {
-  console.log("Content script loaded, readyState:", document.readyState);
-
-  const startInitialization = () => {
+// Start re-initialization
+(function start() {
+  const run = () => {
     initialize();
     monitorUrlChanges();
   };
 
+  // Setup message listener exactly once
+  setupMessageListener(state, { clearSubtitles, checkAndTriggerAutoGeneration });
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startInitialization);
+    document.addEventListener("DOMContentLoaded", run);
   } else {
-    setTimeout(startInitialization, TIMING.CONTENT_SCRIPT_INIT_DELAY_MS);
+    setTimeout(run, TIMING.CONTENT_SCRIPT_INIT_DELAY_MS);
   }
 })();

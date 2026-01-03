@@ -4,83 +4,75 @@
  */
 
 /**
+ * Common message structure for internal communication
+ */
+export interface ChromeMessage<T = any> {
+  action: string;
+  payload?: T;
+  [key: string]: any;
+}
+
+/**
  * Send a message to the Chrome runtime and wait for response
- * @param message - Message object to send
- * @param timeout - Optional timeout in milliseconds
- * @returns Promise resolving to the response
- * @throws Error if chrome.runtime.lastError occurs or timeout is reached
- *
- * @example
- * const result = await sendChromeMessage({
- *   action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
- *   videoId: "abc123"
- * });
  */
 export async function sendChromeMessage<T = any>(
-  message: any,
+  message: ChromeMessage,
   timeout?: number
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    let timeoutId: NodeJS.Timeout | undefined;
-
-    chrome.runtime.sendMessage(message, (response) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      chrome.runtime.lastError
-        ? reject(new Error(chrome.runtime.lastError.message))
-        : resolve(response);
-    });
+    let timeoutId: any;
 
     if (timeout) {
       timeoutId = setTimeout(() => {
-        reject(new Error(`Message timeout after ${timeout}ms`));
+        reject(new Error(`Message timeout after ${timeout}ms: ${message.action}`));
       }, timeout);
+    }
+
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+      reject(error);
     }
   });
 }
 
 /**
  * Send a message to a specific tab
- * @param tabId - Tab ID to send message to
- * @param message - Message object to send
- * @returns Promise resolving to the response
- * @throws Error if chrome.runtime.lastError occurs
- *
- * @example
- * const result = await sendTabMessage(tabId, {
- *   action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES
- * });
  */
 export async function sendTabMessage<T = any>(
   tabId: number,
-  message: any
+  message: ChromeMessage
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      chrome.runtime.lastError
-        ? reject(new Error(chrome.runtime.lastError.message))
-        : resolve(response);
-    });
+    try {
+      chrome.tabs.sendMessage(tabId, message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 /**
  * Create a message listener with automatic cleanup
- * @param handler - Message handler function
- * @returns Cleanup function to remove the listener
- *
- * @example
- * const removeListener = createMessageListener((message, sender, sendResponse) => {
- *   if (message.action === 'something') {
- *     sendResponse({ status: 'ok' });
- *     return true; // Keep channel open
- *   }
- * });
- *
- * // Later: removeListener();
  */
 export function createMessageListener(
   handler: (
-    message: any,
+    message: ChromeMessage,
     sender: chrome.runtime.MessageSender,
     sendResponse: (response: any) => void
   ) => boolean | void
@@ -91,13 +83,6 @@ export function createMessageListener(
 
 /**
  * Helper to check if Chrome runtime context is valid
- * @returns True if context is valid
- *
- * @example
- * if (!isChromeContextValid()) {
- *   console.error('Extension context invalidated');
- *   return;
- * }
  */
 export function isChromeContextValid(): boolean {
   try {
@@ -105,4 +90,22 @@ export function isChromeContextValid(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Get the currently active tab in the current window
+ */
+export async function getCurrentTab(): Promise<chrome.tabs.Tab | null> {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      resolve(tabs[0] || null);
+    });
+  });
+}
+
+/**
+ * Open the extension settings page
+ */
+export function openSettings(): void {
+  chrome.runtime.openOptionsPage();
 }
