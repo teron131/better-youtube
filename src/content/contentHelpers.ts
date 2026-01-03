@@ -2,7 +2,18 @@
 
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
+
+export interface ContentScriptState {
+  currentSubtitles: SubtitleSegment[];
+  showSubtitlesEnabled: boolean;
+  userInteractedWithToggle: boolean;
+}
+
+export function isCurrentVideo(videoId: string): boolean {
+  return extractVideoId(window.location.href) === videoId;
+}
 
 export function validateLoadContext(): { isValid: boolean; videoId?: string } {
   if (!window.location.href.includes("youtube.com/watch")) {

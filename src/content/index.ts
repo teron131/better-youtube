@@ -14,12 +14,13 @@ import {
   validateAutoGenerationConditions,
 } from "./autoGeneration";
 import {
+  ContentScriptState,
   buildStorageKeysForVideo,
   executeScrapeForAutoGen,
   getAutoGenModels,
   getRefinerModelFromStorage,
+  isCurrentVideo,
   triggerCaptionRefinement,
-  triggerSummaryGeneration,
   validateLoadContext
 } from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
@@ -32,9 +33,10 @@ import {
 } from "./subtitleRenderer";
 
 // Global state wrapped in an object for shared reference
-const state = {
-  currentSubtitles: [] as SubtitleSegment[],
+const state: ContentScriptState = {
+  currentSubtitles: [],
   showSubtitlesEnabled: true,
+  userInteractedWithToggle: false,
 };
 
 let initAttempts = 0;
@@ -93,7 +95,15 @@ function loadStoredSubtitles(): void {
       return;
     }
 
-    state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
+    // Verify we are still on the same video
+    if (!isCurrentVideo(videoId)) {
+      console.log(`Navigation occurred during storage load for ${videoId}, skipping subtitle load.`);
+      return;
+    }
+
+    if (!state.userInteractedWithToggle) {
+      state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
+    }
 
     if (result[videoId]) {
       console.log("Found stored subtitles for this video.");
@@ -182,6 +192,7 @@ function monitorUrlChanges(): void {
 function onUrlChange(): void {
   console.log("Reinitializing for new video...");
   clearSubtitles();
+  state.userInteractedWithToggle = false;
   initAttempts = 0;
   initialize();
 }
