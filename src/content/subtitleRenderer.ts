@@ -24,9 +24,11 @@ class SubtitleView {
   }
 
   ensureElements(): void {
-    if (document.getElementById(ELEMENT_IDS.SUBTITLE_CONTAINER)) {
-      this.container = document.getElementById(ELEMENT_IDS.SUBTITLE_CONTAINER) as HTMLDivElement;
-      this.textElement = document.getElementById(ELEMENT_IDS.SUBTITLE_TEXT) as HTMLDivElement;
+    const existingContainer = document.getElementById(ELEMENT_IDS.SUBTITLE_CONTAINER) as HTMLDivElement | null;
+    const existingText = document.getElementById(ELEMENT_IDS.SUBTITLE_TEXT) as HTMLDivElement | null;
+    if (existingContainer && existingText) {
+      this.container = existingContainer;
+      this.textElement = existingText;
       return;
     }
 
@@ -95,13 +97,11 @@ class SubtitleController {
   private rafId: number | null = null;
   private videoPlayer: HTMLVideoElement;
   private subtitles: SubtitleSegment[];
-  private videoId: string;
   private view: SubtitleView;
 
-  constructor(videoPlayer: HTMLVideoElement, subtitles: SubtitleSegment[], videoId: string, view: SubtitleView) {
+  constructor(videoPlayer: HTMLVideoElement, subtitles: SubtitleSegment[], view: SubtitleView) {
     this.videoPlayer = videoPlayer;
     this.subtitles = subtitles;
-    this.videoId = videoId;
     this.view = view;
   }
 
@@ -125,16 +125,13 @@ class SubtitleController {
       return;
     }
 
-    if (!this.videoPlayer || isNaN(this.videoPlayer.currentTime)) return;
+    if (isNaN(this.videoPlayer.currentTime)) return;
 
     const currentTime = this.videoPlayer.currentTime * 1000;
     const foundSubtitle = this.findSubtitleAtTime(currentTime);
 
     if (foundSubtitle) {
-      const normalizedText = foundSubtitle.text
-        .replace(/\r\n?/g, "\n")
-        .replace(/\n{2,}/g, "\n")
-        .trim();
+      const normalizedText = normalizeSubtitleText(foundSubtitle.text);
 
       if (!normalizedText) {
         this.view.hide();
@@ -261,7 +258,7 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoI
 
   console.log("Starting subtitle display interval.");
 
-  activeController = new SubtitleController(videoPlayer, currentSubtitles, videoId, subtitleView);
+  activeController = new SubtitleController(videoPlayer, currentSubtitles, subtitleView);
   activeController.start();
 }
 
@@ -278,4 +275,8 @@ export function clearRenderer(): void {
   stopSubtitleDisplay();
   subtitleView?.hide();
   activeVideoId = null;
+}
+
+function normalizeSubtitleText(text: string): string {
+  return text.replace(/\r\n?/g, "\n").replace(/\n{2,}/g, "\n").trim();
 }
