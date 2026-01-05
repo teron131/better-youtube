@@ -4,19 +4,22 @@
  */
 
 import type { FontSize } from "@/lib/constants";
-import { ELEMENT_IDS, FONT_SIZES, TIMING, YOUTUBE } from "@/lib/constants";
+import { ELEMENT_IDS, FONT_SIZES, YOUTUBE } from "@/lib/constants";
 import type { SubtitleSegment } from "@/lib/storage";
+import { extractVideoId } from "@/lib/url";
 
 let subtitleContainer: HTMLDivElement | null = null;
 let subtitleText: HTMLDivElement | null = null;
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;
 let rafId: number | null = null;
+let activeVideoId: string | null = null;
 
 interface VideoPlayerWithCallback extends HTMLVideoElement {
   _subtitleUpdateFn?: () => void;
   _subtitleStartLoopFn?: () => void;
   _subtitleStopLoopFn?: () => void;
+  _subtitleSeekedFn?: () => void;
 }
 
 /**
@@ -115,6 +118,12 @@ function findSubtitleAtTime(subtitles: SubtitleSegment[], timeMs: number): Subti
 }
 
 function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
+  if (activeVideoId && extractVideoId(window.location.href) !== activeVideoId) {
+    stopSubtitleDisplay();
+    hideCurrentSubtitle();
+    return;
+  }
+
   if (!videoPlayer || !subtitleText || !subtitleContainer || isNaN(videoPlayer.currentTime)) {
     return;
   }
@@ -145,13 +154,14 @@ function updateSubtitlesInternal(currentSubtitles: SubtitleSegment[]): void {
 /**
  * Start displaying subtitles
  */
-export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[]): void {
+export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoId: string): void {
   if (!videoPlayer || !subtitleContainer) {
     console.warn("Cannot start subtitle display: Player or container missing.");
     return;
   }
 
   stopSubtitleDisplay();
+  activeVideoId = videoId;
 
   console.log("Starting subtitle display interval.");
 
@@ -185,17 +195,19 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[]): void 
   videoPlayer.addEventListener("play", startLoop);
   videoPlayer.addEventListener("pause", stopLoop);
   videoPlayer.addEventListener("ended", stopLoop);
-  videoPlayer.addEventListener("seeked", () => {
+  const seekedHandler = () => {
     updateFn();
     if (!videoPlayer?.paused && !videoPlayer?.ended) {
       startLoop();
     }
-  });
+  };
+  videoPlayer.addEventListener("seeked", seekedHandler);
 
   const player = videoPlayer as VideoPlayerWithCallback;
   player._subtitleUpdateFn = updateFn;
   player._subtitleStartLoopFn = startLoop;
   player._subtitleStopLoopFn = stopLoop;
+  player._subtitleSeekedFn = seekedHandler;
 }
 
 /**
@@ -212,15 +224,20 @@ export function stopSubtitleDisplay(): void {
         videoPlayer.removeEventListener("pause", player._subtitleStopLoopFn);
         videoPlayer.removeEventListener("ended", player._subtitleStopLoopFn);
       }
+      if (player._subtitleSeekedFn) {
+        videoPlayer.removeEventListener("seeked", player._subtitleSeekedFn);
+      }
       delete player._subtitleUpdateFn;
       delete player._subtitleStartLoopFn;
       delete player._subtitleStopLoopFn;
+      delete player._subtitleSeekedFn;
     }
   }
   if (rafId !== null) {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+  activeVideoId = null;
 }
 
 /**
@@ -238,4 +255,5 @@ export function hideCurrentSubtitle(): void {
 export function clearRenderer(): void {
   stopSubtitleDisplay();
   hideCurrentSubtitle();
+  activeVideoId = null;
 }
