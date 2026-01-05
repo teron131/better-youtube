@@ -44,7 +44,7 @@ export function ProcessingStatus({ currentStage, currentStep, progressStates }: 
         </div>
 
         <div className="text-center space-y-4">
-          <h3 className="text-2xl font-bold text-foreground">Processing Video</h3>
+          <h3 className="text-2xl font-bold text-foreground">Processing</h3>
           <p className="text-lg text-muted-foreground">{currentStage}</p>
 
           <div className="space-y-3 mt-8">

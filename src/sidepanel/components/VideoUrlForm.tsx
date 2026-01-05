@@ -118,7 +118,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
               {isLoading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
-                  <span className="font-semibold text-base break-words">Processing video...</span>
+                  <span className="font-semibold text-base break-words">Processing</span>
                 </>
               ) : (
                 <>
