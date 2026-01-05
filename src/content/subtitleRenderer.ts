@@ -12,15 +12,81 @@ let subtitleContainer: HTMLDivElement | null = null;
 let subtitleText: HTMLDivElement | null = null;
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;
-let rafId: number | null = null;
 let activeVideoId: string | null = null;
 
-interface VideoPlayerWithCallback extends HTMLVideoElement {
-  _subtitleUpdateFn?: () => void;
-  _subtitleStartLoopFn?: () => void;
-  _subtitleStopLoopFn?: () => void;
-  _subtitleSeekedFn?: () => void;
+/**
+ * Controller for managing subtitle display and playback synchronization
+ */
+class SubtitleController {
+  private rafId: number | null = null;
+  private videoPlayer: HTMLVideoElement;
+  private subtitles: SubtitleSegment[];
+  private videoId: string;
+
+  constructor(videoPlayer: HTMLVideoElement, subtitles: SubtitleSegment[], videoId: string) {
+    this.videoPlayer = videoPlayer;
+    this.subtitles = subtitles;
+    this.videoId = videoId;
+  }
+
+  start(): void {
+    this.update();
+    if (!this.videoPlayer.paused && !this.videoPlayer.ended) {
+      this.startLoop();
+    }
+    this.attachEventListeners();
+  }
+
+  stop(): void {
+    this.stopLoop();
+    this.detachEventListeners();
+  }
+
+  private update = (): void => {
+    updateSubtitlesInternal(this.subtitles);
+  };
+
+  private startLoop = (): void => {
+    this.stopLoop();
+    const tick = () => {
+      this.update();
+      if (!this.videoPlayer.paused && !this.videoPlayer.ended) {
+        this.rafId = requestAnimationFrame(tick);
+      }
+    };
+    this.rafId = requestAnimationFrame(tick);
+  };
+
+  private stopLoop = (): void => {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  };
+
+  private handleSeeked = (): void => {
+    this.update();
+    if (!this.videoPlayer.paused && !this.videoPlayer.ended) {
+      this.startLoop();
+    }
+  };
+
+  private attachEventListeners(): void {
+    this.videoPlayer.addEventListener("play", this.startLoop);
+    this.videoPlayer.addEventListener("pause", this.stopLoop);
+    this.videoPlayer.addEventListener("ended", this.stopLoop);
+    this.videoPlayer.addEventListener("seeked", this.handleSeeked);
+  }
+
+  private detachEventListeners(): void {
+    this.videoPlayer.removeEventListener("play", this.startLoop);
+    this.videoPlayer.removeEventListener("pause", this.stopLoop);
+    this.videoPlayer.removeEventListener("ended", this.stopLoop);
+    this.videoPlayer.removeEventListener("seeked", this.handleSeeked);
+  }
 }
+
+let activeController: SubtitleController | null = null;
 
 /**
  * Find video elements on the YouTube page
@@ -165,78 +231,16 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoI
 
   console.log("Starting subtitle display interval.");
 
-  const updateFn = () => updateSubtitlesInternal(currentSubtitles);
-  const startLoop = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-    }
-    const tick = () => {
-      updateFn();
-      if (videoPlayer && !videoPlayer.paused && !videoPlayer.ended) {
-        rafId = requestAnimationFrame(tick);
-      } else {
-        rafId = null;
-      }
-    };
-    rafId = requestAnimationFrame(tick);
-  };
-  const stopLoop = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-  };
-
-  updateFn();
-  if (!videoPlayer.paused && !videoPlayer.ended) {
-    startLoop();
-  }
-
-  videoPlayer.addEventListener("play", startLoop);
-  videoPlayer.addEventListener("pause", stopLoop);
-  videoPlayer.addEventListener("ended", stopLoop);
-  const seekedHandler = () => {
-    updateFn();
-    if (!videoPlayer?.paused && !videoPlayer?.ended) {
-      startLoop();
-    }
-  };
-  videoPlayer.addEventListener("seeked", seekedHandler);
-
-  const player = videoPlayer as VideoPlayerWithCallback;
-  player._subtitleUpdateFn = updateFn;
-  player._subtitleStartLoopFn = startLoop;
-  player._subtitleStopLoopFn = stopLoop;
-  player._subtitleSeekedFn = seekedHandler;
+  activeController = new SubtitleController(videoPlayer, currentSubtitles, videoId);
+  activeController.start();
 }
 
 /**
  * Stop displaying subtitles
  */
 export function stopSubtitleDisplay(): void {
-  if (videoPlayer) {
-    const player = videoPlayer as VideoPlayerWithCallback;
-    if (player._subtitleUpdateFn) {
-      if (player._subtitleStartLoopFn) {
-        videoPlayer.removeEventListener("play", player._subtitleStartLoopFn);
-      }
-      if (player._subtitleStopLoopFn) {
-        videoPlayer.removeEventListener("pause", player._subtitleStopLoopFn);
-        videoPlayer.removeEventListener("ended", player._subtitleStopLoopFn);
-      }
-      if (player._subtitleSeekedFn) {
-        videoPlayer.removeEventListener("seeked", player._subtitleSeekedFn);
-      }
-      delete player._subtitleUpdateFn;
-      delete player._subtitleStartLoopFn;
-      delete player._subtitleStopLoopFn;
-      delete player._subtitleSeekedFn;
-    }
-  }
-  if (rafId !== null) {
-    cancelAnimationFrame(rafId);
-    rafId = null;
-  }
+  activeController?.stop();
+  activeController = null;
   activeVideoId = null;
 }
 
