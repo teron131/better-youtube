@@ -4,8 +4,8 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/lib/constants";
-import { VideoMetadata, getStoredSummary, getStoredSubtitles, getStoredVideoMetadata, saveSummary, saveVideoMetadata } from "@/lib/storage";
-import type { ScrapeCreatorsResponse } from "./index";
+import { VideoMetadata, getStoredSubtitles, getStoredSummary, getStoredVideoMetadata, saveSummary, saveVideoMetadata } from "@/lib/storage";
+import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/youtubeApi";
 
 /**
  * Check if stored summary exists and is still valid for the current request
@@ -59,22 +59,21 @@ export async function broadcastStoredSummary(
  */
 export async function resolveTranscriptSource(
   videoId: string,
-  messageTranscript: string | undefined,
-  transcriptCache: Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>
+  messageTranscript: string | undefined
 ): Promise<string> {
   if (messageTranscript) {
     console.log(`Using provided transcript for summary of ${videoId}`);
     return messageTranscript;
   }
 
-  const cached = transcriptCache.get(videoId);
-  if (cached?.data.transcript_only_text) {
+  const cached = getCachedTranscript(videoId);
+  if (cached?.transcript_only_text) {
     console.log(`Using cached transcript for summary of ${videoId}`);
-    return cached.data.transcript_only_text;
+    return cached.transcript_only_text;
   }
-  if (cached?.data.transcript?.length) {
+  if (cached?.transcript?.length) {
     console.log(`Using cached transcript segments for summary of ${videoId}`);
-    return cached.data.transcript.map((s) => s.text).join(" ");
+    return cached.transcript.map((s) => s.text).join(" ");
   }
 
   const storedSubtitles = await getStoredSubtitles(videoId);
@@ -92,9 +91,6 @@ export async function resolveTranscriptSource(
  */
 export async function resolveVideoInfo(
   videoId: string,
-  transcriptCache: Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>,
-  extractVideoInfoFn: (data: ScrapeCreatorsResponse, videoId: string) => VideoMetadata,
-  fetchTranscriptFn: (videoId: string, apiKey: string) => Promise<ScrapeCreatorsResponse | null>,
   scrapeCreatorsApiKey: string
 ): Promise<VideoMetadata> {
   const stored = await getStoredVideoMetadata(videoId);
@@ -103,17 +99,17 @@ export async function resolveVideoInfo(
     return stored;
   }
 
-  const cached = transcriptCache.get(videoId);
+  const cached = getCachedTranscript(videoId);
   if (cached) {
-    const videoInfo = extractVideoInfoFn(cached.data, videoId);
+    const videoInfo = extractVideoInfo(cached, videoId);
     console.log(`Using cached video info for ${videoId}`);
     return videoInfo;
   }
 
   console.log(`No stored/cached video info for ${videoId}, fetching...`);
-  const data = await fetchTranscriptFn(videoId, scrapeCreatorsApiKey);
+  const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
   if (data) {
-    const videoInfo = extractVideoInfoFn(data, videoId);
+    const videoInfo = extractVideoInfo(data, videoId);
     await saveVideoMetadata(videoId, videoInfo);
     return videoInfo;
   }
