@@ -4,7 +4,7 @@
 
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
 import { saveSubtitles } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger, markAutoGenerationTriggered } from "./autoGeneration";
@@ -56,7 +56,7 @@ export function setupMessageListener(
 }
 
 function handleGetVideoTitle(sendResponse: (response: any) => void): void {
-  const titleElement = document.querySelector("h1.ytd-watch-metadata yt-formatted-string");
+  const titleElement = document.querySelector(YOUTUBE.SELECTORS.VIDEO_TITLE);
   sendResponse({ title: titleElement?.textContent ?? null });
 }
 

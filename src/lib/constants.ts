@@ -164,6 +164,7 @@ export const YOUTUBE = {
     VIDEO_PLAYER: "video.html5-main-video",
     MOVIE_PLAYER: "#movie_player",
     VIDEO_CONTAINER: ".html5-video-container",
+    VIDEO_TITLE: "h1.ytd-watch-metadata yt-formatted-string",
   },
 } as const;
 
@@ -222,6 +223,7 @@ export const ELEMENT_IDS = {
 export const REFINER_CONFIG = {
   MAX_SEGMENTS_PER_CHUNK: 30,
   CHUNK_SENTINEL: "<<<__CHUNK_END__>>>",
+  CONCURRENCY_LIMIT: 8,
 } as const;
 
 export const SEGMENT_PARSER_CONFIG = {

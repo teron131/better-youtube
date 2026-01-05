@@ -8,6 +8,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS, DEFAULTS, REFINER_CONFIG } from "./constants";
 import { chunkSegmentsByCount, parseRefinedSegments } from "./segmentParser";
 import { SubtitleSegment } from "./storage";
+import { formatTimestamp } from "./time";
 
 // ============================================================================
 // Constants
@@ -44,13 +45,6 @@ had been had, you missed out big time. I`;
 
 function normalizeSegmentText(text: string): string {
   return (text || "").split(/\s+/).join(" ");
-}
-
-function formatTimestamp(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function formatTranscriptSegments(segments: SubtitleSegment[]): string {
@@ -169,7 +163,7 @@ export async function refineTranscriptWithLLM(
 
   const responses = await runConcurrentBatch(
     batchMessages,
-    8,
+    REFINER_CONFIG.CONCURRENCY_LIMIT,
     async (messages, idx) => {
       const res = await llm.invoke(messages);
       progressCallback?.(idx + 1, batchMessages.length);
