@@ -6,6 +6,7 @@
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
 import { SubtitleSegment, saveVideoMetadata } from "@/lib/storage";
+import { formatTimestamp } from "@/lib/time";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
 import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
 import { validateApiKeys } from "./validation";
@@ -63,13 +64,6 @@ function normalizeApiResponse(data: any): ScrapeCreatorsResponse {
     }));
   }
   return data as ScrapeCreatorsResponse;
-}
-
-function formatTimestamp(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();

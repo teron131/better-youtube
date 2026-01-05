@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip"
-import { cn } from "./utils"
+import { cn } from "@ui/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = UI_BEHAVIOR.SIDEBAR_COOKIE_NAME
 const SIDEBAR_COOKIE_MAX_AGE = UI_BEHAVIOR.SIDEBAR_COOKIE_MAX_AGE
