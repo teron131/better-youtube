@@ -4,169 +4,16 @@
  */
 
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
-import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
-import { SubtitleSegment, saveVideoMetadata } from "@/lib/storage";
-import { formatTimestamp } from "@/lib/time";
+import { ChromeMessage, createMessageListener } from "@/lib/chromeUtils";
+import { ERROR_MESSAGES, MESSAGE_ACTIONS } from "@/lib/constants";
+import { saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
+import { clearTranscriptCache, convertToSubtitleSegments, extractVideoInfo, fetchTranscript } from "@/lib/youtubeApi";
 import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
 import { validateApiKeys } from "./validation";
-import { createMessageListener, ChromeMessage } from "@/lib/chromeUtils";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
-
-interface ApiTranscriptSegment {
-  text: string;
-  startMs: number;
-  endMs: number;
-  startTimeText: string;
-}
-
-interface RawTranscriptSegment {
-  text: string;
-  startMs: string | number;
-  endMs: string | number;
-  startTimeText: string;
-}
-
-interface ChannelInfo {
-  id: string;
-  url: string;
-  handle: string;
-  title: string;
-}
-
-export interface ScrapeCreatorsResponse {
-  transcript: ApiTranscriptSegment[];
-  transcript_only_text?: string;
-  title: string;
-  description: string;
-  thumbnail?: string;
-  url?: string;
-  id?: string;
-  viewCountInt?: number;
-  likeCountInt?: number;
-  publishDate?: string;
-  channel?: ChannelInfo;
-  durationFormatted?: string;
-  keywords?: string[];
-}
-
-/**
- * Normalizes raw API response to ensure numbers are numbers
- */
-function normalizeApiResponse(data: any): ScrapeCreatorsResponse {
-  if (data.transcript && Array.isArray(data.transcript)) {
-    data.transcript = data.transcript.map((s: RawTranscriptSegment) => ({
-      ...s,
-      startMs: Number(s.startMs),
-      endMs: Number(s.endMs),
-    }));
-  }
-  return data as ScrapeCreatorsResponse;
-}
-
-const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
-const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
-
-/**
- * Convert API transcript segments to SubtitleSegment format
- */
-function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): SubtitleSegment[] {
-  return transcript.map(s => ({
-    text: s.text,
-    startTime: s.startMs,
-    endTime: s.endMs,
-    startTimeText: s.startTimeText || formatTimestamp(s.startMs),
-  }));
-}
-
-/**
- * Extract video info from ScrapeCreatorsResponse
- */
-function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string) {
-  return {
-    url: data.url || `https://www.youtube.com/watch?v=${videoId}`,
-    title: data.title || null,
-    thumbnail: data.thumbnail || null,
-    author: data.channel?.title || null,
-    duration: data.durationFormatted || null,
-    upload_date: data.publishDate || null,
-    view_count: data.viewCountInt ?? null,
-    like_count: data.likeCountInt ?? null,
-  };
-}
-
-/**
- * Fetch video transcript using Scrape Creators API with deduplication, caching, and retries
- */
-async function fetchTranscript(
-  videoId: string,
-  apiKey: string,
-  retries = 2
-): Promise<ScrapeCreatorsResponse | null> {
-  const cached = transcriptCache.get(videoId);
-  if (cached && Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS) {
-    return cached.data;
-  }
-
-  if (pendingTranscriptFetches.has(videoId)) {
-    return pendingTranscriptFetches.get(videoId)!;
-  }
-
-  if (!apiKey?.trim()) {
-    console.error("API key is missing or empty");
-    return null;
-  }
-
-  const fetchPromise = (async () => {
-    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
-    requestUrl.searchParams.set("url", youtubeUrl);
-    requestUrl.searchParams.set("get_transcript", "true");
-
-    for (let i = 0; i <= retries; i++) {
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i));
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
-
-      try {
-        const response = await fetch(requestUrl.toString(), {
-          headers: { "x-api-key": apiKey, "Accept": "application/json" },
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`API error (attempt ${i + 1}):`, errorText);
-          if (response.status === 401 || response.status === 403) return null;
-          continue;
-        }
-
-        const data = normalizeApiResponse(await response.json());
-        transcriptCache.set(videoId, { data, timestamp: Date.now() });
-        return data;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        console.warn(`Fetch error (attempt ${i + 1}):`, error);
-      }
-    }
-    return null;
-  })();
-
-  pendingTranscriptFetches.set(videoId, fetchPromise);
-  try {
-    return await fetchPromise;
-  } finally {
-    pendingTranscriptFetches.delete(videoId);
-  }
-}
 
 /**
  * Handle scrape video request
@@ -210,7 +57,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
   sendResponse({ status: "processing" });
 
   try {
-    if (forceRegenerate) transcriptCache.delete(videoId);
+    if (forceRegenerate) clearTranscriptCache(videoId);
 
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
     if (!data?.transcript?.length) {
@@ -277,8 +124,8 @@ async function handleGenerateSummary(message: ChromeMessage, sendResponse: (resp
       return await broadcastStoredSummary(videoId, storedSummary);
     }
 
-    const transcript_or_url = await resolveTranscriptSource(videoId, msgTranscript, transcriptCache);
-    const videoInfo = await resolveVideoInfo(videoId, transcriptCache, extractVideoInfo, fetchTranscript, scrapeCreatorsApiKey);
+    const transcript_or_url = await resolveTranscriptSource(videoId, msgTranscript);
+    const videoInfo = await resolveVideoInfo(videoId, scrapeCreatorsApiKey);
 
     const result = await executeSummarizationWorkflow({
       transcript_or_url, videoId, scrapeCreatorsApiKey,
