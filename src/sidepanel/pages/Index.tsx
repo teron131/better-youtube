@@ -14,6 +14,7 @@ import { useVideoProcessing, VideoProcessingOptions } from "@ui/hooks/use-video-
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
+import { triggerCaptionGeneration } from "@ui/services/streaming";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
 import { getStorageValue, setStorageValue } from "@/lib/storage";
 import { Settings as SettingsIcon, Sparkles } from "lucide-react";
@@ -141,33 +142,34 @@ const Index = () => {
     });
   };
 
+  const resolveVideoUrl = async (url: string): Promise<string | null> => {
+    const trimmed = url.trim();
+    if (trimmed) return trimmed;
+
+    const currentTabUrl = await getVideoIdFromCurrentTab();
+    if (!currentTabUrl) return null;
+
+    setInitialUrl(currentTabUrl);
+    return currentTabUrl;
+  };
+
   const handleVideoSubmit = async (url: string, options?: VideoProcessingOptions) => {
     setIsExampleMode(false);
 
-    // If no URL provided, try to get from current tab
-    let videoUrl = url.trim();
-
+    const videoUrl = await resolveVideoUrl(url);
     if (!videoUrl) {
-      const currentTabUrl = await getVideoIdFromCurrentTab();
+      const errorMsg = "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
+      updateState({
+        error: { message: errorMsg, type: "validation" },
+        currentStage: "❌ Not a YouTube page"
+      });
 
-      if (!currentTabUrl) {
-        // Not a YouTube page
-        const errorMsg = "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
-        updateState({
-          error: { message: errorMsg, type: "validation" },
-          currentStage: "❌ Not a YouTube page"
-        });
-
-        toast({
-          title: "Not a YouTube Page",
-          description: errorMsg,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      videoUrl = currentTabUrl;
-      setInitialUrl(currentTabUrl);
+      toast({
+        title: "Not a YouTube Page",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      return;
     }
 
     setLastProcessedUrl(videoUrl);
@@ -195,6 +197,47 @@ const Index = () => {
 
       console.error('Processing error:', apiError.message, 'Details:', apiError.details);
     }
+  };
+
+  const handleCaptionSubmit = async (url: string) => {
+    setIsExampleMode(false);
+
+    const videoUrl = await resolveVideoUrl(url);
+    if (!videoUrl) {
+      toast({
+        title: "Not a YouTube Page",
+        description: "Not on a YouTube video page. Please open a YouTube video or enter a URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await triggerCaptionGeneration(videoUrl);
+      toast({
+        title: "Caption requested",
+        description: "Caption generation started for this video.",
+      });
+    } catch (error) {
+      const apiError = handleApiError(error);
+      toast({
+        title: "Caption failed",
+        description: apiError.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFormSubmit = async (
+    url: string,
+    options?: VideoProcessingOptions,
+    action: "caption" | "summary" = "summary"
+  ) => {
+    if (action === "caption") {
+      await handleCaptionSubmit(url);
+      return;
+    }
+    await handleVideoSubmit(url, options);
   };
 
   const handleRegenerate = async () => {
@@ -250,7 +293,7 @@ const Index = () => {
       </div>
 
       <HeroSection
-        onSubmit={handleVideoSubmit}
+        onSubmit={handleFormSubmit}
         isLoading={isLoading}
         initialUrl={initialUrl}
       />

@@ -156,7 +156,7 @@ export const AnalysisPanel = ({ analysis, quality, videoInfo, onRegenerate, isRe
                 <ListChecks className="h-4 w-4" />
                 AI Analysis
               </div>
-              <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Structured Analysis</h3>
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Structured Summary</h3>
               <p className="text-sm md:text-base text-muted-foreground">Detailed breakdown and key takeaways from the video.</p>
             </div>
 
