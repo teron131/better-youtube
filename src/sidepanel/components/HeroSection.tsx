@@ -8,7 +8,7 @@ import { ShieldCheck, Sparkles, Zap } from "lucide-react";
 interface HeroSectionProps {
   onSubmit: (url: string, options?: {
     targetLanguage?: string;
-    analysisModel?: string;
+    summaryModel?: string;
     qualityModel?: string;
   }, action?: "caption" | "summary") => void;
   isLoading: boolean;

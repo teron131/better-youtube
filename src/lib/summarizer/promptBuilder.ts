@@ -27,20 +27,20 @@ export class PromptBuilder {
   static LANGUAGE_DESCRIPTIONS = LANGUAGE_DESCRIPTIONS;
 
   /**
-   * Build prompt for initial analysis generation
+   * Build prompt for initial summary generation
    */
-  static buildAnalysisPrompt(targetLanguage = "auto"): string {
+  static buildSummaryPrompt(targetLanguage = "auto"): string {
     const languageInstruction = getLanguageInstruction(targetLanguage);
 
     return [
-      "Create a comprehensive analysis that strictly follows the transcript content.",
+      "Create a comprehensive summary that strictly follows the transcript content.",
       "",
       languageInstruction,
       "",
       "REQUIREMENTS:",
       "- Every claim must be directly supported by the transcript",
       "- Write in objective, article-like style (avoid 'This video...', 'The speaker...')",
-      "- No meta-descriptive language ('This analysis explores', etc.)",
+      "- No meta-descriptive language ('This summary explores', etc.)",
       "- Remove promotional content (speaker intros, calls-to-action)",
       "- Keep only educational content",
     ].join("\n");
@@ -50,17 +50,17 @@ export class PromptBuilder {
    * Build prompt for quality assessment
    */
   static buildQualityPrompt(): string {
-    return "Evaluate the analysis. Rate each aspect 'Fail', 'Refine', or 'Pass' with a specific reason.";
+    return "Evaluate the summary. Rate each aspect 'Fail', 'Refine', or 'Pass' with a specific reason.";
   }
 
   /**
-   * Build prompt for analysis improvement
+   * Build prompt for summary improvement
    */
   static buildImprovementPrompt(targetLanguage = "auto"): string {
     const languageInstruction = getLanguageInstruction(targetLanguage, true);
 
     return [
-      "Improve the analysis based on quality feedback while maintaining transcript accuracy.",
+      "Improve the summary based on quality feedback while maintaining transcript accuracy.",
       "",
       languageInstruction,
       "",

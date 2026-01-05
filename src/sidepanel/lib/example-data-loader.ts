@@ -9,7 +9,7 @@ export interface ExampleDataResult {
   progressStates: StreamingProgressState[];
   videoInfo: VideoInfoResponse | null;
   transcript: string | null;
-  analysisResult: StreamingProcessingResult;
+  summaryResult: StreamingProcessingResult;
 }
 
 /**
@@ -17,7 +17,7 @@ export interface ExampleDataResult {
  */
 export function loadExampleData(): ExampleDataResult {
   const qualityScore = exampleData.quality?.percentage_score || 100;
-  const chapterCount = exampleData.analysis?.chapters?.length || 0;
+  const chapterCount = exampleData.summary?.chapters?.length || 0;
 
   const exampleProgressStates: StreamingProgressState[] = [
     {
@@ -28,10 +28,10 @@ export function loadExampleData(): ExampleDataResult {
       processingTime: "0.1s",
     },
     {
-      step: 'analysis_generation',
-      stepName: "Analysis Generation",
+      step: 'summary_generation',
+      stepName: "Summary Generation",
       status: "completed",
-      message: `📝 Initial analysis generated with ${chapterCount} chapters`,
+      message: `📝 Initial summary generated with ${chapterCount} chapters`,
       iterationCount: exampleData.iterationCount,
     },
     {
@@ -39,17 +39,17 @@ export function loadExampleData(): ExampleDataResult {
       stepName: "Quality Assessment",
       status: "completed",
       message: exampleData.quality?.percentage_score
-        ? `🎯 Quality check passed with ${qualityScore}% score - Analysis meets requirements`
-        : `🎯 Quality check passed - Analysis meets requirements`,
+        ? `🎯 Quality check passed with ${qualityScore}% score - Summary meets requirements`
+        : `🎯 Quality check passed - Summary meets requirements`,
       qualityScore,
     },
     {
       step: 'complete',
-      stepName: "Analysis Complete",
+      stepName: "Summary Complete",
       status: "completed",
       message: exampleData.quality?.percentage_score
-        ? `✅ Analysis completed successfully with ${qualityScore}% quality score`
-        : `✅ Analysis completed successfully`,
+        ? `✅ Summary completed successfully with ${qualityScore}% quality score`
+        : `✅ Summary completed successfully`,
       processingTime: exampleData.totalTime,
       chunkCount: exampleData.chunksProcessed,
       iterationCount: exampleData.iterationCount,
@@ -61,7 +61,7 @@ export function loadExampleData(): ExampleDataResult {
     progressStates: exampleProgressStates,
     videoInfo: exampleData.videoInfo || null,
     transcript: exampleData.transcript || null,
-    analysisResult: exampleData,
+    summaryResult: exampleData,
   };
 }
 

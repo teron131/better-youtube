@@ -4,7 +4,7 @@ import type { Quality } from "./schemas";
 const SCORE_MAP = QUALITY_THRESHOLDS.SCORE_MAP;
 const MAX_SCORE_PER_ASPECT = QUALITY_THRESHOLDS.MAX_SCORE_PER_ASPECT;
 
-export const ANALYSIS_CONFIG = {
+export const SUMMARY_CONFIG = {
   MODEL: DEFAULTS.MODEL_SUMMARIZER,
   QUALITY_MODEL: DEFAULTS.MODEL_SUMMARIZER,
   MIN_QUALITY_SCORE: QUALITY_THRESHOLDS.MIN_QUALITY_SCORE,
@@ -35,7 +35,7 @@ function calculateScore(quality: Quality): number {
  * Check if quality score meets minimum threshold
  */
 function isAcceptable(quality: Quality): boolean {
-  return calculateScore(quality) >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE;
+  return calculateScore(quality) >= SUMMARY_CONFIG.MIN_QUALITY_SCORE;
 }
 
 /**
@@ -61,7 +61,7 @@ function printQualityBreakdown(quality: Quality): void {
 
   if (!isAcceptable(quality)) {
     console.log(
-      `⚠️  Quality below threshold (${ANALYSIS_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`
+      `⚠️  Quality below threshold (${SUMMARY_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`
     );
   }
 }

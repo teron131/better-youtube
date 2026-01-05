@@ -33,7 +33,7 @@ export const AVAILABLE_MODELS = [
   {} as Record<string, string>,
 );
 
-export const DEFAULT_ANALYSIS_MODEL = DEFAULTS.MODEL_SUMMARIZER;
+export const DEFAULT_SUMMARY_MODEL = DEFAULTS.MODEL_SUMMARIZER;
 export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 
 // ================================
@@ -169,14 +169,14 @@ export function isValidLanguage(language: string): language is LanguageKey {
 // VALIDATION
 // ================================
 
-export function validateModelSelection(analysisModel: string, qualityModel: string): {
+export function validateModelSelection(summaryModel: string, qualityModel: string): {
   isValid: boolean;
   errors: string[];
 } {
   const errors: string[] = [];
 
-  if (!analysisModel) {
-    errors.push(`Analysis model is required`);
+  if (!summaryModel) {
+    errors.push(`Summary model is required`);
   }
 
   if (!qualityModel) {
@@ -211,7 +211,7 @@ export default {
   AVAILABLE_MODELS,
   RECOMMENDED_SUMMARIZER_MODELS,
   RECOMMENDED_REFINER_MODELS,
-  DEFAULT_ANALYSIS_MODEL,
+  DEFAULT_SUMMARY_MODEL,
   DEFAULT_QUALITY_MODEL,
   SUPPORTED_LANGUAGES,
   DEFAULT_TARGET_LANGUAGE,

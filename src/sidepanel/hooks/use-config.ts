@@ -13,7 +13,7 @@ import {
   AVAILABLE_MODELS_LIST,
   AVAILABLE_REFINER_MODELS_LIST,
   AVAILABLE_SUMMARIZER_MODELS_LIST,
-  DEFAULT_ANALYSIS_MODEL,
+  DEFAULT_SUMMARY_MODEL,
   DEFAULT_QUALITY_MODEL,
   DEFAULT_TARGET_LANGUAGE,
   SUPPORTED_LANGUAGES,
@@ -58,7 +58,7 @@ export function useConfig(): UseConfigReturn {
         message: 'Using local configuration fallback',
         available_models: AVAILABLE_MODELS,
         supported_languages: SUPPORTED_LANGUAGES,
-        default_analysis_model: DEFAULT_ANALYSIS_MODEL,
+        default_summary_model: DEFAULT_SUMMARY_MODEL,
         default_quality_model: DEFAULT_QUALITY_MODEL,
         default_target_language: DEFAULT_TARGET_LANGUAGE,
       });
@@ -95,7 +95,7 @@ export function useModelSelection() {
     refinerModels,
     getModelByKey,
     isValidModel,
-    defaultModel: DEFAULT_ANALYSIS_MODEL,
+    defaultModel: DEFAULT_SUMMARY_MODEL,
     defaultQualityModel: DEFAULT_QUALITY_MODEL,
   };
 }
@@ -114,14 +114,14 @@ export function useLanguageSelection() {
 import { STORAGE_KEYS } from '@/lib/constants';
 
 interface UserPreferences {
-  analysisModel: string;
+  summaryModel: string;
   qualityModel: string;
   targetLanguage: string;
   fastMode: boolean;
 }
 
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  analysisModel: DEFAULT_ANALYSIS_MODEL,
+  summaryModel: DEFAULT_SUMMARY_MODEL,
   qualityModel: DEFAULT_QUALITY_MODEL,
   targetLanguage: DEFAULT_TARGET_LANGUAGE || 'auto',
   fastMode: false,
@@ -132,9 +132,9 @@ function validatePreferences(
   defaults: UserPreferences,
 ): UserPreferences {
   return {
-    analysisModel: prefs.analysisModel && isValidModel(prefs.analysisModel)
-      ? prefs.analysisModel
-      : defaults.analysisModel,
+    summaryModel: prefs.summaryModel && isValidModel(prefs.summaryModel)
+      ? prefs.summaryModel
+      : defaults.summaryModel,
     qualityModel: prefs.qualityModel && isValidModel(prefs.qualityModel)
       ? prefs.qualityModel
       : defaults.qualityModel,
@@ -162,7 +162,7 @@ export function useUserPreferences() {
 
     chrome.storage.local.get(keys, (result) => {
       const loadedPrefs: Partial<UserPreferences> = {
-        analysisModel: result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
+        summaryModel: result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
         targetLanguage: result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
         fastMode: result[STORAGE_KEYS.FAST_MODE],
         qualityModel: result[STORAGE_KEYS.QUALITY_MODEL]
@@ -176,7 +176,7 @@ export function useUserPreferences() {
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
       const updates: Partial<UserPreferences> = {};
       if (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]) {
-        updates.analysisModel = (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]).newValue;
+        updates.summaryModel = (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]).newValue;
       }
       if (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]) {
         updates.targetLanguage = (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]).newValue;
@@ -199,7 +199,7 @@ export function useUserPreferences() {
 
     // Sync to chrome.storage.local
     const storageUpdates: Record<string, any> = {};
-    if (updates.analysisModel) storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] = updates.analysisModel;
+    if (updates.summaryModel) storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] = updates.summaryModel;
     if (updates.targetLanguage) storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] = updates.targetLanguage;
     if (updates.fastMode !== undefined) storageUpdates[STORAGE_KEYS.FAST_MODE] = updates.fastMode;
     if (updates.qualityModel) storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;

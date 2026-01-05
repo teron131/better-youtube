@@ -5,7 +5,7 @@
 import { useReducer } from 'react';
 
 import { findStepIndex, normalizeStepName, sortProgressStates } from '@ui/lib/video-utils';
-import { streamAnalysis } from '@ui/services/streaming';
+import { streamSummary } from '@ui/services/streaming';
 import {
   ApiError,
   StreamingProcessingResult,
@@ -14,7 +14,7 @@ import {
 } from '@ui/services/types';
 
 export interface VideoProcessingOptions {
-  analysisModel?: string;
+  summaryModel?: string;
   qualityModel?: string;
   targetLanguage?: string;
   fastMode?: boolean;
@@ -27,7 +27,7 @@ export interface VideoProcessingState {
   currentStep: number;
   currentStage: string;
   progressStates: StreamingProgressState[];
-  analysisResult: StreamingProcessingResult | null;
+  summaryResult: StreamingProcessingResult | null;
   scrapedVideoInfo: VideoInfoResponse | null;
   scrapedTranscript: string | null;
 }
@@ -38,7 +38,7 @@ const INITIAL_STATE: VideoProcessingState = {
   currentStep: 0,
   currentStage: '',
   progressStates: [],
-  analysisResult: null,
+  summaryResult: null,
   scrapedVideoInfo: null,
   scrapedTranscript: null,
 };
@@ -46,7 +46,7 @@ const INITIAL_STATE: VideoProcessingState = {
 const LOADING_STATE: VideoProcessingState = {
   isLoading: true,
   error: null,
-  analysisResult: null,
+  summaryResult: null,
   currentStep: 0,
   currentStage: 'Initializing...',
   progressStates: [],
@@ -97,7 +97,7 @@ function reducer(state: VideoProcessingState, action: Action): VideoProcessingSt
         ...state,
         scrapedVideoInfo: action.payload.videoInfo || state.scrapedVideoInfo,
         scrapedTranscript: action.payload.transcript || state.scrapedTranscript,
-        analysisResult: action.payload,
+        summaryResult: action.payload,
         currentStage: 'Processing completed',
         isLoading: false,
       };
@@ -127,7 +127,7 @@ export function useVideoProcessing() {
     dispatch({ type: 'START' });
 
     try {
-      const result = await streamAnalysis(url, options || {}, (progress) => {
+      const result = await streamSummary(url, options || {}, (progress) => {
         dispatch({ type: 'PROGRESS', payload: progress });
         onProgress?.(progress);
       });

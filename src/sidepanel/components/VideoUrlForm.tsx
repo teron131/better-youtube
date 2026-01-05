@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 interface VideoUrlFormProps {
   onSubmit: (url: string, options?: {
     targetLanguage?: string;
-    analysisModel?: string;
+    summaryModel?: string;
     qualityModel?: string;
     fastMode?: boolean;
   }, action?: "caption" | "summary") => void;
@@ -42,7 +42,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
 
     const options = prepareProcessingOptions(
       preferences.targetLanguage,
-      preferences.analysisModel,
+      preferences.summaryModel,
       preferences.qualityModel,
       preferences.fastMode,
     );

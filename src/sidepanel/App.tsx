@@ -8,7 +8,7 @@ import { Toaster } from "@ui/components/ui/toaster";
 import { TooltipProvider } from "@ui/components/ui/tooltip";
 import { useEffect } from "react";
 import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
-import { loadAnalysisFontSize } from "./lib/font-size";
+import { loadSummaryFontSize } from "./lib/font-size";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
@@ -34,7 +34,7 @@ function AppRoutes() {
 
 const App = () => {
   useEffect(() => {
-    loadAnalysisFontSize();
+    loadSummaryFontSize();
   }, []);
 
   return (

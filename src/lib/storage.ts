@@ -26,8 +26,8 @@ export interface VideoMetadata {
   like_count: number | null;
 }
 
-export interface StoredAnalysis {
-  analysis: any;
+export interface StoredSummary {
+  summary: any;
   quality?: any;
   timestamp: number;
   modelUsed: string;
@@ -47,7 +47,7 @@ export interface StorageUsage {
 const StorageKeys = {
   subtitles: (videoId: string) => videoId,
   metadata: (videoId: string) => `video_info_${videoId}`,
-  analysis: (videoId: string) => `analysis_${videoId}`,
+  summary: (videoId: string) => `summary_${videoId}`,
 } as const;
 
 // ============================================================================
@@ -195,20 +195,20 @@ export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata
   return storageSet({ [StorageKeys.metadata(videoId)]: metadata });
 }
 
-export async function getStoredAnalysis(videoId: string): Promise<StoredAnalysis | null> {
-  return storageGet<StoredAnalysis>(StorageKeys.analysis(videoId));
+export async function getStoredSummary(videoId: string): Promise<StoredSummary | null> {
+  return storageGet<StoredSummary>(StorageKeys.summary(videoId));
 }
 
-export async function saveAnalysis(
+export async function saveSummary(
   videoId: string,
-  analysis: any,
+  summary: any,
   modelUsed: string,
   targetLanguage?: string | null,
   quality?: any
 ): Promise<void> {
-  const key = StorageKeys.analysis(videoId);
-  const storedAnalysis: StoredAnalysis = {
-    analysis,
+  const key = StorageKeys.summary(videoId);
+  const storedSummary: StoredSummary = {
+    summary,
     quality,
     timestamp: Date.now(),
     modelUsed,
@@ -216,11 +216,11 @@ export async function saveAnalysis(
   };
 
   try {
-    await storageSet({ [key]: storedAnalysis });
+    await storageSet({ [key]: storedSummary });
   } catch (error) {
     if (error instanceof Error && error.message.includes("QUOTA")) {
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
-      await storageSet({ [key]: storedAnalysis });
+      await storageSet({ [key]: storedSummary });
     } else {
       throw error;
     }
@@ -274,7 +274,7 @@ async function getVideoRelatedKeys(allItems: Record<string, unknown>): Promise<s
   return Object.keys(allItems).filter(key => 
     (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) ||
     key.startsWith('video_info_') || 
-    key.startsWith('analysis_')
+    key.startsWith('summary_')
   );
 }
 

@@ -1,5 +1,5 @@
 /**
- * Component for configuring analysis model, quality model, and target language options.
+ * Component for configuring summary model, quality model, and target language options.
  */
 
 import { ModelSelector } from "@ui/components/ModelSelector";
@@ -32,8 +32,8 @@ export function VideoProcessingOptions() {
       <ModelSelector
         label="Summarizer"
         icon={Bot}
-        value={preferences.analysisModel}
-        onChange={(value) => updatePreferences({ analysisModel: value })}
+        value={preferences.summaryModel}
+        onChange={(value) => updatePreferences({ summaryModel: value })}
         options={summarizerModels.map(toOption)}
         placeholder="Select summarizer..."
       />

@@ -53,7 +53,7 @@ better-youtube/
 |-----|------|-------------|
 | `scrapeCreatorsApiKey` | string | Scrape Creators API key |
 | `openRouterApiKey` | string | OpenRouter API key |
-| `summarizerModel` | string | Model for analysis |
+| `summarizerModel` | string | Model for summary |
 | `refinerModel` | string | Model for refinement |
 | `targetLanguage` | string | Target language (auto/en/zh-TW) |
 | `captionFontSize` | S/M/L | Caption overlay font size |

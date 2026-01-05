@@ -34,12 +34,12 @@ export function isFormValid(url: string): boolean {
  */
 export function prepareProcessingOptions(
   targetLanguage: string,
-  analysisModel: string,
+  summaryModel: string,
   qualityModel: string,
   fastMode: boolean,
 ) {
   return {
-    analysisModel,
+    summaryModel,
     qualityModel,
     ...(targetLanguage !== "auto" && { targetLanguage }),
     fastMode,

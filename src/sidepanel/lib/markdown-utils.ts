@@ -2,17 +2,17 @@
  * Markdown generation utilities
  */
 
-import { AnalysisData, VideoInfoResponse } from '@ui/services/types';
-import { convertAnalysisChinese } from './utils';
+import { SummaryData, VideoInfoResponse } from '@ui/services/types';
+import { convertSummaryChinese } from './utils';
 
 /**
- * Generate markdown from analysis data
+ * Generate markdown from summary data
  */
-export function generateAnalysisMarkdown(
-  analysis: AnalysisData,
+export function generateSummaryMarkdown(
+  summary: SummaryData,
   videoInfo?: VideoInfoResponse
 ): string {
-  const convertedAnalysis = convertAnalysisChinese(analysis);
+  const convertedSummary = convertSummaryChinese(summary);
   let markdown = "";
 
   // Add video info if available
@@ -35,33 +35,33 @@ export function generateAnalysisMarkdown(
   }
 
   // Add summary
-  if (convertedAnalysis.summary) {
+  if (convertedSummary.summary) {
     markdown += `# Summary\n\n`;
-    markdown += `${convertedAnalysis.summary}\n\n`;
+    markdown += `${convertedSummary.summary}\n\n`;
   }
 
   // Add takeaways
-  if (convertedAnalysis.takeaways && convertedAnalysis.takeaways.length > 0) {
+  if (convertedSummary.takeaways && convertedSummary.takeaways.length > 0) {
     markdown += "# Key Takeaways\n\n";
-    convertedAnalysis.takeaways.forEach(takeaway => {
+    convertedSummary.takeaways.forEach(takeaway => {
       markdown += `- ${takeaway}\n`;
     });
     markdown += "\n";
   }
 
   // Add keywords
-  if (convertedAnalysis.keywords && convertedAnalysis.keywords.length > 0) {
+  if (convertedSummary.keywords && convertedSummary.keywords.length > 0) {
     markdown += "# Keywords\n\n";
-    convertedAnalysis.keywords.forEach(keyword => {
+    convertedSummary.keywords.forEach(keyword => {
       markdown += `- ${keyword}\n`;
     });
     markdown += "\n";
   }
 
   // Add chapters
-  if (convertedAnalysis.chapters && convertedAnalysis.chapters.length > 0) {
+  if (convertedSummary.chapters && convertedSummary.chapters.length > 0) {
     markdown += "# Video Chapters\n\n";
-    convertedAnalysis.chapters.forEach(chapter => {
+    convertedSummary.chapters.forEach(chapter => {
       markdown += `## ${chapter.header}\n\n`;
       markdown += `${chapter.summary}\n\n`;
 
