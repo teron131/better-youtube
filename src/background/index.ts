@@ -70,6 +70,18 @@ const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestam
 const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
 
 /**
+ * Convert API transcript segments to SubtitleSegment format
+ */
+function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): SubtitleSegment[] {
+  return transcript.map(s => ({
+    text: s.text,
+    startTime: s.startMs,
+    endTime: s.endMs,
+    startTimeText: s.startTimeText || formatTimestamp(s.startMs),
+  }));
+}
+
+/**
  * Extract video info from ScrapeCreatorsResponse
  */
 function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string) {
@@ -213,13 +225,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
       return;
     }
 
-    const segments: SubtitleSegment[] = data.transcript.map(s => ({
-      text: s.text,
-      startTime: s.startMs,
-      endTime: s.endMs,
-      startTimeText: s.startTimeText || formatTimestamp(s.startMs),
-    }));
-
+    const segments = convertToSubtitleSegments(data.transcript);
     const refinedSegments = await refineTranscriptWithLLM(
       segments,
       data.title,
