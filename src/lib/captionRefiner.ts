@@ -124,6 +124,79 @@ async function runConcurrentBatch<T, R>(
 // Main Refinement Logic
 // ============================================================================
 
+interface PriorityWindow {
+  splitIndex: number;
+  priorityRangeCount: number;
+}
+
+/**
+ * Calculate the priority window for early subtitle delivery
+ * Returns the index where priority ends and how many chunks it spans
+ */
+function calculatePriorityWindow(
+  segments: SubtitleSegment[],
+  maxSegmentsPerChunk: number
+): PriorityWindow {
+  const durationMs = segments[segments.length - 1].endTime;
+  const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
+
+  let splitIndex = segments.findIndex(s => s.endTime > PRIORITY_DURATION_MS);
+  if (splitIndex === -1) splitIndex = segments.length;
+
+  const priorityRangeCount = Math.ceil(splitIndex / maxSegmentsPerChunk);
+  return { splitIndex, priorityRangeCount };
+}
+
+/**
+ * Create a handler for priority chunk completion
+ * Calls the callback once all priority chunks are processed
+ */
+function createPriorityHandler(
+  priorityRangeCount: number,
+  splitIndex: number,
+  segments: SubtitleSegment[],
+  onPriorityComplete?: (segments: SubtitleSegment[]) => void
+): (result: any, index: number, allResults: (any | null)[]) => void {
+  let completedPriorityChunks = 0;
+  let priorityReported = false;
+
+  return (result, index, allResults) => {
+    if (index < priorityRangeCount) completedPriorityChunks++;
+
+    if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
+      priorityReported = true;
+      const priorityText = allResults
+        .slice(0, priorityRangeCount)
+        .map(r => r ? extractResponseText(r).trim() : "")
+        .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
+
+      onPriorityComplete(parseRefinedSegments(
+        priorityText,
+        segments.slice(0, splitIndex),
+        REFINER_CONFIG.CHUNK_SENTINEL,
+        REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+      ));
+    }
+  };
+}
+
+/**
+ * Validate and extract refined text from response with line count checking
+ */
+function validateAndExtractChunk(response: any, range: [number, number], chunkIndex: number): string {
+  const text = extractResponseText(response).trim();
+  const expectedCount = range[1] - range[0];
+  const actualCount = text.split("\n").length;
+
+  if (actualCount !== expectedCount) {
+    console.warn(
+      `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}`
+    );
+  }
+
+  return text;
+}
+
 /**
  * Refine video transcript using LLM inference
  */
@@ -140,26 +213,18 @@ export async function refineTranscriptWithLLM(
 
   const llm = createLLM(apiKey, model);
   const preambleText = buildUserPreamble(title, description);
+  const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
+    segments,
+    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+  );
 
-  // Determine priority window (First 5 mins or 50% of video)
-  const durationMs = segments[segments.length - 1].endTime;
-  const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
-  
-  let splitIndex = segments.findIndex(s => s.endTime > PRIORITY_DURATION_MS);
-  if (splitIndex === -1) splitIndex = segments.length;
-
-  const priorityRangeCount = Math.ceil(splitIndex / REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
   const ranges = chunkSegmentsByCount(segments, REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
-  
   const batchMessages = ranges.map(([start, end]) => [
     new SystemMessage({ content: SYSTEM_PROMPT }),
     new HumanMessage({ content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}` }),
   ]);
 
   progressCallback?.(0, batchMessages.length);
-
-  let completedPriorityChunks = 0;
-  let priorityReported = false;
 
   const responses = await runConcurrentBatch(
     batchMessages,
@@ -169,35 +234,11 @@ export async function refineTranscriptWithLLM(
       progressCallback?.(idx + 1, batchMessages.length);
       return res;
     },
-    (result, index, allResults) => {
-      if (index < priorityRangeCount) completedPriorityChunks++;
-      
-      if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
-        priorityReported = true;
-        const priorityText = allResults
-          .slice(0, priorityRangeCount)
-          .map(r => r ? extractResponseText(r).trim() : "")
-          .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
-          
-        onPriorityComplete(parseRefinedSegments(
-          priorityText,
-          segments.slice(0, splitIndex),
-          REFINER_CONFIG.CHUNK_SENTINEL,
-          REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
-        ));
-      }
-    }
+    createPriorityHandler(priorityRangeCount, splitIndex, segments, onPriorityComplete)
   );
 
   const refinedText = responses
-    .map((res, i) => {
-      const text = extractResponseText(res).trim();
-      const expectedCount = ranges[i][1] - ranges[i][0];
-      if (text.split("\n").length !== expectedCount) {
-        console.warn(`Line count mismatch in chunk ${i+1}: expected ${expectedCount}, got ${text.split("\n").length}`);
-      }
-      return text;
-    })
+    .map((res, i) => validateAndExtractChunk(res, ranges[i], i))
     .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
   return parseRefinedSegments(

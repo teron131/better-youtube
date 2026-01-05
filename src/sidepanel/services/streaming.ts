@@ -35,19 +35,85 @@ async function performScrape(
     status: 'completed',
     message: 'Video data fetched',
     data: {
-      videoInfo: videoInfo ? {
-        url: videoInfo.url || url,
-        title: videoInfo.title || null,
-        thumbnail: videoInfo.thumbnail || null,
-        author: videoInfo.author || null,
-        duration: videoInfo.duration || null,
-        upload_date: videoInfo.upload_date || null,
-        view_count: videoInfo.view_count ?? null,
-        like_count: videoInfo.like_count ?? null
-      } : undefined
+      videoInfo: videoInfo ? normalizeVideoInfo(videoInfo, url) : undefined
     }
   });
   return videoInfo;
+}
+
+/**
+ * Normalize video info from various sources
+ */
+function normalizeVideoInfo(rawInfo: any, fallbackUrl: string): any {
+  const vi = rawInfo || {};
+  return {
+    url: vi.url || fallbackUrl,
+    title: vi.title || null,
+    thumbnail: vi.thumbnail || null,
+    author: vi.author || null,
+    duration: vi.duration || null,
+    upload_date: vi.upload_date || null,
+    view_count: vi.view_count ?? null,
+    like_count: vi.like_count ?? null
+  };
+}
+
+interface SummaryListenerResult {
+  summary: any;
+  videoInfo: any;
+  transcript: string | null;
+}
+
+/**
+ * Create a promise-based listener for summary generation
+ */
+function createSummaryListener(
+  videoId: string,
+  url: string,
+  videoInfo: any,
+  onProgress?: (state: StreamingProgressState) => void
+): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
+  let cleanup: () => void;
+  let timeoutId: NodeJS.Timeout;
+
+  const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
+    const listener = (msg: ChromeMessage) => {
+      if (msg.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && msg.videoId === videoId) {
+        cleanup();
+        const { summary, videoInfo: msgVideoInfo, transcript } = msg;
+        if (!summary) {
+          return reject({ message: 'No summary data received', type: 'processing' } as ApiError);
+        }
+
+        onProgress?.({ step: 'complete', stepName: 'Complete', status: 'completed', message: 'Summary generated successfully' });
+        resolve({
+          summary,
+          videoInfo: msgVideoInfo || videoInfo,
+          transcript: transcript || null
+        });
+      } else if (msg.action === MESSAGE_ACTIONS.SHOW_ERROR) {
+        cleanup();
+        reject({ message: msg.error || 'Processing failed', type: 'processing' } as ApiError);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(listener);
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject({ message: 'Processing timeout after 2 minutes', type: 'processing' } as ApiError);
+    }, TIMING.PROCESSING_TIMEOUT_MS);
+
+    cleanup = () => {
+      chrome.runtime.onMessage.removeListener(listener);
+      clearTimeout(timeoutId);
+    };
+  });
+
+  return {
+    promise,
+    cancel: () => cleanup?.()
+  };
 }
 
 /**
@@ -132,80 +198,48 @@ export async function streamSummary(
 
     onProgress?.({ step: 'summarizing', stepName: 'Summarizing', status: 'processing', message: 'Generating summary...' });
 
-    const summaryResult = await new Promise<StreamingProcessingResult>((resolve, reject) => {
-      const cleanup = () => {
-        chrome.runtime.onMessage.removeListener(listener);
-        clearTimeout(timeoutId);
-      };
+    const { promise: listenerPromise, cancel } = createSummaryListener(videoId, url, videoInfo, onProgress);
 
-      const listener = (msg: ChromeMessage) => {
-        if (msg.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && msg.videoId === videoId) {
-          cleanup();
-          const { summary, videoInfo: msgVideoInfo, transcript } = msg;
-          if (!summary) return reject({ message: 'No summary data received', type: 'processing' } as ApiError);
-
-          onProgress?.({ step: 'complete', stepName: 'Complete', status: 'completed', message: 'Summary generated successfully' });
-          const vi = msgVideoInfo || videoInfo || {};
-          resolve({
-            success: true,
-            videoInfo: {
-              url: vi.url || url,
-              title: vi.title || null,
-              thumbnail: vi.thumbnail || null,
-              author: vi.author || null,
-              duration: vi.duration || null,
-              upload_date: vi.upload_date || null,
-              view_count: vi.view_count || null,
-              like_count: vi.like_count || null
-            },
-            transcript: transcript || null,
-            summary: summary.summary,
-            quality: summary.quality,
-            summaryText: summary.summary_text,
-            qualityScore: summary.quality_score,
-            totalTime: '0s',
-            iterationCount: summary.iteration_count || 0,
-            chunksProcessed: 0,
-          });
-        } else if (msg.action === MESSAGE_ACTIONS.SHOW_ERROR) {
-          cleanup();
-          reject({ message: msg.error || 'Processing failed', type: 'processing' } as ApiError);
-        }
-      };
-
-      chrome.runtime.onMessage.addListener(listener);
-      
-      const timeoutId = setTimeout(() => {
-        cleanup();
-        reject({ message: 'Processing timeout after 2 minutes', type: 'processing' } as ApiError);
-      }, TIMING.PROCESSING_TIMEOUT_MS);
-
-      sendChromeMessage({
-        action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-        videoId,
-        transcript: options.transcript,
-        scrapeCreatorsApiKey,
-        openRouterApiKey,
-        modelSelection: options.summaryModel || summarizerModel,
-        qualityModel: options.qualityModel,
-        refinerModel,
-        targetLanguage: options.targetLanguage || targetLanguage,
-        fastMode: options.fastMode,
-        forceRegenerate: options.forceRegenerate,
-      })
-        .then(r => {
-          if (r?.status === 'error') {
-            cleanup();
-            reject({ message: r.message || 'Processing failed', type: 'processing' } as ApiError);
-          }
-        })
-        .catch(err => {
-          cleanup();
-          reject({ message: err.message || 'Failed to start summarization', type: 'network' } as ApiError);
-        });
+    const sendResult = sendChromeMessage({
+      action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
+      videoId,
+      transcript: options.transcript,
+      scrapeCreatorsApiKey,
+      openRouterApiKey,
+      modelSelection: options.summaryModel || summarizerModel,
+      qualityModel: options.qualityModel,
+      refinerModel,
+      targetLanguage: options.targetLanguage || targetLanguage,
+      fastMode: options.fastMode,
+      forceRegenerate: options.forceRegenerate,
     });
 
-    return { ...summaryResult, totalTime: formatTime() };
+    sendResult
+      .then(r => {
+        if (r?.status === 'error') {
+          cancel();
+          throw new Error(r.message || 'Processing failed');
+        }
+      })
+      .catch(err => {
+        cancel();
+        throw new Error(err.message || 'Failed to start summarization');
+      });
+
+    const { summary, videoInfo: resultVideoInfo, transcript } = await listenerPromise;
+
+    return {
+      success: true,
+      videoInfo: normalizeVideoInfo(resultVideoInfo, url),
+      transcript,
+      summary: summary.summary,
+      quality: summary.quality,
+      summaryText: summary.summary_text,
+      qualityScore: summary.quality_score,
+      totalTime: formatTime(),
+      iterationCount: summary.iteration_count || 0,
+      chunksProcessed: 0,
+    };
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     const apiError: ApiError = { message: msg, type: 'processing' };
