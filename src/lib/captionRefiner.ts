@@ -205,7 +205,7 @@ export async function refineTranscriptWithLLM(
   title: string,
   description: string,
   apiKey: string,
-  progressCallback?: (chunkIdx: number, totalChunks: number) => void,
+  onProgress?: (chunkIdx: number, totalChunks: number) => void,
   model: string = DEFAULTS.MODEL_REFINER,
   onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void
 ): Promise<SubtitleSegment[]> {
@@ -224,14 +224,14 @@ export async function refineTranscriptWithLLM(
     new HumanMessage({ content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}` }),
   ]);
 
-  progressCallback?.(0, batchMessages.length);
+  onProgress?.(0, batchMessages.length);
 
   const responses = await runConcurrentBatch(
     batchMessages,
     REFINER_CONFIG.CONCURRENCY_LIMIT,
     async (messages, idx) => {
       const res = await llm.invoke(messages);
-      progressCallback?.(idx + 1, batchMessages.length);
+      onProgress?.(idx + 1, batchMessages.length);
       return res;
     },
     createPriorityHandler(priorityRangeCount, splitIndex, segments, onPriorityComplete)

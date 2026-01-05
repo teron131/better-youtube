@@ -140,8 +140,8 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 // ============================================================================
 
 async function summaryNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, summary_model, target_language, transcript, quality, summary, iteration_count, progressCallback } = state;
-  const progress = progressCallback as ((msg: string) => void) | undefined;
+  const { apiKey, summary_model, target_language, transcript, quality, summary, iteration_count, onProgress } = state;
+  const progress = onProgress as ((msg: string) => void) | undefined;
   
   progress?.(quality && summary ? "Refining summary based on quality feedback..." : `Generating initial summary. Transcript length: ${transcript.length} characters`);
 
@@ -170,8 +170,8 @@ async function summaryNode(state: GraphState): Promise<Partial<GraphState>> {
 }
 
 async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, quality_model, summary, iteration_count, progressCallback } = state;
-  const progress = progressCallback as ((msg: string) => void) | undefined;
+  const { apiKey, quality_model, summary, iteration_count, onProgress } = state;
+  const progress = onProgress as ((msg: string) => void) | undefined;
   
   progress?.(`Performing quality check using model: ${quality_model}...`);
 
@@ -262,10 +262,10 @@ const isYoutubeUrl = (input: string) => input.includes("youtube.com/watch") || i
 async function executeFastSummarization(
   input: SummarizationInput,
   apiKey: string,
-  progressCallback?: (message: string) => void
+  onProgress?: (message: string) => void
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
-  progressCallback?.(`Generating summary in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`);
+  onProgress?.(`Generating summary in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`);
 
   const model = input.summary_model ?? SUMMARY_CONFIG.MODEL;
   const targetLang = input.target_language ?? "auto";
@@ -284,7 +284,7 @@ async function executeFastSummarization(
   if (!response.structuredResponse) throw new Error("Agent did not return structured response");
   
   const summary = response.structuredResponse as Summary;
-  progressCallback?.("Fast summary completed");
+  onProgress?.("Fast summary completed");
 
   return {
     summary,
@@ -298,13 +298,13 @@ async function executeFastSummarization(
 export async function executeSummarizationWorkflow(
   input: SummarizationInput,
   apiKey: string,
-  progressCallback?: (message: string) => void
+  onProgress?: (message: string) => void
 ): Promise<SummarizerOutput> {
-  if (input.fast_mode) return executeFastSummarization(input, apiKey, progressCallback);
+  if (input.fast_mode) return executeFastSummarization(input, apiKey, onProgress);
 
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
-    progressCallback?.("Resolving URL to transcript for workflow...");
+    onProgress?.("Resolving URL to transcript for workflow...");
     transcript = await createScrapYoutubeTool(input).invoke({ youtube_url: transcript });
     if (transcript.startsWith("Error")) throw new Error(transcript);
   }
@@ -319,7 +319,7 @@ export async function executeSummarizationWorkflow(
     iteration_count: 0,
     is_complete: false,
     apiKey,
-    progressCallback,
+    onProgress,
   });
 
   return {

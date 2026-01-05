@@ -93,7 +93,7 @@ export const GraphStateSchema = z.object({
   iteration_count: z.number().default(0),
   is_complete: z.boolean().default(false),
   apiKey: z.string().optional(),
-  progressCallback: z.any().optional(),
+  onProgress: z.any().optional(),
 });
 
 export type GraphState = z.infer<typeof GraphStateSchema>;
