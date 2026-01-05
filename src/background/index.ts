@@ -207,7 +207,17 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
     if (forceRegenerate) transcriptCache.delete(videoId);
 
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
-    if (!data?.transcript?.length) throw new Error(ERROR_MESSAGES.NO_TRANSCRIPT);
+    if (!data?.transcript?.length) {
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
+          videoId,
+          subtitles: [],
+          noTranscript: true
+        }).catch(() => {});
+      }
+      return;
+    }
 
     const segments: SubtitleSegment[] = data.transcript.map(s => ({
       text: s.text,
