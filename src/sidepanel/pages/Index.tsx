@@ -2,7 +2,7 @@
  * Main page component orchestrating the video processing workflow.
  */
 
-import { AnalysisPanel } from "@ui/components/AnalysisPanel";
+import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
 import { HeroSection } from "@ui/components/HeroSection";
 import { ProcessingStatus } from "@ui/components/ProcessingStatus";
@@ -120,7 +120,7 @@ const Index = () => {
     currentStep,
     currentStage,
     progressStates,
-    analysisResult,
+    summaryResult,
     scrapedVideoInfo,
     scrapedTranscript,
     updateState,
@@ -137,7 +137,7 @@ const Index = () => {
       progressStates: example.progressStates,
       scrapedVideoInfo: example.videoInfo,
       scrapedTranscript: example.transcript,
-      analysisResult: example.analysisResult,
+      summaryResult: example.summaryResult,
       isLoading: false,
     });
   };
@@ -175,7 +175,7 @@ const Index = () => {
     setLastProcessedUrl(videoUrl);
     
     // Include current transcript if available to avoid re-fetching
-    const currentTranscript = analysisResult?.transcript || scrapedTranscript;
+    const currentTranscript = summaryResult?.transcript || scrapedTranscript;
     const processingOptions = {
       ...options,
       transcript: options?.transcript || currentTranscript || undefined
@@ -245,8 +245,8 @@ const Index = () => {
     await handleVideoSubmit(lastProcessedUrl, lastOptions);
   };
 
-  const videoInfo = analysisResult?.videoInfo || scrapedVideoInfo;
-  const transcript = analysisResult?.transcript || scrapedTranscript;
+  const videoInfo = summaryResult?.videoInfo || scrapedVideoInfo;
+  const transcript = summaryResult?.transcript || scrapedTranscript;
 
   return (
     <div className="app-shell pb-10">
@@ -318,11 +318,11 @@ const Index = () => {
               <TranscriptPanel transcript={transcript} />
             )}
 
-            {!isExampleMode && analysisResult?.analysis && (
-              <AnalysisPanel
-                analysis={analysisResult.analysis}
-                quality={analysisResult.quality}
-                videoInfo={analysisResult.videoInfo}
+            {!isExampleMode && summaryResult?.summary && (
+              <SummaryPanel
+                summary={summaryResult.summary}
+                quality={summaryResult.quality}
+                videoInfo={summaryResult.videoInfo}
                 onRegenerate={handleRegenerate}
                 isRegenerating={isLoading}
               />

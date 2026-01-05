@@ -6,7 +6,7 @@ import { extractVideoId } from '@/lib/url';
 import { StreamingProgressState } from '@ui/services/types';
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
-const STEP_ORDER = ['scraping', 'analysis_generation', 'quality_check', 'refinement', 'complete'] as const;
+const STEP_ORDER = ['scraping', 'summary_generation', 'quality_check', 'refinement', 'complete'] as const;
 type NormalizedStep = typeof STEP_ORDER[number];
 const MILLION = 1000000;
 const THOUSAND = 1000;
@@ -18,24 +18,24 @@ export const PROGRESS_STEPS = [
     description: "Extracting video info and transcript using Scrape Creators",
   },
   {
-    step: 'analysis_generation',
-    name: "Analysis Generation",
-    description: "Generating initial AI analysis with Gemini model",
+    step: 'summary_generation',
+    name: "Summary Generation",
+    description: "Generating initial AI summary with Gemini model",
   },
   {
     step: 'quality_check',
     name: "Quality Assessment",
-    description: "Evaluating analysis quality and completeness",
+    description: "Evaluating summary quality and completeness",
   },
   {
     step: 'refinement',
-    name: "Analysis Refinement",
-    description: "Refining analysis based on quality feedback",
+    name: "Summary Refinement",
+    description: "Refining summary based on quality feedback",
   },
   {
     step: 'complete',
     name: "Complete",
-    description: "Analysis completed successfully",
+    description: "Summary completed successfully",
   },
 ] as const;
 
@@ -82,7 +82,7 @@ export async function getVideoIdFromCurrentTab(): Promise<string> {
  * Normalize step names for consistent UI display
  */
 export function normalizeStepName(step: StreamingProgressState['step']): NormalizedStep {
-  return step === 'analyzing' ? 'analysis_generation' : (step as NormalizedStep);
+  return step === 'summarizing' ? 'summary_generation' : (step as NormalizedStep);
 }
 
 /**
@@ -140,7 +140,7 @@ export function getStageText(anchor: number): string {
   const stages = [
     'Initializing',
     'Scraping',
-    'Analyzing',
+    'Summarizing',
     'Quality Check',
     'Complete',
   ];

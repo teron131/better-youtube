@@ -1,6 +1,6 @@
 /**
  * Summary Workflow using LangChain, LangGraph, and Zod
- * Implements analysis generation with quality verification and refinement loop
+ * Implements summary generation with quality verification and refinement loop
  */
 
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -18,9 +18,9 @@ import {
   untagContent,
 } from "../lineTag";
 import { PromptBuilder } from "./promptBuilder";
-import { ANALYSIS_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
-import type { Analysis, GraphState, SummarizerOutput } from "./schemas";
-import { AnalysisSchema, GraphStateSchema, QualitySchema } from "./schemas";
+import { SUMMARY_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
+import type { Summary, GraphState, SummarizerOutput } from "./schemas";
+import { SummarySchema, GraphStateSchema, QualitySchema } from "./schemas";
 
 // ============================================================================
 // Model Client
@@ -139,38 +139,38 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 // Graph Nodes
 // ============================================================================
 
-async function analysisNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, analysis_model, target_language, transcript, quality, analysis, iteration_count, progressCallback } = state;
+async function summaryNode(state: GraphState): Promise<Partial<GraphState>> {
+  const { apiKey, summary_model, target_language, transcript, quality, summary, iteration_count, progressCallback } = state;
   const progress = progressCallback as ((msg: string) => void) | undefined;
   
-  progress?.(quality && analysis ? "Refining analysis based on quality feedback..." : `Generating initial analysis. Transcript length: ${transcript.length} characters`);
+  progress?.(quality && summary ? "Refining summary based on quality feedback..." : `Generating initial summary. Transcript length: ${transcript.length} characters`);
 
-  const llm = createOpenRouterLLM(analysis_model!, apiKey!).withStructuredOutput(AnalysisSchema);
+  const llm = createOpenRouterLLM(summary_model!, apiKey!).withStructuredOutput(SummarySchema);
   const targetLang = target_language || "auto";
 
   let result;
-  if (quality && analysis) {
+  if (quality && summary) {
     const prompt = ChatPromptTemplate.fromMessages([
       ["system", PromptBuilder.buildImprovementPrompt(targetLang)],
       ["human", "{improvement_prompt}"],
     ]);
     result = await prompt.pipe(llm).invoke({
-      improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video analysis based on the following feedback:\n\n## Analysis:\n\n${JSON.stringify(analysis, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
+      improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
     });
   } else {
     const prompt = ChatPromptTemplate.fromMessages([
-      ["system", PromptBuilder.buildAnalysisPrompt(targetLang)],
+      ["system", PromptBuilder.buildSummaryPrompt(targetLang)],
       ["human", "{content}"],
     ]);
     result = await prompt.pipe(llm).invoke({ content: transcript });
   }
 
-  progress?.(quality && analysis ? "Analysis refined successfully" : "Analysis completed");
-  return { analysis: result as Analysis, iteration_count: iteration_count + 1 };
+  progress?.(quality && summary ? "Summary refined successfully" : "Summary completed");
+  return { summary: result as Summary, iteration_count: iteration_count + 1 };
 }
 
 async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, quality_model, analysis, iteration_count, progressCallback } = state;
+  const { apiKey, quality_model, summary, iteration_count, progressCallback } = state;
   const progress = progressCallback as ((msg: string) => void) | undefined;
   
   progress?.(`Performing quality check using model: ${quality_model}...`);
@@ -179,7 +179,7 @@ async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
     .withStructuredOutput(QualitySchema, { method: "jsonMode" })
     .invoke([
       ["system", PromptBuilder.buildQualityPrompt()],
-      ["human", JSON.stringify(analysis, null, 2)],
+      ["human", JSON.stringify(summary, null, 2)],
     ]);
 
   printQualityBreakdown(quality);
@@ -187,16 +187,16 @@ async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
   
   return {
     quality,
-    is_complete: score >= ANALYSIS_CONFIG.MIN_QUALITY_SCORE || iteration_count >= ANALYSIS_CONFIG.MAX_ITERATIONS,
+    is_complete: score >= SUMMARY_CONFIG.MIN_QUALITY_SCORE || iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS,
   };
 }
 
 function shouldContinue(state: GraphState): string {
   if (state.is_complete) return END;
   
-  if (state.quality && !isAcceptable(state.quality) && state.iteration_count < ANALYSIS_CONFIG.MAX_ITERATIONS) {
+  if (state.quality && !isAcceptable(state.quality) && state.iteration_count < SUMMARY_CONFIG.MAX_ITERATIONS) {
     console.log(`Quality ${calculateScore(state.quality)}% below threshold, refining...`);
-    return "analysisNode";
+    return "summaryNode";
   }
 
   return END;
@@ -208,39 +208,39 @@ function shouldContinue(state: GraphState): string {
 
 function createSummarizationGraph() {
   return new StateGraph(GraphStateSchema)
-    .addNode("analysisNode", analysisNode)
+    .addNode("summaryNode", summaryNode)
     .addNode("qualityNode", qualityNode)
-    .addEdge(START, "analysisNode")
-    .addEdge("analysisNode", "qualityNode")
+    .addEdge(START, "summaryNode")
+    .addEdge("summaryNode", "qualityNode")
     .addConditionalEdges("qualityNode", shouldContinue, {
-      analysisNode: "analysisNode",
+      summaryNode: "summaryNode",
       [END]: END,
     })
     .compile();
 }
 
-function formatAnalysisAsMarkdown(analysis: Analysis): string {
+function formatSummaryAsMarkdown(summary: Summary): string {
   const parts: string[] = [];
-  if (analysis.title) parts.push(`# ${analysis.title}\n`);
-  parts.push("## Summary\n\n", analysis.summary, "\n");
+  if (summary.title) parts.push(`# ${summary.title}\n`);
+  parts.push("## Summary\n\n", summary.summary, "\n");
 
-  if (analysis.takeaways?.length) {
+  if (summary.takeaways?.length) {
     parts.push("## Key Takeaways\n");
-    analysis.takeaways.forEach(t => parts.push(`- ${t}`));
+    summary.takeaways.forEach(t => parts.push(`- ${t}`));
     parts.push("");
   }
 
-  if (analysis.chapters?.length) {
+  if (summary.chapters?.length) {
     parts.push("## Chapters\n");
-    analysis.chapters.forEach(c => {
+    summary.chapters.forEach(c => {
       parts.push(`### ${c.header}\n\n`, c.summary, "\n");
       c.key_points?.forEach(p => parts.push(`- ${p}`));
       parts.push("");
     });
   }
 
-  if (analysis.keywords?.length) {
-    parts.push("## Keywords\n\n", analysis.keywords.map(kw => `\`${kw}\``).join("  "), "\n");
+  if (summary.keywords?.length) {
+    parts.push("## Keywords\n\n", summary.keywords.map(kw => `\`${kw}\``).join("  "), "\n");
   }
 
   return parts.join("\n");
@@ -250,7 +250,7 @@ export interface SummarizationInput {
   transcript_or_url: string;
   videoId?: string;
   scrapeCreatorsApiKey?: string;
-  analysis_model?: string;
+  summary_model?: string;
   quality_model?: string;
   refiner_model?: string;
   target_language?: string;
@@ -265,33 +265,33 @@ async function executeFastSummarization(
   progressCallback?: (message: string) => void
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
-  progressCallback?.(`Generating analysis in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`);
+  progressCallback?.(`Generating summary in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`);
 
-  const model = input.analysis_model ?? ANALYSIS_CONFIG.MODEL;
+  const model = input.summary_model ?? SUMMARY_CONFIG.MODEL;
   const targetLang = input.target_language ?? "auto";
   const agent = createAgent({
     model: createOpenRouterLLM(model, apiKey),
     tools: isUrl ? [createScrapYoutubeTool(input)] : [],
-    systemPrompt: PromptBuilder.buildAnalysisPrompt(targetLang),
-    responseFormat: toolStrategy(AnalysisSchema),
+    systemPrompt: PromptBuilder.buildSummaryPrompt(targetLang),
+    responseFormat: toolStrategy(SummarySchema),
     middleware: isUrl ? [createGarbageFilterMiddleware(apiKey, input.refiner_model ?? DEFAULTS.MODEL_REFINER)] : [],
   });
 
   const response = await agent.invoke({
-    messages: [new HumanMessage(isUrl ? `Analyze the video at: ${input.transcript_or_url}` : `Analyze this transcript:\n\n${input.transcript_or_url}`)],
+    messages: [new HumanMessage(isUrl ? `Summarize the video at: ${input.transcript_or_url}` : `Summarize this transcript:\n\n${input.transcript_or_url}`)],
   });
 
   if (!response.structuredResponse) throw new Error("Agent did not return structured response");
   
-  const analysis = response.structuredResponse as Analysis;
-  progressCallback?.("Fast analysis completed");
+  const summary = response.structuredResponse as Summary;
+  progressCallback?.("Fast summary completed");
 
   return {
-    analysis,
+    summary,
     quality: null,
     iteration_count: 1,
     quality_score: 0,
-    summary_text: formatAnalysisAsMarkdown(analysis),
+    summary_text: formatSummaryAsMarkdown(summary),
   };
 }
 
@@ -311,10 +311,10 @@ export async function executeSummarizationWorkflow(
 
   const result = await createSummarizationGraph().invoke({
     transcript,
-    analysis_model: input.analysis_model ?? ANALYSIS_CONFIG.MODEL,
-    quality_model: input.quality_model ?? ANALYSIS_CONFIG.QUALITY_MODEL,
+    summary_model: input.summary_model ?? SUMMARY_CONFIG.MODEL,
+    quality_model: input.quality_model ?? SUMMARY_CONFIG.QUALITY_MODEL,
     target_language: input.target_language ?? "auto",
-    analysis: null,
+    summary: null,
     quality: null,
     iteration_count: 0,
     is_complete: false,
@@ -323,11 +323,11 @@ export async function executeSummarizationWorkflow(
   });
 
   return {
-    analysis: result.analysis!,
+    summary: result.summary!,
     quality: result.quality,
     iteration_count: result.iteration_count,
     quality_score: result.quality ? calculateScore(result.quality) : 0,
-    summary_text: formatAnalysisAsMarkdown(result.analysis!),
+    summary_text: formatSummaryAsMarkdown(result.summary!),
   };
 }
 

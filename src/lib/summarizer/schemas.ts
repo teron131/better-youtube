@@ -14,9 +14,9 @@ export const ChapterSchema = z.object({
 export type Chapter = z.infer<typeof ChapterSchema>;
 
 /**
- * Analysis output schema
+ * Summary output schema
  */
-export const AnalysisSchema = z.object({
+export const SummarySchema = z.object({
   title: z.string().describe("The main title or topic of the video content"),
   summary: z
     .string()
@@ -33,14 +33,14 @@ export const AnalysisSchema = z.object({
     .array(z.string())
     .min(3)
     .max(3)
-    .describe("The most relevant keywords in the analysis worthy of highlighting"),
+    .describe("The most relevant keywords in the summary worthy of highlighting"),
   target_language: z
     .string()
     .nullable()
     .describe("The language the content to be translated to"),
 });
 
-export type Analysis = z.infer<typeof AnalysisSchema>;
+export type Summary = z.infer<typeof SummarySchema>;
 
 /**
  * Rate schema for quality assessment
@@ -85,10 +85,10 @@ export type Quality = z.infer<typeof QualitySchema>;
  */
 export const GraphStateSchema = z.object({
   transcript: z.string(),
-  analysis_model: z.string().optional(),
+  summary_model: z.string().optional(),
   quality_model: z.string().optional(),
   target_language: z.string().default("auto"),
-  analysis: AnalysisSchema.nullable().default(null),
+  summary: SummarySchema.nullable().default(null),
   quality: QualitySchema.nullable().default(null),
   iteration_count: z.number().default(0),
   is_complete: z.boolean().default(false),
@@ -102,7 +102,7 @@ export type GraphState = z.infer<typeof GraphStateSchema>;
  * Summarizer output
  */
 export interface SummarizerOutput {
-  analysis: Analysis;
+  summary: Summary;
   quality: Quality | null;
   iteration_count: number;
   quality_score: number;

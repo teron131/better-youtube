@@ -4,32 +4,32 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/lib/constants";
-import { VideoMetadata, getStoredAnalysis, getStoredSubtitles, getStoredVideoMetadata, saveAnalysis, saveVideoMetadata } from "@/lib/storage";
+import { VideoMetadata, getStoredSummary, getStoredSubtitles, getStoredVideoMetadata, saveSummary, saveVideoMetadata } from "@/lib/storage";
 import type { ScrapeCreatorsResponse } from "./index";
 
 /**
- * Check if stored analysis exists and is still valid for the current request
+ * Check if stored summary exists and is still valid for the current request
  */
-export async function checkStoredAnalysis(
+export async function checkStoredSummary(
   videoId: string,
   modelSelection: string,
   targetLanguage: string,
   forceRegenerate: boolean
 ): Promise<any | null> {
   if (forceRegenerate) return null;
-  const storedAnalysis = await getStoredAnalysis(videoId);
-  if (storedAnalysis?.modelUsed === modelSelection && storedAnalysis.targetLanguage === targetLanguage) {
-    return storedAnalysis;
+  const storedSummary = await getStoredSummary(videoId);
+  if (storedSummary?.modelUsed === modelSelection && storedSummary.targetLanguage === targetLanguage) {
+    return storedSummary;
   }
   return null;
 }
 
 /**
- * Broadcast stored analysis result to sidepanel
+ * Broadcast stored summary result to sidepanel
  */
-export async function broadcastStoredAnalysis(
+export async function broadcastStoredSummary(
   videoId: string,
-  storedAnalysis: any
+  storedSummary: any
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
@@ -38,8 +38,8 @@ export async function broadcastStoredAnalysis(
       action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
       videoId,
       summary: {
-        analysis: storedAnalysis.analysis,
-        quality: storedAnalysis.quality,
+        summary: storedSummary.summary,
+        quality: storedSummary.quality,
       },
       videoInfo,
       transcript: null,
@@ -51,7 +51,7 @@ export async function broadcastStoredAnalysis(
     }
   );
 
-  console.log(`Returned stored analysis for video: ${videoId}`);
+  console.log(`Returned stored summary for video: ${videoId}`);
 }
 
 /**
@@ -141,10 +141,10 @@ export async function broadcastSummaryResult(
   modelSelection: string,
   targetLanguage: string
 ): Promise<void> {
-  // Save analysis to storage
-  await saveAnalysis(
+  // Save summary to storage
+  await saveSummary(
     videoId,
-    result.analysis,
+    result.summary,
     modelSelection,
     targetLanguage,
     result.quality

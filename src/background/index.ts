@@ -7,7 +7,7 @@ import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { API_ENDPOINTS, ERROR_MESSAGES, MESSAGE_ACTIONS, TIMING } from "@/lib/constants";
 import { SubtitleSegment, saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
-import { broadcastStoredAnalysis, broadcastSummaryResult, checkStoredAnalysis, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
+import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
 import { validateApiKeys } from "./validation";
 import { createMessageListener, ChromeMessage } from "@/lib/chromeUtils";
 
@@ -272,9 +272,9 @@ async function handleGenerateSummary(message: ChromeMessage, sendResponse: (resp
   sendResponse({ status: "processing" });
 
   try {
-    const storedAnalysis = await checkStoredAnalysis(videoId, modelSelection, targetLanguage, forceRegenerate);
-    if (storedAnalysis) {
-      return await broadcastStoredAnalysis(videoId, storedAnalysis);
+    const storedSummary = await checkStoredSummary(videoId, modelSelection, targetLanguage, forceRegenerate);
+    if (storedSummary) {
+      return await broadcastStoredSummary(videoId, storedSummary);
     }
 
     const transcript_or_url = await resolveTranscriptSource(videoId, msgTranscript, transcriptCache);
@@ -282,7 +282,7 @@ async function handleGenerateSummary(message: ChromeMessage, sendResponse: (resp
 
     const result = await executeSummarizationWorkflow({
       transcript_or_url, videoId, scrapeCreatorsApiKey,
-      analysis_model: modelSelection, quality_model: qualityModel || modelSelection,
+      summary_model: modelSelection, quality_model: qualityModel || modelSelection,
       refiner_model: refinerModel, target_language: targetLanguage, fast_mode: fastMode,
     }, openRouterApiKey);
 

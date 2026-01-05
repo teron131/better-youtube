@@ -12,7 +12,7 @@ import { useToast } from "@ui/hooks/use-toast";
 import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, Sparkles, Type, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { applyAnalysisFontSize } from "../lib/font-size";
+import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
   "scrapeCreatorsApiKey",
@@ -21,7 +21,7 @@ const SETTINGS_KEYS = [
   "refinerModel",
   "targetLanguage",
   "captionFontSize",
-  "analysisFontSize",
+  "summaryFontSize",
   "autoGenerate",
   "fastMode",
 ];
@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS = {
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
   targetLanguage: "auto",
   captionFontSize: "M",
-  analysisFontSize: "M",
+  summaryFontSize: "M",
   autoGenerate: false,
   fastMode: false,
 };
@@ -49,8 +49,8 @@ const Settings = () => {
       try {
         const stored = await getStorageValues(SETTINGS_KEYS);
         setSettings((prev) => ({ ...prev, ...stored }));
-        if (stored.analysisFontSize) {
-          applyAnalysisFontSize(stored.analysisFontSize as FontSize);
+        if (stored.summaryFontSize) {
+          applySummaryFontSize(stored.summaryFontSize as FontSize);
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -83,8 +83,8 @@ const Settings = () => {
     try {
       await setStorageValue(key, value);
       console.log(`Auto-saved ${key}:`, value);
-      if (key === "analysisFontSize") {
-        applyAnalysisFontSize(value as FontSize);
+      if (key === "summaryFontSize") {
+        applySummaryFontSize(value as FontSize);
       } else if (key === "captionFontSize") {
         notifyCaptionFontSizeChange(value as FontSize);
       }
@@ -176,7 +176,7 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="summarizerModel" className="text-sm font-semibold">Analysis & Summary Model</Label>
+                <Label htmlFor="summarizerModel" className="text-sm font-semibold">Summary Model</Label>
                 <EditableCombobox
                   value={settings.summarizerModel}
                   onChange={(val) => handleChange("summarizerModel", val)}
@@ -303,14 +303,14 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Analysis Panel</Label>
+                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Summary Panel</Label>
                   <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
                     {['S', 'M', 'L'].map((size) => (
                       <button
                         key={size}
-                        onClick={() => handleChange("analysisFontSize", size)}
+                        onClick={() => handleChange("summaryFontSize", size)}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          settings.analysisFontSize === size
+                          settings.summaryFontSize === size
                             ? 'bg-primary text-white shadow-lg'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}

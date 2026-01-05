@@ -22,7 +22,7 @@ export interface ScrapRequest {
 export interface SummarizeRequest {
   content: string;
   content_type?: 'url' | 'transcript';
-  analysis_model?: string;
+  summary_model?: string;
   quality_model?: string;
   target_language?: string | null;
   fast_mode?: boolean;
@@ -49,11 +49,11 @@ export interface SummarizeResponse {
   status: string;
   message: string;
   timestamp: string;
-  analysis: AnalysisData;
+  summary: SummaryData;
   quality?: QualityData;
   processing_time: string;
   iteration_count: number;
-  analysis_model: string;
+  summary_model: string;
   quality_model: string;
   target_language?: string | null;
 }
@@ -63,7 +63,7 @@ export interface ConfigurationResponse {
   message: string;
   available_models: Record<string, string>;
   supported_languages: Record<string, string>;
-  default_analysis_model: string;
+  default_summary_model: string;
   default_quality_model: string;
   default_target_language: string;
 }
@@ -79,17 +79,17 @@ export interface HealthCheckResponse {
   };
 }
 
-// Analysis Data Structures
-export interface AnalysisData {
+// Summary Data Structures
+export interface SummaryData {
   title: string;
   summary: string;
   takeaways: string[];
-  chapters: AnalysisChapter[];
+  chapters: SummaryChapter[];
   keywords: string[];
   target_language?: string | null;
 }
 
-export interface AnalysisChapter {
+export interface SummaryChapter {
   header: string;
   summary: string;
   key_points: string[];
@@ -117,20 +117,20 @@ export interface QualityRate {
 // Streaming Types
 export interface StreamingChunk {
   transcript_or_url?: string;
-  analysis?: AnalysisData;
+  summary?: SummaryData;
   quality?: QualityData;
   iteration_count?: number;
   is_complete?: boolean;
   timestamp?: string;
   chunk_number?: number;
-  type?: 'status' | 'analysis' | 'quality' | 'complete' | 'error';
+  type?: 'status' | 'summary' | 'quality' | 'complete' | 'error';
   message?: string;
   processing_time?: string;
   total_chunks?: number;
 }
 
 export interface StreamingProgressState {
-  step: 'scraping' | 'analyzing' | 'analysis_generation' | 'quality_check' | 'refinement' | 'complete';
+  step: 'scraping' | 'summarizing' | 'summary_generation' | 'quality_check' | 'refinement' | 'complete';
   stepName: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
   message: string;
@@ -149,7 +149,7 @@ export interface StreamingProcessingResult {
   success: boolean;
   videoInfo?: VideoInfoResponse;
   transcript?: string;
-  analysis?: AnalysisData;
+  summary?: SummaryData;
   quality?: QualityData;
   summaryText?: string;
   qualityScore?: number;

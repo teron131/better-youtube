@@ -2,7 +2,7 @@
  * General utility functions including Tailwind class merging and Chinese text conversion.
  */
 
-import { AnalysisData, VideoInfoResponse } from "@ui/services/types";
+import { SummaryData, VideoInfoResponse } from "@ui/services/types";
 import { clsx, type ClassValue } from "clsx";
 import * as OpenCC from 'opencc-js';
 import { twMerge } from "tailwind-merge";
@@ -31,18 +31,18 @@ export function s2tw(content: string): string {
 }
 
 /**
- * Convert analysis text fields to traditional Chinese (Taiwan variant)
+ * Convert summary text fields to traditional Chinese (Taiwan variant)
  * Only converts the final results that are displayed to the user
  */
-export function convertAnalysisChinese(analysis: AnalysisData): AnalysisData {
-  const takeaways = Array.isArray(analysis.takeaways) ? analysis.takeaways : [];
-  const keywords = Array.isArray(analysis.keywords) ? analysis.keywords : [];
-  const chapters = Array.isArray(analysis.chapters) ? analysis.chapters : [];
+export function convertSummaryChinese(summary: SummaryData): SummaryData {
+  const takeaways = Array.isArray(summary.takeaways) ? summary.takeaways : [];
+  const keywords = Array.isArray(summary.keywords) ? summary.keywords : [];
+  const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
 
   return {
-    ...analysis,
-    title: s2tw(analysis.title || ''),
-    summary: s2tw(analysis.summary || ''),
+    ...summary,
+    title: s2tw(summary.title || ''),
+    summary: s2tw(summary.summary || ''),
     takeaways: takeaways.map(s2tw),
     keywords: keywords.map(s2tw),
     chapters: chapters.map(chapter => ({

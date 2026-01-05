@@ -95,12 +95,12 @@ export async function triggerCaptionGeneration(
 }
 
 /**
- * Stream analysis: Scrape → Refine (if enabled) + Summarize in parallel
+ * Stream summary: Scrape → Refine (if enabled) + Summarize in parallel
  */
-export async function streamAnalysis(
+export async function streamSummary(
   url: string,
   options: {
-    analysisModel?: string;
+    summaryModel?: string;
     qualityModel?: string;
     targetLanguage?: string | null;
     fastMode?: boolean;
@@ -130,7 +130,7 @@ export async function streamAnalysis(
       onProgress?.({ step: 'scraping', stepName: 'Fetching Transcript', status: 'completed', message: 'Using provided transcript' });
     }
 
-    onProgress?.({ step: 'analyzing', stepName: 'Analyzing', status: 'processing', message: 'Generating summary...' });
+    onProgress?.({ step: 'summarizing', stepName: 'Summarizing', status: 'processing', message: 'Generating summary...' });
 
     const summaryResult = await new Promise<StreamingProcessingResult>((resolve, reject) => {
       const cleanup = () => {
@@ -159,7 +159,7 @@ export async function streamAnalysis(
               like_count: vi.like_count || null
             },
             transcript: transcript || null,
-            analysis: summary.analysis,
+            summary: summary.summary,
             quality: summary.quality,
             summaryText: summary.summary_text,
             qualityScore: summary.quality_score,
@@ -186,7 +186,7 @@ export async function streamAnalysis(
         transcript: options.transcript,
         scrapeCreatorsApiKey,
         openRouterApiKey,
-        modelSelection: options.analysisModel || summarizerModel,
+        modelSelection: options.summaryModel || summarizerModel,
         qualityModel: options.qualityModel,
         refinerModel,
         targetLanguage: options.targetLanguage || targetLanguage,
@@ -209,7 +209,7 @@ export async function streamAnalysis(
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     const apiError: ApiError = { message: msg, type: 'processing' };
-    onProgress?.({ step: 'analyzing', stepName: 'Processing', status: 'error', message: msg, error: apiError });
+    onProgress?.({ step: 'summarizing', stepName: 'Processing', status: 'error', message: msg, error: apiError });
     return { success: false, totalTime: formatTime(), iterationCount: 0, chunksProcessed: 0, error: apiError };
   }
 }

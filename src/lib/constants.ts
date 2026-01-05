@@ -14,7 +14,7 @@ export const STORAGE_KEYS = {
   AUTO_GENERATE: "autoGenerate",
   SHOW_SUBTITLES: "showSubtitles",
   CAPTION_FONT_SIZE: "captionFontSize",
-  ANALYSIS_FONT_SIZE: "analysisFontSize",
+  SUMMARY_FONT_SIZE: "summaryFontSize",
   TARGET_LANGUAGE_RECOMMENDED: "targetLanguageRecommended",
   TARGET_LANGUAGE_CUSTOM: "targetLanguageCustom",
   FAST_MODE: "fastMode",
@@ -48,7 +48,7 @@ export const TIMING = {
   MAX_INIT_ATTEMPTS: 5,
   CONTENT_SCRIPT_INIT_DELAY_MS: 500,
   STATUS_MESSAGE_DISPLAY_MS: 2000,
-  ANALYSIS_SUCCESS_DISPLAY_MS: 3000,
+  SUMMARY_SUCCESS_DISPLAY_MS: 3000,
   CAPTION_CHECK_DELAY_MS: 500,
   TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
   SCRAPE_API_TIMEOUT_MS: 30 * 1000, // 30 seconds
@@ -149,7 +149,7 @@ export const DEFAULTS = {
   AUTO_GENERATE: false,
   SHOW_SUBTITLES: true,
   CAPTION_FONT_SIZE: "M" as const,
-  ANALYSIS_FONT_SIZE: "M" as const,
+  SUMMARY_FONT_SIZE: "M" as const,
   TARGET_LANGUAGE_RECOMMENDED: "auto",
   TARGET_LANGUAGE_CUSTOM: "",
 } as const;
@@ -179,7 +179,7 @@ export const FONT_SIZES = {
     M: { base: "1.8vw", max: "28px", min: "14px", fullscreen: "2.2vw", fullscreenMax: "36px" },
     L: { base: "2.2vw", max: "34px", min: "16px", fullscreen: "2.7vw", fullscreenMax: "44px" },
   },
-  ANALYSIS: {
+  SUMMARY: {
     S: { base: "16px", h2: "22px", h3: "19px" },
     M: { base: "18px", h2: "26px", h3: "22px" },
     L: { base: "20px", h2: "30px", h3: "24px" },

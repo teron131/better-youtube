@@ -1,5 +1,5 @@
 /**
- * Example video analysis data for demonstration and fallback purposes.
+ * Example video summary data for demonstration and fallback purposes.
  */
 
 import { StreamingProcessingResult } from "./types";
@@ -18,7 +18,7 @@ export const exampleData: StreamingProcessingResult = {
     like_count: 303014,
   },
   transcript: "What if, all of the world's biggest problems from climate change, to curing diseases, to disposal of plastic waste, what if they all had the same solution? A solution so tiny it would be invisible. I'm inclined to believe this is possible, thanks to a recent breakthrough that solved one of the biggest problems of the last century. How to determine the structure of a protein? - It's been described to me as equivalent to Fermat's last theorem, but for biology. - Over six decades, tens of thousands[truncated for example]",
-  analysis: {
+  summary: {
   "title": "The AI Revolution in Protein Folding and Beyond",
   "summary": "The video explores the groundbreaking advancements in protein structure prediction, primarily driven by artificial intelligence. It details the historical challenges of determining protein structures, from early X-ray crystallography methods that took years to resolve a single protein, to the computational approaches that emerged. A significant portion focuses on DeepMind's AlphaFold, an AI system that dramatically accelerated protein structure prediction, achieving accuracy comparable to experimental methods. The narrative highlights the evolution of AlphaFold from its first iteration to AlphaFold 2, emphasizing the role of advanced AI algorithms, particularly the transformer architecture and the EvoFormer. The video also discusses the work of David Baker, who used generative AI to design novel proteins from scratch, opening up possibilities for new vaccines, therapies, and materials. The broader implications of these AI-driven scientific breakthroughs are explored, suggesting their potential to solve major global challenges like climate change, disease, and waste disposal by enabling rapid discovery and iteration in fields like materials science and biochemistry.",
   "takeaways": [
@@ -96,7 +96,7 @@ export const exampleData: StreamingProcessingResult = {
   quality: {
   "completeness": {
     "rate": "Pass",
-    "reason": "The analysis covers all key aspects of the provided content, from historical challenges to modern AI breakthroughs and future implications."
+    "reason": "The summary covers all key aspects of the provided content, from historical challenges to modern AI breakthroughs and future implications."
   },
   "structure": {
     "rate": "Pass",
@@ -104,15 +104,15 @@ export const exampleData: StreamingProcessingResult = {
   },
   "no_garbage": {
     "rate": "Pass",
-    "reason": "No promotional or meaningless content is present in the analysis. It focuses solely on the scientific and historical aspects of protein folding and AI."
+    "reason": "No promotional or meaningless content is present in the summary. It focuses solely on the scientific and historical aspects of protein folding and AI."
   },
   "meta_language_avoidance": {
     "rate": "Pass",
-    "reason": "The analysis successfully avoids meta-language phrases such as 'This chapter introduces' or 'This section covers', maintaining an objective, article-like tone."
+    "reason": "The summary successfully avoids meta-language phrases such as 'This chapter introduces' or 'This section covers', maintaining an objective, article-like tone."
   },
   "useful_keywords": {
     "rate": "Pass",
-    "reason": "The keywords 'AlphaFold', 'protein folding', and 'AI' are highly relevant and useful for highlighting the core topics of the analysis."
+    "reason": "The keywords 'AlphaFold', 'protein folding', and 'AI' are highly relevant and useful for highlighting the core topics of the summary."
   },
   "correct_language": {
     "rate": "Pass",
@@ -126,13 +126,13 @@ export const exampleData: StreamingProcessingResult = {
 // Export individual constants for easier testing
 export const EXAMPLE_VIDEO_URL = exampleData.videoInfo.url;
 export const EXAMPLE_TRANSCRIPT = exampleData.transcript;
-export const EXAMPLE_ANALYSIS = exampleData.analysis;
+export const EXAMPLE_SUMMARY = exampleData.summary;
 export const EXAMPLE_QUALITY = exampleData.quality;
 export const EXAMPLE_VIDEO_INFO = exampleData.videoInfo;
 
 // Utility functions for testing
 export const getExampleData = () => ({ ...exampleData });
 
-export const createMockAnalysis = () => ({ ...EXAMPLE_ANALYSIS });
+export const createMockSummary = () => ({ ...EXAMPLE_SUMMARY });
 
 export const createMockQuality = () => ({ ...EXAMPLE_QUALITY });

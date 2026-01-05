@@ -31,7 +31,7 @@ load_dotenv()
 # Configuration
 # ============================================================================
 
-ANALYSIS_MODEL = "x-ai/grok-4.1-fast"
+SUMMARY_MODEL = "x-ai/grok-4.1-fast"
 FAST_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025"
 TARGET_LANGUAGE = "en"  # ISO language code (en, es, fr, de, etc.)
 
@@ -65,7 +65,7 @@ def scrap_youtube_tool(youtube_url: str) -> str:
 
 
 class Chapter(BaseModel):
-    """Represents a single chapter in the analysis."""
+    """Represents a single chapter in the summary."""
 
     header: str = Field(description="A descriptive title for the chapter")
     summary: str = Field(description="A comprehensive summary of the chapter content")
@@ -82,8 +82,8 @@ class Chapter(BaseModel):
         return [s2hk(item) for item in value]
 
 
-class Analysis(BaseModel):
-    """Complete analysis of video content."""
+class Summary(BaseModel):
+    """Complete summary of video content."""
 
     title: str = Field(description="The main title or topic of the video content")
     summary: str = Field(description="A comprehensive summary of the video content")
@@ -94,7 +94,7 @@ class Analysis(BaseModel):
     )
     chapters: list[Chapter] = Field(description="Structured breakdown of content into logical chapters")
     keywords: list[str] = Field(
-        description="The most relevant keywords in the analysis worthy of highlighting",
+        description="The most relevant keywords in the summary worthy of highlighting",
         min_length=3,
         max_length=3,
     )
@@ -165,27 +165,27 @@ def create_summarizer_agent(target_language: str | None = None):
     """Create a ReAct agent for summarizing video transcripts with structured output.
 
     Args:
-        target_language: Optional target language for the analysis output
+        target_language: Optional target language for the summary output
 
     Returns:
         Configured LangChain agent with structured output
     """
     llm = ChatOpenRouter(
-        model=ANALYSIS_MODEL,
+        model=SUMMARY_MODEL,
         temperature=0,
         reasoning_effort="medium",
     )
 
-    system_prompt = "Analyze the transcript and create a comprehensive analysis with clear structure, key insights, and meaningful keywords. Avoid meta-language phrases."
+    system_prompt = "Summarize the transcript and create a comprehensive summary with clear structure, key insights, and meaningful keywords. Avoid meta-language phrases."
     if target_language:
-        system_prompt += f" Output the analysis in {target_language}."
+        system_prompt += f" Output the summary in {target_language}."
 
     agent = create_agent(
         model=llm,
         tools=[scrap_youtube_tool],
         system_prompt=system_prompt,
         middleware=[garbage_filter_middleware],
-        response_format=ToolStrategy(Analysis),
+        response_format=ToolStrategy(Summary),
     )
 
     return agent
@@ -220,31 +220,31 @@ def _extract_transcript(transcript_or_url: str) -> str:
 def summarize_video(
     transcript_or_url: str,
     target_language: str | None = None,
-) -> Analysis:
+) -> Summary:
     """Summarize YouTube video or text transcript using ReAct agent."""
     transcript = _extract_transcript(transcript_or_url)
     agent = create_summarizer_agent(target_language or TARGET_LANGUAGE)
 
-    prompt = f"Analyze this transcript:\n\n{transcript}"
+    prompt = f"Summarize this transcript:\n\n{transcript}"
     response: dict = agent.invoke({"messages": [HumanMessage(content=prompt)]})
 
     structured_response = response.get("structured_response")
     if structured_response is None:
         raise ValueError("Agent did not return structured response")
 
-    analysis = Analysis.model_validate(structured_response)
-    return analysis
+    summary = Summary.model_validate(structured_response)
+    return summary
 
 
 def stream_summarize_video(
     transcript_or_url: str,
     target_language: str | None = None,
-) -> Generator[Analysis, None, None]:
+) -> Generator[Summary, None, None]:
     """Stream the summarization process with progress updates."""
     transcript = _extract_transcript(transcript_or_url)
     agent = create_summarizer_agent(target_language or TARGET_LANGUAGE)
 
-    prompt = f"Analyze this transcript:\n\n{transcript}"
+    prompt = f"Summarize this transcript:\n\n{transcript}"
 
     for chunk in agent.stream({"messages": [HumanMessage(content=prompt)]}):
-        yield Analysis.model_validate(chunk.get("structured_response"))
+        yield Summary.model_validate(chunk.get("structured_response"))
