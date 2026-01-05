@@ -143,9 +143,7 @@ function handleSubtitlesGenerated(
   state.currentSubtitles = subtitles;
   
   if (state.currentSubtitles.length > 0) {
-    if (state.showSubtitlesEnabled) {
-      startSubtitleDisplay(state.currentSubtitles);
-    }
+    startDisplayIfReady(state, messageVideoId);
 
     // Fallback save using current URL ID if message ID was missing (though it should be there)
     if (!messageVideoId) {
@@ -177,7 +175,7 @@ function handleToggleSubtitles(
 
   // Update subtitle display based on new state
   if (state.showSubtitlesEnabled && state.currentSubtitles.length > 0) {
-    startSubtitleDisplay(state.currentSubtitles);
+    startDisplayIfReady(state);
   } else {
     stopSubtitleDisplay();
     clearRenderer();
@@ -210,7 +208,7 @@ function triggerSubtitleAutoGenOnToggle(
 
     if (result[videoId] && result[videoId].length > 0) {
       state.currentSubtitles = result[videoId];
-      startSubtitleDisplay(state.currentSubtitles);
+      startDisplayIfReady(state, videoId);
     } else {
       checkAndTriggerAutoGeneration(videoId, result, false, false);
     }
@@ -223,4 +221,18 @@ function handleUpdateCaptionFontSize(
 ): void {
   applyCaptionFontSize((message.fontSize || DEFAULTS.CAPTION_FONT_SIZE) as FontSize);
   sendResponse({ status: "success" });
+}
+
+function startDisplayIfReady(
+  state: ContentScriptState,
+  videoId?: string | null
+): void {
+  if (!state.showSubtitlesEnabled || state.currentSubtitles.length === 0) {
+    return;
+  }
+
+  const resolvedVideoId = videoId || extractVideoId(window.location.href);
+  if (!resolvedVideoId) return;
+
+  startSubtitleDisplay(state.currentSubtitles, resolvedVideoId);
 }

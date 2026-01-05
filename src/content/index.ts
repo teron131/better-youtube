@@ -85,7 +85,7 @@ function loadStoredSubtitles(): void {
     if (result[videoId]) {
       console.log("Found stored subtitles.");
       state.currentSubtitles = result[videoId] as SubtitleSegment[];
-      if (state.showSubtitlesEnabled) startSubtitleDisplay(state.currentSubtitles);
+      if (state.showSubtitlesEnabled) startSubtitleDisplay(state.currentSubtitles, videoId);
     } else {
       checkAndTriggerAutoGeneration(videoId, result, true, true);
     }
