@@ -4,7 +4,15 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/lib/constants";
-import { VideoMetadata, getStoredSubtitles, getStoredSummary, getStoredVideoMetadata, saveSummary, saveVideoMetadata } from "@/lib/storage";
+import {
+  StoredSummary,
+  VideoMetadata,
+  getStoredSubtitles,
+  getStoredSummary,
+  getStoredVideoMetadata,
+  saveSummary,
+  saveVideoMetadata,
+} from "@/lib/storage";
 import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/youtubeApi";
 
 /**
@@ -15,13 +23,13 @@ export async function checkStoredSummary(
   modelSelection: string,
   targetLanguage: string,
   forceRegenerate: boolean
-): Promise<any | null> {
+): Promise<StoredSummary | null> {
   if (forceRegenerate) return null;
   const storedSummary = await getStoredSummary(videoId);
-  if (storedSummary?.modelUsed === modelSelection && storedSummary.targetLanguage === targetLanguage) {
-    return storedSummary;
-  }
-  return null;
+  if (!storedSummary) return null;
+  if (storedSummary.modelUsed !== modelSelection) return null;
+  if (storedSummary.targetLanguage !== targetLanguage) return null;
+  return storedSummary;
 }
 
 /**
@@ -29,27 +37,20 @@ export async function checkStoredSummary(
  */
 export async function broadcastStoredSummary(
   videoId: string,
-  storedSummary: any
+  storedSummary: StoredSummary
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
-  chrome.runtime.sendMessage(
-    {
-      action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-      videoId,
-      summary: {
-        summary: storedSummary.summary,
-        quality: storedSummary.quality,
-      },
-      videoInfo,
-      transcript: null,
+  sendRuntimeMessage({
+    action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
+    videoId,
+    summary: {
+      summary: storedSummary.summary,
+      quality: storedSummary.quality,
     },
-    () => {
-      if (chrome.runtime.lastError) {
-        // Ignore when no listeners exist.
-      }
-    }
-  );
+    videoInfo,
+    transcript: null,
+  });
 
   console.log(`Returned stored summary for video: ${videoId}`);
 }
@@ -73,17 +74,17 @@ export async function resolveTranscriptSource(
   }
   if (cached?.transcript?.length) {
     console.log(`Using cached transcript segments for summary of ${videoId}`);
-    return cached.transcript.map((s) => s.text).join(" ");
+    return segmentsToText(cached.transcript);
   }
 
   const storedSubtitles = await getStoredSubtitles(videoId);
   if (storedSubtitles?.length) {
     console.log(`Using stored subtitles for summary of ${videoId}`);
-    return storedSubtitles.map((s) => s.text).join(" ");
+    return segmentsToText(storedSubtitles);
   }
 
   console.log(`No cached transcript for ${videoId}, will use URL.`);
-  return `https://www.youtube.com/watch?v=${videoId}`;
+  return createVideoUrl(videoId);
 }
 
 /**
@@ -115,7 +116,7 @@ export async function resolveVideoInfo(
   }
 
   return {
-    url: `https://www.youtube.com/watch?v=${videoId}`,
+    url: createVideoUrl(videoId),
     title: null,
     thumbnail: null,
     author: null,
@@ -131,7 +132,7 @@ export async function resolveVideoInfo(
  */
 export async function broadcastSummaryResult(
   videoId: string,
-  result: any,
+  result: SummaryResult,
   videoInfo: VideoMetadata,
   transcript_or_url: string,
   modelSelection: string,
@@ -147,20 +148,34 @@ export async function broadcastSummaryResult(
   );
 
   // Send result to sidepanel
-  chrome.runtime.sendMessage(
-    {
-      action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
-      videoId,
-      summary: result,
-      videoInfo,
-      transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        // Ignore when no listeners exist.
-      }
-    }
-  );
+  sendRuntimeMessage({
+    action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
+    videoId,
+    summary: result,
+    videoInfo,
+    transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
+  });
 
   console.log(`Summarization workflow completed for video: ${videoId}`);
+}
+
+type SummaryResult = {
+  summary: any;
+  quality?: any;
+};
+
+function createVideoUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+function segmentsToText(segments: Array<{ text: string }>): string {
+  return segments.map((segment) => segment.text).join(" ");
+}
+
+function sendRuntimeMessage(payload: Record<string, unknown>): void {
+  chrome.runtime.sendMessage(payload, () => {
+    if (chrome.runtime.lastError) {
+      // Ignore when no listeners exist.
+    }
+  });
 }

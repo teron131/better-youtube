@@ -1,4 +1,3 @@
-
 import { API_ENDPOINTS, TIMING } from "./constants";
 import { SubtitleSegment, VideoMetadata } from "./storage";
 import { formatTimestamp } from "./time";
@@ -22,26 +21,27 @@ const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse 
 /**
  * Normalizes raw API response to ensure numbers are numbers
  */
-function normalizeApiResponse(data: any): ScrapeCreatorsResponse {
-  if (data.transcript && Array.isArray(data.transcript)) {
-    data.transcript = data.transcript.map((s: RawTranscriptSegment) => ({
-      ...s,
-      startMs: Number(s.startMs),
-      endMs: Number(s.endMs),
-    }));
-  }
-  return data as ScrapeCreatorsResponse;
+function normalizeApiResponse(data: ScrapeCreatorsResponse): ScrapeCreatorsResponse {
+  if (!Array.isArray(data.transcript)) return data;
+  return {
+    ...data,
+    transcript: data.transcript.map((segment: RawTranscriptSegment) => ({
+      ...segment,
+      startMs: Number(segment.startMs),
+      endMs: Number(segment.endMs),
+    })),
+  };
 }
 
 /**
  * Convert API transcript segments to SubtitleSegment format
  */
 export function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): SubtitleSegment[] {
-  return transcript.map(s => ({
-    text: s.text,
-    startTime: s.startMs,
-    endTime: s.endMs,
-    startTimeText: s.startTimeText || formatTimestamp(s.startMs),
+  return transcript.map((segment) => ({
+    text: segment.text,
+    startTime: segment.startMs,
+    endTime: segment.endMs,
+    startTimeText: segment.startTimeText || formatTimestamp(segment.startMs),
   }));
 }
 
@@ -50,7 +50,7 @@ export function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): S
  */
 export function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string): VideoMetadata {
   return {
-    url: data.url || `https://www.youtube.com/watch?v=${videoId}`,
+    url: data.url || createVideoUrl(videoId),
     title: data.title || null,
     thumbnail: data.thumbnail || null,
     author: data.channel?.title || null,
@@ -108,14 +108,11 @@ export async function fetchTranscript(
   }
 
   const fetchPromise = (async () => {
-    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
-    requestUrl.searchParams.set("url", youtubeUrl);
-    requestUrl.searchParams.set("get_transcript", "true");
+    const requestUrl = buildTranscriptRequestUrl(videoId);
 
     for (let i = 0; i <= retries; i++) {
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i));
+        await delay(TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i);
       }
 
       const controller = new AbortController();
@@ -123,12 +120,10 @@ export async function fetchTranscript(
 
       try {
         const response = await fetch(requestUrl.toString(), {
-          headers: { "x-api-key": apiKey, "Accept": "application/json" },
+          headers: { "x-api-key": apiKey, Accept: "application/json" },
           cache: "no-store",
           signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -141,8 +136,9 @@ export async function fetchTranscript(
         transcriptCache.set(videoId, { data, timestamp: Date.now() });
         return data;
       } catch (error) {
-        clearTimeout(timeoutId);
         console.warn(`Fetch error (attempt ${i + 1}):`, error);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
     return null;
@@ -154,4 +150,19 @@ export async function fetchTranscript(
   } finally {
     pendingTranscriptFetches.delete(videoId);
   }
+}
+
+function createVideoUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+function buildTranscriptRequestUrl(videoId: string): URL {
+  const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
+  requestUrl.searchParams.set("url", createVideoUrl(videoId));
+  requestUrl.searchParams.set("get_transcript", "true");
+  return requestUrl;
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }
