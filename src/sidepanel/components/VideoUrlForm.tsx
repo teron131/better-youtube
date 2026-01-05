@@ -14,7 +14,7 @@ interface VideoUrlFormProps {
     analysisModel?: string;
     qualityModel?: string;
     fastMode?: boolean;
-  }) => void;
+  }, action?: "caption" | "summary") => void;
   isLoading: boolean;
   initialUrl?: string;
 }
@@ -36,7 +36,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     setShowExamples(newUrl.trim().length === 0);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent, action: "caption" | "summary" = "summary") => {
     e.preventDefault();
     const trimmedUrl = url.trim();
 
@@ -49,7 +49,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
 
     if (!trimmedUrl) {
       setValidationError("");
-      onSubmit("", options);
+      onSubmit("", options, action);
       return;
     }
 
@@ -60,7 +60,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     }
 
     setValidationError("");
-    onSubmit(trimmedUrl, options);
+    onSubmit(trimmedUrl, options, action);
   };
 
   const handleExampleClick = (exampleUrl: string) => {
@@ -72,7 +72,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
   return (
     <Card className="rounded-[28px] p-0 border-border/50">
       <div className="space-y-6 p-6 sm:p-8">
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={(event) => handleSubmit(event, "summary")} className="space-y-5">
           <div className="space-y-2.5">
             <Input
               type="url"
@@ -97,26 +97,37 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
             {showExamples && <ExampleUrls onSelect={handleExampleClick} />}
           </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading || !isFormValid(url)}
-            className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
-          >
-            <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
-            {isLoading ? (
-              <>
-                <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
-                <span className="font-semibold text-sm sm:text-lg break-words">Processing video...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-6 h-6 flex-shrink-0" />
-                <span className="font-semibold text-sm sm:text-lg break-words">
-                  {url.trim().length === 0 ? "See example" : "Summarize video"}
-                </span>
-              </>
-            )}
-          </Button>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              disabled={isLoading || !isFormValid(url)}
+              onClick={(event) => handleSubmit(event, "caption")}
+              className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
+            >
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
+              <Play className="w-6 h-6 flex-shrink-0" />
+              <span className="font-semibold text-base break-words">Caption</span>
+            </Button>
+
+            <Button
+              type="submit"
+              disabled={isLoading || !isFormValid(url)}
+              className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
+            >
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
+                  <span className="font-semibold text-base break-words">Processing video...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-6 h-6 flex-shrink-0" />
+                  <span className="font-semibold text-base break-words">Summary</span>
+                </>
+              )}
+            </Button>
+          </div>
         </form>
 
       </div>

@@ -6,7 +6,7 @@
 import { ChromeMessage, sendChromeMessage } from '@/lib/chromeUtils';
 import { MESSAGE_ACTIONS, TIMING } from '@/lib/constants';
 import { extractVideoId } from '@/lib/url';
-import { getApiKeys, getModelSettings } from './configLoaders';
+import { getProcessingConfig } from './configLoaders';
 import { ApiError, StreamingProcessingResult, StreamingProgressState } from './types';
 
 /**
@@ -68,6 +68,32 @@ function triggerRefinement(
   }).catch(err => console.error('Caption refinement error:', err));
 }
 
+export async function triggerCaptionGeneration(
+  url: string,
+  options?: { forceRegenerate?: boolean }
+): Promise<void> {
+  const videoId = extractVideoId(url);
+  if (!videoId) throw new Error('Invalid YouTube URL');
+
+  const { scrapeCreatorsApiKey, openRouterApiKey, refinerModel } = await getProcessingConfig();
+
+  if (!scrapeCreatorsApiKey) throw new Error('Scrape Creators API key not configured');
+  if (!openRouterApiKey) throw new Error('OpenRouter API key not configured');
+
+  const response = await sendChromeMessage({
+    action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
+    videoId,
+    scrapeCreatorsApiKey,
+    openRouterApiKey,
+    modelSelection: refinerModel,
+    forceRegenerate: options?.forceRegenerate,
+  });
+
+  if (response?.status === 'error') {
+    throw new Error(response.message || 'Caption generation failed');
+  }
+}
+
 /**
  * Stream analysis: Scrape → Refine (if enabled) + Summarize in parallel
  */
@@ -90,8 +116,8 @@ export async function streamAnalysis(
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error('Invalid YouTube URL');
 
-    const [{ scrapeCreatorsApiKey, openRouterApiKey }, { summarizerModel, refinerModel, targetLanguage, showSubtitles }] = 
-      await Promise.all([getApiKeys(), getModelSettings()]);
+    const { scrapeCreatorsApiKey, openRouterApiKey, summarizerModel, refinerModel, targetLanguage, showSubtitles } =
+      await getProcessingConfig();
 
     if (!scrapeCreatorsApiKey) throw new Error('Scrape Creators API key not configured');
     if (!openRouterApiKey) throw new Error('OpenRouter API key not configured');

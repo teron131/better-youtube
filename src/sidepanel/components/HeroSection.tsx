@@ -10,14 +10,14 @@ interface HeroSectionProps {
     targetLanguage?: string;
     analysisModel?: string;
     qualityModel?: string;
-  }) => void;
+  }, action?: "caption" | "summary") => void;
   isLoading: boolean;
   initialUrl?: string;
 }
 
 const FEATURES = [
   { icon: <Zap className="h-4 w-4" />, label: "Fast Processing", value: "< 1 min completion" },
-  { icon: <ShieldCheck className="h-4 w-4" />, label: "Structured Analysis", value: "Save time on long videos" },
+  { icon: <ShieldCheck className="h-4 w-4" />, label: "Structured Summary", value: "Save time on long videos" },
   { icon: <Sparkles className="h-4 w-4" />, label: "Model Neutral", value: "OpenRouter models" },
 ];
 
@@ -31,7 +31,7 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight">
                 YouTube Video
                 <span className="block bg-gradient-to-r from-primary via-primary/80 to-white bg-clip-text text-transparent animate-glow">
-                  Structured Analysis
+                  Structured Summary
                 </span>
               </h1>
             </div>
