@@ -31,12 +31,6 @@ export const API_ENDPOINTS = {
   OPENROUTER_BASE: "https://openrouter.ai/api/v1",
 } as const;
 
-// For backward compatibility during migration
-export const CHROME_API = {
-  OPENROUTER_BASE_URL: API_ENDPOINTS.OPENROUTER_BASE,
-  OPENROUTER_CHAT_COMPLETIONS: API_ENDPOINTS.OPENROUTER,
-} as const;
-
 // ============================================================================
 // Timing Constants
 // ============================================================================
@@ -58,16 +52,6 @@ export const TIMING = {
   SCRAPING_TIMEOUT_MS: 120000, // 2 minutes
   STREAM_CHUNK_THROTTLE_MS: 100,
   PROGRESS_UPDATE_INTERVAL: 500,
-} as const;
-
-// For backward compatibility during migration
-export const UI_TIMING = {
-  STREAM_CHUNK_THROTTLE_MS: TIMING.STREAM_CHUNK_THROTTLE_MS,
-  PROGRESS_UPDATE_INTERVAL: TIMING.PROGRESS_UPDATE_INTERVAL,
-  API_TIMEOUT_MS: TIMING.API_TIMEOUT_MS,
-  SCRAPING_TIMEOUT_MS: TIMING.SCRAPING_TIMEOUT_MS,
-  MAX_RETRIES: 3,
-  RETRY_DELAY_MS: 1000,
 } as const;
 
 // ============================================================================
