@@ -15,7 +15,7 @@ import {
   getTargetLanguageFromStorage,
   isCurrentVideo,
 } from "./contentHelpers";
-import { convertSubtitlesForTargetLanguage } from "./captionConversion";
+import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -130,56 +130,69 @@ function handleSubtitlesGenerated(
   const subtitles = message.subtitles || [];
   const messageVideoId = message.videoId;
 
-  // Always save if we have an ID and subtitles, so they are available if user returns to that video
-  if (messageVideoId && subtitles.length > 0) {
-    saveSubtitles(messageVideoId, subtitles).catch(console.error);
-  }
-
-  const applyAndRespond = (displaySubtitles: SubtitleSegment[]) => {
-    // Only display if the subtitles are for the CURRENT video
-    if (messageVideoId && !isCurrentVideo(messageVideoId)) {
-      console.log(`Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`);
-      sendResponse({ status: "saved_but_not_displayed" });
-      return;
-    }
-
-    state.currentSubtitles = displaySubtitles;
-    
-    if (state.currentSubtitles.length > 0) {
-      startDisplayIfReady(state, messageVideoId);
-
-      // Fallback save using current URL ID if message ID was missing (though it should be there)
-      if (!messageVideoId) {
-        const currentVideoId = extractVideoId(window.location.href);
-        if (currentVideoId) {
-          saveSubtitles(currentVideoId, subtitles).catch(console.error);
-        }
-      }
-      
-      sendResponse({ status: "success" });
-    } else {
-      state.currentSubtitles = [];
-      clearRenderer();
-      sendResponse({ status: "no_subtitles_found" });
-    }
-  };
-
   if (subtitles.length === 0) {
-    applyAndRespond([]);
+    state.currentSubtitles = [];
+    clearRenderer();
+    sendResponse({ status: "no_subtitles_found" });
     return;
   }
 
+  // Get target language, convert, then save and display
   chrome.storage.local.get(
     [STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM, STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
     (result) => {
       if (chrome.runtime.lastError) {
-        applyAndRespond(subtitles);
+        console.error("Failed to get target language:", chrome.runtime.lastError);
+        // Still proceed with original subtitles if storage fails
+        handleConvertedSubtitles(subtitles, messageVideoId, state, sendResponse);
         return;
       }
+
       const targetLanguage = getTargetLanguageFromStorage(result);
-      applyAndRespond(convertSubtitlesForTargetLanguage(subtitles, targetLanguage));
+      const convertedSubtitles = convertSubtitlesForTargetLanguage(subtitles, targetLanguage);
+
+      handleConvertedSubtitles(convertedSubtitles, messageVideoId, state, sendResponse);
     }
   );
+}
+
+function handleConvertedSubtitles(
+  convertedSubtitles: SubtitleSegment[],
+  messageVideoId: string | undefined,
+  state: ContentScriptState,
+  sendResponse: (response: any) => void
+): void {
+  // Always save converted subtitles if we have an ID
+  if (messageVideoId && convertedSubtitles.length > 0) {
+    saveSubtitles(messageVideoId, convertedSubtitles).catch(console.error);
+  }
+
+  // Only display if the subtitles are for the CURRENT video
+  if (messageVideoId && !isCurrentVideo(messageVideoId)) {
+    console.log(`Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`);
+    sendResponse({ status: "saved_but_not_displayed" });
+    return;
+  }
+
+  state.currentSubtitles = convertedSubtitles;
+
+  if (state.currentSubtitles.length > 0) {
+    startDisplayIfReady(state, messageVideoId);
+
+    // Fallback save using current URL ID if message ID was missing
+    if (!messageVideoId) {
+      const currentVideoId = extractVideoId(window.location.href);
+      if (currentVideoId) {
+        saveSubtitles(currentVideoId, convertedSubtitles).catch(console.error);
+      }
+    }
+
+    sendResponse({ status: "success" });
+  } else {
+    state.currentSubtitles = [];
+    clearRenderer();
+    sendResponse({ status: "no_subtitles_found" });
+  }
 }
 
 function handleToggleSubtitles(
