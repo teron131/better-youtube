@@ -2,10 +2,19 @@
  * Main page component orchestrating the video processing workflow.
  */
 
-import { SummaryPanel } from "@ui/components/SummaryPanel";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import {
+  getStorageValue,
+  getStoredSubtitles,
+  getStoredSummary,
+  getStoredVideoMetadata,
+  setStorageValue,
+} from "@/lib/storage";
+import { extractVideoId } from "@/lib/url";
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
 import { HeroSection } from "@ui/components/HeroSection";
 import { ProcessingStatus } from "@ui/components/ProcessingStatus";
+import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
 import { Button } from "@ui/components/ui/button";
 import { VideoInfo } from "@ui/components/VideoInfo";
@@ -15,9 +24,7 @@ import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
-import { getStorageValue, setStorageValue } from "@/lib/storage";
-import { Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -29,6 +36,18 @@ const Index = () => {
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
   const [showSubtitles, setShowSubtitles] = useState<boolean>(DEFAULTS.SHOW_SUBTITLES);
   const { toast } = useToast();
+  const {
+    isLoading,
+    error,
+    currentStep,
+    currentStage,
+    progressStates,
+    summaryResult,
+    scrapedVideoInfo,
+    scrapedTranscript,
+    updateState,
+    processVideo,
+  } = useVideoProcessing();
 
   // Get current tab URL on mount and when tab changes
   useEffect(() => {
@@ -80,6 +99,62 @@ const Index = () => {
     loadShowSubtitles();
   }, []);
 
+  useEffect(() => {
+    if (!initialUrl || isLoading) return;
+
+    const videoId = extractVideoId(initialUrl);
+    if (!videoId) return;
+
+    let cancelled = false;
+
+    const loadCachedSummary = async () => {
+      try {
+        const [storedSummary, storedVideoInfo, storedSubtitles] = await Promise.all([
+          getStoredSummary(videoId),
+          getStoredVideoMetadata(videoId),
+          getStoredSubtitles(videoId),
+        ]);
+
+        if (cancelled || !storedSummary) return;
+
+        const transcript = storedSubtitles?.length
+          ? storedSubtitles.map((segment) => segment.text).join(" ")
+          : null;
+
+        setIsExampleMode(false);
+        setLastProcessedUrl(initialUrl);
+
+        updateState({
+          summaryResult: {
+            success: true,
+            summary: storedSummary.summary,
+            quality: storedSummary.quality,
+            videoInfo: storedVideoInfo ?? undefined,
+            transcript: transcript ?? undefined,
+            totalTime: "cached",
+            iterationCount: 0,
+            chunksProcessed: 0,
+          },
+          scrapedVideoInfo: storedVideoInfo ?? null,
+          scrapedTranscript: transcript ?? null,
+          currentStage: "Loaded cached summary",
+          currentStep: 4,
+          progressStates: [],
+          isLoading: false,
+          error: null,
+        });
+      } catch (error) {
+        console.error("Failed to load cached summary:", error);
+      }
+    };
+
+    loadCachedSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialUrl, isLoading, updateState]);
+
   const handleToggleSubtitles = async (nextState: boolean) => {
     setShowSubtitles(nextState);
 
@@ -113,19 +188,6 @@ const Index = () => {
       });
     }
   };
-
-  const {
-    isLoading,
-    error,
-    currentStep,
-    currentStage,
-    progressStates,
-    summaryResult,
-    scrapedVideoInfo,
-    scrapedTranscript,
-    updateState,
-    processVideo,
-  } = useVideoProcessing();
 
   const loadExample = () => {
     setIsExampleMode(false);
