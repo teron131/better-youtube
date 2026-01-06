@@ -4,31 +4,14 @@
 
 import { SummaryData, VideoInfoResponse } from "@ui/services/types";
 import { clsx, type ClassValue } from "clsx";
-import * as OpenCC from 'opencc-js';
 import { twMerge } from "tailwind-merge";
+import { s2tw } from "@/lib/captionConversion";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Initialize converter immediately for serverless compatibility
-const converterCN2TW = OpenCC.Converter({ from: 'cn', to: 'tw' });
-
-/**
- * Convert simplified Chinese to traditional Chinese (Taiwan variant)
- * Safe to use on any text - won't break non-Chinese content
- * Optimized for serverless deployment
- */
-export function s2tw(content: string): string {
-  if (!content || content.length < 2) return content;
-
-  try {
-    return converterCN2TW(content);
-  } catch (error) {
-    console.warn('Chinese conversion (CN→TW) failed:', error);
-    return content;
-  }
-}
+export { s2tw };
 
 /**
  * Convert summary text fields to traditional Chinese (Taiwan variant)

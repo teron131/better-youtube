@@ -5,18 +5,13 @@
 
 import { STORAGE_KEYS, TIMING } from "@/lib/constants";
 import { extractVideoId } from "@/lib/url";
+import { isChromeContextValid as isExtensionContextValid } from "@/lib/chromeUtils";
 import { isCurrentVideo } from "./contentHelpers";
+
+export { isExtensionContextValid };
 
 // Track which videos have had auto-generation triggered
 const autoGenerationTriggered = new Set<string>();
-
-export function isExtensionContextValid(): boolean {
-  try {
-    return !!chrome.runtime?.id;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Check if auto-generation has been triggered for a video

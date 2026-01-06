@@ -113,10 +113,14 @@ class ContentManager {
     if (!validation.isValid || !validation.videoId) return;
 
     const videoId = validation.videoId;
-    const keysToFetch = [videoId, ...buildStorageKeysForVideo()];
+    const keysToFetch = [videoId, STORAGE_KEYS.CAPTION_FONT_SIZE, ...buildStorageKeysForVideo()];
 
     chrome.storage.local.get(keysToFetch, (result) => {
       if (chrome.runtime.lastError || !isCurrentVideo(videoId)) return;
+
+      // Apply font size
+      const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
+      applyCaptionFontSize(fontSize);
 
       if (!this.state.userInteractedWithToggle) {
         this.state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
@@ -133,12 +137,7 @@ class ContentManager {
   }
 
   private loadCaptionFontSize(): void {
-    if (!isExtensionContextValid()) return;
-    chrome.storage.local.get([STORAGE_KEYS.CAPTION_FONT_SIZE], (result) => {
-      if (chrome.runtime.lastError) return;
-      const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
-      applyCaptionFontSize(fontSize);
-    });
+    // Font size is now loaded in loadStoredSubtitles() for better performance
   }
 
   public clearSubtitles(): void {

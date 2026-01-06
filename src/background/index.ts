@@ -5,43 +5,27 @@
 
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { ChromeMessage, createMessageListener } from "@/lib/chromeUtils";
-import { ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS, DEFAULTS } from "@/lib/constants";
-import { saveVideoMetadata } from "@/lib/storage";
+import { ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { saveVideoMetadata, getStorageValues } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
 import { clearTranscriptCache, convertToSubtitleSegments, extractVideoInfo, fetchTranscript } from "@/lib/youtubeApi";
 import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
 import { validateApiKeys } from "./validation";
-import { convertSubtitlesImmediate } from "@/lib/captionConversion";
+import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
+import { getTargetLanguageFromStorage } from "@/content/contentHelpers";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
 /**
- * Get target language from storage synchronously
- */
-function getTargetLanguageFromStorage(storageResult: any): string {
-  return storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
-}
-
-/**
  * Get target language from chrome storage
  */
 async function getTargetLanguage(): Promise<string> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(
-      [STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM, STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
-      (result) => {
-        if (chrome.runtime.lastError) {
-          console.warn("Failed to get target language:", chrome.runtime.lastError);
-          resolve(DEFAULTS.TARGET_LANGUAGE_RECOMMENDED);
-          return;
-        }
-        resolve(getTargetLanguageFromStorage(result));
-      }
-    );
-  });
+  const result = await getStorageValues<Record<string, any>>([
+    STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+    STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED
+  ]);
+  return getTargetLanguageFromStorage(result);
 }
 
 /**
@@ -115,7 +99,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
       (prioritySegments) => {
         if (tabId) {
           // Convert partial segments before sending
-          const convertedPartial = convertSubtitlesImmediate(prioritySegments, targetLanguage);
+          const convertedPartial = convertSubtitlesForTargetLanguage(prioritySegments, targetLanguage);
           chrome.tabs.sendMessage(tabId, {
             action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
             videoId,
@@ -127,7 +111,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
     );
 
     // Convert final refined segments before sending
-    const convertedSegments = convertSubtitlesImmediate(refinedSegments, targetLanguage);
+    const convertedSegments = convertSubtitlesForTargetLanguage(refinedSegments, targetLanguage);
 
     if (tabId) {
       chrome.tabs.sendMessage(tabId, {
