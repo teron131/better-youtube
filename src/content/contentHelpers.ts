@@ -63,11 +63,15 @@ export function getAutoGenModels(storageResult: any): {
   return {
     summarizerModel,
     qualityModel: storageResult[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
-    targetLanguage: storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-      storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-      DEFAULTS.TARGET_LANGUAGE_RECOMMENDED,
+    targetLanguage: getTargetLanguageFromStorage(storageResult),
     fastMode: storageResult[STORAGE_KEYS.FAST_MODE] === true,
   };
+}
+
+export function getTargetLanguageFromStorage(storageResult: any): string {
+  return storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
+    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
 }
 
 export async function executeScrapeForAutoGen(

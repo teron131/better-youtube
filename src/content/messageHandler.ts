@@ -5,15 +5,17 @@
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
-import { saveSubtitles } from "@/lib/storage";
+import { saveSubtitles, type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger, markAutoGenerationTriggered } from "./autoGeneration";
 import {
   ContentScriptState,
   buildStorageKeysForToggle,
   determineToggleState,
+  getTargetLanguageFromStorage,
   isCurrentVideo,
 } from "./contentHelpers";
+import { convertSubtitlesForTargetLanguage } from "./captionConversion";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -133,32 +135,51 @@ function handleSubtitlesGenerated(
     saveSubtitles(messageVideoId, subtitles).catch(console.error);
   }
 
-  // Only display if the subtitles are for the CURRENT video
-  if (messageVideoId && !isCurrentVideo(messageVideoId)) {
-    console.log(`Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`);
-    sendResponse({ status: "saved_but_not_displayed" });
+  const applyAndRespond = (displaySubtitles: SubtitleSegment[]) => {
+    // Only display if the subtitles are for the CURRENT video
+    if (messageVideoId && !isCurrentVideo(messageVideoId)) {
+      console.log(`Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`);
+      sendResponse({ status: "saved_but_not_displayed" });
+      return;
+    }
+
+    state.currentSubtitles = displaySubtitles;
+    
+    if (state.currentSubtitles.length > 0) {
+      startDisplayIfReady(state, messageVideoId);
+
+      // Fallback save using current URL ID if message ID was missing (though it should be there)
+      if (!messageVideoId) {
+        const currentVideoId = extractVideoId(window.location.href);
+        if (currentVideoId) {
+          saveSubtitles(currentVideoId, subtitles).catch(console.error);
+        }
+      }
+      
+      sendResponse({ status: "success" });
+    } else {
+      state.currentSubtitles = [];
+      clearRenderer();
+      sendResponse({ status: "no_subtitles_found" });
+    }
+  };
+
+  if (subtitles.length === 0) {
+    applyAndRespond([]);
     return;
   }
 
-  state.currentSubtitles = subtitles;
-  
-  if (state.currentSubtitles.length > 0) {
-    startDisplayIfReady(state, messageVideoId);
-
-    // Fallback save using current URL ID if message ID was missing (though it should be there)
-    if (!messageVideoId) {
-      const currentVideoId = extractVideoId(window.location.href);
-      if (currentVideoId) {
-        saveSubtitles(currentVideoId, state.currentSubtitles).catch(console.error);
+  chrome.storage.local.get(
+    [STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM, STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
+    (result) => {
+      if (chrome.runtime.lastError) {
+        applyAndRespond(subtitles);
+        return;
       }
+      const targetLanguage = getTargetLanguageFromStorage(result);
+      applyAndRespond(convertSubtitlesForTargetLanguage(subtitles, targetLanguage));
     }
-    
-    sendResponse({ status: "success" });
-  } else {
-    state.currentSubtitles = [];
-    clearRenderer();
-    sendResponse({ status: "no_subtitles_found" });
-  }
+  );
 }
 
 function handleToggleSubtitles(

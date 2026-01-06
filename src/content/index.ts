@@ -18,6 +18,7 @@ import {
   buildStorageKeysForVideo,
   executeScrapeForAutoGen,
   getRefinerModelFromStorage,
+  getTargetLanguageFromStorage,
   isCurrentVideo,
   triggerCaptionRefinement,
   validateLoadContext
@@ -30,6 +31,7 @@ import {
   findVideoElements,
   startSubtitleDisplay
 } from "./subtitleRenderer";
+import { convertSubtitlesForTargetLanguage } from "./captionConversion";
 
 /**
  * Manages the content script lifecycle and state
@@ -124,7 +126,11 @@ class ContentManager {
 
       if (result[videoId]) {
         console.log("Found stored subtitles.");
-        this.state.currentSubtitles = result[videoId] as SubtitleSegment[];
+        const targetLanguage = getTargetLanguageFromStorage(result);
+        this.state.currentSubtitles = convertSubtitlesForTargetLanguage(
+          result[videoId] as SubtitleSegment[],
+          targetLanguage
+        );
         if (this.state.showSubtitlesEnabled) startSubtitleDisplay(this.state.currentSubtitles, videoId);
       } else {
         this.checkAndTriggerAutoGeneration(videoId, result, true, true);
