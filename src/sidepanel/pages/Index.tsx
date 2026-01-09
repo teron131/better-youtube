@@ -53,7 +53,8 @@ const Index = () => {
   useEffect(() => {
     const loadCurrentTabUrl = async () => {
       const url = await getVideoIdFromCurrentTab();
-      setInitialUrl(url);
+      if (!url) return;
+      setInitialUrl((prev) => (prev === url ? prev : url));
     };
 
     // Load initial URL
@@ -304,7 +305,7 @@ const Index = () => {
 
   const handleRegenerate = async () => {
     if (!lastProcessedUrl) return;
-    await handleVideoSubmit(lastProcessedUrl, lastOptions);
+    await handleVideoSubmit(lastProcessedUrl, { ...(lastOptions || {}), forceRegenerate: true });
   };
 
   const videoInfo = summaryResult?.videoInfo || scrapedVideoInfo;

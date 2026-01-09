@@ -19,6 +19,7 @@ export interface VideoProcessingOptions {
   targetLanguage?: string;
   fastMode?: boolean;
   transcript?: string;
+  forceRegenerate?: boolean;
 }
 
 export interface VideoProcessingState {
