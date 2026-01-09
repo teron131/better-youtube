@@ -2,6 +2,7 @@
  * Message Handler for Content Script
  */
 
+import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
@@ -12,10 +13,8 @@ import {
   ContentScriptState,
   buildStorageKeysForToggle,
   determineToggleState,
-  getTargetLanguageFromStorage,
   isCurrentVideo,
 } from "./contentHelpers";
-import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -137,23 +136,8 @@ function handleSubtitlesGenerated(
     return;
   }
 
-  // Get target language, convert, then save and display
-  chrome.storage.local.get(
-    [STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM, STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
-    (result) => {
-      if (chrome.runtime.lastError) {
-        console.error("Failed to get target language:", chrome.runtime.lastError);
-        // Still proceed with original subtitles if storage fails
-        handleConvertedSubtitles(subtitles, messageVideoId, state, sendResponse);
-        return;
-      }
-
-      const targetLanguage = getTargetLanguageFromStorage(result);
-      const convertedSubtitles = convertSubtitlesForTargetLanguage(subtitles, targetLanguage);
-
-      handleConvertedSubtitles(convertedSubtitles, messageVideoId, state, sendResponse);
-    }
-  );
+  const convertedSubtitles = convertSubtitlesForTargetLanguage(subtitles, "zh-TW");
+  handleConvertedSubtitles(convertedSubtitles, messageVideoId, state, sendResponse);
 }
 
 function handleConvertedSubtitles(

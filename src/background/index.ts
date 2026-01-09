@@ -5,28 +5,15 @@
 
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { ChromeMessage, createMessageListener } from "@/lib/chromeUtils";
-import { ERROR_MESSAGES, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
-import { saveVideoMetadata, getStorageValues } from "@/lib/storage";
+import { ERROR_MESSAGES, MESSAGE_ACTIONS } from "@/lib/constants";
+import { saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
 import { clearTranscriptCache, convertToSubtitleSegments, extractVideoInfo, fetchTranscript } from "@/lib/youtubeApi";
 import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
 import { validateApiKeys } from "./validation";
-import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
-import { getTargetLanguageFromStorage } from "@/content/contentHelpers";
 
 // Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
-
-/**
- * Get target language from chrome storage
- */
-async function getTargetLanguage(): Promise<string> {
-  const result = await getStorageValues<Record<string, any>>([
-    STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-    STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED
-  ]);
-  return getTargetLanguageFromStorage(result);
-}
 
 /**
  * Handle scrape video request
@@ -72,9 +59,6 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
   try {
     if (forceRegenerate) clearTranscriptCache(videoId);
 
-    // Get target language for conversion
-    const targetLanguage = await getTargetLanguage();
-
     const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
     if (!data?.transcript?.length) {
       if (tabId) {
@@ -98,26 +82,21 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
       modelSelection,
       (prioritySegments) => {
         if (tabId) {
-          // Convert partial segments before sending
-          const convertedPartial = convertSubtitlesForTargetLanguage(prioritySegments, targetLanguage);
           chrome.tabs.sendMessage(tabId, {
             action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
             videoId,
-            subtitles: convertedPartial,
+            subtitles: prioritySegments,
             isPartial: true
           }).catch(() => {});
         }
       }
     );
 
-    // Convert final refined segments before sending
-    const convertedSegments = convertSubtitlesForTargetLanguage(refinedSegments, targetLanguage);
-
     if (tabId) {
       chrome.tabs.sendMessage(tabId, {
         action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
         videoId,
-        subtitles: convertedSegments,
+        subtitles: refinedSegments,
       }).catch(() => {});
     }
   } catch (error) {
