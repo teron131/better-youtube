@@ -27,8 +27,20 @@ export function convertSubtitlesForTargetLanguage(
   if (!subtitles || subtitles.length === 0) return subtitles;
   if (targetLanguage !== "zh-TW") return subtitles;
 
-  return subtitles.map((segment) => ({
+  const separator = "\u0001";
+  const joined = subtitles.map((segment) => segment.text || "").join(separator);
+  const converted = s2tw(joined);
+  const parts = converted.split(separator);
+
+  if (parts.length !== subtitles.length) {
+    return subtitles.map((segment) => ({
+      ...segment,
+      text: s2tw(segment.text),
+    }));
+  }
+
+  return subtitles.map((segment, index) => ({
     ...segment,
-    text: s2tw(segment.text),
+    text: parts[index] ?? "",
   }));
 }
