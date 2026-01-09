@@ -17,7 +17,7 @@ export function s2tw(content: string): string {
 }
 
 /**
- * Convert subtitles to target language if needed
+ * Convert subtitles to traditional Chinese
  * Batch processes all segments for performance
  */
 export function convertSubtitlesForTargetLanguage(
@@ -25,7 +25,6 @@ export function convertSubtitlesForTargetLanguage(
   targetLanguage: string
 ): SubtitleSegment[] {
   if (!subtitles || subtitles.length === 0) return subtitles;
-  if (targetLanguage !== "zh-TW") return subtitles;
 
   const separator = "\u0001";
   const joined = subtitles.map((segment) => segment.text || "").join(separator);
