@@ -2,7 +2,7 @@
  * Message Handler for Content Script
  */
 
-import { convertSubtitlesForTargetLanguage } from "@/lib/captionConversion";
+import { convertSubtitlesToTraditionalChinese } from "@/lib/captionConversion";
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
@@ -136,7 +136,7 @@ function handleSubtitlesGenerated(
     return;
   }
 
-  const convertedSubtitles = convertSubtitlesForTargetLanguage(subtitles, "zh-TW");
+  const convertedSubtitles = convertSubtitlesToTraditionalChinese(subtitles);
   handleConvertedSubtitles(convertedSubtitles, messageVideoId, state, sendResponse);
 }
 
