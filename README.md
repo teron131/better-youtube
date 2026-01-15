@@ -2,6 +2,8 @@
 
 Chrome extension combining YouTube caption refinement and AI-powered summarization.
 
+**Static demo**: https://teron131.github.io/better-youtube
+
 ## Project Structure
 
 ```
