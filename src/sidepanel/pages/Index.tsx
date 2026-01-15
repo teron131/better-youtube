@@ -35,6 +35,7 @@ const Index = () => {
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
   const [showSubtitles, setShowSubtitles] = useState<boolean>(DEFAULTS.SHOW_SUBTITLES);
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
   const { toast } = useToast();
   const {
     isLoading,
@@ -205,6 +206,11 @@ const Index = () => {
     });
   };
 
+  useEffect(() => {
+    if (!isDemoMode) return;
+    loadExample();
+  }, [isDemoMode]);
+
   const resolveVideoUrl = async (url: string): Promise<string | null> => {
     const trimmed = url.trim();
     if (trimmed) return trimmed;
@@ -296,6 +302,14 @@ const Index = () => {
     options?: VideoProcessingOptions,
     action: "caption" | "summary" = "summary"
   ) => {
+    if (isDemoMode) {
+      toast({
+        title: "Demo Mode",
+        description: "Demo Mode is enabled. Loading example data.",
+      });
+      loadExample();
+      return;
+    }
     if (action === "caption") {
       await handleCaptionSubmit(url);
       return;

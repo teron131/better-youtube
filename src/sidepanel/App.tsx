@@ -37,30 +37,22 @@ const App = () => {
     loadSummaryFontSize();
   }, []);
 
+  const useHashRouter = isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
+  const Router = useHashRouter ? HashRouter : BrowserRouter;
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        {isExtensionRuntime() ? (
-          <HashRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <AppRoutes />
-          </HashRouter>
-        ) : (
-          <BrowserRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <AppRoutes />
-          </BrowserRouter>
-        )}
+        <Router
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <AppRoutes />
+        </Router>
       </TooltipProvider>
     </QueryClientProvider>
   );
