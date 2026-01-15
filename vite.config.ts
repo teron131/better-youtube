@@ -11,9 +11,7 @@ export default defineConfig(({ mode }) => {
     base,
     plugins: [
       react(),
-      nodePolyfills({
-        include: ["async_hooks"],
-      }),
+    nodePolyfills(),
     ],
     resolve: {
       alias: [
@@ -27,6 +25,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       rollupOptions: {
         input: {
+          index: path.resolve(__dirname, "index.html"),
           sidepanel: path.resolve(__dirname, "sidepanel.html"),
           background: path.resolve(__dirname, "src/background/index.ts"),
         },
