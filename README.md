@@ -3,6 +3,7 @@
 Chrome extension combining YouTube caption refinement and AI-powered summarization.
 
 **Static Demo**: https://teron131.github.io/better-youtube
+**The Challenge**: YouTube's caption API has strict access limitations. While Gemini provides native YouTube access (in preview), it lacks robustness across varying video lengths and does not capture word-level caption details effectively.
 
 ## Project Structure
 
