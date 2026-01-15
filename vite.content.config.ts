@@ -3,11 +3,7 @@ import { defineConfig } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig({
-  plugins: [
-    nodePolyfills({
-      include: ["async_hooks"],
-    }),
-  ],
+  plugins: [nodePolyfills()],
   resolve: {
     alias: [
       { find: "@", replacement: path.resolve(__dirname, "./src") },
