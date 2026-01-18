@@ -37,13 +37,15 @@ export async function checkStoredSummary(
  */
 export async function broadcastStoredSummary(
   videoId: string,
-  storedSummary: StoredSummary
+  storedSummary: StoredSummary,
+  requestId?: string
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
+    requestId,
     summary: {
       summary: storedSummary.summary,
       quality: storedSummary.quality,
@@ -136,7 +138,8 @@ export async function broadcastSummaryResult(
   videoInfo: VideoMetadata,
   transcript_or_url: string,
   modelSelection: string,
-  targetLanguage: string
+  targetLanguage: string,
+  requestId?: string
 ): Promise<void> {
   // Save summary to storage
   await saveSummary(
@@ -151,6 +154,7 @@ export async function broadcastSummaryResult(
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
+    requestId,
     summary: result,
     videoInfo,
     transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,

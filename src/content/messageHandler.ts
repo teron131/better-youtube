@@ -6,6 +6,7 @@ import { convertSubtitlesToTraditionalChinese } from "@/lib/captionConversion";
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
+import { createRequestId, type RequestId } from "@/lib/requestId";
 import { saveSubtitles, type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
 import { clearAutoGenerationTrigger, markAutoGenerationTriggered } from "./autoGeneration";
@@ -38,7 +39,7 @@ export function setupMessageListener(
         handleGenerateSummary(message, sendResponse);
         break;
       case MESSAGE_ACTIONS.GENERATE_SUBTITLES:
-        handleGenerateSubtitles(message, actions.clearSubtitles, sendResponse);
+        handleGenerateSubtitles(message, state, actions.clearSubtitles, sendResponse);
         break;
       case MESSAGE_ACTIONS.SUBTITLES_GENERATED:
         handleSubtitlesGenerated(message, state, sendResponse);
@@ -71,9 +72,12 @@ function handleGenerateSummary(
     return;
   }
 
+  const requestId: RequestId | undefined = message.requestId as RequestId | undefined;
+
   sendChromeMessage({
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
     videoId,
+    requestId,
     scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
     openRouterApiKey: message.openRouterApiKey,
     modelSelection: message.modelSelection,
@@ -89,6 +93,7 @@ function handleGenerateSummary(
 
 function handleGenerateSubtitles(
   message: any,
+  state: ContentScriptState,
   clearSubtitles: () => void,
   sendResponse: (response: any) => void
 ): void {
@@ -101,9 +106,13 @@ function handleGenerateSubtitles(
   clearSubtitles();
   markAutoGenerationTriggered(videoId);
 
+  const requestId: RequestId = (message.requestId as RequestId | undefined) ?? createRequestId("caption");
+  state.currentCaptionRequestId = requestId;
+
   sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
+    requestId,
     scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
     openRouterApiKey: message.openRouterApiKey,
     modelSelection: message.modelSelection,
@@ -128,6 +137,17 @@ function handleSubtitlesGenerated(
 ): void {
   const subtitles = message.subtitles || [];
   const messageVideoId = message.videoId;
+  const messageRequestId = message.requestId as RequestId | undefined;
+
+
+  // Stale guard: ignore any caption results not matching the latest request for this video.
+  if (messageVideoId && state.currentCaptionRequestId && messageRequestId && messageRequestId !== state.currentCaptionRequestId) {
+    console.log(
+      `Ignoring stale subtitles for video ${messageVideoId}: requestId ${messageRequestId} (expected ${state.currentCaptionRequestId})`
+    );
+    sendResponse({ status: "stale_ignored" });
+    return;
+  }
 
   if (subtitles.length === 0) {
     state.currentSubtitles = [];
@@ -137,19 +157,27 @@ function handleSubtitlesGenerated(
   }
 
   const convertedSubtitles = convertSubtitlesToTraditionalChinese(subtitles);
-  handleConvertedSubtitles(convertedSubtitles, messageVideoId, state, sendResponse);
+  handleConvertedSubtitles(convertedSubtitles, messageVideoId, messageRequestId, state, sendResponse);
 }
 
 function handleConvertedSubtitles(
   convertedSubtitles: SubtitleSegment[],
   messageVideoId: string | undefined,
+  messageRequestId: RequestId | undefined,
   state: ContentScriptState,
   sendResponse: (response: any) => void
 ): void {
-  // Always save converted subtitles if we have an ID
-  if (messageVideoId && convertedSubtitles.length > 0) {
+  // Save converted subtitles only for the latest request for this video.
+  if (
+    messageVideoId &&
+    convertedSubtitles.length > 0 &&
+    (!messageRequestId || !state.currentCaptionRequestId || messageRequestId === state.currentCaptionRequestId)
+  ) {
+    // Note: background only sends to the tab that initiated the request, but YouTube is SPA,
+    // so we still defensively gate to avoid stale writes.
     saveSubtitles(messageVideoId, convertedSubtitles).catch(console.error);
   }
+
 
   // Only display if the subtitles are for the CURRENT video
   if (messageVideoId && !isCurrentVideo(messageVideoId)) {
