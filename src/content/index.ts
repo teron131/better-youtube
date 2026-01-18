@@ -5,8 +5,10 @@
 
 import type { FontSize } from "@/lib/constants";
 import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/lib/constants";
+import { createRequestId } from "@/lib/requestId";
 import { type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
+
 import {
   clearAutoGenerationTrigger,
   isExtensionContextValid,
@@ -39,6 +41,7 @@ class ContentManager {
     currentSubtitles: [],
     showSubtitlesEnabled: true,
     userInteractedWithToggle: false,
+    currentCaptionRequestId: undefined,
   };
 
   private currentUrl: string = window.location.href;
@@ -142,6 +145,7 @@ class ContentManager {
 
   public clearSubtitles(): void {
     this.state.currentSubtitles = [];
+    this.state.currentCaptionRequestId = undefined;
     clearRenderer();
   }
 
@@ -179,12 +183,14 @@ class ContentManager {
     const scrapeCreatorsApiKey = storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] as string;
     const openRouterApiKey = storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] as string;
 
-    if (await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey)) {
-      if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
-        const refinerModel = getRefinerModelFromStorage(storageResult);
-        triggerCaptionRefinement(videoId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
-      }
-    } else {
+      if (await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey)) {
+        if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
+          const refinerModel = getRefinerModelFromStorage(storageResult);
+          const requestId = createRequestId("caption");
+          this.state.currentCaptionRequestId = requestId;
+          triggerCaptionRefinement(videoId, requestId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
+        }
+      } else {
       clearAutoGenerationTrigger(videoId);
     }
   }

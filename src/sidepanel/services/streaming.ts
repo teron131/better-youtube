@@ -5,6 +5,7 @@
 
 import { ChromeMessage, sendChromeMessage } from '@/lib/chromeUtils';
 import { MESSAGE_ACTIONS, TIMING } from '@/lib/constants';
+import { createRequestId, type RequestId } from '@/lib/requestId';
 import { extractVideoId } from '@/lib/url';
 import { getProcessingConfig } from './configLoaders';
 import { ApiError, StreamingProcessingResult, StreamingProgressState } from './types';
@@ -69,6 +70,7 @@ interface SummaryListenerResult {
  */
 function createSummaryListener(
   videoId: string,
+  requestId: RequestId,
   url: string,
   videoInfo: any,
   onProgress?: (state: StreamingProgressState) => void
@@ -78,7 +80,7 @@ function createSummaryListener(
 
   const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
     const listener = (msg: ChromeMessage) => {
-      if (msg.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && msg.videoId === videoId) {
+      if (msg.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && msg.videoId === videoId && msg.requestId === requestId) {
         cleanup();
         const { summary, videoInfo: msgVideoInfo, transcript } = msg;
         if (!summary) {
@@ -91,9 +93,9 @@ function createSummaryListener(
           videoInfo: msgVideoInfo || videoInfo,
           transcript: transcript || null
         });
-      } else if (msg.action === MESSAGE_ACTIONS.SHOW_ERROR) {
+      } else if (msg.action === MESSAGE_ACTIONS.SHOW_ERROR && (msg as any).requestId === requestId) {
         cleanup();
-        reject({ message: msg.error || 'Processing failed', type: 'processing' } as ApiError);
+        reject({ message: (msg as any).error || 'Processing failed', type: 'processing' } as ApiError);
       }
     };
 
@@ -121,6 +123,7 @@ function createSummaryListener(
  */
 function triggerRefinement(
   videoId: string,
+  requestId: RequestId,
   scrapeCreatorsApiKey: string,
   openRouterApiKey: string,
   refinerModel: string
@@ -128,6 +131,7 @@ function triggerRefinement(
   sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
+    requestId,
     scrapeCreatorsApiKey,
     openRouterApiKey,
     modelSelection: refinerModel
@@ -149,6 +153,7 @@ export async function triggerCaptionGeneration(
   const response = await sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
+    requestId: createRequestId("caption"),
     scrapeCreatorsApiKey,
     openRouterApiKey,
     modelSelection: refinerModel,
@@ -191,18 +196,20 @@ export async function streamSummary(
     let videoInfo: any = null;
     if (!options.transcript) {
       videoInfo = await performScrape(videoId, url, scrapeCreatorsApiKey, onProgress);
-      if (showSubtitles) triggerRefinement(videoId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel);
+      if (showSubtitles) triggerRefinement(videoId, createRequestId("caption"), scrapeCreatorsApiKey, openRouterApiKey, refinerModel);
     } else {
       onProgress?.({ step: 'scraping', stepName: 'Fetching Transcript', status: 'completed', message: 'Using provided transcript' });
     }
 
     onProgress?.({ step: 'summarizing', stepName: 'Summarizing', status: 'processing', message: 'Generating summary...' });
 
-    const { promise: listenerPromise, cancel } = createSummaryListener(videoId, url, videoInfo, onProgress);
+    const requestId = createRequestId("summary");
+    const { promise: listenerPromise, cancel } = createSummaryListener(videoId, requestId, url, videoInfo, onProgress);
 
     const sendResult = sendChromeMessage({
       action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
       videoId,
+      requestId,
       transcript: options.transcript,
       scrapeCreatorsApiKey,
       openRouterApiKey,

@@ -2,13 +2,16 @@
 
 import { sendChromeMessage } from "@/lib/chromeUtils";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { createRequestId, type RequestId } from "@/lib/requestId";
 import { type SubtitleSegment } from "@/lib/storage";
 import { extractVideoId } from "@/lib/url";
+
 
 export interface ContentScriptState {
   currentSubtitles: SubtitleSegment[];
   showSubtitlesEnabled: boolean;
   userInteractedWithToggle: boolean;
+  currentCaptionRequestId?: RequestId;
 }
 
 export function isCurrentVideo(videoId: string): boolean {
@@ -82,6 +85,7 @@ export async function executeScrapeForAutoGen(
   const result = await sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
+    requestId: createRequestId("scrape"),
     scrapeCreatorsApiKey,
   }).catch(() => ({ status: "error" }));
   if (result.status !== "success") {
@@ -94,6 +98,7 @@ export async function executeScrapeForAutoGen(
 
 export function triggerCaptionRefinement(
   videoId: string,
+  requestId: RequestId,
   scrapeCreatorsApiKey: string,
   openRouterApiKey: string,
   refinerModel: string,
@@ -102,6 +107,7 @@ export function triggerCaptionRefinement(
   sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
+    requestId,
     scrapeCreatorsApiKey,
     openRouterApiKey,
     modelSelection: refinerModel,
@@ -115,6 +121,7 @@ export function triggerCaptionRefinement(
 
 export function triggerSummaryGeneration(
   videoId: string,
+  requestId: RequestId,
   scrapeCreatorsApiKey: string,
   openRouterApiKey: string,
   m: {
@@ -127,6 +134,7 @@ export function triggerSummaryGeneration(
   sendChromeMessage({
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
     videoId,
+    requestId,
     scrapeCreatorsApiKey,
     openRouterApiKey,
     modelSelection: m.summarizerModel,
