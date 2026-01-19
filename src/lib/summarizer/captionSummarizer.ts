@@ -35,7 +35,8 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
     apiKey,
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
-      defaultHeaders: {
+      defaultHeaders: { 
+        "HTTP-Referer": chrome.runtime.getURL(""),
         "X-Title": "Better YouTube - Summarizer",
       },
     },
