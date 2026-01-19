@@ -18,9 +18,9 @@ import {
   untagContent,
 } from "../lineTag";
 import { PromptBuilder } from "./promptBuilder";
-import { SUMMARY_CONFIG, calculateScore, isAcceptable, printQualityBreakdown } from "./qualityUtils";
-import type { Summary, GraphState, SummarizerOutput } from "./schemas";
-import { SummarySchema, GraphStateSchema, QualitySchema } from "./schemas";
+import { calculateScore, isAcceptable, printQualityBreakdown, SUMMARY_CONFIG } from "./qualityUtils";
+import type { GraphState, SummarizerOutput, Summary } from "./schemas";
+import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
 
 // ============================================================================
 // Model Client
@@ -36,8 +36,7 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {
-        "HTTP-Referer": chrome.runtime.getURL(""),
-        "X-Title": "Better YouTube",
+        "X-Title": "Better YouTube - Summarizer",
       },
     },
     temperature: 0.0,
