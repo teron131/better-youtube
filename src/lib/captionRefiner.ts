@@ -73,8 +73,7 @@ function createLLM(apiKey: string, model: string): ChatOpenAI {
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {
-        "HTTP-Referer": chrome.runtime.getURL(""),
-        "X-Title": "Better YouTube",
+        "X-Title": "Better YouTube - Refiner",
       },
     },
     temperature: 0,
