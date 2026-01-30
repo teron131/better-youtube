@@ -5,12 +5,11 @@
 
 import { refineTranscriptWithLLM } from "@/lib/captionRefiner";
 import { ChromeMessage, createMessageListener } from "@/lib/chromeUtils";
-import { ERROR_MESSAGES, MESSAGE_ACTIONS } from "@/lib/constants";
+import { MESSAGE_ACTIONS } from "@/lib/constants";
 import { saveVideoMetadata } from "@/lib/storage";
 import { executeSummarizationWorkflow } from "@/lib/summarizer/captionSummarizer";
 import { clearTranscriptCache, convertToSubtitleSegments, extractVideoInfo, fetchTranscript } from "@/lib/youtubeApi";
 import { broadcastStoredSummary, broadcastSummaryResult, checkStoredSummary, resolveTranscriptSource, resolveVideoInfo } from "./summaryHelpers";
-import { validateApiKeys } from "./validation";
 
 const latestCaptionRequestByVideo = new Map<string, string>();
 const latestSummaryRequestByVideo = new Map<string, string>();
@@ -25,13 +24,7 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(consol
  * Handle scrape video request
  */
 async function handleScrapeVideo(message: ChromeMessage, sendResponse: (response: any) => void) {
-  const { videoId, scrapeCreatorsApiKey } = message;
-
-  // We don't need to check scrapeCreatorsApiKey from message here anymore as fetchTranscript handles it from storage.
-  // But we might want to keep the validation check if we assume the UI validates it first?
-  // Actually, fetchTranscript now returns null if keys are missing in storage.
-  // So we can remove the explicit check here OR ensure it checks storage.
-  // Let's remove the argument passing.
+  const { videoId } = message;
 
   const data = await fetchTranscript(videoId);
   if (!data) {
@@ -57,14 +50,11 @@ async function handleScrapeVideo(message: ChromeMessage, sendResponse: (response
  * Handle fetch subtitles request
  */
 async function handleFetchSubtitles(message: ChromeMessage, tabId: number | undefined, sendResponse: (response: any) => void) {
-  const { videoId, requestId, openRouterApiKey, modelSelection, forceRegenerate } = message;
+  const { videoId, requestId, modelSelection, forceRegenerate } = message;
 
   if (requestId) {
     latestCaptionRequestByVideo.set(videoId, String(requestId));
   }
-
-  // Scrape key check moved to fetchTranscript internals
-  if (!openRouterApiKey) return sendResponse({ status: "error", message: ERROR_MESSAGES.OPENROUTER_KEY_MISSING });
 
   sendResponse({ status: "processing" });
 
@@ -109,8 +99,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
         segments,
         data.title,
         data.description,
-        openRouterApiKey,
-        undefined,
+        undefined, // onProgress
         modelSelection,
         (prioritySegments) => {
           if (!isLatest()) return;
@@ -154,17 +143,13 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
  */
 async function handleGenerateSummary(message: ChromeMessage, sendResponse: (response: any) => void) {
   const {
-    videoId, requestId, transcript: msgTranscript, scrapeCreatorsApiKey, openRouterApiKey,
+    videoId, requestId, transcript: msgTranscript,
     modelSelection, qualityModel, refinerModel, targetLanguage, fastMode, forceRegenerate
   } = message;
 
   if (requestId) {
     latestSummaryRequestByVideo.set(videoId, String(requestId));
   }
-
-
-  const validation = validateApiKeys({ scrapeCreatorsApiKey, openRouterApiKey });
-  if (!validation.valid) return sendResponse({ status: "error", message: validation.error });
 
   sendResponse({ status: "processing" });
 
@@ -193,10 +178,10 @@ async function handleGenerateSummary(message: ChromeMessage, sendResponse: (resp
       const videoInfo = await resolveVideoInfo(videoId);
 
       const result = await executeSummarizationWorkflow({
-        transcript_or_url, videoId, scrapeCreatorsApiKey,
+        transcript_or_url, videoId,
         summary_model: modelSelection, quality_model: qualityModel || modelSelection,
         refiner_model: refinerModel, target_language: targetLanguage, fast_mode: fastMode,
-      }, openRouterApiKey);
+      });
 
       if (!isLatest()) return;
 

@@ -1,29 +1,9 @@
 /**
  * Configuration Loaders for Sidepanel
- * Centralized functions to load API keys and model settings from storage
+ * Centralized functions to load model settings from storage
  */
 
 import { DEFAULTS, STORAGE_KEYS } from '@/lib/constants';
-
-/**
- * Get API keys from chrome.storage
- */
-export async function getApiKeys(): Promise<{
-  scrapeCreatorsApiKey: string;
-  openRouterApiKey: string;
-}> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(
-      [STORAGE_KEYS.SCRAPE_CREATORS_API_KEY, STORAGE_KEYS.OPENROUTER_API_KEY],
-      (result) => {
-        resolve({
-          scrapeCreatorsApiKey: result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || '',
-          openRouterApiKey: result[STORAGE_KEYS.OPENROUTER_API_KEY] || '',
-        });
-      }
-    );
-  });
-}
 
 /**
  * Get model settings from chrome.storage
@@ -67,16 +47,13 @@ export async function getModelSettings(): Promise<{
 }
 
 /**
- * Get combined configuration (API keys + model settings)
+ * Get combined configuration (model settings)
  */
 export async function getProcessingConfig(): Promise<{
-  scrapeCreatorsApiKey: string;
-  openRouterApiKey: string;
   summarizerModel: string;
   refinerModel: string;
   targetLanguage: string;
   showSubtitles: boolean;
 }> {
-  const [apiKeys, modelSettings] = await Promise.all([getApiKeys(), getModelSettings()]);
-  return { ...apiKeys, ...modelSettings };
+  return await getModelSettings();
 }

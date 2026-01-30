@@ -78,8 +78,6 @@ function handleGenerateSummary(
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
     videoId,
     requestId,
-    scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
-    openRouterApiKey: message.openRouterApiKey,
     modelSelection: message.modelSelection,
     targetLanguage: message.targetLanguage,
     fastMode: message.fastMode,
@@ -113,8 +111,6 @@ function handleGenerateSubtitles(
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     requestId,
-    scrapeCreatorsApiKey: message.scrapeCreatorsApiKey,
-    openRouterApiKey: message.openRouterApiKey,
     modelSelection: message.modelSelection,
     forceRegenerate: message.forceRegenerate === true,
   })

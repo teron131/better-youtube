@@ -180,17 +180,14 @@ class ContentManager {
   ): Promise<void> {
     this.clearSubtitles();
 
-    const scrapeCreatorsApiKey = storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] as string;
-    const openRouterApiKey = storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] as string;
-
-      if (await executeScrapeForAutoGen(videoId, scrapeCreatorsApiKey)) {
-        if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
-          const refinerModel = getRefinerModelFromStorage(storageResult);
-          const requestId = createRequestId("caption");
-          this.state.currentCaptionRequestId = requestId;
-          triggerCaptionRefinement(videoId, requestId, scrapeCreatorsApiKey, openRouterApiKey, refinerModel, clearAutoGenerationTrigger);
-        }
-      } else {
+    if (await executeScrapeForAutoGen(videoId)) {
+      if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
+        const refinerModel = getRefinerModelFromStorage(storageResult);
+        const requestId = createRequestId("caption");
+        this.state.currentCaptionRequestId = requestId;
+        triggerCaptionRefinement(videoId, requestId, refinerModel, clearAutoGenerationTrigger);
+      }
+    } else {
       clearAutoGenerationTrigger(videoId);
     }
   }

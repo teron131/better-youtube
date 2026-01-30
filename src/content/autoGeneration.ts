@@ -62,8 +62,21 @@ export function validateAutoGenerationConditions(
     return { isValid: false, reason: "captions disabled" };
   }
 
-  if (!storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY]) {
-    console.log("Auto-gen skipped: missing Scrape Creators key");
+  const hasTranscriptKey =
+    !!process.env.SCRAPECREATORS_API_KEY?.trim() ||
+    !!process.env.SUPADATA_API_KEY?.trim() ||
+    !!String(storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || "").trim() ||
+    !!String(storageResult[STORAGE_KEYS.SUPADATA_API_KEY] || "").trim();
+  if (!hasTranscriptKey) {
+    console.log("Auto-gen skipped: missing transcript API key");
+    return { isValid: false, reason: "missing api key" };
+  }
+
+  const hasOpenRouterKey =
+    !!process.env.OPENROUTER_API_KEY?.trim() ||
+    !!String(storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "").trim();
+  if (!hasOpenRouterKey) {
+    console.log("Auto-gen skipped: missing OpenRouter key");
     return { isValid: false, reason: "missing api key" };
   }
 

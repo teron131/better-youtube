@@ -16,7 +16,6 @@ import { ApiError, StreamingProcessingResult, StreamingProgressState } from './t
 async function performScrape(
   videoId: string,
   url: string,
-  scrapeCreatorsApiKey: string,
   onProgress?: (state: StreamingProgressState) => void
 ): Promise<any> {
   onProgress?.({ step: 'scraping', stepName: 'Fetching Transcript', status: 'processing', message: 'Fetching video transcript...' });
@@ -24,7 +23,6 @@ async function performScrape(
   const result = await sendChromeMessage({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
-    scrapeCreatorsApiKey
   });
 
   if (result.status !== 'success') throw new Error('Failed to fetch video data');
@@ -124,16 +122,12 @@ function createSummaryListener(
 function triggerRefinement(
   videoId: string,
   requestId: RequestId,
-  scrapeCreatorsApiKey: string,
-  openRouterApiKey: string,
   refinerModel: string
 ): void {
   sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     requestId,
-    scrapeCreatorsApiKey,
-    openRouterApiKey,
     modelSelection: refinerModel
   }).catch(err => console.error('Caption refinement error:', err));
 }
@@ -145,17 +139,12 @@ export async function triggerCaptionGeneration(
   const videoId = extractVideoId(url);
   if (!videoId) throw new Error('Invalid YouTube URL');
 
-  const { scrapeCreatorsApiKey, openRouterApiKey, refinerModel } = await getProcessingConfig();
-
-  if (!scrapeCreatorsApiKey) throw new Error('Scrape Creators API key not configured');
-  if (!openRouterApiKey) throw new Error('OpenRouter API key not configured');
+  const { refinerModel } = await getProcessingConfig();
 
   const response = await sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     requestId: createRequestId("caption"),
-    scrapeCreatorsApiKey,
-    openRouterApiKey,
     modelSelection: refinerModel,
     forceRegenerate: options?.forceRegenerate,
   });
@@ -187,16 +176,13 @@ export async function streamSummary(
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error('Invalid YouTube URL');
 
-    const { scrapeCreatorsApiKey, openRouterApiKey, summarizerModel, refinerModel, targetLanguage, showSubtitles } =
+    const { summarizerModel, refinerModel, targetLanguage, showSubtitles } =
       await getProcessingConfig();
-
-    if (!scrapeCreatorsApiKey) throw new Error('Scrape Creators API key not configured');
-    if (!openRouterApiKey) throw new Error('OpenRouter API key not configured');
 
     let videoInfo: any = null;
     if (!options.transcript) {
-      videoInfo = await performScrape(videoId, url, scrapeCreatorsApiKey, onProgress);
-      if (showSubtitles) triggerRefinement(videoId, createRequestId("caption"), scrapeCreatorsApiKey, openRouterApiKey, refinerModel);
+      videoInfo = await performScrape(videoId, url, onProgress);
+      if (showSubtitles) triggerRefinement(videoId, createRequestId("caption"), refinerModel);
     } else {
       onProgress?.({ step: 'scraping', stepName: 'Fetching Transcript', status: 'completed', message: 'Using provided transcript' });
     }
@@ -211,8 +197,6 @@ export async function streamSummary(
       videoId,
       requestId,
       transcript: options.transcript,
-      scrapeCreatorsApiKey,
-      openRouterApiKey,
       modelSelection: options.summaryModel || summarizerModel,
       qualityModel: options.qualityModel,
       refinerModel,

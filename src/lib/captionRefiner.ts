@@ -5,6 +5,7 @@
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
+import { getOpenRouterApiKey } from "./runtimeConfig";
 import { API_ENDPOINTS, DEFAULTS, REFINER_CONFIG } from "./constants";
 import { chunkSegmentsByCount, parseRefinedSegments } from "./segmentParser";
 import { SubtitleSegment } from "./storage";
@@ -66,14 +67,15 @@ function buildUserPreamble(title: string, description: string): string {
   ].join("\n");
 }
 
-function createLLM(apiKey: string, model: string): ChatOpenAI {
+function createLLM(model: string, apiKey: string): ChatOpenAI {
+  const httpReferer = typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("") : "";
   return new ChatOpenAI({
     model,
     apiKey,
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {
-        "HTTP-Referer": chrome.runtime.getURL(""),
+        "HTTP-Referer": httpReferer,
         "X-Title": "Better YouTube - Refiner",
       },
     },
@@ -204,14 +206,15 @@ export async function refineTranscriptWithLLM(
   segments: SubtitleSegment[],
   title: string,
   description: string,
-  apiKey: string,
   onProgress?: (chunkIdx: number, totalChunks: number) => void,
   model: string = DEFAULTS.MODEL_REFINER,
   onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
-  const llm = createLLM(apiKey, model);
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) throw new Error("OpenRouter API key missing");
+  const llm = createLLM(model, apiKey);
   const preambleText = buildUserPreamble(title, description);
   const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
     segments,

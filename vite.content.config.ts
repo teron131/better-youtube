@@ -1,31 +1,37 @@
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
-export default defineConfig({
-  plugins: [nodePolyfills()],
-  resolve: {
-    alias: [
-      { find: "@", replacement: path.resolve(__dirname, "./src") },
-      { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
-    ],
-  },
-  build: {
-    emptyOutDir: false,
-    outDir: "dist",
-    lib: {
-      entry: path.resolve(__dirname, "src/content/index.ts"),
-      name: "ContentScript",
-      formats: ["iife"],
-      fileName: () => "content.js",
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
+    plugins: [nodePolyfills()],
+    resolve: {
+      alias: [
+        { find: "@", replacement: path.resolve(__dirname, "./src") },
+        { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
+      ],
     },
-    rollupOptions: {
-      output: {
-        extend: true,
+    build: {
+      emptyOutDir: false,
+      outDir: "dist",
+      lib: {
+        entry: path.resolve(__dirname, "src/content/index.ts"),
+        name: "ContentScript",
+        formats: ["iife"],
+        fileName: () => "content.js",
+      },
+      rollupOptions: {
+        output: {
+          extend: true,
+        },
       },
     },
-  },
-  define: {
-    __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
-  },
+    define: {
+      __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
+      "process.env.OPENROUTER_API_KEY": JSON.stringify(env.OPENROUTER_API_KEY ?? ""),
+      "process.env.SCRAPECREATORS_API_KEY": JSON.stringify(env.SCRAPECREATORS_API_KEY ?? ""),
+      "process.env.SUPADATA_API_KEY": JSON.stringify(env.SUPADATA_API_KEY ?? ""),
+    },
+  };
 });
