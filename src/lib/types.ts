@@ -45,3 +45,14 @@ export interface ScrapeCreatorsResponse {
   captionTracks?: any[];
   language?: string;
 }
+
+export interface SupadataResponse {
+  lang: string;
+  availableLangs: string[];
+  content: {
+    lang: string;
+    text: string;
+    offset: number;
+    duration: number;
+  }[];
+}

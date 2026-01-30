@@ -93,8 +93,7 @@ export async function resolveTranscriptSource(
  * Resolve video info (stored → cache → fetch)
  */
 export async function resolveVideoInfo(
-  videoId: string,
-  scrapeCreatorsApiKey: string
+  videoId: string
 ): Promise<VideoMetadata> {
   const stored = await getStoredVideoMetadata(videoId);
   if (stored) {
@@ -110,7 +109,7 @@ export async function resolveVideoInfo(
   }
 
   console.log(`No stored/cached video info for ${videoId}, fetching...`);
-  const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+  const data = await fetchTranscript(videoId);
   if (data) {
     const videoInfo = extractVideoInfo(data, videoId);
     await saveVideoMetadata(videoId, videoInfo);
