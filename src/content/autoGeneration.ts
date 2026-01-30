@@ -63,8 +63,6 @@ export function validateAutoGenerationConditions(
   }
 
   const hasTranscriptKey =
-    !!process.env.SCRAPECREATORS_API_KEY?.trim() ||
-    !!process.env.SUPADATA_API_KEY?.trim() ||
     !!String(storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || "").trim() ||
     !!String(storageResult[STORAGE_KEYS.SUPADATA_API_KEY] || "").trim();
   if (!hasTranscriptKey) {
@@ -72,9 +70,7 @@ export function validateAutoGenerationConditions(
     return { isValid: false, reason: "missing api key" };
   }
 
-  const hasOpenRouterKey =
-    !!process.env.OPENROUTER_API_KEY?.trim() ||
-    !!String(storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "").trim();
+  const hasOpenRouterKey = !!String(storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "").trim();
   if (!hasOpenRouterKey) {
     console.log("Auto-gen skipped: missing OpenRouter key");
     return { isValid: false, reason: "missing api key" };

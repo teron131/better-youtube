@@ -13,7 +13,7 @@ import {
   saveSummary,
   saveVideoMetadata,
 } from "@/lib/storage";
-import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/youtubeApi";
+import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/transcript";
 
 /**
  * Check if stored summary exists and is still valid for the current request

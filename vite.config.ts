@@ -44,9 +44,6 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
-      "process.env.OPENROUTER_API_KEY": JSON.stringify(env.OPENROUTER_API_KEY ?? ""),
-      "process.env.SCRAPECREATORS_API_KEY": JSON.stringify(env.SCRAPECREATORS_API_KEY ?? ""),
-      "process.env.SUPADATA_API_KEY": JSON.stringify(env.SUPADATA_API_KEY ?? ""),
     },
   };
 });
