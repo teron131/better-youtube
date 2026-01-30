@@ -1,7 +1,7 @@
 import { getScrapeCreatorsApiKey, getSupadataApiKey } from "@/lib/core/runtimeConfig";
 import type { SubtitleSegment, VideoMetadata } from "@/lib/core/storage";
-import { formatTimestamp } from "@/lib/utils/date";
 import type { ApiTranscriptSegment, ScrapeCreatorsResponse } from "@/lib/core/types";
+import { formatTimestamp } from "@/lib/utils/date";
 
 import {
   clearPendingTranscript,
@@ -41,6 +41,7 @@ export function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string):
     upload_date: data.publishDate || null,
     view_count: data.viewCountInt ?? null,
     like_count: data.likeCountInt ?? null,
+    description: data.description || null,
   };
 }
 
