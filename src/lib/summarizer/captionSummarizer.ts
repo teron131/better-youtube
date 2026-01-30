@@ -10,6 +10,7 @@ import { END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
+import { getOpenRouterApiKey, getScrapeCreatorsApiKey } from "../runtimeConfig";
 import { API_ENDPOINTS, DEFAULTS } from "../constants";
 import {
   filterContent,
@@ -29,14 +30,17 @@ import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
 /**
  * Create OpenRouter LLM instance using LangChain
  */
-function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
+async function createOpenRouterLLM(model: string): Promise<ChatOpenAI> {
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) throw new Error("OpenRouter API key missing");
+  const httpReferer = typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("") : "";
   return new ChatOpenAI({
     model,
     apiKey,
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: { 
-        "HTTP-Referer": chrome.runtime.getURL(""),
+        "HTTP-Referer": httpReferer,
         "X-Title": "Better YouTube - Summarizer",
       },
     },
@@ -54,14 +58,15 @@ function createOpenRouterLLM(model: string, apiKey: string): ChatOpenAI {
 function createScrapYoutubeTool(input: SummarizationInput) {
   return tool(
     async ({ youtube_url }) => {
-      const { transcript_or_url, videoId, scrapeCreatorsApiKey } = input;
+      const { transcript_or_url, videoId } = input;
+      const scrapeCreatorsApiKey = await getScrapeCreatorsApiKey();
       
       if (!isYoutubeUrl(transcript_or_url) && (!videoId || youtube_url.includes(videoId))) {
         return transcript_or_url;
       }
 
       if (!scrapeCreatorsApiKey) {
-        return "Error: Scrape Creators API key not provided to the tool.";
+        return "Error: Scrape Creators API key not configured.";
       }
 
       try {
@@ -101,7 +106,7 @@ function createScrapYoutubeTool(input: SummarizationInput) {
 
 const GARBAGE_FILTER_PROMPT = "Identify and remove garbage sections such as promotional and meaningless content like cliche intros, outros, filler, sponsorships, and other irrelevant segments. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed.";
 
-function createGarbageFilterMiddleware(apiKey: string, model: string) {
+function createGarbageFilterMiddleware(model: string) {
   return createMiddleware({
     name: "garbageFilterMiddleware",
     wrapToolCall: async (request, handler) => {
@@ -115,7 +120,7 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 
       try {
         const taggedTranscript = tagContent(transcript);
-        const garbage = await createOpenRouterLLM(model, apiKey)
+        const garbage = await (await createOpenRouterLLM(model))
           .withStructuredOutput(GarbageIdentificationSchema, { method: "jsonMode" })
           .invoke([
             ["system", GARBAGE_FILTER_PROMPT],
@@ -124,7 +129,7 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 
         if (garbage.garbage_ranges?.length) {
           result.content = untagContent(filterContent(taggedTranscript, garbage.garbage_ranges));
-          console.log(`🧹 Middleware removed ${garbage.garbage_ranges.length} garbage sections.`);
+          console.log(`Middleware removed ${garbage.garbage_ranges.length} garbage sections.`);
         }
       } catch (error) {
         console.warn("Garbage filter middleware failed, using raw transcript.", error);
@@ -139,55 +144,59 @@ function createGarbageFilterMiddleware(apiKey: string, model: string) {
 // Graph Nodes
 // ============================================================================
 
-async function summaryNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, summary_model, target_language, transcript, quality, summary, iteration_count, onProgress } = state;
-  const progress = onProgress as ((msg: string) => void) | undefined;
+function createSummaryNode() {
+  return async (state: GraphState): Promise<Partial<GraphState>> => {
+    const { summary_model, target_language, transcript, quality, summary, iteration_count, onProgress } = state;
+    const progress = onProgress as ((msg: string) => void) | undefined;
   
-  progress?.(quality && summary ? "Refining summary based on quality feedback..." : `Generating initial summary. Transcript length: ${transcript.length} characters`);
+    progress?.(quality && summary ? "Refining summary based on quality feedback..." : `Generating initial summary. Transcript length: ${transcript.length} characters`);
 
-  const llm = createOpenRouterLLM(summary_model!, apiKey!).withStructuredOutput(SummarySchema);
-  const targetLang = target_language || "auto";
+    const llm = (await createOpenRouterLLM(summary_model!)).withStructuredOutput(SummarySchema);
+    const targetLang = target_language || "auto";
 
-  let result;
-  if (quality && summary) {
-    const prompt = ChatPromptTemplate.fromMessages([
-      ["system", PromptBuilder.buildImprovementPrompt(targetLang)],
-      ["human", "{improvement_prompt}"],
-    ]);
-    result = await prompt.pipe(llm).invoke({
-      improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
-    });
-  } else {
-    const prompt = ChatPromptTemplate.fromMessages([
-      ["system", PromptBuilder.buildSummaryPrompt(targetLang)],
-      ["human", "{content}"],
-    ]);
-    result = await prompt.pipe(llm).invoke({ content: transcript });
-  }
+    let result;
+    if (quality && summary) {
+      const prompt = ChatPromptTemplate.fromMessages([
+        ["system", PromptBuilder.buildImprovementPrompt(targetLang)],
+        ["human", "{improvement_prompt}"],
+      ]);
+      result = await prompt.pipe(llm).invoke({
+        improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
+      });
+    } else {
+      const prompt = ChatPromptTemplate.fromMessages([
+        ["system", PromptBuilder.buildSummaryPrompt(targetLang)],
+        ["human", "{content}"],
+      ]);
+      result = await prompt.pipe(llm).invoke({ content: transcript });
+    }
 
-  progress?.(quality && summary ? "Summary refined successfully" : "Summary completed");
-  return { summary: result as Summary, iteration_count: iteration_count + 1 };
+    progress?.(quality && summary ? "Summary refined successfully" : "Summary completed");
+    return { summary: result as Summary, iteration_count: iteration_count + 1 };
+  };
 }
 
-async function qualityNode(state: GraphState): Promise<Partial<GraphState>> {
-  const { apiKey, quality_model, summary, iteration_count, onProgress } = state;
-  const progress = onProgress as ((msg: string) => void) | undefined;
+function createQualityNode() {
+  return async (state: GraphState): Promise<Partial<GraphState>> => {
+    const { quality_model, summary, iteration_count, onProgress } = state;
+    const progress = onProgress as ((msg: string) => void) | undefined;
   
-  progress?.(`Performing quality check using model: ${quality_model}...`);
+    progress?.(`Performing quality check using model: ${quality_model}...`);
 
-  const quality = await createOpenRouterLLM(quality_model!, apiKey!)
-    .withStructuredOutput(QualitySchema, { method: "jsonMode" })
-    .invoke([
-      ["system", PromptBuilder.buildQualityPrompt()],
-      ["human", JSON.stringify(summary, null, 2)],
-    ]);
+    const quality = await (await createOpenRouterLLM(quality_model!))
+      .withStructuredOutput(QualitySchema, { method: "jsonMode" })
+      .invoke([
+        ["system", PromptBuilder.buildQualityPrompt()],
+        ["human", JSON.stringify(summary, null, 2)],
+      ]);
 
-  printQualityBreakdown(quality);
-  const score = calculateScore(quality);
+    printQualityBreakdown(quality);
+    const score = calculateScore(quality);
   
-  return {
-    quality,
-    is_complete: score >= SUMMARY_CONFIG.MIN_QUALITY_SCORE || iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS,
+    return {
+      quality,
+      is_complete: score >= SUMMARY_CONFIG.MIN_QUALITY_SCORE || iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS,
+    };
   };
 }
 
@@ -208,8 +217,8 @@ function shouldContinue(state: GraphState): string {
 
 function createSummarizationGraph() {
   return new StateGraph(GraphStateSchema)
-    .addNode("summaryNode", summaryNode)
-    .addNode("qualityNode", qualityNode)
+    .addNode("summaryNode", createSummaryNode())
+    .addNode("qualityNode", createQualityNode())
     .addEdge(START, "summaryNode")
     .addEdge("summaryNode", "qualityNode")
     .addConditionalEdges("qualityNode", shouldContinue, {
@@ -249,7 +258,6 @@ function formatSummaryAsMarkdown(summary: Summary): string {
 export interface SummarizationInput {
   transcript_or_url: string;
   videoId?: string;
-  scrapeCreatorsApiKey?: string;
   summary_model?: string;
   quality_model?: string;
   refiner_model?: string;
@@ -261,7 +269,6 @@ const isYoutubeUrl = (input: string) => input.includes("youtube.com/watch") || i
 
 async function executeFastSummarization(
   input: SummarizationInput,
-  apiKey: string,
   onProgress?: (message: string) => void
 ): Promise<SummarizerOutput> {
   const isUrl = isYoutubeUrl(input.transcript_or_url);
@@ -270,11 +277,11 @@ async function executeFastSummarization(
   const model = input.summary_model ?? SUMMARY_CONFIG.MODEL;
   const targetLang = input.target_language ?? "auto";
   const agent = createAgent({
-    model: createOpenRouterLLM(model, apiKey),
+    model: await createOpenRouterLLM(model),
     tools: isUrl ? [createScrapYoutubeTool(input)] : [],
     systemPrompt: PromptBuilder.buildSummaryPrompt(targetLang),
     responseFormat: toolStrategy(SummarySchema),
-    middleware: isUrl ? [createGarbageFilterMiddleware(apiKey, input.refiner_model ?? DEFAULTS.MODEL_REFINER)] : [],
+    middleware: isUrl ? [createGarbageFilterMiddleware(input.refiner_model ?? DEFAULTS.MODEL_REFINER)] : [],
   });
 
   const response = await agent.invoke({
@@ -297,10 +304,9 @@ async function executeFastSummarization(
 
 export async function executeSummarizationWorkflow(
   input: SummarizationInput,
-  apiKey: string,
   onProgress?: (message: string) => void
 ): Promise<SummarizerOutput> {
-  if (input.fast_mode) return executeFastSummarization(input, apiKey, onProgress);
+  if (input.fast_mode) return executeFastSummarization(input, onProgress);
 
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
@@ -318,7 +324,6 @@ export async function executeSummarizationWorkflow(
     quality: null,
     iteration_count: 0,
     is_complete: false,
-    apiKey,
     onProgress,
   });
 

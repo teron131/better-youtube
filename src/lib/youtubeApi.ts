@@ -1,5 +1,6 @@
-import { API_ENDPOINTS, STORAGE_KEYS, TIMING } from "./constants";
-import { SubtitleSegment, VideoMetadata, getStorageValue } from "./storage";
+import { getScrapeCreatorsApiKey, getSupadataApiKey } from "./runtimeConfig";
+import { API_ENDPOINTS, TIMING } from "./constants";
+import { SubtitleSegment, VideoMetadata } from "./storage";
 import { formatTimestamp } from "./time";
 import {
   ApiTranscriptSegment,
@@ -179,21 +180,20 @@ export async function fetchTranscript(
     return pendingTranscriptFetches.get(videoId)!;
   }
 
-  // Get API keys from storage
   const [apiKey, supadataApiKey] = await Promise.all([
-    getStorageValue<string>(STORAGE_KEYS.SCRAPE_CREATORS_API_KEY),
-    getStorageValue<string>(STORAGE_KEYS.SUPADATA_API_KEY),
+    getScrapeCreatorsApiKey(),
+    getSupadataApiKey(),
   ]);
 
-  if (!apiKey?.trim() && !supadataApiKey?.trim()) {
-    console.error("No transcript API keys found in settings");
+  if (!apiKey && !supadataApiKey) {
+    console.error("No transcript API keys configured");
     return null;
   }
 
   // Primary API fetch
   const fetchPromise = (async () => {
     // 1. Try Scrape Creators API
-    if (apiKey?.trim()) {
+    if (apiKey) {
       const requestUrl = buildTranscriptRequestUrl(videoId);
 
       for (let i = 0; i <= retries; i++) {
@@ -231,7 +231,7 @@ export async function fetchTranscript(
     }
 
     // 2. Fallback to Supadata API
-    if (supadataApiKey?.trim()) {
+    if (supadataApiKey) {
       console.log("Falling back to Supadata API...");
       const supadataResult = await fetchTranscriptSupadata(videoId, supadataApiKey);
       if (supadataResult) {

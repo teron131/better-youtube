@@ -35,6 +35,7 @@ export function buildStorageKeysForVideo(): string[] {
   return [
     STORAGE_KEYS.AUTO_GENERATE,
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
+    STORAGE_KEYS.SUPADATA_API_KEY,
     STORAGE_KEYS.OPENROUTER_API_KEY,
     STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
     STORAGE_KEYS.REFINER_CUSTOM_MODEL,
@@ -78,15 +79,13 @@ export function getTargetLanguageFromStorage(storageResult: any): string {
 }
 
 export async function executeScrapeForAutoGen(
-  videoId: string,
-  scrapeCreatorsApiKey: string
+  videoId: string
 ): Promise<boolean> {
   console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
   const result = await sendChromeMessage<{ status: string }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
     requestId: createRequestId("scrape"),
-    scrapeCreatorsApiKey,
   }).catch(() => ({ status: "error" }));
   if (result.status !== "success") {
     console.error(`[Auto-gen] Scrape failed for ${videoId}`);
@@ -99,8 +98,6 @@ export async function executeScrapeForAutoGen(
 export function triggerCaptionRefinement(
   videoId: string,
   requestId: RequestId,
-  scrapeCreatorsApiKey: string,
-  openRouterApiKey: string,
   refinerModel: string,
   onError?: (id: string) => void
 ): void {
@@ -108,8 +105,6 @@ export function triggerCaptionRefinement(
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     requestId,
-    scrapeCreatorsApiKey,
-    openRouterApiKey,
     modelSelection: refinerModel,
   })
     .then((r) => console.log("[Auto-gen] Subtitle refinement triggered:", r))
@@ -122,8 +117,6 @@ export function triggerCaptionRefinement(
 export function triggerSummaryGeneration(
   videoId: string,
   requestId: RequestId,
-  scrapeCreatorsApiKey: string,
-  openRouterApiKey: string,
   m: {
     summarizerModel: string;
     qualityModel: string;
@@ -135,8 +128,6 @@ export function triggerSummaryGeneration(
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
     videoId,
     requestId,
-    scrapeCreatorsApiKey,
-    openRouterApiKey,
     modelSelection: m.summarizerModel,
     qualityModel: m.qualityModel,
     targetLanguage: m.targetLanguage,
@@ -162,6 +153,7 @@ export function buildStorageKeysForToggle(): string[] {
   return [
     STORAGE_KEYS.AUTO_GENERATE,
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
+    STORAGE_KEYS.SUPADATA_API_KEY,
     STORAGE_KEYS.OPENROUTER_API_KEY,
     STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
     STORAGE_KEYS.REFINER_CUSTOM_MODEL,

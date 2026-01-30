@@ -92,7 +92,6 @@ export const GraphStateSchema = z.object({
   quality: QualitySchema.nullable().default(null),
   iteration_count: z.number().default(0),
   is_complete: z.boolean().default(false),
-  apiKey: z.string().optional(),
   onProgress: z.any().optional(),
 });
 
