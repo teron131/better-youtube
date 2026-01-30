@@ -1,5 +1,5 @@
-import { TIMING } from "../constants";
-import type { ScrapeCreatorsResponse } from "../types";
+import { TIMING } from "@/lib/core/constants";
+import type { ScrapeCreatorsResponse } from "@/lib/core/types";
 
 const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
 const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();

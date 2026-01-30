@@ -13,7 +13,7 @@ import {
     RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
     TIMING,
     UI_BEHAVIOR,
-} from '@/lib/constants';
+} from '@/lib/core/constants';
 
 // ================================
 // MODEL CONFIGURATION

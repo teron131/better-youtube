@@ -2,8 +2,8 @@
  * Markdown generation utilities
  */
 
-import { SummaryData, VideoInfoResponse } from '@ui/services/types';
-import { convertSummaryChinese } from './utils';
+import { SummaryData, VideoInfoResponse } from '@/lib/core/types';
+import { convertSummaryChinese } from './text';
 
 /**
  * Generate markdown from summary data
@@ -76,4 +76,3 @@ export function generateSummaryMarkdown(
 
   return markdown;
 }
-

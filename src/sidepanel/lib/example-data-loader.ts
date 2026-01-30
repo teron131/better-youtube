@@ -3,7 +3,7 @@
  */
 
 import { exampleData } from '@ui/services/example-data';
-import { StreamingProcessingResult, StreamingProgressState, VideoInfoResponse } from '@ui/services/types';
+import { StreamingProcessingResult, StreamingProgressState, VideoInfoResponse } from '@/lib/core/types';
 
 export interface ExampleDataResult {
   progressStates: StreamingProgressState[];

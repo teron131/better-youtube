@@ -3,7 +3,7 @@
  * Extracted helper functions for handleGenerateSummary to improve readability
  */
 
-import { MESSAGE_ACTIONS } from "@/lib/constants";
+import { MESSAGE_ACTIONS } from "@/lib/core/constants";
 import {
   StoredSummary,
   VideoMetadata,
@@ -12,7 +12,7 @@ import {
   getStoredVideoMetadata,
   saveSummary,
   saveVideoMetadata,
-} from "@/lib/storage";
+} from "@/lib/core/storage";
 import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/transcript";
 
 /**

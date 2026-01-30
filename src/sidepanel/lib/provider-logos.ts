@@ -2,10 +2,10 @@
  * Provider logo mappings
  */
 
-import AnthropicLogo from "@ui/assets/logos/anthropic.svg";
-import GoogleLogo from "@ui/assets/logos/google.svg";
-import OpenAILogo from "@ui/assets/logos/openai.svg";
-import XaiLogo from "@ui/assets/logos/xai.svg";
+import AnthropicLogo from "@/sidepanel/assets/logos/anthropic.svg";
+import GoogleLogo from "@/sidepanel/assets/logos/google.svg";
+import OpenAILogo from "@/sidepanel/assets/logos/openai.svg";
+import XaiLogo from "@/sidepanel/assets/logos/xai.svg";
 
 const LOGO_MAP = {
   google: GoogleLogo,

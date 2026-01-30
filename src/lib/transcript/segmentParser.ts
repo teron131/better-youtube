@@ -3,8 +3,8 @@
  * Advanced transcript segment alignment using dynamic programming
  */
 
-import { SEGMENT_PARSER_CONFIG } from "./constants";
-import type { SubtitleSegment } from "./storage";
+import { SEGMENT_PARSER_CONFIG } from "@/lib/core/constants";
+import type { SubtitleSegment } from "@/lib/core/storage";
 
 /**
  * Compute character-level similarity ratio

@@ -1,8 +1,8 @@
-import { MESSAGE_ACTIONS } from "@/lib/constants";
-import { saveVideoMetadata } from "@/lib/storage";
+import { MESSAGE_ACTIONS } from "@/lib/core/constants";
+import { saveVideoMetadata } from "@/lib/core/storage";
 import { extractVideoInfo, fetchTranscript } from "@/lib/transcript";
 
-import type { ChromeMessage } from "@/lib/chromeUtils";
+import type { ChromeMessage } from "@/lib/utils/chrome";
 
 /**
  * Handle scrape video request

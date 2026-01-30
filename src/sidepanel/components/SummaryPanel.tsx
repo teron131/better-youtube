@@ -8,9 +8,9 @@ import { Input } from "@ui/components/ui/input";
 import { SectionHeader } from "@ui/components/ui/list-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
-import { generateSummaryMarkdown } from "@ui/lib/markdown-utils";
-import { convertSummaryChinese } from "@ui/lib/utils";
-import { SummaryData, QualityData, VideoInfoResponse } from "@ui/services/types";
+import { generateSummaryMarkdown } from "@/lib/utils/markdown";
+import { convertSummaryChinese } from "@/lib/utils/text";
+import { SummaryData, QualityData, VideoInfoResponse } from "@/lib/core/types";
 import { BookOpen, ChevronDown, ChevronUp, Copy, Lightbulb, ListChecks, RefreshCw, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 

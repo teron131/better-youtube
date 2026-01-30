@@ -1,6 +1,16 @@
 /**
- * Date and duration formatting utilities
+ * Time, Date and Duration formatting utilities
  */
+
+/**
+ * Format milliseconds as MM:SS timestamp
+ */
+export function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 /**
  * Format date string to readable format
@@ -43,4 +53,3 @@ export function trimDurationLeadingZeros(duration?: string | null): string | nul
   if (!duration) return null;
   return duration.replace(/^0{1,2}:/, "");
 }
-

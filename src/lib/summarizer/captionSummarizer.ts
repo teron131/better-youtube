@@ -7,17 +7,17 @@ import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { createAgent, createMiddleware, toolStrategy } from "langchain";
+import { createAgent, createMiddleware, toolStrategy } from "@/lib/langgraph-web-shim";
 import { z } from "zod";
-import { getScrapeCreatorsApiKey } from "../runtimeConfig";
-import { API_ENDPOINTS, DEFAULTS } from "../constants";
+import { getScrapeCreatorsApiKey } from "@/lib/core/runtimeConfig";
+import { API_ENDPOINTS, DEFAULTS } from "@/lib/core/constants";
 import { createSummarizerLLM } from "./openrouter";
 import {
   filterContent,
   GarbageIdentificationSchema,
   tagContent,
   untagContent,
-} from "../lineTag";
+} from "@/lib/transcript/lineTag";
 import { PromptBuilder } from "./promptBuilder";
 import { calculateScore, isAcceptable, printQualityBreakdown, SUMMARY_CONFIG } from "./qualityUtils";
 import type { GraphState, SummarizerOutput, Summary } from "./schemas";

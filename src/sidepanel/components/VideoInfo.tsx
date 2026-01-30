@@ -3,9 +3,9 @@
  */
 
 import { Card } from "@ui/components/ui/card";
-import { formatDate, trimDurationLeadingZeros } from "@ui/lib/date-utils";
-import { cleanVideoUrl } from "@ui/lib/url-utils";
-import { s2tw } from "@ui/lib/utils";
+import { formatDate, trimDurationLeadingZeros } from "@/lib/utils/date";
+import { cleanVideoUrl } from "@/lib/utils/url";
+import { s2tw } from "@/lib/utils/text";
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";
 import { ReactNode } from "react";
 

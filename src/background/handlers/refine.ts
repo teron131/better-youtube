@@ -1,5 +1,5 @@
-import type { ChromeMessage } from "@/lib/chromeUtils";
-import { MESSAGE_ACTIONS } from "@/lib/constants";
+import type { ChromeMessage } from "@/lib/utils/chrome";
+import { MESSAGE_ACTIONS } from "@/lib/core/constants";
 import { refineTranscriptWithLLM } from "@/lib/refiner";
 import { clearTranscriptCache, convertToSubtitleSegments, fetchTranscript } from "@/lib/transcript";
 

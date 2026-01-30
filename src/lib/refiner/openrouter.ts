@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { API_ENDPOINTS } from "../constants";
-import { getOpenRouterApiKey } from "../runtimeConfig";
+import { API_ENDPOINTS } from "@/lib/core/constants";
+import { getOpenRouterApiKey } from "@/lib/core/runtimeConfig";
 
 export async function createRefinerLLM(model: string): Promise<ChatOpenAI> {
   const apiKey = await getOpenRouterApiKey();

@@ -1,6 +1,6 @@
-import type { FontSize } from "@/lib/constants";
-import { MESSAGE_ACTIONS, RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/constants";
-import { getStorageValues, setStorageValue } from "@/lib/storage";
+import type { FontSize } from "@/lib/core/constants";
+import { MESSAGE_ACTIONS, RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/core/constants";
+import { getStorageValues, setStorageValue } from "@/lib/core/storage";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { EditableCombobox } from "@ui/components/ui/editable-combobox";
