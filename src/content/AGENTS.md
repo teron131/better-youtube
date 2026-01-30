@@ -9,14 +9,14 @@
 
 ## Where To Look
 
-| File | Purpose |
-| --- | --- |
-| `src/content/index.ts` | Lifecycle entry; `ContentManager` + `MutationObserver` for YouTube SPA navigation; initializes overlay + loads cached subtitles. |
-| `src/content/messageHandler.ts` | `chrome.runtime.onMessage` router; `switch (message.action)` over `MESSAGE_ACTIONS`. |
-| `src/content/subtitleRenderer.ts` | DOM overlay + playback sync (`requestAnimationFrame` loop) and font-size CSS var updates. |
-| `src/content/autoGeneration.ts` | Auto-gen gating (settings checks, “already triggered” set), context validity, and delay scheduling. |
-| `src/content/contentHelpers.ts` | Video ID + staleness guards (`isCurrentVideo`), storage key lists, and background message helpers. |
-| `public/assets/subtitles.css` | Overlay CSS (IDs: `youtube-gemini-subtitles-container`, `youtube-gemini-subtitles-text`). |
+| File                              | Purpose                                                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `src/content/index.ts`            | Lifecycle entry; `ContentManager` + `MutationObserver` for YouTube SPA navigation; initializes overlay + loads cached subtitles. |
+| `src/content/messageHandler.ts`   | `chrome.runtime.onMessage` router; `switch (message.action)` over `MESSAGE_ACTIONS`.                                             |
+| `src/content/subtitleRenderer.ts` | DOM overlay + playback sync (`requestAnimationFrame` loop) and font-size CSS var updates.                                        |
+| `src/content/autoGeneration.ts`   | Auto-gen gating (settings checks, “already triggered” set), context validity, and delay scheduling.                              |
+| `src/content/contentHelpers.ts`   | Video ID + staleness guards (`isCurrentVideo`), storage key lists, and background message helpers.                               |
+| `public/assets/subtitles.css`     | Overlay CSS (IDs: `youtube-gemini-subtitles-container`, `youtube-gemini-subtitles-text`).                                        |
 
 ## Conventions
 

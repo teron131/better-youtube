@@ -31,20 +31,20 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
 
 ## Where to look
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Add/rename message actions | `src/lib/constants.ts` | `MESSAGE_ACTIONS` is the cross-context contract. |
-| Background routing / orchestration | `src/background/index.ts` | MV3 service worker entrypoint. |
-| Background summary helpers | `src/background/summaryHelpers.ts` | Sends `SUMMARY_GENERATED` / error broadcasts. |
-| Content script lifecycle | `src/content/index.ts` | `ContentManager` + SPA navigation handling. |
-| Content message handling | `src/content/messageHandler.ts` | `chrome.runtime.onMessage` switch on `MESSAGE_ACTIONS`. |
-| Subtitle overlay rendering | `src/content/subtitleRenderer.ts` | CSS lives in `public/assets/subtitles.css`. |
-| Side panel main page | `src/sidepanel/pages/Index.tsx` | Main UI orchestrator. |
-| Side panel settings | `src/sidepanel/pages/Settings.tsx` | API keys/models/preferences + `chrome.tabs` messaging. |
-| Streaming / long task handling | `src/sidepanel/services/streaming.ts` | Uses `requestId` to match broadcasts to requests. |
-| Storage layer | `src/lib/storage.ts` | `chrome.storage.local` with `localStorage` fallback. |
-| Transcript fetching | `src/lib/youtubeApi.ts` | ScrapeCreators client + caching/deduplication. |
-| LLM summarization | `src/lib/summarizer/*` | LangGraph/LangChain + zod schemas. |
+| Task                               | Location                              | Notes                                                   |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| Add/rename message actions         | `src/lib/constants.ts`                | `MESSAGE_ACTIONS` is the cross-context contract.        |
+| Background routing / orchestration | `src/background/index.ts`             | MV3 service worker entrypoint.                          |
+| Background summary helpers         | `src/background/summaryHelpers.ts`    | Sends `SUMMARY_GENERATED` / error broadcasts.           |
+| Content script lifecycle           | `src/content/index.ts`                | `ContentManager` + SPA navigation handling.             |
+| Content message handling           | `src/content/messageHandler.ts`       | `chrome.runtime.onMessage` switch on `MESSAGE_ACTIONS`. |
+| Subtitle overlay rendering         | `src/content/subtitleRenderer.ts`     | CSS lives in `public/assets/subtitles.css`.             |
+| Side panel main page               | `src/sidepanel/pages/Index.tsx`       | Main UI orchestrator.                                   |
+| Side panel settings                | `src/sidepanel/pages/Settings.tsx`    | API keys/models/preferences + `chrome.tabs` messaging.  |
+| Streaming / long task handling     | `src/sidepanel/services/streaming.ts` | Uses `requestId` to match broadcasts to requests.       |
+| Storage layer                      | `src/lib/storage.ts`                  | `chrome.storage.local` with `localStorage` fallback.    |
+| Transcript fetching                | `src/lib/youtubeApi.ts`               | ScrapeCreators client + caching/deduplication.          |
+| LLM summarization                  | `src/lib/summarizer/*`                | LangGraph/LangChain + zod schemas.                      |
 
 ## Conventions (project-specific)
 
