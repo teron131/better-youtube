@@ -2,10 +2,10 @@
  * Component displaying video metadata including thumbnail, title, author, and statistics.
  */
 
-import { Card } from "@ui/components/ui/card";
 import { formatDate, trimDurationLeadingZeros } from "@/lib/utils/date";
-import { cleanVideoUrl } from "@/lib/utils/url";
 import { s2tw } from "@/lib/utils/text";
+import { cleanVideoUrl } from "@/lib/utils/url";
+import { Card } from "@ui/components/ui/card";
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -35,6 +35,8 @@ interface VideoInfoProps {
 }
 
 export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like_count, upload_date, url }: VideoInfoProps) => {
+  if (!title) return null;
+
   const displayDuration = trimDurationLeadingZeros(duration || undefined);
   const hasMetrics = view_count != null || like_count != null;
 
