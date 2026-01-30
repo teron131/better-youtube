@@ -27,13 +27,15 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(consol
 async function handleScrapeVideo(message: ChromeMessage, sendResponse: (response: any) => void) {
   const { videoId, scrapeCreatorsApiKey } = message;
 
-  if (!scrapeCreatorsApiKey) {
-    return sendResponse({ status: "error", message: ERROR_MESSAGES.SCRAPE_KEY_MISSING });
-  }
+  // We don't need to check scrapeCreatorsApiKey from message here anymore as fetchTranscript handles it from storage.
+  // But we might want to keep the validation check if we assume the UI validates it first?
+  // Actually, fetchTranscript now returns null if keys are missing in storage.
+  // So we can remove the explicit check here OR ensure it checks storage.
+  // Let's remove the argument passing.
 
-  const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+  const data = await fetchTranscript(videoId);
   if (!data) {
-    return sendResponse({ status: "error", message: "Failed to fetch video data" });
+    return sendResponse({ status: "error", message: "Failed to fetch video data (Check API Key)" });
   }
 
   const videoInfo = extractVideoInfo(data, videoId);
@@ -55,14 +57,13 @@ async function handleScrapeVideo(message: ChromeMessage, sendResponse: (response
  * Handle fetch subtitles request
  */
 async function handleFetchSubtitles(message: ChromeMessage, tabId: number | undefined, sendResponse: (response: any) => void) {
-  const { videoId, requestId, scrapeCreatorsApiKey, openRouterApiKey, modelSelection, forceRegenerate } = message;
+  const { videoId, requestId, openRouterApiKey, modelSelection, forceRegenerate } = message;
 
   if (requestId) {
     latestCaptionRequestByVideo.set(videoId, String(requestId));
   }
 
-
-  if (!scrapeCreatorsApiKey) return sendResponse({ status: "error", message: ERROR_MESSAGES.SCRAPE_KEY_MISSING });
+  // Scrape key check moved to fetchTranscript internals
   if (!openRouterApiKey) return sendResponse({ status: "error", message: ERROR_MESSAGES.OPENROUTER_KEY_MISSING });
 
   sendResponse({ status: "processing" });
@@ -83,7 +84,7 @@ async function handleFetchSubtitles(message: ChromeMessage, tabId: number | unde
     try {
       if (forceRegenerate) clearTranscriptCache(videoId);
 
-      const data = await fetchTranscript(videoId, scrapeCreatorsApiKey);
+      const data = await fetchTranscript(videoId);
       if (!data?.transcript?.length) {
         if (tabId) {
           chrome.tabs.sendMessage(tabId, {
@@ -189,7 +190,7 @@ async function handleGenerateSummary(message: ChromeMessage, sendResponse: (resp
       }
 
       const transcript_or_url = await resolveTranscriptSource(videoId, msgTranscript);
-      const videoInfo = await resolveVideoInfo(videoId, scrapeCreatorsApiKey);
+      const videoInfo = await resolveVideoInfo(videoId);
 
       const result = await executeSummarizationWorkflow({
         transcript_or_url, videoId, scrapeCreatorsApiKey,

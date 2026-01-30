@@ -6,6 +6,7 @@
 
 export const STORAGE_KEYS = {
   SCRAPE_CREATORS_API_KEY: "scrapeCreatorsApiKey",
+  SUPADATA_API_KEY: "supadataApiKey",
   OPENROUTER_API_KEY: "openRouterApiKey",
   SUMMARIZER_RECOMMENDED_MODEL: "summarizerRecommendedModel",
   SUMMARIZER_CUSTOM_MODEL: "summarizerCustomModel",
@@ -27,6 +28,7 @@ export const STORAGE_KEYS = {
 
 export const API_ENDPOINTS = {
   SCRAPE_CREATORS: "https://api.scrapecreators.com/v1/youtube/video/transcript",
+  SUPADATA: "https://api.supadata.ai/v1/transcript",
   OPENROUTER: "https://openrouter.ai/api/v1/chat/completions",
   OPENROUTER_BASE: "https://openrouter.ai/api/v1",
 } as const;

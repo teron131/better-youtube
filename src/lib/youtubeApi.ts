@@ -1,10 +1,11 @@
-import { API_ENDPOINTS, TIMING } from "./constants";
-import { SubtitleSegment, VideoMetadata } from "./storage";
+import { API_ENDPOINTS, STORAGE_KEYS, TIMING } from "./constants";
+import { SubtitleSegment, VideoMetadata, getStorageValue } from "./storage";
 import { formatTimestamp } from "./time";
 import {
   ApiTranscriptSegment,
   RawTranscriptSegment,
-  ScrapeCreatorsResponse
+  ScrapeCreatorsResponse,
+  SupadataResponse
 } from "./types";
 
 // ============================================================================
@@ -30,6 +31,41 @@ function normalizeApiResponse(data: ScrapeCreatorsResponse): ScrapeCreatorsRespo
       startMs: Number(segment.startMs),
       endMs: Number(segment.endMs),
     })),
+  };
+}
+
+/**
+ * Converts Supadata response to ScrapeCreatorsResponse format
+ */
+function normalizeSupadataResponse(data: SupadataResponse, videoId: string): ScrapeCreatorsResponse {
+  const transcript: ApiTranscriptSegment[] = data.content.map((item) => ({
+    text: item.text,
+    startMs: item.offset,
+    endMs: item.offset + item.duration,
+    startTimeText: formatTimestamp(item.offset),
+  }));
+
+  return {
+    success: true,
+    credits_remaining: 0,
+    type: "video",
+    url: createVideoUrl(videoId),
+    transcript,
+    title: "", // Metadata not provided by this specific endpoint
+    description: "",
+    channel: {
+      id: "",
+      url: "",
+      handle: "",
+      title: "",
+    },
+    durationFormatted: "",
+    publishDate: "",
+    viewCountInt: 0,
+    likeCountInt: 0,
+    keywords: [],
+    videoId: videoId,
+    language: data.lang,
   };
 }
 
@@ -62,6 +98,13 @@ export function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string):
 }
 
 /**
+ * Helper to extract full text from a transcript
+ */
+export function getTranscriptText(transcript: ApiTranscriptSegment[]): string {
+  return transcript.map((segment) => segment.text).join(" ");
+}
+
+/**
  * Expose cache for resolving transcript sources
  */
 export function getCachedTranscript(videoId: string): ScrapeCreatorsResponse | undefined {
@@ -84,11 +127,45 @@ export function clearTranscriptCache(videoId: string): void {
 // ============================================================================
 
 /**
+ * Fetch video transcript using Supadata API as a fallback
+ */
+async function fetchTranscriptSupadata(
+  videoId: string,
+  apiKey: string
+): Promise<ScrapeCreatorsResponse | null> {
+  const requestUrl = new URL(API_ENDPOINTS.SUPADATA);
+  requestUrl.searchParams.set("url", createVideoUrl(videoId));
+  requestUrl.searchParams.set("lang", "en");
+  requestUrl.searchParams.set("text", "true");
+  // requestUrl.searchParams.set("mode", "native"); // Optional, based on user curl example
+
+  try {
+    const response = await fetch(requestUrl.toString(), {
+      headers: { 
+        "x-api-key": apiKey,
+        "Content-Type": "application/json"
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.warn(`Supadata API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data: SupadataResponse = await response.json();
+    return normalizeSupadataResponse(data, videoId);
+  } catch (error) {
+    console.warn("Supadata fetch error:", error);
+    return null;
+  }
+}
+
+/**
  * Fetch video transcript using Scrape Creators API with deduplication, caching, and retries
  */
 export async function fetchTranscript(
   videoId: string,
-  apiKey: string,
   retries = 2
 ): Promise<ScrapeCreatorsResponse | null> {
   // Check cache
@@ -102,47 +179,68 @@ export async function fetchTranscript(
     return pendingTranscriptFetches.get(videoId)!;
   }
 
-  if (!apiKey?.trim()) {
-    console.error("API key is missing or empty");
+  // Get API keys from storage
+  const [apiKey, supadataApiKey] = await Promise.all([
+    getStorageValue<string>(STORAGE_KEYS.SCRAPE_CREATORS_API_KEY),
+    getStorageValue<string>(STORAGE_KEYS.SUPADATA_API_KEY),
+  ]);
+
+  if (!apiKey?.trim() && !supadataApiKey?.trim()) {
+    console.error("No transcript API keys found in settings");
     return null;
   }
 
+  // Primary API fetch
   const fetchPromise = (async () => {
-    const requestUrl = buildTranscriptRequestUrl(videoId);
+    // 1. Try Scrape Creators API
+    if (apiKey?.trim()) {
+      const requestUrl = buildTranscriptRequestUrl(videoId);
 
-    for (let i = 0; i <= retries; i++) {
-      if (i > 0) {
-        await delay(TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i);
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
-
-      try {
-        const response = await fetch(requestUrl.toString(), {
-          headers: { "x-api-key": apiKey, Accept: "application/json" },
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`API error (attempt ${i + 1}):`, errorText);
-          if (response.status === 401 || response.status === 403) return null;
-          continue;
+      for (let i = 0; i <= retries; i++) {
+        if (i > 0) {
+          await delay(TIMING.RETRY_BACKOFF_MULTIPLIER_MS * i);
         }
 
-        const data = normalizeApiResponse(await response.json());
-        transcriptCache.set(videoId, { data, timestamp: Date.now() });
-        return data;
-      } catch (error) {
-        console.warn(`Fetch error (attempt ${i + 1}):`, error);
-      } finally {
-        clearTimeout(timeoutId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
+
+        try {
+          const response = await fetch(requestUrl.toString(), {
+            headers: { "x-api-key": apiKey, Accept: "application/json" },
+            cache: "no-store",
+            signal: controller.signal,
+          });
+
+          if (response.ok) {
+            const data = normalizeApiResponse(await response.json());
+            transcriptCache.set(videoId, { data, timestamp: Date.now() });
+            return data;
+          }
+          
+          if (response.status === 401 || response.status === 403) {
+             console.warn("Scrape Creators API auth failed");
+             break; // Don't retry if auth fails
+          }
+          console.warn(`Scrape Creators API error (attempt ${i + 1})`);
+        } catch (error) {
+          console.warn(`Scrape Creators fetch error (attempt ${i + 1}):`, error);
+        } finally {
+          clearTimeout(timeoutId);
+        }
       }
     }
-    
-    // Fallback to empty schema on failure (no raising error)
+
+    // 2. Fallback to Supadata API
+    if (supadataApiKey?.trim()) {
+      console.log("Falling back to Supadata API...");
+      const supadataResult = await fetchTranscriptSupadata(videoId, supadataApiKey);
+      if (supadataResult) {
+        transcriptCache.set(videoId, { data: supadataResult, timestamp: Date.now() });
+        return supadataResult;
+      }
+    }
+
+    // 3. Fallback to empty schema on failure (no raising error)
     return createEmptyScrapeCreatorsResponse(videoId);
   })();
 
