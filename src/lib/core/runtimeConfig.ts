@@ -8,13 +8,19 @@ function normalizeKey(value: unknown): string | null {
 }
 
 export async function getOpenRouterApiKey(): Promise<string | null> {
-  return normalizeKey(await getStorageValue<string>(STORAGE_KEYS.OPENROUTER_API_KEY));
+  return normalizeKey(
+    await getStorageValue<string>(STORAGE_KEYS.OPENROUTER_API_KEY),
+  );
 }
 
 export async function getScrapeCreatorsApiKey(): Promise<string | null> {
-  return normalizeKey(await getStorageValue<string>(STORAGE_KEYS.SCRAPE_CREATORS_API_KEY));
+  return normalizeKey(
+    await getStorageValue<string>(STORAGE_KEYS.SCRAPE_CREATORS_API_KEY),
+  );
 }
 
 export async function getSupadataApiKey(): Promise<string | null> {
-  return normalizeKey(await getStorageValue<string>(STORAGE_KEYS.SUPADATA_API_KEY));
+  return normalizeKey(
+    await getStorageValue<string>(STORAGE_KEYS.SUPADATA_API_KEY),
+  );
 }

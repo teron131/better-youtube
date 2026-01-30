@@ -17,21 +17,23 @@ export interface ChromeMessage<T = any> {
  */
 export async function sendChromeMessage<T = any>(
   message: ChromeMessage,
-  timeout?: number
+  timeout?: number,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     let timeoutId: any;
 
     if (timeout) {
       timeoutId = setTimeout(() => {
-        reject(new Error(`Message timeout after ${timeout}ms: ${message.action}`));
+        reject(
+          new Error(`Message timeout after ${timeout}ms: ${message.action}`),
+        );
       }, timeout);
     }
 
     try {
       chrome.runtime.sendMessage(message, (response) => {
         if (timeoutId) clearTimeout(timeoutId);
-        
+
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
@@ -50,7 +52,7 @@ export async function sendChromeMessage<T = any>(
  */
 export async function sendTabMessage<T = any>(
   tabId: number,
-  message: ChromeMessage
+  message: ChromeMessage,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     try {
@@ -74,8 +76,8 @@ export function createMessageListener(
   handler: (
     message: ChromeMessage,
     sender: chrome.runtime.MessageSender,
-    sendResponse: (response: any) => void
-  ) => boolean | void
+    sendResponse: (response: any) => void,
+  ) => boolean | void,
 ): () => void {
   chrome.runtime.onMessage.addListener(handler);
   return () => chrome.runtime.onMessage.removeListener(handler);

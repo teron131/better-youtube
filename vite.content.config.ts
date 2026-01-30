@@ -9,7 +9,13 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
-        { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
+        {
+          find: /^@langchain\/langgraph$/,
+          replacement: path.resolve(
+            __dirname,
+            "./src/lib/langgraph-web-shim.ts",
+          ),
+        },
       ],
     },
     build: {

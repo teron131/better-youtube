@@ -5,7 +5,9 @@ import * as z from "zod";
  */
 export const ChapterSchema = z.object({
   header: z.string().describe("A descriptive title for the chapter"),
-  summary: z.string().describe("A comprehensive summary of the chapter content"),
+  summary: z
+    .string()
+    .describe("A comprehensive summary of the chapter content"),
   key_points: z
     .array(z.string())
     .describe("Important takeaways and insights from this chapter"),
@@ -18,9 +20,7 @@ export type Chapter = z.infer<typeof ChapterSchema>;
  */
 export const SummarySchema = z.object({
   title: z.string().describe("The main title or topic of the video content"),
-  summary: z
-    .string()
-    .describe("A comprehensive summary of the video content"),
+  summary: z.string().describe("A comprehensive summary of the video content"),
   takeaways: z
     .array(z.string())
     .min(3)
@@ -33,7 +33,9 @@ export const SummarySchema = z.object({
     .array(z.string())
     .min(3)
     .max(3)
-    .describe("The most relevant keywords in the summary worthy of highlighting"),
+    .describe(
+      "The most relevant keywords in the summary worthy of highlighting",
+    ),
   target_language: z
     .string()
     .nullable()
@@ -48,7 +50,9 @@ export type Summary = z.infer<typeof SummarySchema>;
 export const RateSchema = z.object({
   rate: z
     .enum(["Fail", "Refine", "Pass"])
-    .describe("Score for the quality aspect (Fail=poor, Refine=adequate, Pass=excellent)"),
+    .describe(
+      "Score for the quality aspect (Fail=poor, Refine=adequate, Pass=excellent)",
+    ),
   reason: z.string().describe("Reason for the score"),
 });
 
@@ -59,22 +63,22 @@ export type Rate = z.infer<typeof RateSchema>;
  */
 export const QualitySchema = z.object({
   completeness: RateSchema.describe(
-    "Rate for completeness: The entire transcript has been considered"
+    "Rate for completeness: The entire transcript has been considered",
   ),
   structure: RateSchema.describe(
-    "Rate for structure: Summary, takeaways, and key_facts are properly formatted"
+    "Rate for structure: Summary, takeaways, and key_facts are properly formatted",
   ),
   no_garbage: RateSchema.describe(
-    "Rate for no_garbage: Promotional and meaningless content are removed"
+    "Rate for no_garbage: Promotional and meaningless content are removed",
   ),
   meta_language_avoidance: RateSchema.describe(
-    "Rate for meta_language_avoidance: No meta-descriptive language like 'This video explains...'"
+    "Rate for meta_language_avoidance: No meta-descriptive language like 'This video explains...'",
   ),
   useful_keywords: RateSchema.describe(
-    "Rate for useful_keywords: Key facts are relevant and useful for understanding"
+    "Rate for useful_keywords: Key facts are relevant and useful for understanding",
   ),
   correct_language: RateSchema.describe(
-    "Rate for correct_language: Output is in the correct target language"
+    "Rate for correct_language: Output is in the correct target language",
   ),
 });
 

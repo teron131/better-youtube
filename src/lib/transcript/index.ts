@@ -1,6 +1,12 @@
-import { getScrapeCreatorsApiKey, getSupadataApiKey } from "@/lib/core/runtimeConfig";
+import {
+  getScrapeCreatorsApiKey,
+  getSupadataApiKey,
+} from "@/lib/core/runtimeConfig";
 import type { SubtitleSegment, VideoMetadata } from "@/lib/core/storage";
-import type { ApiTranscriptSegment, ScrapeCreatorsResponse } from "@/lib/core/types";
+import type {
+  ApiTranscriptSegment,
+  ScrapeCreatorsResponse,
+} from "@/lib/core/types";
 import { formatTimestamp } from "@/lib/utils/date";
 
 import {
@@ -22,7 +28,9 @@ function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
-export function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): SubtitleSegment[] {
+export function convertToSubtitleSegments(
+  transcript: ApiTranscriptSegment[],
+): SubtitleSegment[] {
   return transcript.map((segment) => ({
     text: segment.text,
     startTime: segment.startMs,
@@ -31,7 +39,10 @@ export function convertToSubtitleSegments(transcript: ApiTranscriptSegment[]): S
   }));
 }
 
-export function extractVideoInfo(data: ScrapeCreatorsResponse, videoId: string): VideoMetadata {
+export function extractVideoInfo(
+  data: ScrapeCreatorsResponse,
+  videoId: string,
+): VideoMetadata {
   return {
     url: data.url || createVideoUrl(videoId),
     title: data.title || null,
@@ -49,7 +60,10 @@ export function getTranscriptText(transcript: ApiTranscriptSegment[]): string {
   return transcript.map((segment) => segment.text).join(" ");
 }
 
-export async function fetchTranscript(videoId: string, retries = 2): Promise<ScrapeCreatorsResponse | null> {
+export async function fetchTranscript(
+  videoId: string,
+  retries = 2,
+): Promise<ScrapeCreatorsResponse | null> {
   const cached = getCachedTranscript(videoId);
   if (cached) return cached;
 
@@ -68,7 +82,11 @@ export async function fetchTranscript(videoId: string, retries = 2): Promise<Scr
 
   const fetchPromise = (async () => {
     if (scrapeCreatorsKey) {
-      const result = await fetchTranscriptFromScrapeCreators(videoId, scrapeCreatorsKey, retries);
+      const result = await fetchTranscriptFromScrapeCreators(
+        videoId,
+        scrapeCreatorsKey,
+        retries,
+      );
       if (result) {
         setCachedTranscript(videoId, result);
         return result;

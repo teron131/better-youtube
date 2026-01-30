@@ -3,7 +3,7 @@
  * Centralized functions to load model settings from storage
  */
 
-import { DEFAULTS, STORAGE_KEYS } from '@/lib/core/constants';
+import { DEFAULTS, STORAGE_KEYS } from "@/lib/core/constants";
 
 /**
  * Get model settings from chrome.storage
@@ -40,8 +40,13 @@ export async function getModelSettings(): Promise<{
           DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
         const showSubtitles = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
 
-        resolve({ summarizerModel, refinerModel, targetLanguage, showSubtitles });
-      }
+        resolve({
+          summarizerModel,
+          refinerModel,
+          targetLanguage,
+          showSubtitles,
+        });
+      },
     );
   });
 }

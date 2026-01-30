@@ -1,7 +1,11 @@
 import type { ChromeMessage } from "@/lib/utils/chrome";
 import { MESSAGE_ACTIONS } from "@/lib/core/constants";
 import { refineTranscriptWithLLM } from "@/lib/refiner";
-import { clearTranscriptCache, convertToSubtitleSegments, fetchTranscript } from "@/lib/transcript";
+import {
+  clearTranscriptCache,
+  convertToSubtitleSegments,
+  fetchTranscript,
+} from "@/lib/transcript";
 
 export async function handleFetchSubtitles(
   message: ChromeMessage,
@@ -10,10 +14,11 @@ export async function handleFetchSubtitles(
     latestCaptionRequestByVideo: Map<string, string>;
     pendingCaptionJobs: Map<string, Promise<void>>;
   },
-  sendResponse: (response: any) => void
+  sendResponse: (response: any) => void,
 ): Promise<void> {
   const { tabId, latestCaptionRequestByVideo, pendingCaptionJobs } = ctx;
-  const { videoId, requestId, modelSelection, forceRegenerate } = message as any;
+  const { videoId, requestId, modelSelection, forceRegenerate } =
+    message as any;
 
   if (requestId) {
     latestCaptionRequestByVideo.set(videoId, String(requestId));
@@ -75,7 +80,7 @@ export async function handleFetchSubtitles(
               })
               .catch(() => {});
           }
-        }
+        },
       );
 
       if (!isLatest()) return;

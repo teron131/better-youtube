@@ -9,15 +9,18 @@ import {
   ScrapRequest,
   ScrapResponse,
   SummarizeRequest,
-  SummarizeResponse
-} from '@/lib/core/types';
+  SummarizeResponse,
+} from "@/lib/core/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const headers = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...options.headers,
   };
 
@@ -27,10 +30,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const error: ApiError = {
-        message: errorData.detail || `Request failed with status ${response.status}`,
+        message:
+          errorData.detail || `Request failed with status ${response.status}`,
         status: response.status,
         details: JSON.stringify(errorData),
-        type: response.status >= 500 ? 'server' : 'validation',
+        type: response.status >= 500 ? "server" : "validation",
       };
       throw error;
     }
@@ -39,8 +43,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   } catch (error) {
     if ((error as ApiError).status) throw error;
     throw {
-      message: error instanceof Error ? error.message : 'Unknown network error',
-      type: 'network',
+      message: error instanceof Error ? error.message : "Unknown network error",
+      type: "network",
     } as ApiError;
   }
 }
@@ -50,15 +54,23 @@ export function handleApiError(error: unknown): ApiError {
     return error as ApiError;
   }
   return {
-    message: error instanceof Error ? error.message : 'Unknown error',
-    type: 'unknown'
+    message: error instanceof Error ? error.message : "Unknown error",
+    type: "unknown",
   };
 }
 
 export const api = {
-  healthCheck: () => request<HealthCheckResponse>('/health'),
-  getConfiguration: () => request<ConfigurationResponse>('/config'),
-  scrapVideo: (data: ScrapRequest) => request<ScrapResponse>('/scrap', { method: 'POST', body: JSON.stringify(data) }),
-  summarize: (data: SummarizeRequest) => request<SummarizeResponse>('/summarize', { method: 'POST', body: JSON.stringify(data) }),
+  healthCheck: () => request<HealthCheckResponse>("/health"),
+  getConfiguration: () => request<ConfigurationResponse>("/config"),
+  scrapVideo: (data: ScrapRequest) =>
+    request<ScrapResponse>("/scrap", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  summarize: (data: SummarizeRequest) =>
+    request<SummarizeResponse>("/summarize", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   baseUrl: API_BASE_URL,
 };

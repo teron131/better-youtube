@@ -1,8 +1,8 @@
-import type { SubtitleSegment } from '@/lib/core/storage';
-import { SummaryData, VideoInfoResponse } from '@/lib/core/types';
-import * as OpenCC from 'opencc-js';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import type { SubtitleSegment } from "@/lib/core/storage";
+import { SummaryData, VideoInfoResponse } from "@/lib/core/types";
+import * as OpenCC from "opencc-js";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 const converterCN2TW = OpenCC.Converter({ from: "cn", to: "tw" });
 const CHINESE_CHAR_REGEX = /[\u4E00-\u9FFF]/;
@@ -30,7 +30,7 @@ export function s2tw(content: string): string {
  * Batch processes all segments for performance
  */
 export function convertSubtitlesToTraditionalChinese(
-  subtitles: SubtitleSegment[]
+  subtitles: SubtitleSegment[],
 ): SubtitleSegment[] {
   if (!subtitles || subtitles.length === 0) return subtitles;
 
@@ -63,15 +63,18 @@ function convertSummaryChineseFieldwise(summary: SummaryData): SummaryData {
 
   return {
     ...summary,
-    title: s2tw(summary.title || ''),
-    summary: s2tw(summary.summary || ''),
+    title: s2tw(summary.title || ""),
+    summary: s2tw(summary.summary || ""),
     takeaways: takeaways.map(s2tw),
     keywords: keywords.map(s2tw),
-    chapters: chapters.map(chapter => ({
+    chapters: chapters.map((chapter) => ({
       ...chapter,
-      header: s2tw(chapter.header || ''),
-      summary: s2tw(chapter.summary || ''),
-      key_points: (Array.isArray(chapter.key_points) ? chapter.key_points : []).map(s2tw),
+      header: s2tw(chapter.header || ""),
+      summary: s2tw(chapter.summary || ""),
+      key_points: (Array.isArray(chapter.key_points)
+        ? chapter.key_points
+        : []
+      ).map(s2tw),
     })),
   };
 }
@@ -92,14 +95,20 @@ export function convertSummaryChinese(summary: SummaryData): SummaryData {
           ...chapter,
           header: chapter.header || "",
           summary: chapter.summary || "",
-          key_points: Array.isArray(chapter.key_points) ? [...chapter.key_points] : [],
+          key_points: Array.isArray(chapter.key_points)
+            ? [...chapter.key_points]
+            : [],
         }))
       : [],
   };
 
   const parts: string[] = [];
   const targets: Array<{ container: any; key: string | number }> = [];
-  const pushTarget = (container: any, key: string | number, value: string | null | undefined) => {
+  const pushTarget = (
+    container: any,
+    key: string | number,
+    value: string | null | undefined,
+  ) => {
     parts.push(value || "");
     targets.push({ container, key });
   };
@@ -143,7 +152,9 @@ export function convertSummaryChinese(summary: SummaryData): SummaryData {
  * Convert video info text fields to traditional Chinese (Taiwan variant)
  * Only converts the final display fields
  */
-export function convertVideoInfoChinese(videoInfo: VideoInfoResponse): VideoInfoResponse {
+export function convertVideoInfoChinese(
+  videoInfo: VideoInfoResponse,
+): VideoInfoResponse {
   return {
     ...videoInfo,
     title: videoInfo.title ? s2tw(videoInfo.title) : videoInfo.title,

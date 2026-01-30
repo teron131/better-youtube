@@ -4,7 +4,11 @@
 
 const DEFAULT_COOKIE_EXPIRY_DAYS = 365;
 
-export function setCookie(name: string, value: string, days: number = DEFAULT_COOKIE_EXPIRY_DAYS): void {
+export function setCookie(
+  name: string,
+  value: string,
+  days: number = DEFAULT_COOKIE_EXPIRY_DAYS,
+): void {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
@@ -12,7 +16,7 @@ export function setCookie(name: string, value: string, days: number = DEFAULT_CO
 
 export function getCookie(name: string): string | null {
   const nameEQ = `${name}=`;
-  const cookies = document.cookie.split(';');
+  const cookies = document.cookie.split(";");
 
   for (const cookie of cookies) {
     const trimmed = cookie.trimStart();
@@ -38,7 +42,11 @@ export function getCookieAsJSON<T>(name: string, defaultValue: T): T {
   }
 }
 
-export function setCookieAsJSON<T>(name: string, value: T, days?: number): void {
+export function setCookieAsJSON<T>(
+  name: string,
+  value: T,
+  days?: number,
+): void {
   try {
     setCookie(name, JSON.stringify(value), days);
   } catch (error) {

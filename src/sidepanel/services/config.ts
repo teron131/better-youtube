@@ -7,13 +7,13 @@
  */
 
 import {
-    DEFAULTS,
-    FILE_LIMITS,
-    RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
-    RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
-    TIMING,
-    UI_BEHAVIOR,
-} from '@/lib/core/constants';
+  DEFAULTS,
+  FILE_LIMITS,
+  RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
+  RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
+  TIMING,
+  UI_BEHAVIOR,
+} from "@/lib/core/constants";
 
 // ================================
 // MODEL CONFIGURATION
@@ -41,12 +41,13 @@ export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 // ================================
 
 export const SUPPORTED_LANGUAGES = {
-  "auto": "🌐 Auto",
-  "en": "🇺🇸 English",
+  auto: "🌐 Auto",
+  en: "🇺🇸 English",
   "zh-TW": "🇭🇰 Chinese",
 } as const;
 
-export const DEFAULT_TARGET_LANGUAGE = DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
+export const DEFAULT_TARGET_LANGUAGE =
+  DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
 
 // ================================
 // TRANSLATION CONFIGURATION
@@ -103,9 +104,10 @@ export type SupportedLanguage = {
 // DERIVED DATA
 // ================================
 
-const convertToAvailableModel = (
-  model: { value: string; label: string },
-): AvailableModel => ({
+const convertToAvailableModel = (model: {
+  value: string;
+  label: string;
+}): AvailableModel => ({
   key: model.value,
   label: model.label,
   provider: inferProviderFromModelKey(model.value),
@@ -128,7 +130,9 @@ export const AVAILABLE_REFINER_MODELS_LIST: AvailableModel[] =
 export const AVAILABLE_MODELS_LIST: AvailableModel[] = [
   ...AVAILABLE_SUMMARIZER_MODELS_LIST,
   ...AVAILABLE_REFINER_MODELS_LIST,
-].filter((model, index, self) => index === self.findIndex((m) => m.key === model.key));
+].filter(
+  (model, index, self) => index === self.findIndex((m) => m.key === model.key),
+);
 
 export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
   SUPPORTED_LANGUAGES,
@@ -153,7 +157,9 @@ export function getModelByKey(key: ModelKey): AvailableModel | undefined {
   return AVAILABLE_MODELS_LIST.find((model) => model.key === key);
 }
 
-export function getLanguageByKey(key: LanguageKey): SupportedLanguage | undefined {
+export function getLanguageByKey(
+  key: LanguageKey,
+): SupportedLanguage | undefined {
   return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
 }
 
@@ -169,7 +175,10 @@ export function isValidLanguage(language: string): language is LanguageKey {
 // VALIDATION
 // ================================
 
-export function validateModelSelection(summaryModel: string, qualityModel: string): {
+export function validateModelSelection(
+  summaryModel: string,
+  qualityModel: string,
+): {
   isValid: boolean;
   errors: string[];
 } {

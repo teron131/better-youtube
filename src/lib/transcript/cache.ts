@@ -1,18 +1,32 @@
 import { TIMING } from "@/lib/core/constants";
 import type { ScrapeCreatorsResponse } from "@/lib/core/types";
 
-const transcriptCache = new Map<string, { data: ScrapeCreatorsResponse; timestamp: number }>();
-const pendingTranscriptFetches = new Map<string, Promise<ScrapeCreatorsResponse | null>>();
+const transcriptCache = new Map<
+  string,
+  { data: ScrapeCreatorsResponse; timestamp: number }
+>();
+const pendingTranscriptFetches = new Map<
+  string,
+  Promise<ScrapeCreatorsResponse | null>
+>();
 
-export function getCachedTranscript(videoId: string): ScrapeCreatorsResponse | undefined {
+export function getCachedTranscript(
+  videoId: string,
+): ScrapeCreatorsResponse | undefined {
   const cached = transcriptCache.get(videoId);
-  if (cached && Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS) {
+  if (
+    cached &&
+    Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS
+  ) {
     return cached.data;
   }
   return undefined;
 }
 
-export function setCachedTranscript(videoId: string, data: ScrapeCreatorsResponse): void {
+export function setCachedTranscript(
+  videoId: string,
+  data: ScrapeCreatorsResponse,
+): void {
   transcriptCache.set(videoId, { data, timestamp: Date.now() });
 }
 
@@ -20,11 +34,16 @@ export function clearTranscriptCache(videoId: string): void {
   transcriptCache.delete(videoId);
 }
 
-export function getPendingTranscript(videoId: string): Promise<ScrapeCreatorsResponse | null> | undefined {
+export function getPendingTranscript(
+  videoId: string,
+): Promise<ScrapeCreatorsResponse | null> | undefined {
   return pendingTranscriptFetches.get(videoId);
 }
 
-export function setPendingTranscript(videoId: string, promise: Promise<ScrapeCreatorsResponse | null>): void {
+export function setPendingTranscript(
+  videoId: string,
+  promise: Promise<ScrapeCreatorsResponse | null>,
+): void {
   pendingTranscriptFetches.set(videoId, promise);
 }
 

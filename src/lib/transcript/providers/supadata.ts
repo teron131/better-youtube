@@ -1,12 +1,19 @@
 import { API_ENDPOINTS } from "@/lib/core/constants";
 import { formatTimestamp } from "@/lib/utils/date";
-import type { ApiTranscriptSegment, ScrapeCreatorsResponse, SupadataResponse } from "@/lib/core/types";
+import type {
+  ApiTranscriptSegment,
+  ScrapeCreatorsResponse,
+  SupadataResponse,
+} from "@/lib/core/types";
 
 function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
-function normalizeSupadataResponse(data: SupadataResponse, videoId: string): ScrapeCreatorsResponse {
+function normalizeSupadataResponse(
+  data: SupadataResponse,
+  videoId: string,
+): ScrapeCreatorsResponse {
   const transcript: ApiTranscriptSegment[] = data.content.map((item) => ({
     text: item.text,
     startMs: item.offset,
@@ -40,7 +47,7 @@ function normalizeSupadataResponse(data: SupadataResponse, videoId: string): Scr
 
 export async function fetchTranscriptFromSupadata(
   videoId: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<ScrapeCreatorsResponse | null> {
   const requestUrl = new URL(API_ENDPOINTS.SUPADATA);
   requestUrl.searchParams.set("url", createVideoUrl(videoId));
@@ -57,7 +64,9 @@ export async function fetchTranscriptFromSupadata(
     });
 
     if (!response.ok) {
-      console.warn(`Supadata API error: ${response.status} ${response.statusText}`);
+      console.warn(
+        `Supadata API error: ${response.status} ${response.statusText}`,
+      );
       return null;
     }
 

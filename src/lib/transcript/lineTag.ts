@@ -10,7 +10,9 @@ export type TagRange = z.infer<typeof TagRangeSchema>;
 export const GarbageIdentificationSchema = z.object({
   garbage_ranges: z
     .array(TagRangeSchema)
-    .describe("List of line ranges identified as promotional or irrelevant content"),
+    .describe(
+      "List of line ranges identified as promotional or irrelevant content",
+    ),
 });
 
 export type GarbageIdentification = z.infer<typeof GarbageIdentificationSchema>;

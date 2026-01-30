@@ -2,16 +2,20 @@
  * Core video processing state management hook with streaming support.
  */
 
-import { useReducer } from 'react';
+import { useReducer } from "react";
 
-import { findStepIndex, normalizeStepName, sortProgressStates } from '@/sidepanel/lib/video-utils';
-import { streamSummary } from '@/sidepanel/services/streaming';
+import {
+  findStepIndex,
+  normalizeStepName,
+  sortProgressStates,
+} from "@/sidepanel/lib/video-utils";
+import { streamSummary } from "@/sidepanel/services/streaming";
 import {
   ApiError,
   StreamingProcessingResult,
   StreamingProgressState,
   VideoInfoResponse,
-} from '@/lib/core/types';
+} from "@/lib/core/types";
 
 export interface VideoProcessingOptions {
   summaryModel?: string;
@@ -37,7 +41,7 @@ const INITIAL_STATE: VideoProcessingState = {
   isLoading: false,
   error: null,
   currentStep: 0,
-  currentStage: '',
+  currentStage: "",
   progressStates: [],
   summaryResult: null,
   scrapedVideoInfo: null,
@@ -49,33 +53,38 @@ const LOADING_STATE: VideoProcessingState = {
   error: null,
   summaryResult: null,
   currentStep: 0,
-  currentStage: 'Initializing...',
+  currentStage: "Initializing...",
   progressStates: [],
   scrapedVideoInfo: null,
   scrapedTranscript: null,
 };
 
 type Action =
-  | { type: 'START' }
-  | { type: 'PROGRESS'; payload: StreamingProgressState }
-  | { type: 'COMPLETE'; payload: StreamingProcessingResult }
-  | { type: 'ERROR'; payload: ApiError }
-  | { type: 'RESET' }
-  | { type: 'UPDATE'; payload: Partial<VideoProcessingState> };
+  | { type: "START" }
+  | { type: "PROGRESS"; payload: StreamingProgressState }
+  | { type: "COMPLETE"; payload: StreamingProcessingResult }
+  | { type: "ERROR"; payload: ApiError }
+  | { type: "RESET" }
+  | { type: "UPDATE"; payload: Partial<VideoProcessingState> };
 
-function reducer(state: VideoProcessingState, action: Action): VideoProcessingState {
+function reducer(
+  state: VideoProcessingState,
+  action: Action,
+): VideoProcessingState {
   switch (action.type) {
-    case 'START':
+    case "START":
       return LOADING_STATE;
 
-    case 'PROGRESS': {
+    case "PROGRESS": {
       const progressState = action.payload;
       const normalizedStep = normalizeStepName(progressState.step);
       const stepIndex = findStepIndex(normalizedStep);
-      
+
       const nextStates = [...state.progressStates];
       const normalizedProgress = { ...progressState, step: normalizedStep };
-      const existingIndex = nextStates.findIndex(s => s.step === normalizedStep);
+      const existingIndex = nextStates.findIndex(
+        (s) => s.step === normalizedStep,
+      );
 
       if (existingIndex >= 0) {
         nextStates[existingIndex] = normalizedProgress;
@@ -88,28 +97,30 @@ function reducer(state: VideoProcessingState, action: Action): VideoProcessingSt
         currentStep: stepIndex >= 0 ? stepIndex : state.currentStep,
         currentStage: progressState.message,
         progressStates: sortProgressStates(nextStates),
-        scrapedVideoInfo: progressState.data?.videoInfo ?? state.scrapedVideoInfo,
-        scrapedTranscript: progressState.data?.transcript ?? state.scrapedTranscript,
+        scrapedVideoInfo:
+          progressState.data?.videoInfo ?? state.scrapedVideoInfo,
+        scrapedTranscript:
+          progressState.data?.transcript ?? state.scrapedTranscript,
       };
     }
 
-    case 'COMPLETE':
+    case "COMPLETE":
       return {
         ...state,
         scrapedVideoInfo: action.payload.videoInfo || state.scrapedVideoInfo,
         scrapedTranscript: action.payload.transcript || state.scrapedTranscript,
         summaryResult: action.payload,
-        currentStage: 'Processing completed',
+        currentStage: "Processing completed",
         isLoading: false,
       };
 
-    case 'ERROR':
+    case "ERROR":
       return { ...state, isLoading: false, error: action.payload };
 
-    case 'RESET':
+    case "RESET":
       return INITIAL_STATE;
 
-    case 'UPDATE':
+    case "UPDATE":
       return { ...state, ...action.payload };
 
     default:
@@ -125,23 +136,23 @@ export function useVideoProcessing() {
     options?: VideoProcessingOptions,
     onProgress?: (state: StreamingProgressState) => void,
   ): Promise<StreamingProcessingResult> => {
-    dispatch({ type: 'START' });
+    dispatch({ type: "START" });
 
     try {
       const result = await streamSummary(url, options || {}, (progress) => {
-        dispatch({ type: 'PROGRESS', payload: progress });
+        dispatch({ type: "PROGRESS", payload: progress });
         onProgress?.(progress);
       });
 
       if (!result.success) {
-        throw result.error || new Error('Processing failed');
+        throw result.error || new Error("Processing failed");
       }
 
-      dispatch({ type: 'COMPLETE', payload: result });
+      dispatch({ type: "COMPLETE", payload: result });
       return result;
     } catch (e) {
       const error = e as ApiError;
-      dispatch({ type: 'ERROR', payload: error });
+      dispatch({ type: "ERROR", payload: error });
       throw error;
     }
   };
@@ -149,7 +160,8 @@ export function useVideoProcessing() {
   return {
     ...state,
     processVideo,
-    updateState: (updates: Partial<VideoProcessingState>) => dispatch({ type: 'UPDATE', payload: updates }),
-    resetState: () => dispatch({ type: 'RESET' }),
+    updateState: (updates: Partial<VideoProcessingState>) =>
+      dispatch({ type: "UPDATE", payload: updates }),
+    resetState: () => dispatch({ type: "RESET" }),
   };
 }

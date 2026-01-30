@@ -21,7 +21,7 @@ export interface ScrapRequest {
 
 export interface SummarizeRequest {
   content: string;
-  content_type?: 'url' | 'transcript';
+  content_type?: "url" | "transcript";
   summary_model?: string;
   quality_model?: string;
   target_language?: string | null;
@@ -69,7 +69,7 @@ export interface ConfigurationResponse {
 }
 
 export interface HealthCheckResponse {
-  status: 'healthy';
+  status: "healthy";
   message: string;
   timestamp: string;
   version: string;
@@ -110,7 +110,7 @@ export interface QualityData {
 }
 
 export interface QualityRate {
-  rate: 'Fail' | 'Refine' | 'Pass';
+  rate: "Fail" | "Refine" | "Pass";
   reason: string;
 }
 
@@ -123,16 +123,22 @@ export interface StreamingChunk {
   is_complete?: boolean;
   timestamp?: string;
   chunk_number?: number;
-  type?: 'status' | 'summary' | 'quality' | 'complete' | 'error';
+  type?: "status" | "summary" | "quality" | "complete" | "error";
   message?: string;
   processing_time?: string;
   total_chunks?: number;
 }
 
 export interface StreamingProgressState {
-  step: 'scraping' | 'summarizing' | 'summary_generation' | 'quality_check' | 'refinement' | 'complete';
+  step:
+    | "scraping"
+    | "summarizing"
+    | "summary_generation"
+    | "quality_check"
+    | "refinement"
+    | "complete";
   stepName: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: "pending" | "processing" | "completed" | "error";
   message: string;
   data?: {
     videoInfo?: VideoInfoResponse;
@@ -164,5 +170,5 @@ export interface ApiError {
   message: string;
   status?: number;
   details?: string;
-  type?: 'network' | 'validation' | 'server' | 'processing' | 'unknown';
+  type?: "network" | "validation" | "server" | "processing" | "unknown";
 }

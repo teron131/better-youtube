@@ -5,7 +5,10 @@
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DEFAULTS, REFINER_CONFIG } from "@/lib/core/constants";
-import { chunkSegmentsByCount, parseRefinedSegments } from "@/lib/transcript/segmentParser";
+import {
+  chunkSegmentsByCount,
+  parseRefinedSegments,
+} from "@/lib/transcript/segmentParser";
 import { SubtitleSegment } from "@/lib/core/storage";
 import { formatTimestamp } from "@/lib/utils/date";
 import { createRefinerLLM } from "@/lib/summarizer/openrouter";
@@ -70,7 +73,9 @@ function extractResponseText(response: any): string {
   const content = response?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map(part => typeof part === "string" ? part : part?.text || "").join("");
+    return content
+      .map((part) => (typeof part === "string" ? part : part?.text || ""))
+      .join("");
   }
   return content != null ? String(content) : "";
 }
@@ -82,12 +87,14 @@ async function runConcurrentBatch<T, R>(
   items: T[],
   concurrency: number,
   fn: (item: T, index: number) => Promise<R>,
-  onEachComplete?: (result: R, index: number, allResults: (R | null)[]) => void
+  onEachComplete?: (result: R, index: number, allResults: (R | null)[]) => void,
 ): Promise<R[]> {
   const results = new Array(items.length);
   const queue = items.map((item, index) => ({ item, index }));
-  
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(async () => {
+
+  const workers = Array.from({
+    length: Math.min(concurrency, items.length),
+  }).map(async () => {
     while (queue.length > 0) {
       const { item, index } = queue.shift()!;
       try {
@@ -120,12 +127,12 @@ interface PriorityWindow {
  */
 function calculatePriorityWindow(
   segments: SubtitleSegment[],
-  maxSegmentsPerChunk: number
+  maxSegmentsPerChunk: number,
 ): PriorityWindow {
   const durationMs = segments[segments.length - 1].endTime;
   const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
 
-  let splitIndex = segments.findIndex(s => s.endTime > PRIORITY_DURATION_MS);
+  let splitIndex = segments.findIndex((s) => s.endTime > PRIORITY_DURATION_MS);
   if (splitIndex === -1) splitIndex = segments.length;
 
   const priorityRangeCount = Math.ceil(splitIndex / maxSegmentsPerChunk);
@@ -140,7 +147,7 @@ function createPriorityHandler(
   priorityRangeCount: number,
   splitIndex: number,
   segments: SubtitleSegment[],
-  onPriorityComplete?: (segments: SubtitleSegment[]) => void
+  onPriorityComplete?: (segments: SubtitleSegment[]) => void,
 ): (result: any, index: number, allResults: (any | null)[]) => void {
   let completedPriorityChunks = 0;
   let priorityReported = false;
@@ -148,19 +155,25 @@ function createPriorityHandler(
   return (result, index, allResults) => {
     if (index < priorityRangeCount) completedPriorityChunks++;
 
-    if (onPriorityComplete && !priorityReported && completedPriorityChunks === priorityRangeCount) {
+    if (
+      onPriorityComplete &&
+      !priorityReported &&
+      completedPriorityChunks === priorityRangeCount
+    ) {
       priorityReported = true;
       const priorityText = allResults
         .slice(0, priorityRangeCount)
-        .map(r => r ? extractResponseText(r).trim() : "")
+        .map((r) => (r ? extractResponseText(r).trim() : ""))
         .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
-      onPriorityComplete(parseRefinedSegments(
-        priorityText,
-        segments.slice(0, splitIndex),
-        REFINER_CONFIG.CHUNK_SENTINEL,
-        REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
-      ));
+      onPriorityComplete(
+        parseRefinedSegments(
+          priorityText,
+          segments.slice(0, splitIndex),
+          REFINER_CONFIG.CHUNK_SENTINEL,
+          REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+        ),
+      );
     }
   };
 }
@@ -168,14 +181,18 @@ function createPriorityHandler(
 /**
  * Validate and extract refined text from response with line count checking
  */
-function validateAndExtractChunk(response: any, range: [number, number], chunkIndex: number): string {
+function validateAndExtractChunk(
+  response: any,
+  range: [number, number],
+  chunkIndex: number,
+): string {
   const text = extractResponseText(response).trim();
   const expectedCount = range[1] - range[0];
   const actualCount = text.split("\n").length;
 
   if (actualCount !== expectedCount) {
     console.warn(
-      `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}`
+      `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}`,
     );
   }
 
@@ -191,7 +208,7 @@ export async function refineTranscriptWithLLM(
   description: string,
   onProgress?: (chunkIdx: number, totalChunks: number) => void,
   model: string = DEFAULTS.MODEL_REFINER,
-  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void
+  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
@@ -199,13 +216,18 @@ export async function refineTranscriptWithLLM(
   const preambleText = buildUserPreamble(title, description);
   const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
     segments,
-    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
   );
 
-  const ranges = chunkSegmentsByCount(segments, REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK);
+  const ranges = chunkSegmentsByCount(
+    segments,
+    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+  );
   const batchMessages = ranges.map(([start, end]) => [
     new SystemMessage({ content: SYSTEM_PROMPT }),
-    new HumanMessage({ content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}` }),
+    new HumanMessage({
+      content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}`,
+    }),
   ]);
 
   onProgress?.(0, batchMessages.length);
@@ -218,7 +240,12 @@ export async function refineTranscriptWithLLM(
       onProgress?.(idx + 1, batchMessages.length);
       return res;
     },
-    createPriorityHandler(priorityRangeCount, splitIndex, segments, onPriorityComplete)
+    createPriorityHandler(
+      priorityRangeCount,
+      splitIndex,
+      segments,
+      onPriorityComplete,
+    ),
   );
 
   const refinedText = responses
@@ -229,6 +256,6 @@ export async function refineTranscriptWithLLM(
     refinedText,
     segments,
     REFINER_CONFIG.CHUNK_SENTINEL,
-    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK
+    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
   );
 }

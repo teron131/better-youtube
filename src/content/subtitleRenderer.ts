@@ -24,8 +24,12 @@ class SubtitleView {
   }
 
   ensureElements(): void {
-    const existingContainer = document.getElementById(ELEMENT_IDS.SUBTITLE_CONTAINER) as HTMLDivElement | null;
-    const existingText = document.getElementById(ELEMENT_IDS.SUBTITLE_TEXT) as HTMLDivElement | null;
+    const existingContainer = document.getElementById(
+      ELEMENT_IDS.SUBTITLE_CONTAINER,
+    ) as HTMLDivElement | null;
+    const existingText = document.getElementById(
+      ELEMENT_IDS.SUBTITLE_TEXT,
+    ) as HTMLDivElement | null;
     if (existingContainer && existingText) {
       this.container = existingContainer;
       this.textElement = existingText;
@@ -50,7 +54,9 @@ class SubtitleView {
       videoContainer.appendChild(this.container);
       console.log("Subtitle container added to video container.");
     } else {
-      console.error("Cannot add subtitle container, video container not found.");
+      console.error(
+        "Cannot add subtitle container, video container not found.",
+      );
     }
   }
 
@@ -78,11 +84,26 @@ class SubtitleView {
   applyFontSize(size: FontSize): void {
     const sizeConfig = FONT_SIZES.CAPTION[size] || FONT_SIZES.CAPTION.M;
 
-    document.documentElement.style.setProperty("--caption-font-size-base", sizeConfig.base);
-    document.documentElement.style.setProperty("--caption-font-size-max", sizeConfig.max);
-    document.documentElement.style.setProperty("--caption-font-size-min", sizeConfig.min);
-    document.documentElement.style.setProperty("--caption-font-size-fullscreen", sizeConfig.fullscreen);
-    document.documentElement.style.setProperty("--caption-font-size-fullscreen-max", sizeConfig.fullscreenMax);
+    document.documentElement.style.setProperty(
+      "--caption-font-size-base",
+      sizeConfig.base,
+    );
+    document.documentElement.style.setProperty(
+      "--caption-font-size-max",
+      sizeConfig.max,
+    );
+    document.documentElement.style.setProperty(
+      "--caption-font-size-min",
+      sizeConfig.min,
+    );
+    document.documentElement.style.setProperty(
+      "--caption-font-size-fullscreen",
+      sizeConfig.fullscreen,
+    );
+    document.documentElement.style.setProperty(
+      "--caption-font-size-fullscreen-max",
+      sizeConfig.fullscreenMax,
+    );
 
     if (this.textElement) {
       this.textElement.style.fontSize = `clamp(${sizeConfig.min}, ${sizeConfig.base}, ${sizeConfig.max})`;
@@ -99,7 +120,11 @@ class SubtitleController {
   private subtitles: SubtitleSegment[];
   private view: SubtitleView;
 
-  constructor(videoPlayer: HTMLVideoElement, subtitles: SubtitleSegment[], view: SubtitleView) {
+  constructor(
+    videoPlayer: HTMLVideoElement,
+    subtitles: SubtitleSegment[],
+    view: SubtitleView,
+  ) {
     this.videoPlayer = videoPlayer;
     this.subtitles = subtitles;
     this.view = view;
@@ -120,7 +145,10 @@ class SubtitleController {
   }
 
   private update = (): void => {
-    if (activeVideoId && extractVideoId(window.location.href) !== activeVideoId) {
+    if (
+      activeVideoId &&
+      extractVideoId(window.location.href) !== activeVideoId
+    ) {
       stopSubtitleDisplay();
       return;
     }
@@ -244,7 +272,10 @@ export function applyCaptionFontSize(size: FontSize): void {
 /**
  * Start displaying subtitles
  */
-export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoId: string): void {
+export function startSubtitleDisplay(
+  currentSubtitles: SubtitleSegment[],
+  videoId: string,
+): void {
   if (!videoPlayer) {
     console.warn("Cannot start subtitle display: Player missing.");
     return;
@@ -258,7 +289,11 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoI
 
   console.log("Starting subtitle display interval.");
 
-  activeController = new SubtitleController(videoPlayer, currentSubtitles, subtitleView);
+  activeController = new SubtitleController(
+    videoPlayer,
+    currentSubtitles,
+    subtitleView,
+  );
   activeController.start();
 }
 
@@ -278,5 +313,8 @@ export function clearRenderer(): void {
 }
 
 function normalizeSubtitleText(text: string): string {
-  return text.replace(/\r\n?/g, "\n").replace(/\n{2,}/g, "\n").trim();
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
 }

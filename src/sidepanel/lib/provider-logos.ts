@@ -11,7 +11,7 @@ const LOGO_MAP = {
   google: GoogleLogo,
   anthropic: AnthropicLogo,
   openai: OpenAILogo,
-  'x-ai': XaiLogo,
+  "x-ai": XaiLogo,
 } as const;
 
 export type Provider = keyof typeof LOGO_MAP;
@@ -22,4 +22,3 @@ export type Provider = keyof typeof LOGO_MAP;
 export function getProviderLogo(provider: string): string | null {
   return LOGO_MAP[provider as Provider] || null;
 }
-

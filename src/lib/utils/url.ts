@@ -71,16 +71,16 @@ export function cleanVideoUrl(input?: string | null): string | null {
  * Get video thumbnail URL
  */
 const QUALITY_MAP = {
-  default: 'default',
-  hq: 'hqdefault',
-  mq: 'mqdefault',
-  sd: 'sddefault',
-  maxres: 'maxresdefault',
+  default: "default",
+  hq: "hqdefault",
+  mq: "mqdefault",
+  sd: "sddefault",
+  maxres: "maxresdefault",
 } as const;
 
 export function getThumbnailUrl(
   videoId: string,
-  quality: keyof typeof QUALITY_MAP = 'hq',
+  quality: keyof typeof QUALITY_MAP = "hq",
 ): string {
   return `https://img.youtube.com/vi/${videoId}/${QUALITY_MAP[quality]}.jpg`;
 }
@@ -90,5 +90,5 @@ export function getThumbnailUrl(
  */
 export const EXAMPLE_YOUTUBE_URLS = [
   "https://youtu.be/...",
-  "https://youtube.com/watch?v=...", 
+  "https://youtube.com/watch?v=...",
 ] as const;

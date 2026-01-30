@@ -99,11 +99,11 @@ async function storageGet<T>(key: string): Promise<T | null> {
  * Low-level storage getter for multiple keys
  */
 async function storageGetMultiple<T extends Record<string, unknown>>(
-  keys: string[]
+  keys: string[],
 ): Promise<Partial<T>> {
   if (!isExtension) {
     const result: Partial<T> = {};
-    keys.forEach(key => {
+    keys.forEach((key) => {
       const item = localStorage.getItem(key);
       if (item) {
         (result as any)[key] = JSON.parse(item);
@@ -124,7 +124,7 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
  */
 async function storageRemove(keys: string[]): Promise<void> {
   if (!isExtension) {
-    keys.forEach(key => localStorage.removeItem(key));
+    keys.forEach((key) => localStorage.removeItem(key));
     return;
   }
 
@@ -170,11 +170,16 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
 // Video Data Storage
 // ============================================================================
 
-export async function getStoredSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
+export async function getStoredSubtitles(
+  videoId: string,
+): Promise<SubtitleSegment[] | null> {
   return storageGet<SubtitleSegment[]>(StorageKeys.subtitles(videoId));
 }
 
-export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
+export async function saveSubtitles(
+  videoId: string,
+  subtitles: SubtitleSegment[],
+): Promise<void> {
   const key = StorageKeys.subtitles(videoId);
   try {
     await storageSet({ [key]: subtitles });
@@ -188,15 +193,22 @@ export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[
   }
 }
 
-export async function getStoredVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
+export async function getStoredVideoMetadata(
+  videoId: string,
+): Promise<VideoMetadata | null> {
   return storageGet<VideoMetadata>(StorageKeys.metadata(videoId));
 }
 
-export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
+export async function saveVideoMetadata(
+  videoId: string,
+  metadata: VideoMetadata,
+): Promise<void> {
   return storageSet({ [StorageKeys.metadata(videoId)]: metadata });
 }
 
-export async function getStoredSummary(videoId: string): Promise<StoredSummary | null> {
+export async function getStoredSummary(
+  videoId: string,
+): Promise<StoredSummary | null> {
   return storageGet<StoredSummary>(StorageKeys.summary(videoId));
 }
 
@@ -205,7 +217,7 @@ export async function saveSummary(
   summary: any,
   modelUsed: string,
   targetLanguage?: string | null,
-  quality?: any
+  quality?: any,
 ): Promise<void> {
   const key = StorageKeys.summary(videoId);
   const storedSummary: StoredSummary = {
@@ -241,7 +253,7 @@ export async function setStorageValue<T>(key: string, value: T): Promise<void> {
 }
 
 export async function getStorageValues<T extends Record<string, unknown>>(
-  keys: string[]
+  keys: string[],
 ): Promise<Partial<T>> {
   return storageGetMultiple<T>(keys);
 }
@@ -271,11 +283,15 @@ export async function getStorageUsage(): Promise<StorageUsage> {
   });
 }
 
-async function getVideoRelatedKeys(allItems: Record<string, unknown>): Promise<string[]> {
-  return Object.keys(allItems).filter(key => 
-    (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(allItems[key])) ||
-    key.startsWith('video_info_') || 
-    key.startsWith('summary_')
+async function getVideoRelatedKeys(
+  allItems: Record<string, unknown>,
+): Promise<string[]> {
+  return Object.keys(allItems).filter(
+    (key) =>
+      (key.length === YOUTUBE.VIDEO_ID_LENGTH &&
+        Array.isArray(allItems[key])) ||
+      key.startsWith("video_info_") ||
+      key.startsWith("summary_"),
   );
 }
 
@@ -285,9 +301,10 @@ async function cleanupOldVideos(countToRemove: number): Promise<void> {
 
   if (videoKeys.length === 0) return;
 
-  const removeCount = videoKeys.length <= countToRemove
-    ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
-    : countToRemove;
+  const removeCount =
+    videoKeys.length <= countToRemove
+      ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
+      : countToRemove;
 
   await storageRemove(videoKeys.slice(0, removeCount));
 }
@@ -297,7 +314,8 @@ export async function ensureStorageSpace(): Promise<void> {
 
   if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
     const videosToRemove = Math.ceil(
-      (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) / STORAGE.ESTIMATED_VIDEO_SIZE_BYTES
+      (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) /
+        STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
     );
     await cleanupOldVideos(videosToRemove);
   }

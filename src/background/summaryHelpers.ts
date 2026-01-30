@@ -13,7 +13,11 @@ import {
   saveSummary,
   saveVideoMetadata,
 } from "@/lib/core/storage";
-import { extractVideoInfo, fetchTranscript, getCachedTranscript } from "@/lib/transcript";
+import {
+  extractVideoInfo,
+  fetchTranscript,
+  getCachedTranscript,
+} from "@/lib/transcript";
 
 /**
  * Check if stored summary exists and is still valid for the current request
@@ -22,7 +26,7 @@ export async function checkStoredSummary(
   videoId: string,
   modelSelection: string,
   targetLanguage: string,
-  forceRegenerate: boolean
+  forceRegenerate: boolean,
 ): Promise<StoredSummary | null> {
   if (forceRegenerate) return null;
   const storedSummary = await getStoredSummary(videoId);
@@ -38,7 +42,7 @@ export async function checkStoredSummary(
 export async function broadcastStoredSummary(
   videoId: string,
   storedSummary: StoredSummary,
-  requestId?: string
+  requestId?: string,
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
@@ -62,7 +66,7 @@ export async function broadcastStoredSummary(
  */
 export async function resolveTranscriptSource(
   videoId: string,
-  messageTranscript: string | undefined
+  messageTranscript: string | undefined,
 ): Promise<string> {
   if (messageTranscript) {
     console.log(`Using provided transcript for summary of ${videoId}`);
@@ -93,7 +97,7 @@ export async function resolveTranscriptSource(
  * Resolve video info (stored → cache → fetch)
  */
 export async function resolveVideoInfo(
-  videoId: string
+  videoId: string,
 ): Promise<VideoMetadata> {
   const stored = await getStoredVideoMetadata(videoId);
   if (stored) {
@@ -138,7 +142,7 @@ export async function broadcastSummaryResult(
   transcript_or_url: string,
   modelSelection: string,
   targetLanguage: string,
-  requestId?: string
+  requestId?: string,
 ): Promise<void> {
   // Save summary to storage
   await saveSummary(
@@ -146,7 +150,7 @@ export async function broadcastSummaryResult(
     result.summary,
     modelSelection,
     targetLanguage,
-    result.quality
+    result.quality,
   );
 
   // Send result to sidepanel

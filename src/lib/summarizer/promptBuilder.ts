@@ -1,4 +1,3 @@
-
 const LANGUAGE_DESCRIPTIONS: Record<string, string> = {
   auto: "Use the same language as the transcript, or English if the transcript language is unclear",
   en: "English (US)",
@@ -8,7 +7,10 @@ const LANGUAGE_DESCRIPTIONS: Record<string, string> = {
 /**
  * Get language instruction for prompts
  */
-function getLanguageInstruction(targetLanguage: string, isRefinement = false): string {
+function getLanguageInstruction(
+  targetLanguage: string,
+  isRefinement = false,
+): string {
   const description = LANGUAGE_DESCRIPTIONS[targetLanguage] || targetLanguage;
   const instruction =
     targetLanguage === "auto"
@@ -29,12 +31,19 @@ export class PromptBuilder {
   /**
    * Build prompt for initial summary generation
    */
-  static buildSummaryPrompt(targetLanguage = "auto", title?: string, description?: string): string {
+  static buildSummaryPrompt(
+    targetLanguage = "auto",
+    title?: string,
+    description?: string,
+  ): string {
     const languageInstruction = getLanguageInstruction(targetLanguage);
     const metadataParts = [];
     if (title) metadataParts.push(`Video Title: ${title}`);
     if (description) metadataParts.push(`Video Description: ${description}`);
-    const metadata = metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join('\n')}\n` : '';
+    const metadata =
+      metadataParts.length > 0
+        ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n`
+        : "";
 
     return [
       "Create a comprehensive summary that strictly follows the transcript content.",
@@ -60,12 +69,19 @@ export class PromptBuilder {
   /**
    * Build prompt for summary improvement
    */
-  static buildImprovementPrompt(targetLanguage = "auto", title?: string, description?: string): string {
+  static buildImprovementPrompt(
+    targetLanguage = "auto",
+    title?: string,
+    description?: string,
+  ): string {
     const languageInstruction = getLanguageInstruction(targetLanguage, true);
     const metadataParts = [];
     if (title) metadataParts.push(`Video Title: ${title}`);
     if (description) metadataParts.push(`Video Description: ${description}`);
-    const metadata = metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join('\n')}\n` : '';
+    const metadata =
+      metadataParts.length > 0
+        ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n`
+        : "";
 
     return [
       "Improve the summary based on quality feedback while maintaining transcript accuracy.",
@@ -83,7 +99,10 @@ export class PromptBuilder {
   /**
    * Get language instruction (exposed for external use)
    */
-  static _getLanguageInstruction(targetLanguage: string, isRefinement = false): string {
+  static _getLanguageInstruction(
+    targetLanguage: string,
+    isRefinement = false,
+  ): string {
     return getLanguageInstruction(targetLanguage, isRefinement);
   }
 }

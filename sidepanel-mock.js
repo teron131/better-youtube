@@ -5,11 +5,13 @@ if (typeof chrome === "undefined" || !chrome.runtime) {
       lastError: null,
       sendMessage: (msg, cb) => {
         console.log("Mock sendMessage:", msg);
-        if (cb) cb({ success: false, error: "Extension environment not detected" });
+        if (cb)
+          cb({ success: false, error: "Extension environment not detected" });
       },
       onMessage: {
         addListener: () => console.log("Mock runtime.onMessage.addListener"),
-        removeListener: () => console.log("Mock runtime.onMessage.removeListener"),
+        removeListener: () =>
+          console.log("Mock runtime.onMessage.removeListener"),
       },
     },
     storage: {
@@ -30,7 +32,8 @@ if (typeof chrome === "undefined" || !chrome.runtime) {
       },
       onChanged: {
         addListener: () => console.log("Mock storage.onChanged.addListener"),
-        removeListener: () => console.log("Mock storage.onChanged.removeListener"),
+        removeListener: () =>
+          console.log("Mock storage.onChanged.removeListener"),
       },
     },
     tabs: {
@@ -48,7 +51,8 @@ if (typeof chrome === "undefined" || !chrome.runtime) {
       },
       onActivated: {
         addListener: () => console.log("Mock tabs.onActivated.addListener"),
-        removeListener: () => console.log("Mock tabs.onActivated.removeListener"),
+        removeListener: () =>
+          console.log("Mock tabs.onActivated.removeListener"),
       },
     },
   };
