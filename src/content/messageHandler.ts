@@ -2,13 +2,13 @@
  * Message Handler for Content Script
  */
 
-import { convertSubtitlesToTraditionalChinese } from "@/lib/captionConversion";
-import { sendChromeMessage } from "@/lib/chromeUtils";
-import type { FontSize } from "@/lib/constants";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/constants";
+import { convertSubtitlesToTraditionalChinese } from "@/lib/utils/text";
+import { sendChromeMessage } from "@/lib/utils/chrome";
+import type { FontSize } from "@/lib/core/constants";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/lib/core/constants";
 import { createRequestId, type RequestId } from "@/lib/requestId";
-import { saveSubtitles, type SubtitleSegment } from "@/lib/storage";
-import { extractVideoId } from "@/lib/url";
+import { saveSubtitles, type SubtitleSegment } from "@/lib/core/storage";
+import { extractVideoId } from "@/lib/utils/url";
 import { clearAutoGenerationTrigger, markAutoGenerationTriggered } from "./autoGeneration";
 import {
   ContentScriptState,

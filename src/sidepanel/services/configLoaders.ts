@@ -3,7 +3,7 @@
  * Centralized functions to load model settings from storage
  */
 
-import { DEFAULTS, STORAGE_KEYS } from '@/lib/constants';
+import { DEFAULTS, STORAGE_KEYS } from '@/lib/core/constants';
 
 /**
  * Get model settings from chrome.storage

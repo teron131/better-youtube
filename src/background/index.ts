@@ -3,8 +3,8 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { ChromeMessage, createMessageListener } from "@/lib/chromeUtils";
-import { MESSAGE_ACTIONS } from "@/lib/constants";
+import { ChromeMessage, createMessageListener } from "@/lib/utils/chrome";
+import { MESSAGE_ACTIONS } from "@/lib/core/constants";
 import { handleFetchSubtitles } from "./handlers/refine";
 import { handleGenerateSummary } from "./handlers/summary";
 import { handleScrapeVideo } from "./handlers/transcript";

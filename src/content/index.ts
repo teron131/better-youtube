@@ -3,11 +3,11 @@
  * Handles subtitle display, auto-generation, and communication with background script
  */
 
-import type { FontSize } from "@/lib/constants";
-import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/lib/constants";
+import type { FontSize } from "@/lib/core/constants";
+import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/lib/core/constants";
 import { createRequestId } from "@/lib/requestId";
-import { type SubtitleSegment } from "@/lib/storage";
-import { extractVideoId } from "@/lib/url";
+import { type SubtitleSegment } from "@/lib/core/storage";
+import { extractVideoId } from "@/lib/utils/url";
 
 import {
   clearAutoGenerationTrigger,

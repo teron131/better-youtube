@@ -1,7 +1,7 @@
 
 import { Button } from "@ui/components/ui/button"
 import { Input } from "@ui/components/ui/input"
-import { cn } from "@ui/lib/utils"
+import { cn } from "@/lib/utils/text"
 import { Check, ChevronDown } from "lucide-react"
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"

@@ -2,8 +2,8 @@
  * Video processing utilities
  */
 
-import { extractVideoId } from '@/lib/url';
-import { StreamingProgressState } from '@ui/services/types';
+import { extractVideoId } from '@/lib/utils/url';
+import { StreamingProgressState } from '@/lib/core/types';
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
 const STEP_ORDER = ['scraping', 'summary_generation', 'quality_check', 'refinement', 'complete'] as const;

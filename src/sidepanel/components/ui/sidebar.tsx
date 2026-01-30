@@ -3,7 +3,7 @@ import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
 import * as React from "react"
 
-import { UI_BEHAVIOR, UI_DIMENSIONS } from "@/lib/constants"
+import { UI_BEHAVIOR, UI_DIMENSIONS } from "@/lib/core/constants"
 import { useIsMobile } from "@ui/hooks/use-mobile"
 import { Button } from "./button"
 import { Input } from "./input"
@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip"
-import { cn } from "@ui/lib/utils"
+import { cn } from "@/lib/utils/text"
 
 const SIDEBAR_COOKIE_NAME = UI_BEHAVIOR.SIDEBAR_COOKIE_NAME
 const SIDEBAR_COOKIE_MAX_AGE = UI_BEHAVIOR.SIDEBAR_COOKIE_MAX_AGE

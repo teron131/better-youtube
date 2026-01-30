@@ -2,7 +2,7 @@
  * Form validation utilities
  */
 
-import { isValidYouTubeUrl } from './url-utils';
+import { isValidYouTubeUrl } from './url';
 
 /**
  * Validate YouTube URL input
@@ -45,4 +45,3 @@ export function prepareProcessingOptions(
     fastMode,
   };
 }
-

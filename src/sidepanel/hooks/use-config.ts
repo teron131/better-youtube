@@ -111,7 +111,7 @@ export function useLanguageSelection() {
   };
 }
 
-import { STORAGE_KEYS } from '@/lib/constants';
+import { STORAGE_KEYS } from '@/lib/core/constants';
 
 interface UserPreferences {
   summaryModel: string;

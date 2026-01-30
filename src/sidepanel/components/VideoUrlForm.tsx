@@ -4,7 +4,7 @@ import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { useUserPreferences } from "@ui/hooks/use-config";
-import { isFormValid, prepareProcessingOptions, validateYouTubeUrl } from "@ui/lib/form-validation";
+import { isFormValid, prepareProcessingOptions, validateYouTubeUrl } from "@/lib/utils/validation";
 import { AlertCircle, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 

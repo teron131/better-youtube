@@ -1,17 +1,56 @@
-/**
- * General utility functions including Tailwind class merging and Chinese text conversion.
- */
+import type { SubtitleSegment } from '@/lib/core/storage';
+import { SummaryData, VideoInfoResponse } from '@/lib/core/types';
+import * as OpenCC from 'opencc-js';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-import { s2tw } from "@/lib/captionConversion";
-import { SummaryData, VideoInfoResponse } from "@ui/services/types";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+const converterCN2TW = OpenCC.Converter({ from: "cn", to: "tw" });
+const CHINESE_CHAR_REGEX = /[\u4E00-\u9FFF]/;
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export { s2tw };
+/**
+ * Converts simplified Chinese to traditional Chinese
+ */
+export function s2tw(content: string): string {
+  if (!content) return content;
+  if (!CHINESE_CHAR_REGEX.test(content)) return content;
+  try {
+    return converterCN2TW(content);
+  } catch (error) {
+    console.warn("Chinese conversion (CN->TW) failed:", error);
+    return content;
+  }
+}
+
+/**
+ * Convert subtitles to traditional Chinese
+ * Batch processes all segments for performance
+ */
+export function convertSubtitlesToTraditionalChinese(
+  subtitles: SubtitleSegment[]
+): SubtitleSegment[] {
+  if (!subtitles || subtitles.length === 0) return subtitles;
+
+  const separator = "\u0001";
+  const joined = subtitles.map((segment) => segment.text || "").join(separator);
+  const converted = s2tw(joined);
+  const parts = converted.split(separator);
+
+  if (parts.length !== subtitles.length) {
+    return subtitles.map((segment) => ({
+      ...segment,
+      text: s2tw(segment.text),
+    }));
+  }
+
+  return subtitles.map((segment, index) => ({
+    ...segment,
+    text: parts[index] ?? "",
+  }));
+}
 
 /**
  * Convert summary text fields to traditional Chinese (Taiwan variant)

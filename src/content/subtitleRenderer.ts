@@ -3,10 +3,10 @@
  * Handles creation, display, and updates of subtitle elements on the YouTube video player.
  */
 
-import type { FontSize } from "@/lib/constants";
-import { ELEMENT_IDS, FONT_SIZES, YOUTUBE } from "@/lib/constants";
-import type { SubtitleSegment } from "@/lib/storage";
-import { extractVideoId } from "@/lib/url";
+import type { FontSize } from "@/lib/core/constants";
+import { ELEMENT_IDS, FONT_SIZES, YOUTUBE } from "@/lib/core/constants";
+import type { SubtitleSegment } from "@/lib/core/storage";
+import { extractVideoId } from "@/lib/utils/url";
 
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;

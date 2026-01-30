@@ -4,14 +4,14 @@
 
 import { useReducer } from 'react';
 
-import { findStepIndex, normalizeStepName, sortProgressStates } from '@ui/lib/video-utils';
-import { streamSummary } from '@ui/services/streaming';
+import { findStepIndex, normalizeStepName, sortProgressStates } from '@/sidepanel/lib/video-utils';
+import { streamSummary } from '@/sidepanel/services/streaming';
 import {
   ApiError,
   StreamingProcessingResult,
   StreamingProgressState,
   VideoInfoResponse,
-} from '@ui/services/types';
+} from '@/lib/core/types';
 
 export interface VideoProcessingOptions {
   summaryModel?: string;

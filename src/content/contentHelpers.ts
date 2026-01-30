@@ -1,10 +1,10 @@
 /** Content Script Helper Functions */
 
-import { sendChromeMessage } from "@/lib/chromeUtils";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/constants";
+import { sendChromeMessage } from "@/lib/utils/chrome";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/core/constants";
 import { createRequestId, type RequestId } from "@/lib/requestId";
-import { type SubtitleSegment } from "@/lib/storage";
-import { extractVideoId } from "@/lib/url";
+import { type SubtitleSegment } from "@/lib/core/storage";
+import { extractVideoId } from "@/lib/utils/url";
 
 
 export interface ContentScriptState {

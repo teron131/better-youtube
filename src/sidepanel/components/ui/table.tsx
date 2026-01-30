@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@ui/lib/utils"
+import { cn } from "@/lib/utils/text"
 
 const Table = React.forwardRef<
   HTMLTableElement,
