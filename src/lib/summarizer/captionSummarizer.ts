@@ -7,11 +7,11 @@ import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, createMiddleware, toolStrategy } from "langchain";
 import { z } from "zod";
-import { getOpenRouterApiKey, getScrapeCreatorsApiKey } from "../runtimeConfig";
+import { getScrapeCreatorsApiKey } from "../runtimeConfig";
 import { API_ENDPOINTS, DEFAULTS } from "../constants";
+import { createSummarizerLLM } from "./openrouter";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -27,26 +27,7 @@ import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
 // Model Client
 // ============================================================================
 
-/**
- * Create OpenRouter LLM instance using LangChain
- */
-async function createOpenRouterLLM(model: string): Promise<ChatOpenAI> {
-  const apiKey = await getOpenRouterApiKey();
-  if (!apiKey) throw new Error("OpenRouter API key missing");
-  const httpReferer = typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("") : "";
-  return new ChatOpenAI({
-    model,
-    apiKey,
-    configuration: {
-      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
-      defaultHeaders: { 
-        "HTTP-Referer": httpReferer,
-        "X-Title": "Better YouTube - Summarizer",
-      },
-    },
-    temperature: 0.0,
-  });
-}
+const createOpenRouterLLM = createSummarizerLLM;
 
 // ============================================================================
 // Tools
