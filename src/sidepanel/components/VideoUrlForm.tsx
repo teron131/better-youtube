@@ -8,7 +8,7 @@ import {
   isFormValid,
   prepareProcessingOptions,
   validateYouTubeUrl,
-} from "@/lib/utils/validation";
+} from "@/core/utils/validation";
 import { AlertCircle, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 

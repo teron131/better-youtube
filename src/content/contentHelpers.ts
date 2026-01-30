@@ -1,104 +1,15 @@
-/** Content Script Helper Functions */
+/** Content Script Helper Functions - Messaging Logic */
 
-import { sendChromeMessage } from "@/lib/utils/chrome";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/core/constants";
-import { createRequestId, type RequestId } from "@/lib/requestId";
-import { type SubtitleSegment } from "@/lib/core/storage";
-import { extractVideoId } from "@/lib/utils/url";
+import { sendChromeMessage } from "@/core/utils/chrome";
+import { MESSAGE_ACTIONS } from "@/core/constants";
+import { type RequestId } from "@/core/requestId";
+import { type SubtitleSegment } from "@/core/storage";
 
 export interface ContentScriptState {
   currentSubtitles: SubtitleSegment[];
   showSubtitlesEnabled: boolean;
   userInteractedWithToggle: boolean;
   currentCaptionRequestId?: RequestId;
-}
-
-export function isCurrentVideo(videoId: string): boolean {
-  return extractVideoId(window.location.href) === videoId;
-}
-
-export function validateLoadContext(): { isValid: boolean; videoId?: string } {
-  if (!window.location.href.includes("youtube.com/watch")) {
-    console.log("Not on a video page, skipping subtitle load.");
-    return { isValid: false };
-  }
-  const videoId = extractVideoId(window.location.href);
-  if (!videoId) {
-    console.warn("Could not extract video ID, skipping subtitle load.");
-    return { isValid: false };
-  }
-  return { isValid: true, videoId };
-}
-
-export function buildStorageKeysForVideo(): string[] {
-  return [
-    STORAGE_KEYS.AUTO_GENERATE,
-    STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-    STORAGE_KEYS.SUPADATA_API_KEY,
-    STORAGE_KEYS.OPENROUTER_API_KEY,
-    STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-    STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-    STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
-    STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-    STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-    STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-    STORAGE_KEYS.SHOW_SUBTITLES,
-    STORAGE_KEYS.FAST_MODE,
-    STORAGE_KEYS.QUALITY_MODEL,
-  ];
-}
-
-export function getRefinerModelFromStorage(storageResult: any): string {
-  return (
-    storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
-    storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
-    DEFAULTS.MODEL_REFINER
-  );
-}
-
-export function getAutoGenModels(storageResult: any): {
-  summarizerModel: string;
-  qualityModel: string;
-  targetLanguage: string;
-  fastMode: boolean;
-} {
-  const summarizerModel =
-    storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-    storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
-    DEFAULTS.MODEL_SUMMARIZER;
-  return {
-    summarizerModel,
-    qualityModel: storageResult[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
-    targetLanguage: getTargetLanguageFromStorage(storageResult),
-    fastMode: storageResult[STORAGE_KEYS.FAST_MODE] === true,
-  };
-}
-
-export function getTargetLanguageFromStorage(storageResult: any): string {
-  return (
-    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED
-  );
-}
-
-export async function executeScrapeForAutoGen(
-  videoId: string,
-): Promise<boolean> {
-  console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
-  const result = await sendChromeMessage<{ status: string }>({
-    action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
-    videoId,
-    requestId: createRequestId("scrape"),
-  }).catch(() => ({ status: "error" }));
-  if (result.status !== "success") {
-    console.error(`[Auto-gen] Scrape failed for ${videoId}`);
-    return false;
-  }
-  console.log(
-    `[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`,
-  );
-  return true;
 }
 
 export function triggerCaptionRefinement(
@@ -143,25 +54,4 @@ export function triggerSummaryGeneration(
     .catch((e) =>
       console.error("Error triggering summary auto-gen:", e.message),
     );
-}
-
-export function determineToggleState(message: any): boolean {
-  if ("showSubtitles" in message) {
-    return message.showSubtitles !== false;
-  }
-  if ("enabled" in message) {
-    return message.enabled !== false;
-  }
-  return true;
-}
-
-export function buildStorageKeysForToggle(): string[] {
-  return [
-    STORAGE_KEYS.AUTO_GENERATE,
-    STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-    STORAGE_KEYS.SUPADATA_API_KEY,
-    STORAGE_KEYS.OPENROUTER_API_KEY,
-    STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-    STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-  ];
 }

@@ -1,5 +1,5 @@
-import type { SubtitleSegment } from "@/lib/core/storage";
-import { SummaryData, VideoInfoResponse } from "@/lib/core/types";
+import type { SubtitleSegment } from "@/core/storage";
+import { SummaryData, VideoInfoResponse } from "@/core/types";
 import * as OpenCC from "opencc-js";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";

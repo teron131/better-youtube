@@ -2,7 +2,7 @@
  * Markdown generation utilities
  */
 
-import { SummaryData, VideoInfoResponse } from "@/lib/core/types";
+import { SummaryData, VideoInfoResponse } from "@/core/types";
 import { convertSummaryChinese } from "./text";
 
 /**

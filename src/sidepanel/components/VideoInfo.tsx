@@ -2,9 +2,9 @@
  * Component displaying video metadata including thumbnail, title, author, and statistics.
  */
 
-import { formatDate, trimDurationLeadingZeros } from "@/lib/utils/date";
-import { s2tw } from "@/lib/utils/text";
-import { cleanVideoUrl } from "@/lib/utils/url";
+import { formatDate, trimDurationLeadingZeros } from "@/core/utils/date";
+import { s2tw } from "@/core/utils/text";
+import { cleanVideoUrl } from "@/core/utils/url";
 import { Card } from "@ui/components/ui/card";
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";
 import { ReactNode } from "react";

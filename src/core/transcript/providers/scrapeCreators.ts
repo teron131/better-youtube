@@ -1,8 +1,8 @@
-import { API_ENDPOINTS, TIMING } from "@/lib/core/constants";
+import { API_ENDPOINTS, TIMING } from "@/core/constants";
 import type {
   RawTranscriptSegment,
   ScrapeCreatorsResponse,
-} from "@/lib/core/types";
+} from "@/core/types";
 
 function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;

@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
           find: /^@langchain\/langgraph$/,
           replacement: path.resolve(
             __dirname,
-            "./src/lib/langgraph-web-shim.ts",
+            "./src/core/langgraph-web-shim.ts",
           ),
         },
       ],

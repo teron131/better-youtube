@@ -12,9 +12,9 @@ import {
   TooltipTrigger,
 } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
-import { generateSummaryMarkdown } from "@/lib/utils/markdown";
-import { convertSummaryChinese } from "@/lib/utils/text";
-import { SummaryData, QualityData, VideoInfoResponse } from "@/lib/core/types";
+import { generateSummaryMarkdown } from "@/core/utils/markdown";
+import { convertSummaryChinese } from "@/core/utils/text";
+import { SummaryData, QualityData, VideoInfoResponse } from "@/core/types";
 import {
   BookOpen,
   ChevronDown,

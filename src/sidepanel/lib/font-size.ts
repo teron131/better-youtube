@@ -1,6 +1,6 @@
-import type { FontSize } from "@/lib/core/constants";
-import { DEFAULTS, FONT_SIZES, STORAGE_KEYS } from "@/lib/core/constants";
-import { getStorageValue } from "@/lib/core/storage";
+import type { FontSize } from "@/core/constants";
+import { DEFAULTS, FONT_SIZES, STORAGE_KEYS } from "@/core/constants";
+import { getStorageValue } from "@/core/storage";
 
 function setSummaryCssVariables(size: FontSize): void {
   const config =

@@ -4,14 +4,14 @@
  */
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { DEFAULTS, REFINER_CONFIG } from "@/lib/core/constants";
+import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
 import {
   chunkSegmentsByCount,
   parseRefinedSegments,
-} from "@/lib/transcript/segmentParser";
-import { SubtitleSegment } from "@/lib/core/storage";
-import { formatTimestamp } from "@/lib/utils/date";
-import { createRefinerLLM } from "@/lib/summarizer/openrouter";
+} from "@/core/transcript/segmentParser";
+import { SubtitleSegment } from "@/core/storage";
+import { formatTimestamp } from "@/core/utils/date";
+import { createRefinerLLM } from "@/core/summarizer/openrouter";
 
 // ============================================================================
 // Constants

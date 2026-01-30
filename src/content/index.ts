@@ -3,11 +3,11 @@
  * Handles subtitle display, auto-generation, and communication with background script
  */
 
-import type { FontSize } from "@/lib/core/constants";
-import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/lib/core/constants";
-import { createRequestId } from "@/lib/requestId";
-import { type SubtitleSegment } from "@/lib/core/storage";
-import { extractVideoId } from "@/lib/utils/url";
+import type { FontSize } from "@/core/constants";
+import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/core/constants";
+import { createRequestId } from "@/core/requestId";
+import { type SubtitleSegment } from "@/core/storage";
+import { extractVideoId } from "@/core/utils/url";
 
 import {
   clearAutoGenerationTrigger,
@@ -15,15 +15,16 @@ import {
   scheduleAutoGeneration,
   validateAutoGenerationConditions,
 } from "./autoGeneration";
+import { ContentScriptState, triggerCaptionRefinement } from "./contentHelpers";
 import {
-  ContentScriptState,
   buildStorageKeysForVideo,
-  executeScrapeForAutoGen,
   getRefinerModelFromStorage,
+} from "./storageHelpers";
+import {
+  executeScrapeForAutoGen,
   isCurrentVideo,
-  triggerCaptionRefinement,
   validateLoadContext,
-} from "./contentHelpers";
+} from "./videoHelpers";
 import { setupMessageListener } from "./messageHandler";
 import {
   applyCaptionFontSize,

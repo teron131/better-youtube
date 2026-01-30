@@ -2,28 +2,33 @@
  * Message Handler for Content Script
  */
 
-import { convertSubtitlesToTraditionalChinese } from "@/lib/utils/text";
-import { sendChromeMessage } from "@/lib/utils/chrome";
-import type { FontSize } from "@/lib/core/constants";
+import { convertSubtitlesToTraditionalChinese } from "@/core/utils/text";
+import { sendChromeMessage } from "@/core/utils/chrome";
+import type { FontSize } from "@/core/constants";
 import {
   DEFAULTS,
   MESSAGE_ACTIONS,
   STORAGE_KEYS,
   YOUTUBE,
-} from "@/lib/core/constants";
-import { createRequestId, type RequestId } from "@/lib/requestId";
-import { saveSubtitles, type SubtitleSegment } from "@/lib/core/storage";
-import { extractVideoId } from "@/lib/utils/url";
+} from "@/core/constants";
+import { createRequestId, type RequestId } from "@/core/requestId";
+import { saveSubtitles, type SubtitleSegment } from "@/core/storage";
+import { extractVideoId } from "@/core/utils/url";
 import {
   clearAutoGenerationTrigger,
   markAutoGenerationTriggered,
 } from "./autoGeneration";
 import {
   ContentScriptState,
-  buildStorageKeysForToggle,
-  determineToggleState,
-  isCurrentVideo,
+  triggerCaptionRefinement,
+  triggerSummaryGeneration,
 } from "./contentHelpers";
+import {
+  buildStorageKeysForToggle,
+  getRefinerModelFromStorage,
+  getAutoGenModels,
+} from "./storageHelpers";
+import { determineToggleState, isCurrentVideo } from "./videoHelpers";
 import {
   applyCaptionFontSize,
   clearRenderer,

@@ -3,16 +3,16 @@
  * Handles communication with background script for video processing
  */
 
-import { ChromeMessage, sendChromeMessage } from "@/lib/utils/chrome";
-import { MESSAGE_ACTIONS, TIMING } from "@/lib/core/constants";
-import { createRequestId, type RequestId } from "@/lib/requestId";
-import { extractVideoId } from "@/lib/utils/url";
+import { ChromeMessage, sendChromeMessage } from "@/core/utils/chrome";
+import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
+import { createRequestId, type RequestId } from "@/core/requestId";
+import { extractVideoId } from "@/core/utils/url";
 import { getProcessingConfig } from "./configLoaders";
 import {
   ApiError,
   StreamingProcessingResult,
   StreamingProgressState,
-} from "@/lib/core/types";
+} from "@/core/types";
 
 /**
  * Handle scraping step

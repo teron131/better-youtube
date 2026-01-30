@@ -1,4 +1,4 @@
-import { DEFAULTS, QUALITY_THRESHOLDS } from "@/lib/core/constants";
+import { DEFAULTS, QUALITY_THRESHOLDS } from "@/core/constants";
 import type { Quality } from "./schemas";
 
 const SCORE_MAP = QUALITY_THRESHOLDS.SCORE_MAP;

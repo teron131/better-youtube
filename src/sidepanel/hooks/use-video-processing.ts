@@ -15,7 +15,7 @@ import {
   StreamingProcessingResult,
   StreamingProgressState,
   VideoInfoResponse,
-} from "@/lib/core/types";
+} from "@/core/types";
 
 export interface VideoProcessingOptions {
   summaryModel?: string;

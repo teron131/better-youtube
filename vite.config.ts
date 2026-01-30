@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
           find: /^@langchain\/langgraph$/,
           replacement: path.resolve(
             __dirname,
-            "./src/lib/langgraph-web-shim.ts",
+            "./src/core/langgraph-web-shim.ts",
           ),
         },
       ],
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         input: {
           index: path.resolve(__dirname, "index.html"),
           sidepanel: path.resolve(__dirname, "sidepanel.html"),
-          background: path.resolve(__dirname, "src/background/index.ts"),
+          background: path.resolve(__dirname, "src/handlers/index.ts"),
         },
         output: {
           entryFileNames: (chunkInfo) => {

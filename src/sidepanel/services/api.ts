@@ -10,7 +10,7 @@ import {
   ScrapResponse,
   SummarizeRequest,
   SummarizeResponse,
-} from "@/lib/core/types";
+} from "@/core/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
