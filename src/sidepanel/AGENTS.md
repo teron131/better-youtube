@@ -19,8 +19,8 @@ The side panel is the React UI for the MV3 extension. It reads/writes preference
 
 ## CONVENTIONS
 
-- Use `MESSAGE_ACTIONS` from `src/lib/constants.ts` as the cross-context contract.
-- Prefer centralized messaging helpers (`@/lib/chromeUtils`, `src/sidepanel/services/streaming.ts`) over ad-hoc `chrome.runtime.sendMessage` calls.
+- Use `MESSAGE_ACTIONS` from `src/core/constants.ts` as the cross-context contract.
+- Prefer centralized messaging helpers (`@/core/utils/chrome`, `src/sidepanel/services/streaming.ts`) over ad-hoc `chrome.runtime.sendMessage` calls.
 - For long-running background work, always include a `requestId` and match on `{ action, videoId, requestId }` when listening for broadcasts.
 - Routing: `src/sidepanel/App.tsx` uses `HashRouter` in extension/dev; avoid assuming clean URLs.
 - Imports: `@ui/*` resolves to `src/sidepanel/*`; `@/*` resolves to `src/*`.
@@ -42,4 +42,4 @@ The side panel is the React UI for the MV3 extension. It reads/writes preference
 ## DEV NOTES
 
 - Side panel UI talks to the extension via `chrome.runtime` (background) and `chrome.tabs` (content scripts).
-- When debugging message flows, confirm the action names in `src/lib/constants.ts` and verify which context emits the broadcast you’re waiting for.
+- When debugging message flows, confirm the action names in `src/core/constants.ts` and verify which context emits the broadcast you’re waiting for.

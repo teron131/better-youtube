@@ -1,13 +1,13 @@
 import {
   getScrapeCreatorsApiKey,
   getSupadataApiKey,
-} from "@/lib/core/runtimeConfig";
-import type { SubtitleSegment, VideoMetadata } from "@/lib/core/storage";
+} from "@/core/runtimeConfig";
+import type { SubtitleSegment, VideoMetadata } from "@/core/storage";
 import type {
   ApiTranscriptSegment,
   ScrapeCreatorsResponse,
-} from "@/lib/core/types";
-import { formatTimestamp } from "@/lib/utils/date";
+} from "@/core/types";
+import { formatTimestamp } from "@/core/utils/date";
 
 import {
   clearPendingTranscript,

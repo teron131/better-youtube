@@ -3,11 +3,11 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { ChromeMessage, createMessageListener } from "@/lib/utils/chrome";
-import { MESSAGE_ACTIONS } from "@/lib/core/constants";
-import { handleFetchSubtitles } from "./handlers/refine";
-import { handleGenerateSummary } from "./handlers/summary";
-import { handleScrapeVideo } from "./handlers/transcript";
+import { ChromeMessage, createMessageListener } from "@/core/utils/chrome";
+import { MESSAGE_ACTIONS } from "@/core/constants";
+import { handleFetchSubtitles } from "./refine";
+import { handleGenerateSummary } from "./summary";
+import { handleScrapeVideo } from "./transcript";
 
 const latestCaptionRequestByVideo = new Map<string, string>();
 const latestSummaryRequestByVideo = new Map<string, string>();

@@ -2,8 +2,8 @@
  * Video processing utilities
  */
 
-import { extractVideoId } from "@/lib/utils/url";
-import { StreamingProgressState } from "@/lib/core/types";
+import { extractVideoId } from "@/core/utils/url";
+import { StreamingProgressState } from "@/core/types";
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
 const STEP_ORDER = [

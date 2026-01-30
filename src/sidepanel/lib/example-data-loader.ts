@@ -7,7 +7,7 @@ import {
   StreamingProcessingResult,
   StreamingProgressState,
   VideoInfoResponse,
-} from "@/lib/core/types";
+} from "@/core/types";
 
 export interface ExampleDataResult {
   progressStates: StreamingProgressState[];

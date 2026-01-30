@@ -2,15 +2,15 @@
  * Main page component orchestrating the video processing workflow.
  */
 
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/lib/core/constants";
+import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
   getStorageValue,
   getStoredSubtitles,
   getStoredSummary,
   getStoredVideoMetadata,
   setStorageValue,
-} from "@/lib/core/storage";
-import { extractVideoId } from "@/lib/utils/url";
+} from "@/core/storage";
+import { extractVideoId } from "@/core/utils/url";
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
 import { HeroSection } from "@ui/components/HeroSection";
 import { ProcessingStatus } from "@ui/components/ProcessingStatus";

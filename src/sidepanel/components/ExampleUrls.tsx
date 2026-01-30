@@ -3,7 +3,7 @@
  */
 
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
-import { EXAMPLE_YOUTUBE_URLS } from "@/lib/utils/url";
+import { EXAMPLE_YOUTUBE_URLS } from "@/core/utils/url";
 import { ExternalLink, Youtube } from "lucide-react";
 
 interface ExampleUrlsProps {

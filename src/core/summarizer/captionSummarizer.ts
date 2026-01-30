@@ -11,17 +11,17 @@ import {
   createAgent,
   createMiddleware,
   toolStrategy,
-} from "@/lib/langgraph-web-shim";
+} from "@/core/langgraph-web-shim";
 import { z } from "zod";
-import { getScrapeCreatorsApiKey } from "@/lib/core/runtimeConfig";
-import { API_ENDPOINTS, DEFAULTS } from "@/lib/core/constants";
+import { getScrapeCreatorsApiKey } from "@/core/runtimeConfig";
+import { API_ENDPOINTS, DEFAULTS } from "@/core/constants";
 import { createSummarizerLLM } from "./openrouter";
 import {
   filterContent,
   GarbageIdentificationSchema,
   tagContent,
   untagContent,
-} from "@/lib/transcript/lineTag";
+} from "@/core/transcript/lineTag";
 import { PromptBuilder } from "./promptBuilder";
 import {
   calculateScore,

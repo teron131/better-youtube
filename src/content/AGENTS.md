@@ -14,24 +14,26 @@
 | `src/content/index.ts`            | Lifecycle entry; `ContentManager` + `MutationObserver` for YouTube SPA navigation; initializes overlay + loads cached subtitles. |
 | `src/content/messageHandler.ts`   | `chrome.runtime.onMessage` router; `switch (message.action)` over `MESSAGE_ACTIONS`.                                             |
 | `src/content/subtitleRenderer.ts` | DOM overlay + playback sync (`requestAnimationFrame` loop) and font-size CSS var updates.                                        |
-| `src/content/autoGeneration.ts`   | Auto-gen gating (settings checks, “already triggered” set), context validity, and delay scheduling.                              |
-| `src/content/contentHelpers.ts`   | Video ID + staleness guards (`isCurrentVideo`), storage key lists, and background message helpers.                               |
+| `src/content/autoGeneration.ts`   | Auto-gen gating (settings checks, "already triggered" set), context validity, and delay scheduling.                              |
+| `src/content/videoHelpers.ts`     | Video ID + staleness guards (`isCurrentVideo`), validation, scraping helpers.                                                    |
+| `src/content/storageHelpers.ts`   | Storage key builders and model resolution helpers.                                                                               |
+| `src/content/contentHelpers.ts`   | Messaging functions (`triggerCaptionRefinement`, `triggerSummaryGeneration`).                                                    |
 | `public/assets/subtitles.css`     | Overlay CSS (IDs: `youtube-gemini-subtitles-container`, `youtube-gemini-subtitles-text`).                                        |
 
 ## Conventions
 
 - Treat YouTube as a SPA: **always** gate work by video ID (`extractVideoId()` + `isCurrentVideo(videoId)`) before rendering or writing storage.
 - Only do heavy work on watch pages (see `validateLoadContext()` and `ContentManager.initialize()` guard on `youtube.com/watch`).
-- Messaging contract is centralized: use `MESSAGE_ACTIONS` from `src/lib/constants.ts` (no string literals).
+- Messaging contract is centralized: use `MESSAGE_ACTIONS` from `src/core/constants.ts` (no string literals).
 - Guard against stale caption updates: track `currentCaptionRequestId` and ignore `SUBTITLES_GENERATED` for older `requestId`s.
 - Prefer `chrome.storage.local` with `STORAGE_KEYS`/`DEFAULTS` rather than ad-hoc keys.
 - Keep observers/timeouts self-cleaning when the extension context is invalidated (`isExtensionContextValid()`).
 
 ## Anti-Patterns
 
-- Adding new message actions only in content code; update `src/lib/constants.ts` and the matching background/sidepanel handlers.
+- Adding new message actions only in content code; update `src/core/constants.ts` and the matching handlers/sidepanel handlers.
 - Updating overlay DOM without ensuring the player/container exists (`findVideoElements()` + `createSubtitleElements()`).
-- Writing subtitles to storage without verifying the current video/request (SPA staleness leads to “wrong video” cache writes).
+- Writing subtitles to storage without verifying the current video/request (SPA staleness leads to "wrong video" cache writes).
 - Introducing extra DOM polling loops when the code already has init retry timing (`TIMING.*`) and a URL `MutationObserver`.
 
 ## Gotchas

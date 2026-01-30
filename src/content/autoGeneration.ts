@@ -3,10 +3,10 @@
  * Handles automatic subtitle generation logic
  */
 
-import { STORAGE_KEYS, TIMING } from "@/lib/core/constants";
-import { extractVideoId } from "@/lib/utils/url";
-import { isChromeContextValid as isExtensionContextValid } from "@/lib/utils/chrome";
-import { isCurrentVideo } from "./contentHelpers";
+import { STORAGE_KEYS, TIMING } from "@/core/constants";
+import { extractVideoId } from "@/core/utils/url";
+import { isChromeContextValid as isExtensionContextValid } from "@/core/utils/chrome";
+import { isCurrentVideo } from "./videoHelpers";
 
 export { isExtensionContextValid };
 
