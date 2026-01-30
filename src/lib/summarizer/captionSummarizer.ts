@@ -126,7 +126,9 @@ function createGarbageFilterMiddleware(model: string) {
 
       try {
         const taggedTranscript = tagContent(transcript);
-        const garbage = await (await createOpenRouterLLM(model))
+        const garbage = await (
+          await createOpenRouterLLM(model)
+        )
           .withStructuredOutput(GarbageIdentificationSchema, {
             method: "jsonMode",
           })

@@ -19,7 +19,10 @@ import { TranscriptPanel } from "@ui/components/TranscriptPanel";
 import { Button } from "@ui/components/ui/button";
 import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
-import { useVideoProcessing, VideoProcessingOptions } from "@ui/hooks/use-video-processing";
+import {
+  useVideoProcessing,
+  VideoProcessingOptions,
+} from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
@@ -34,7 +37,9 @@ const Index = () => {
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
-  const [showSubtitles, setShowSubtitles] = useState<boolean>(DEFAULTS.SHOW_SUBTITLES);
+  const [showSubtitles, setShowSubtitles] = useState<boolean>(
+    DEFAULTS.SHOW_SUBTITLES,
+  );
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
   const { toast } = useToast();
   const {
@@ -62,7 +67,11 @@ const Index = () => {
     loadCurrentTabUrl();
 
     // Listen for tab updates
-    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+    const handleTabUpdate = (
+      tabId: number,
+      changeInfo: chrome.tabs.TabChangeInfo,
+      tab: chrome.tabs.Tab,
+    ) => {
       if (changeInfo.url && tab.active) {
         loadCurrentTabUrl();
       }
@@ -72,14 +81,14 @@ const Index = () => {
       loadCurrentTabUrl();
     };
 
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
+    if (typeof chrome !== "undefined" && chrome.tabs) {
       chrome.tabs.onUpdated.addListener(handleTabUpdate);
       chrome.tabs.onActivated.addListener(handleTabActivated);
     }
 
     // Cleanup listeners on unmount
     return () => {
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
+      if (typeof chrome !== "undefined" && chrome.tabs) {
         chrome.tabs.onUpdated.removeListener(handleTabUpdate);
         chrome.tabs.onActivated.removeListener(handleTabActivated);
       }
@@ -89,7 +98,9 @@ const Index = () => {
   useEffect(() => {
     const loadShowSubtitles = async () => {
       try {
-        const stored = await getStorageValue<boolean>(STORAGE_KEYS.SHOW_SUBTITLES);
+        const stored = await getStorageValue<boolean>(
+          STORAGE_KEYS.SHOW_SUBTITLES,
+        );
         if (stored !== null) {
           setShowSubtitles(stored !== false);
         }
@@ -111,11 +122,12 @@ const Index = () => {
 
     const loadCachedSummary = async () => {
       try {
-        const [storedSummary, storedVideoInfo, storedSubtitles] = await Promise.all([
-          getStoredSummary(videoId),
-          getStoredVideoMetadata(videoId),
-          getStoredSubtitles(videoId),
-        ]);
+        const [storedSummary, storedVideoInfo, storedSubtitles] =
+          await Promise.all([
+            getStoredSummary(videoId),
+            getStoredVideoMetadata(videoId),
+            getStoredSubtitles(videoId),
+          ]);
 
         if (cancelled || !storedSummary) return;
 
@@ -177,15 +189,19 @@ const Index = () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         tabs.forEach((tab) => {
           if (!tab.id) return;
-          chrome.tabs.sendMessage(tab.id, {
-            action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES,
-            showSubtitles: nextState,
-          }, () => {
-            if (chrome.runtime.lastError) {
-              // Ignore when the content script isn't present (non-YouTube pages).
-              return;
-            }
-          });
+          chrome.tabs.sendMessage(
+            tab.id,
+            {
+              action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES,
+              showSubtitles: nextState,
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                // Ignore when the content script isn't present (non-YouTube pages).
+                return;
+              }
+            },
+          );
         });
       });
     }
@@ -222,15 +238,19 @@ const Index = () => {
     return currentTabUrl;
   };
 
-  const handleVideoSubmit = async (url: string, options?: VideoProcessingOptions) => {
+  const handleVideoSubmit = async (
+    url: string,
+    options?: VideoProcessingOptions,
+  ) => {
     setIsExampleMode(false);
 
     const videoUrl = await resolveVideoUrl(url);
     if (!videoUrl) {
-      const errorMsg = "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
+      const errorMsg =
+        "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
       updateState({
         error: { message: errorMsg, type: "validation" },
-        currentStage: "❌ Not a YouTube page"
+        currentStage: "❌ Not a YouTube page",
       });
 
       toast({
@@ -242,14 +262,14 @@ const Index = () => {
     }
 
     setLastProcessedUrl(videoUrl);
-    
+
     // Include current transcript if available to avoid re-fetching
     const currentTranscript = summaryResult?.transcript || scrapedTranscript;
     const processingOptions = {
       ...options,
-      transcript: options?.transcript || currentTranscript || undefined
+      transcript: options?.transcript || currentTranscript || undefined,
     };
-    
+
     setLastOptions(processingOptions);
 
     try {
@@ -264,7 +284,12 @@ const Index = () => {
         variant: "destructive",
       });
 
-      console.error('Processing error:', apiError.message, 'Details:', apiError.details);
+      console.error(
+        "Processing error:",
+        apiError.message,
+        "Details:",
+        apiError.details,
+      );
     }
   };
 
@@ -275,7 +300,8 @@ const Index = () => {
     if (!videoUrl) {
       toast({
         title: "Not a YouTube Page",
-        description: "Not on a YouTube video page. Please open a YouTube video or enter a URL.",
+        description:
+          "Not on a YouTube video page. Please open a YouTube video or enter a URL.",
         variant: "destructive",
       });
       return;
@@ -300,7 +326,7 @@ const Index = () => {
   const handleFormSubmit = async (
     url: string,
     options?: VideoProcessingOptions,
-    action: "caption" | "summary" = "summary"
+    action: "caption" | "summary" = "summary",
   ) => {
     if (isDemoMode) {
       toast({
@@ -319,7 +345,10 @@ const Index = () => {
 
   const handleRegenerate = async () => {
     if (!lastProcessedUrl) return;
-    await handleVideoSubmit(lastProcessedUrl, { ...(lastOptions || {}), forceRegenerate: true });
+    await handleVideoSubmit(lastProcessedUrl, {
+      ...(lastOptions || {}),
+      forceRegenerate: true,
+    });
   };
 
   const videoInfo = summaryResult?.videoInfo || scrapedVideoInfo;

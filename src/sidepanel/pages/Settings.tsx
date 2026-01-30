@@ -1,15 +1,35 @@
 import type { FontSize } from "@/lib/core/constants";
-import { MESSAGE_ACTIONS, RECOMMENDED_REFINER_MODELS, RECOMMENDED_SUMMARIZER_MODELS, TARGET_LANGUAGES } from "@/lib/core/constants";
+import {
+  MESSAGE_ACTIONS,
+  RECOMMENDED_REFINER_MODELS,
+  RECOMMENDED_SUMMARIZER_MODELS,
+  TARGET_LANGUAGES,
+} from "@/lib/core/constants";
 import { getStorageValues, setStorageValue } from "@/lib/core/storage";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { EditableCombobox } from "@ui/components/ui/editable-combobox";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ui/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { useToast } from "@ui/hooks/use-toast";
-import { ArrowLeft, Cpu, Globe, Key, Settings as SettingsIcon, Sparkles, Type, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  Cpu,
+  Globe,
+  Key,
+  Settings as SettingsIcon,
+  Sparkles,
+  Type,
+  Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { applySummaryFontSize } from "../lib/font-size";
@@ -100,7 +120,9 @@ const Settings = () => {
           <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
             <SettingsIcon className="h-6 w-6 text-primary animate-spin-slow" />
           </div>
-          <p className="text-muted-foreground font-medium">Loading settings...</p>
+          <p className="text-muted-foreground font-medium">
+            Loading settings...
+          </p>
         </div>
       </div>
     );
@@ -111,12 +133,14 @@ const Settings = () => {
       <div className="absolute top-6 left-0 right-0 z-50">
         <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
           <div className="fade-in-up px-6">
-            <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
+            <h1 className="text-4xl font-black tracking-tight text-foreground">
+              Settings
+            </h1>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate("/")} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
             className="text-muted-foreground hover:text-foreground transition-all"
           >
             <ArrowLeft className="h-6 w-6" />
@@ -131,34 +155,64 @@ const Settings = () => {
             <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Key className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">API Configuration</span>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  API Configuration
+                </span>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="scrapeCreatorsApiKey" className="text-sm font-semibold">Scrape Creators API Key</Label>
-                  <a href="https://scrapecreators.com" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
+                  <Label
+                    htmlFor="scrapeCreatorsApiKey"
+                    className="text-sm font-semibold"
+                  >
+                    Scrape Creators API Key
+                  </Label>
+                  <a
+                    href="https://scrapecreators.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Get Key
+                  </a>
                 </div>
                 <Input
                   id="scrapeCreatorsApiKey"
                   type="password"
                   value={settings.scrapeCreatorsApiKey}
-                  onChange={(e) => handleChange("scrapeCreatorsApiKey", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("scrapeCreatorsApiKey", e.target.value)
+                  }
                   className="h-12 rounded-xl"
                   placeholder="..."
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="openRouterApiKey" className="text-sm font-semibold">OpenRouter API Key</Label>
-                  <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Get Key</a>
+                  <Label
+                    htmlFor="openRouterApiKey"
+                    className="text-sm font-semibold"
+                  >
+                    OpenRouter API Key
+                  </Label>
+                  <a
+                    href="https://openrouter.ai"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Get Key
+                  </a>
                 </div>
                 <Input
                   id="openRouterApiKey"
                   type="password"
                   value={settings.openRouterApiKey}
-                  onChange={(e) => handleChange("openRouterApiKey", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("openRouterApiKey", e.target.value)
+                  }
                   className="h-12 rounded-xl"
                   placeholder="sk-or-v1-..."
                 />
@@ -171,27 +225,42 @@ const Settings = () => {
             <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Cpu className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">Model Configuration</span>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Model Configuration
+                </span>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="summarizerModel" className="text-sm font-semibold">Summary Model</Label>
+                <Label
+                  htmlFor="summarizerModel"
+                  className="text-sm font-semibold"
+                >
+                  Summary Model
+                </Label>
                 <EditableCombobox
                   value={settings.summarizerModel}
                   onChange={(val) => handleChange("summarizerModel", val)}
-                  options={RECOMMENDED_SUMMARIZER_MODELS.map(m => ({ value: m.value, label: m.label }))}
+                  options={RECOMMENDED_SUMMARIZER_MODELS.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                  }))}
                   placeholder="Select or type model..."
                   inputClassName="h-12 rounded-xl"
                   contentClassName="rounded-xl"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="refinerModel" className="text-sm font-semibold">Caption Refinement Model</Label>
+                <Label htmlFor="refinerModel" className="text-sm font-semibold">
+                  Caption Refinement Model
+                </Label>
                 <EditableCombobox
                   value={settings.refinerModel}
                   onChange={(val) => handleChange("refinerModel", val)}
-                  options={RECOMMENDED_REFINER_MODELS.map(m => ({ value: m.value, label: m.label }))}
+                  options={RECOMMENDED_REFINER_MODELS.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                  }))}
                   placeholder="Select or type model..."
                   inputClassName="h-12 rounded-xl"
                   contentClassName="rounded-xl"
@@ -205,7 +274,9 @@ const Settings = () => {
             <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Zap className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">User Experience</span>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  User Experience
+                </span>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2 space-y-4">
@@ -216,8 +287,12 @@ const Settings = () => {
                     <Globe className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-foreground">Target Language</h4>
-                    <p className="text-xs text-muted-foreground">Summaries and captions will be in this language</p>
+                    <h4 className="font-bold text-foreground">
+                      Target Language
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Summaries and captions will be in this language
+                    </p>
                   </div>
                 </div>
                 <Select
@@ -228,8 +303,10 @@ const Settings = () => {
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
-                    {TARGET_LANGUAGES.map(lang => (
-                      <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                    {TARGET_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -243,13 +320,19 @@ const Settings = () => {
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground text-sm">Auto-Generate</h4>
-                      <p className="text-[10px] text-muted-foreground">Process on video load</p>
+                      <h4 className="font-bold text-foreground text-sm">
+                        Auto-Generate
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground">
+                        Process on video load
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={settings.autoGenerate}
-                    onCheckedChange={(checked) => handleChange("autoGenerate", checked)}
+                    onCheckedChange={(checked) =>
+                      handleChange("autoGenerate", checked)
+                    }
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -260,13 +343,19 @@ const Settings = () => {
                       <Zap className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground text-sm">Quality Check</h4>
-                      <p className="text-[10px] text-muted-foreground">Enable refinement loop (Slower)</p>
+                      <h4 className="font-bold text-foreground text-sm">
+                        Quality Check
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground">
+                        Enable refinement loop (Slower)
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={!settings.fastMode}
-                    onCheckedChange={(checked) => handleChange("fastMode", !checked)}
+                    onCheckedChange={(checked) =>
+                      handleChange("fastMode", !checked)
+                    }
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -279,22 +368,26 @@ const Settings = () => {
             <CardHeader className="p-6 pb-2">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Type className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">Font Size</span>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Font Size
+                </span>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Caption Overlay</Label>
+                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">
+                    Caption Overlay
+                  </Label>
                   <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                    {['S', 'M', 'L'].map((size) => (
+                    {["S", "M", "L"].map((size) => (
                       <button
                         key={size}
                         onClick={() => handleChange("captionFontSize", size)}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          settings.captionFontSize === size 
-                            ? 'bg-primary text-white shadow-lg' 
-                            : 'text-muted-foreground hover:text-foreground'
+                          settings.captionFontSize === size
+                            ? "bg-primary text-white shadow-lg"
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {size}
@@ -303,16 +396,18 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">Summary Panel</Label>
+                  <Label className="text-[11px] text-muted-foreground uppercase ml-1">
+                    Summary Panel
+                  </Label>
                   <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                    {['S', 'M', 'L'].map((size) => (
+                    {["S", "M", "L"].map((size) => (
                       <button
                         key={size}
                         onClick={() => handleChange("summaryFontSize", size)}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
                           settings.summaryFontSize === size
-                            ? 'bg-primary text-white shadow-lg'
-                            : 'text-muted-foreground hover:text-foreground'
+                            ? "bg-primary text-white shadow-lg"
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {size}

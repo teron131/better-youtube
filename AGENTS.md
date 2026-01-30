@@ -1,14 +1,13 @@
 # Better YouTube — Project Knowledge Base
 
-**Generated:** 2026-01-19 15:42:18 +0800
-**Commit:** bfae95a
-**Branch:** main
+**Generated:** 2026-01-19 15:42:18 +0800 **Commit:** bfae95a **Branch:** main
 
 ## Overview
-Chrome MV3 extension for YouTube caption refinement + AI summarization.
-Stack: Vite + React + TypeScript + Tailwind/shadcn/ui; LangChain/LangGraph via OpenRouter.
+
+Chrome MV3 extension for YouTube caption refinement + AI summarization. Stack: Vite + React + TypeScript + Tailwind/shadcn/ui; LangChain/LangGraph via OpenRouter.
 
 ## Structure
+
 ```
 ./
 ├── public/manifest.json        # MV3 manifest (service worker + content scripts + side panel)
@@ -21,6 +20,7 @@ Stack: Vite + React + TypeScript + Tailwind/shadcn/ui; LangChain/LangGraph via O
 ```
 
 ## Nested AGENTS.md (precedence)
+
 The closest `AGENTS.md` to the file you are editing takes precedence.
 
 - Background (MV3 service worker): `src/background/AGENTS.md`
@@ -30,8 +30,9 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
 - Side panel UI (React): `src/sidepanel/AGENTS.md`
 
 ## Where to look
+
 | Task | Location | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Add/rename message actions | `src/lib/constants.ts` | `MESSAGE_ACTIONS` is the cross-context contract. |
 | Background routing / orchestration | `src/background/index.ts` | MV3 service worker entrypoint. |
 | Background summary helpers | `src/background/summaryHelpers.ts` | Sends `SUMMARY_GENERATED` / error broadcasts. |
@@ -46,6 +47,7 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
 | LLM summarization | `src/lib/summarizer/*` | LangGraph/LangChain + zod schemas. |
 
 ## Conventions (project-specific)
+
 - Build is split across two Vite configs:
   - `vite.config.ts`: multi-entry build for `index.html`, `sidepanel.html`, and `src/background/index.ts`.
   - `vite.content.config.ts`: builds `src/content/index.ts` as an IIFE into `dist/content.js` (`emptyOutDir: false`).
@@ -59,11 +61,13 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
   - `tsconfig.node.json` is strict (Vite config typing).
 
 ## Anti-patterns (this project)
+
 - Adding ad-hoc message action strings outside `src/lib/constants.ts`.
 - Changing `MESSAGE_ACTIONS` or `STORAGE_KEYS` key strings without updating all contexts (background/content/sidepanel) and considering persisted data.
 - Treating content script bundling like normal React bundling; keep content constraints isolated to `vite.content.config.ts`.
 
 ## Commands
+
 ```bash
 npm run dev      # Vite dev server (side panel / web demo)
 npm run build    # tsc + Vite build (UI+background) + content script build
@@ -72,6 +76,7 @@ npm run lint     # ESLint (note: repo may not include an eslint config)
 ```
 
 ## Notes
+
 - Build output lives in `dist/` and is loaded unpacked via `chrome://extensions`.
 - `sidepanel-mock.js` exists to run the UI without `chrome.*` in a normal browser.
 - `.tmp/better-youtube-caption/` is an ignored, separate git repo used as historical reference/prototyping (not part of the build).

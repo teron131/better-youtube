@@ -18,7 +18,10 @@ const queryClient = new QueryClient();
 function isExtensionRuntime() {
   if (import.meta.env.MODE === "extension") return true;
   if (import.meta.env.DEV) return true; // Use HashRouter in dev for easier previewing
-  return typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
+  return (
+    typeof window !== "undefined" &&
+    window.location.protocol === "chrome-extension:"
+  );
 }
 
 function AppRoutes() {
@@ -37,7 +40,8 @@ const App = () => {
     loadSummaryFontSize();
   }, []);
 
-  const useHashRouter = isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
+  const useHashRouter =
+    isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
   const Router = useHashRouter ? HashRouter : BrowserRouter;
 
   return (

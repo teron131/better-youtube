@@ -4,11 +4,26 @@
 
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@ui/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@ui/components/ui/collapsible";
 import { Input } from "@ui/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
-import { ChevronDown, ChevronUp, Copy, FileText, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  FileText,
+  Search,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface TranscriptPanelProps {
@@ -43,18 +58,23 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
     if (!text) return "";
     if (!query.trim()) return text;
 
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const regex = new RegExp(
+      `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi",
+    );
     const parts = text.split(regex);
 
     let matchIndex = -1;
-    return parts.map((part, i) => {
-      if (regex.test(part)) {
-        matchIndex++;
-        const isCurrent = matchIndex === currentMatchIndex;
-        return `<mark class="${isCurrent ? 'bg-primary text-primary-foreground' : 'bg-yellow-500/30'}">${part}</mark>`;
-      }
-      return part;
-    }).join('');
+    return parts
+      .map((part, i) => {
+        if (regex.test(part)) {
+          matchIndex++;
+          const isCurrent = matchIndex === currentMatchIndex;
+          return `<mark class="${isCurrent ? "bg-primary text-primary-foreground" : "bg-yellow-500/30"}">${part}</mark>`;
+        }
+        return part;
+      })
+      .join("");
   };
 
   const handleSearch = (query: string) => {
@@ -62,7 +82,10 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
     setCurrentMatchIndex(0);
 
     if (query.trim()) {
-      const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const regex = new RegExp(
+        query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "gi",
+      );
       const matches = transcript.match(regex);
       setMatchCount(matches ? matches.length : 0);
     } else {
@@ -70,10 +93,10 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
     }
   };
 
-  const navigateMatches = (direction: 'next' | 'prev') => {
+  const navigateMatches = (direction: "next" | "prev") => {
     if (matchCount === 0) return;
 
-    if (direction === 'next') {
+    if (direction === "next") {
       setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
     } else {
       setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
@@ -87,17 +110,20 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && matchCount > 0) {
+    if (e.key === "Enter" && matchCount > 0) {
       e.preventDefault();
-      navigateMatches('next');
+      navigateMatches("next");
     }
   };
 
   useEffect(() => {
     if (transcriptRef.current && searchQuery.trim()) {
-      const marks = transcriptRef.current.querySelectorAll('mark');
+      const marks = transcriptRef.current.querySelectorAll("mark");
       if (marks[currentMatchIndex]) {
-        marks[currentMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        marks[currentMatchIndex].scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }
   }, [currentMatchIndex, searchQuery]);
@@ -115,8 +141,12 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                 <FileText className="w-6 h-6" />
               </div>
               <div className="text-left">
-                <span className="text-2xl font-black tracking-tight text-foreground block">Transcript</span>
-                <span className="text-muted-foreground text-sm">Complete video transcription</span>
+                <span className="text-2xl font-black tracking-tight text-foreground block">
+                  Transcript
+                </span>
+                <span className="text-muted-foreground text-sm">
+                  Complete video transcription
+                </span>
               </div>
             </div>
             {isOpen ? (
@@ -126,7 +156,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
             )}
           </Button>
         </CollapsibleTrigger>
-        
+
         <CollapsibleContent className="px-6 pb-6">
           <div className="space-y-6">
             <div className="flex gap-3 items-center">
@@ -143,7 +173,9 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                 {searchQuery && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : 'No matches'}
+                      {matchCount > 0
+                        ? `${currentMatchIndex + 1}/${matchCount}`
+                        : "No matches"}
                     </span>
                     <Button
                       variant="ghost"
@@ -162,7 +194,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => navigateMatches('prev')}
+                    onClick={() => navigateMatches("prev")}
                     className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
                     <ChevronUp className="w-5 h-5" />
@@ -170,7 +202,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => navigateMatches('next')}
+                    onClick={() => navigateMatches("next")}
                     className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
                     <ChevronDown className="w-5 h-5" />
@@ -201,7 +233,9 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
             >
               <div
                 className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text"
-                dangerouslySetInnerHTML={{ __html: highlightText(transcript, searchQuery) }}
+                dangerouslySetInnerHTML={{
+                  __html: highlightText(transcript, searchQuery),
+                }}
               />
             </div>
           </div>

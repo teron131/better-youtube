@@ -60,7 +60,10 @@ export function BulletList({ items, className = "" }: BulletListProps) {
   return (
     <ul className={`pl-2 space-y-1 ${className}`}>
       {items.map((item, index) => (
-        <li key={index} className="flex items-start gap-2 text-sm md:text-base text-foreground leading-7">
+        <li
+          key={index}
+          className="flex items-start gap-2 text-sm md:text-base text-foreground leading-7"
+        >
           <span className="text-primary font-bold mt-0.5">•</span>
           <span>{item}</span>
         </li>
@@ -75,12 +78,14 @@ interface SectionHeaderProps {
   className?: string;
 }
 
-export function SectionHeader({ icon, title, className = "" }: SectionHeaderProps) {
+export function SectionHeader({
+  icon,
+  title,
+  className = "",
+}: SectionHeaderProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className="text-primary">
-        {icon}
-      </div>
+      <div className="text-primary">{icon}</div>
       <h4 className="text-xs font-bold uppercase tracking-widest text-primary">
         {title}
       </h4>

@@ -4,22 +4,34 @@ import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { useUserPreferences } from "@ui/hooks/use-config";
-import { isFormValid, prepareProcessingOptions, validateYouTubeUrl } from "@/lib/utils/validation";
+import {
+  isFormValid,
+  prepareProcessingOptions,
+  validateYouTubeUrl,
+} from "@/lib/utils/validation";
 import { AlertCircle, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface VideoUrlFormProps {
-  onSubmit: (url: string, options?: {
-    targetLanguage?: string;
-    summaryModel?: string;
-    qualityModel?: string;
-    fastMode?: boolean;
-  }, action?: "caption" | "summary") => void;
+  onSubmit: (
+    url: string,
+    options?: {
+      targetLanguage?: string;
+      summaryModel?: string;
+      qualityModel?: string;
+      fastMode?: boolean;
+    },
+    action?: "caption" | "summary",
+  ) => void;
   isLoading: boolean;
   initialUrl?: string;
 }
 
-export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormProps) => {
+export const VideoUrlForm = ({
+  onSubmit,
+  isLoading,
+  initialUrl,
+}: VideoUrlFormProps) => {
   const [url, setUrl] = useState(initialUrl || "");
   const [validationError, setValidationError] = useState<string>("");
   const [showExamples, setShowExamples] = useState(false);
@@ -36,7 +48,10 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     setShowExamples(newUrl.trim().length === 0);
   };
 
-  const handleSubmit = async (e: React.SyntheticEvent, action: "caption" | "summary" = "summary") => {
+  const handleSubmit = async (
+    e: React.SyntheticEvent,
+    action: "caption" | "summary" = "summary",
+  ) => {
     e.preventDefault();
     const trimmedUrl = url.trim();
 
@@ -72,7 +87,10 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
   return (
     <Card className="rounded-[28px] p-0 border-border/50">
       <div className="space-y-6 p-6 sm:p-8">
-        <form onSubmit={(event) => handleSubmit(event, "summary")} className="space-y-5">
+        <form
+          onSubmit={(event) => handleSubmit(event, "summary")}
+          className="space-y-5"
+        >
           <div className="space-y-2.5">
             <Input
               type="url"
@@ -88,7 +106,10 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
             />
 
             {validationError && (
-              <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <Alert
+                variant="destructive"
+                className="border-destructive/50 bg-destructive/10"
+              >
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{validationError}</AlertDescription>
               </Alert>
@@ -106,7 +127,9 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
             >
               <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
               <Play className="w-6 h-6 flex-shrink-0" />
-              <span className="font-semibold text-base break-words">Caption</span>
+              <span className="font-semibold text-base break-words">
+                Caption
+              </span>
             </Button>
 
             <Button
@@ -118,18 +141,21 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
               {isLoading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
-                  <span className="font-semibold text-base break-words">Processing</span>
+                  <span className="font-semibold text-base break-words">
+                    Processing
+                  </span>
                 </>
               ) : (
                 <>
                   <Play className="w-6 h-6 flex-shrink-0" />
-                  <span className="font-semibold text-base break-words">Summary</span>
+                  <span className="font-semibold text-base break-words">
+                    Summary
+                  </span>
                 </>
               )}
             </Button>
           </div>
         </form>
-
       </div>
     </Card>
   );

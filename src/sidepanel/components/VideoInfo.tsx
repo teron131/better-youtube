@@ -34,7 +34,16 @@ interface VideoInfoProps {
   upload_date?: string | null;
 }
 
-export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like_count, upload_date, url }: VideoInfoProps) => {
+export const VideoInfo = ({
+  title,
+  thumbnail,
+  author,
+  duration,
+  view_count,
+  like_count,
+  upload_date,
+  url,
+}: VideoInfoProps) => {
   if (!title) return null;
 
   const displayDuration = trimDurationLeadingZeros(duration || undefined);
@@ -60,7 +69,7 @@ export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
           </div>
         </div>
-        
+
         <div className="flex-1 space-y-4">
           <h3 className="text-2xl font-black tracking-tight text-foreground line-clamp-2 leading-tight">
             {convertedInfo.title || "Title not available"}
@@ -75,26 +84,41 @@ export const VideoInfo = ({ title, thumbnail, author, duration, view_count, like
               {cleanedUrl}
             </a>
           )}
-          
+
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-muted-foreground">
-            <InfoItem icon={<User className="w-4 h-4 text-primary" />} value={convertedInfo.author || "Author not available"} />
+            <InfoItem
+              icon={<User className="w-4 h-4 text-primary" />}
+              value={convertedInfo.author || "Author not available"}
+            />
 
             {displayDuration && (
-              <InfoItem icon={<Clock className="w-4 h-4 text-primary" />} value={displayDuration} />
+              <InfoItem
+                icon={<Clock className="w-4 h-4 text-primary" />}
+                value={displayDuration}
+              />
             )}
 
             {upload_date && (
-              <InfoItem icon={<CalendarDays className="w-4 h-4 text-primary" />} value={formatDate(upload_date)!} />
+              <InfoItem
+                icon={<CalendarDays className="w-4 h-4 text-primary" />}
+                value={formatDate(upload_date)!}
+              />
             )}
 
             {hasMetrics && <div className="basis-full" />}
 
             {view_count != null && (
-              <InfoItem icon={<Eye className="w-4 h-4 text-primary" />} value={view_count.toLocaleString()} />
+              <InfoItem
+                icon={<Eye className="w-4 h-4 text-primary" />}
+                value={view_count.toLocaleString()}
+              />
             )}
 
             {like_count != null && (
-              <InfoItem icon={<ThumbsUp className="w-4 h-4 text-primary" />} value={like_count.toLocaleString()} />
+              <InfoItem
+                icon={<ThumbsUp className="w-4 h-4 text-primary" />}
+                value={like_count.toLocaleString()}
+              />
             )}
           </div>
         </div>

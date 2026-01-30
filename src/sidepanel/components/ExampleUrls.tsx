@@ -19,7 +19,7 @@ export function ExampleUrls({ onSelect }: ExampleUrlsProps) {
           Try one of these example URLs to see how it works:
         </AlertDescription>
       </Alert>
-      
+
       <div className="grid gap-2">
         {EXAMPLE_YOUTUBE_URLS.map((exampleUrl, index) => (
           <button
@@ -40,4 +40,3 @@ export function ExampleUrls({ onSelect }: ExampleUrlsProps) {
     </div>
   );
 }
-
