@@ -127,7 +127,7 @@ function createGarbageFilterMiddleware(model: string) {
 
 function createSummaryNode() {
   return async (state: GraphState): Promise<Partial<GraphState>> => {
-    const { summary_model, target_language, transcript, quality, summary, iteration_count, onProgress } = state;
+    const { summary_model, target_language, transcript, quality, summary, iteration_count, onProgress, title, description } = state;
     const progress = onProgress as ((msg: string) => void) | undefined;
   
     progress?.(quality && summary ? "Refining summary based on quality feedback..." : `Generating initial summary. Transcript length: ${transcript.length} characters`);
@@ -138,7 +138,7 @@ function createSummaryNode() {
     let result;
     if (quality && summary) {
       const prompt = ChatPromptTemplate.fromMessages([
-        ["system", PromptBuilder.buildImprovementPrompt(targetLang)],
+        ["system", PromptBuilder.buildImprovementPrompt(targetLang, title, description)],
         ["human", "{improvement_prompt}"],
       ]);
       result = await prompt.pipe(llm).invoke({
@@ -146,7 +146,7 @@ function createSummaryNode() {
       });
     } else {
       const prompt = ChatPromptTemplate.fromMessages([
-        ["system", PromptBuilder.buildSummaryPrompt(targetLang)],
+        ["system", PromptBuilder.buildSummaryPrompt(targetLang, title, description)],
         ["human", "{content}"],
       ]);
       result = await prompt.pipe(llm).invoke({ content: transcript });
@@ -239,6 +239,8 @@ function formatSummaryAsMarkdown(summary: Summary): string {
 export interface SummarizationInput {
   transcript_or_url: string;
   videoId?: string;
+  title?: string;
+  description?: string;
   summary_model?: string;
   quality_model?: string;
   refiner_model?: string;
@@ -260,7 +262,7 @@ async function executeFastSummarization(
   const agent = createAgent({
     model: await createOpenRouterLLM(model),
     tools: isUrl ? [createScrapYoutubeTool(input)] : [],
-    systemPrompt: PromptBuilder.buildSummaryPrompt(targetLang),
+    systemPrompt: PromptBuilder.buildSummaryPrompt(targetLang, input.title, input.description),
     responseFormat: toolStrategy(SummarySchema),
     middleware: isUrl ? [createGarbageFilterMiddleware(input.refiner_model ?? DEFAULTS.MODEL_REFINER)] : [],
   });
@@ -298,6 +300,8 @@ export async function executeSummarizationWorkflow(
 
   const result = await createSummarizationGraph().invoke({
     transcript,
+    title: input.title,
+    description: input.description,
     summary_model: input.summary_model ?? SUMMARY_CONFIG.MODEL,
     quality_model: input.quality_model ?? SUMMARY_CONFIG.QUALITY_MODEL,
     target_language: input.target_language ?? "auto",

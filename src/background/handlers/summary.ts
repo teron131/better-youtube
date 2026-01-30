@@ -65,6 +65,8 @@ export async function handleGenerateSummary(
       const result = await executeSummarizationWorkflow({
         transcript_or_url,
         videoId,
+        title: videoInfo?.title || undefined,
+        description: videoInfo?.description || undefined,
         summary_model: modelSelection,
         quality_model: qualityModel || modelSelection,
         refiner_model: refinerModel,

@@ -85,6 +85,8 @@ export type Quality = z.infer<typeof QualitySchema>;
  */
 export const GraphStateSchema = z.object({
   transcript: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
   summary_model: z.string().optional(),
   quality_model: z.string().optional(),
   target_language: z.string().default("auto"),

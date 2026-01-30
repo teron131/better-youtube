@@ -29,12 +29,16 @@ export class PromptBuilder {
   /**
    * Build prompt for initial summary generation
    */
-  static buildSummaryPrompt(targetLanguage = "auto"): string {
+  static buildSummaryPrompt(targetLanguage = "auto", title?: string, description?: string): string {
     const languageInstruction = getLanguageInstruction(targetLanguage);
+    const metadataParts = [];
+    if (title) metadataParts.push(`Video Title: ${title}`);
+    if (description) metadataParts.push(`Video Description: ${description}`);
+    const metadata = metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join('\n')}\n` : '';
 
     return [
       "Create a comprehensive summary that strictly follows the transcript content.",
-      "",
+      metadata,
       languageInstruction,
       "",
       "REQUIREMENTS:",
@@ -56,12 +60,16 @@ export class PromptBuilder {
   /**
    * Build prompt for summary improvement
    */
-  static buildImprovementPrompt(targetLanguage = "auto"): string {
+  static buildImprovementPrompt(targetLanguage = "auto", title?: string, description?: string): string {
     const languageInstruction = getLanguageInstruction(targetLanguage, true);
+    const metadataParts = [];
+    if (title) metadataParts.push(`Video Title: ${title}`);
+    if (description) metadataParts.push(`Video Description: ${description}`);
+    const metadata = metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join('\n')}\n` : '';
 
     return [
       "Improve the summary based on quality feedback while maintaining transcript accuracy.",
-      "",
+      metadata,
       languageInstruction,
       "",
       "PRIORITIES:",

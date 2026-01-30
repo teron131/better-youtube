@@ -24,6 +24,7 @@ export interface VideoMetadata {
   upload_date: string | null;
   view_count: number | null;
   like_count: number | null;
+  description?: string | null;
 }
 
 export interface StoredSummary {
