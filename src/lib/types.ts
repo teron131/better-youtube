@@ -25,6 +25,9 @@ export interface ChannelInfo {
 }
 
 export interface ScrapeCreatorsResponse {
+  success?: boolean;
+  credits_remaining?: number;
+  type?: string;
   transcript: ApiTranscriptSegment[];
   transcript_only_text?: string;
   title: string;
@@ -38,4 +41,7 @@ export interface ScrapeCreatorsResponse {
   channel?: ChannelInfo;
   durationFormatted?: string;
   keywords?: string[];
+  videoId?: string;
+  captionTracks?: any[];
+  language?: string;
 }

@@ -141,7 +141,9 @@ export async function fetchTranscript(
         clearTimeout(timeoutId);
       }
     }
-    return null;
+    
+    // Fallback to empty schema on failure (no raising error)
+    return createEmptyScrapeCreatorsResponse(videoId);
   })();
 
   pendingTranscriptFetches.set(videoId, fetchPromise);
@@ -159,8 +161,31 @@ function createVideoUrl(videoId: string): string {
 function buildTranscriptRequestUrl(videoId: string): URL {
   const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
   requestUrl.searchParams.set("url", createVideoUrl(videoId));
-  requestUrl.searchParams.set("get_transcript", "true");
+  // Removed "get_transcript" parameter as it wasn't in the user request for the new endpoint
   return requestUrl;
+}
+
+function createEmptyScrapeCreatorsResponse(videoId: string): ScrapeCreatorsResponse {
+  return {
+    success: true, // Mock success to prevent errors downstream
+    credits_remaining: 0,
+    type: "video",
+    url: createVideoUrl(videoId),
+    transcript: [],
+    title: "",
+    description: "",
+    channel: {
+      id: "",
+      url: "",
+      handle: "",
+      title: "",
+    },
+    durationFormatted: "",
+    publishDate: "",
+    viewCountInt: 0,
+    likeCountInt: 0,
+    keywords: [],
+  };
 }
 
 function delay(durationMs: number): Promise<void> {

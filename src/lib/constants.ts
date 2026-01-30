@@ -26,7 +26,7 @@ export const STORAGE_KEYS = {
 // ============================================================================
 
 export const API_ENDPOINTS = {
-  SCRAPE_CREATORS: "https://api.scrapecreators.com/v1/youtube/video",
+  SCRAPE_CREATORS: "https://api.scrapecreators.com/v1/youtube/video/transcript",
   OPENROUTER: "https://openrouter.ai/api/v1/chat/completions",
   OPENROUTER_BASE: "https://openrouter.ai/api/v1",
 } as const;
