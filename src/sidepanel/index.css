@@ -41,20 +41,43 @@ All colors MUST be HSL.
     --youtube-red: 0 100% 50%;
     --youtube-red-light: 0 100% 60%;
     --youtube-red-dark: 0 100% 40%;
-    
+
     /* Modern Gradients - Light Mode */
-    --gradient-primary: linear-gradient(135deg, hsl(0 100% 50%), hsl(350 100% 55%));
-    --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));
-    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%) 0%, hsl(0 0% 96%) 50%, hsl(0 0% 94%) 100%);
-    --gradient-button: linear-gradient(135deg, hsl(0 100% 50%), hsl(15 100% 55%));
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-    
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(0 100% 50%),
+      hsl(350 100% 55%)
+    );
+    --gradient-card: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.9),
+      rgba(248, 250, 252, 0.95)
+    );
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(0 0% 98%) 0%,
+      hsl(0 0% 96%) 50%,
+      hsl(0 0% 94%) 100%
+    );
+    --gradient-button: linear-gradient(
+      135deg,
+      hsl(0 100% 50%),
+      hsl(15 100% 55%)
+    );
+    --gradient-glass: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.8),
+      rgba(255, 255, 255, 0.4)
+    );
+
     /* Modern Shadows & Effects - Light Mode */
     --shadow-glow: 0 0 40px hsl(0 100% 50% / 0.2);
-    --shadow-card: 0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,0,0,0.1);
+    --shadow-card:
+      0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 0, 0, 0.1);
     --shadow-button: 0 4px 24px hsl(0 100% 50% / 0.3);
-    --shadow-glass: 0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
-    
+    --shadow-glass:
+      0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
     /* Modern Transitions */
     --transition-smooth: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     --transition-glow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -115,11 +138,26 @@ All colors MUST be HSL.
     --ring: 0 100% 50%;
 
     /* Dark mode gradients and effects */
-    --gradient-card: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(15,15,15,0.9));
-    --gradient-hero: linear-gradient(135deg, hsl(0 0% 2%) 0%, hsl(0 5% 8%) 50%, hsl(0 10% 12%) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-    --shadow-card: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,0,0,0.1);
-    --shadow-glass: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    --gradient-card: linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.8),
+      rgba(15, 15, 15, 0.9)
+    );
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(0 0% 2%) 0%,
+      hsl(0 5% 8%) 50%,
+      hsl(0 10% 12%) 100%
+    );
+    --gradient-glass: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.05)
+    );
+    --shadow-card:
+      0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 0, 0, 0.1);
+    --shadow-glass:
+      0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -175,9 +213,15 @@ All colors MUST be HSL.
   @apply font-semibold mb-2 text-foreground;
 }
 
-.markdown-content h1 { @apply text-2xl mb-4; }
-.markdown-content h2 { @apply text-xl mb-3; }
-.markdown-content h3 { @apply text-lg mb-2; }
+.markdown-content h1 {
+  @apply text-2xl mb-4;
+}
+.markdown-content h2 {
+  @apply text-xl mb-3;
+}
+.markdown-content h3 {
+  @apply text-lg mb-2;
+}
 
 .markdown-content p {
   @apply mb-4 leading-relaxed;
@@ -226,7 +270,9 @@ All colors MUST be HSL.
     text-shadow: 0 0 20px hsl(var(--primary) / 0.6);
   }
   to {
-    text-shadow: 0 0 40px hsl(var(--primary) / 1), 0 0 60px hsl(var(--primary) / 0.8);
+    text-shadow:
+      0 0 40px hsl(var(--primary) / 1),
+      0 0 60px hsl(var(--primary) / 0.8);
   }
 }
 
@@ -263,7 +309,8 @@ All colors MUST be HSL.
 }
 
 @keyframes youtubePulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
   }
   50% {
@@ -281,10 +328,18 @@ All colors MUST be HSL.
   background: rgba(0, 0, 0, 0.6);
 }
 
-.stagger-1 { animation-delay: 0.2s; }
-.stagger-2 { animation-delay: 0.4s; }
-.stagger-3 { animation-delay: 0.6s; }
-.stagger-4 { animation-delay: 0.8s; }
+.stagger-1 {
+  animation-delay: 0.2s;
+}
+.stagger-2 {
+  animation-delay: 0.4s;
+}
+.stagger-3 {
+  animation-delay: 0.6s;
+}
+.stagger-4 {
+  animation-delay: 0.8s;
+}
 
 /* Glowing red timeline styles */
 .timeline-track {
@@ -292,19 +347,29 @@ All colors MUST be HSL.
 }
 
 .timeline-fill {
-  background-image: linear-gradient(90deg, hsl(var(--youtube-red)), hsl(350 100% 55%));
-  box-shadow: 0 0 24px hsl(var(--youtube-red) / 0.6), 0 0 48px hsl(var(--youtube-red) / 0.4);
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--youtube-red)),
+    hsl(350 100% 55%)
+  );
+  box-shadow:
+    0 0 24px hsl(var(--youtube-red) / 0.6),
+    0 0 48px hsl(var(--youtube-red) / 0.4);
   height: 100%;
   border-radius: 9999px;
   animation: timelineGlow 1.8s ease-in-out infinite alternate;
 }
 @keyframes timelineGlow {
   from {
-    box-shadow: 0 0 16px hsl(var(--youtube-red) / 0.35), 0 0 32px hsl(var(--youtube-red) / 0.2);
+    box-shadow:
+      0 0 16px hsl(var(--youtube-red) / 0.35),
+      0 0 32px hsl(var(--youtube-red) / 0.2);
     filter: saturate(1) brightness(1);
   }
   to {
-    box-shadow: 0 0 28px hsl(var(--youtube-red) / 0.75), 0 0 64px hsl(var(--youtube-red) / 0.5);
+    box-shadow:
+      0 0 28px hsl(var(--youtube-red) / 0.75),
+      0 0 64px hsl(var(--youtube-red) / 0.5);
     filter: saturate(1.15) brightness(1.15);
   }
 }

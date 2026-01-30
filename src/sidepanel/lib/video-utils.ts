@@ -2,38 +2,44 @@
  * Video processing utilities
  */
 
-import { extractVideoId } from '@/lib/utils/url';
-import { StreamingProgressState } from '@/lib/core/types';
+import { extractVideoId } from "@/lib/utils/url";
+import { StreamingProgressState } from "@/lib/core/types";
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
-const STEP_ORDER = ['scraping', 'summary_generation', 'quality_check', 'refinement', 'complete'] as const;
-type NormalizedStep = typeof STEP_ORDER[number];
+const STEP_ORDER = [
+  "scraping",
+  "summary_generation",
+  "quality_check",
+  "refinement",
+  "complete",
+] as const;
+type NormalizedStep = (typeof STEP_ORDER)[number];
 const MILLION = 1000000;
 const THOUSAND = 1000;
 
 export const PROGRESS_STEPS = [
   {
-    step: 'scraping',
+    step: "scraping",
     name: "Scraping Video",
     description: "Extracting video info and transcript using Scrape Creators",
   },
   {
-    step: 'summary_generation',
+    step: "summary_generation",
     name: "Summary Generation",
     description: "Generating initial AI summary with Gemini model",
   },
   {
-    step: 'quality_check',
+    step: "quality_check",
     name: "Quality Assessment",
     description: "Evaluating summary quality and completeness",
   },
   {
-    step: 'refinement',
+    step: "refinement",
     name: "Summary Refinement",
     description: "Refining summary based on quality feedback",
   },
   {
-    step: 'complete',
+    step: "complete",
     name: "Complete",
     description: "Summary completed successfully",
   },
@@ -43,7 +49,7 @@ export const PROGRESS_STEPS = [
  * Get current YouTube video tab
  */
 export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
-  if (typeof chrome === 'undefined' || !chrome.tabs) {
+  if (typeof chrome === "undefined" || !chrome.tabs) {
     return null;
   }
 
@@ -65,37 +71,43 @@ export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
 export async function getVideoIdFromCurrentTab(): Promise<string> {
   try {
     const tab = await getCurrentVideoTab();
-    if (!tab?.url) return '';
+    if (!tab?.url) return "";
 
     const videoId = extractVideoId(tab.url);
     if (videoId && VIDEO_ID_REGEX.test(videoId)) {
       return `https://www.youtube.com/watch?v=${videoId}`;
     }
   } catch (error) {
-    console.error('Error getting video ID from tab:', error);
+    console.error("Error getting video ID from tab:", error);
   }
 
-  return '';
+  return "";
 }
 
 /**
  * Normalize step names for consistent UI display
  */
-export function normalizeStepName(step: StreamingProgressState['step']): NormalizedStep {
-  return step === 'summarizing' ? 'summary_generation' : (step as NormalizedStep);
+export function normalizeStepName(
+  step: StreamingProgressState["step"],
+): NormalizedStep {
+  return step === "summarizing"
+    ? "summary_generation"
+    : (step as NormalizedStep);
 }
 
 /**
  * Find step index in progress steps array
  */
-export function findStepIndex(step: StreamingProgressState['step']): number {
-  return PROGRESS_STEPS.findIndex(s => s.step === step);
+export function findStepIndex(step: StreamingProgressState["step"]): number {
+  return PROGRESS_STEPS.findIndex((s) => s.step === step);
 }
 
 /**
  * Sort progress states in correct order
  */
-export function sortProgressStates(states: StreamingProgressState[]): StreamingProgressState[] {
+export function sortProgressStates(
+  states: StreamingProgressState[],
+): StreamingProgressState[] {
   return [...states].sort((a, b) => {
     const stepA = normalizeStepName(a.step);
     const stepB = normalizeStepName(b.step);
@@ -108,9 +120,9 @@ export function sortProgressStates(states: StreamingProgressState[]): StreamingP
  */
 export function isStepCompleted(
   states: StreamingProgressState[],
-  step: StreamingProgressState['step'],
+  step: StreamingProgressState["step"],
 ): boolean {
-  return states.some((s) => s.step === step && s.status === 'completed');
+  return states.some((s) => s.step === step && s.status === "completed");
 }
 
 /**
@@ -118,16 +130,16 @@ export function isStepCompleted(
  */
 export function isStepProcessing(
   states: StreamingProgressState[],
-  step: StreamingProgressState['step'],
+  step: StreamingProgressState["step"],
 ): boolean {
-  return states.some((s) => s.step === step && s.status === 'processing');
+  return states.some((s) => s.step === step && s.status === "processing");
 }
 
 /**
  * Format view count (e.g. 1000000 -> 1M)
  */
 export function formatViewCount(count: number): string {
-  if (!count) return '0';
+  if (!count) return "0";
   if (count >= MILLION) return `${(count / MILLION).toFixed(1)}M`;
   if (count >= THOUSAND) return `${(count / THOUSAND).toFixed(1)}K`;
   return count.toString();
@@ -138,11 +150,11 @@ export function formatViewCount(count: number): string {
  */
 export function getStageText(anchor: number): string {
   const stages = [
-    'Initializing',
-    'Scraping',
-    'Summarizing',
-    'Quality Check',
-    'Complete',
+    "Initializing",
+    "Scraping",
+    "Summarizing",
+    "Quality Check",
+    "Complete",
   ];
-  return stages[anchor] || 'Processing';
+  return stages[anchor] || "Processing";
 }

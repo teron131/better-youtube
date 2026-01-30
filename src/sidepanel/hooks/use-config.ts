@@ -5,9 +5,9 @@
  * with backend synchronization and local fallback.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-import { api } from '@ui/services/api';
+import { api } from "@ui/services/api";
 import {
   AVAILABLE_MODELS,
   AVAILABLE_MODELS_LIST,
@@ -22,8 +22,8 @@ import {
   isValidModel,
   type AvailableModel,
   type SupportedLanguage,
-} from '@ui/services/config';
-import { ConfigurationResponse } from '@ui/services/types';
+} from "@ui/services/config";
+import { ConfigurationResponse } from "@ui/services/types";
 
 interface UseConfigReturn {
   config: ConfigurationResponse | null;
@@ -52,10 +52,12 @@ export function useConfig(): UseConfigReturn {
       const configuration = await api.getConfiguration();
       setConfig(configuration);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load configuration');
+      setError(
+        err instanceof Error ? err.message : "Failed to load configuration",
+      );
       setConfig({
-        status: 'success',
-        message: 'Using local configuration fallback',
+        status: "success",
+        message: "Using local configuration fallback",
         available_models: AVAILABLE_MODELS,
         supported_languages: SUPPORTED_LANGUAGES,
         default_summary_model: DEFAULT_SUMMARY_MODEL,
@@ -79,16 +81,30 @@ export function useConfig(): UseConfigReturn {
     languages: SUPPORTED_LANGUAGES_LIST,
     isLoading,
     error,
-    getModelByKey: (key: string) => AVAILABLE_MODELS_LIST.find(m => m.key === key),
-    getLanguageByKey: (key: string) => SUPPORTED_LANGUAGES_LIST.find(l => l.key === key),
-    isValidModel: (model: string) => config?.available_models ? model in config.available_models : model in AVAILABLE_MODELS,
-    isValidLanguage: (language: string) => config?.supported_languages ? language in config.supported_languages : language in SUPPORTED_LANGUAGES,
+    getModelByKey: (key: string) =>
+      AVAILABLE_MODELS_LIST.find((m) => m.key === key),
+    getLanguageByKey: (key: string) =>
+      SUPPORTED_LANGUAGES_LIST.find((l) => l.key === key),
+    isValidModel: (model: string) =>
+      config?.available_models
+        ? model in config.available_models
+        : model in AVAILABLE_MODELS,
+    isValidLanguage: (language: string) =>
+      config?.supported_languages
+        ? language in config.supported_languages
+        : language in SUPPORTED_LANGUAGES,
     refresh: loadConfig,
   };
 }
 
 export function useModelSelection() {
-  const { models, summarizerModels, refinerModels, getModelByKey, isValidModel } = useConfig();
+  const {
+    models,
+    summarizerModels,
+    refinerModels,
+    getModelByKey,
+    isValidModel,
+  } = useConfig();
   return {
     models,
     summarizerModels,
@@ -111,7 +127,7 @@ export function useLanguageSelection() {
   };
 }
 
-import { STORAGE_KEYS } from '@/lib/core/constants';
+import { STORAGE_KEYS } from "@/lib/core/constants";
 
 interface UserPreferences {
   summaryModel: string;
@@ -123,7 +139,7 @@ interface UserPreferences {
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   summaryModel: DEFAULT_SUMMARY_MODEL,
   qualityModel: DEFAULT_QUALITY_MODEL,
-  targetLanguage: DEFAULT_TARGET_LANGUAGE || 'auto',
+  targetLanguage: DEFAULT_TARGET_LANGUAGE || "auto",
   fastMode: false,
 };
 
@@ -132,21 +148,26 @@ function validatePreferences(
   defaults: UserPreferences,
 ): UserPreferences {
   return {
-    summaryModel: prefs.summaryModel && isValidModel(prefs.summaryModel)
-      ? prefs.summaryModel
-      : defaults.summaryModel,
-    qualityModel: prefs.qualityModel && isValidModel(prefs.qualityModel)
-      ? prefs.qualityModel
-      : defaults.qualityModel,
-    targetLanguage: prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
-      ? prefs.targetLanguage
-      : defaults.targetLanguage,
+    summaryModel:
+      prefs.summaryModel && isValidModel(prefs.summaryModel)
+        ? prefs.summaryModel
+        : defaults.summaryModel,
+    qualityModel:
+      prefs.qualityModel && isValidModel(prefs.qualityModel)
+        ? prefs.qualityModel
+        : defaults.qualityModel,
+    targetLanguage:
+      prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
+        ? prefs.targetLanguage
+        : defaults.targetLanguage,
     fastMode: prefs.fastMode ?? defaults.fastMode,
   };
 }
 
 export function useUserPreferences() {
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
+  const [preferences, setPreferences] = useState<UserPreferences>(
+    DEFAULT_USER_PREFERENCES,
+  );
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -157,35 +178,62 @@ export function useUserPreferences() {
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
       STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
       STORAGE_KEYS.FAST_MODE,
-      STORAGE_KEYS.QUALITY_MODEL
+      STORAGE_KEYS.QUALITY_MODEL,
     ];
 
     chrome.storage.local.get(keys, (result) => {
       const loadedPrefs: Partial<UserPreferences> = {
-        summaryModel: result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
-        targetLanguage: result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
+        summaryModel:
+          result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+          result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
+        targetLanguage:
+          result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+          result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
         fastMode: result[STORAGE_KEYS.FAST_MODE],
-        qualityModel: result[STORAGE_KEYS.QUALITY_MODEL]
+        qualityModel: result[STORAGE_KEYS.QUALITY_MODEL],
       };
-      
-      setPreferences(validatePreferences(loadedPrefs, DEFAULT_USER_PREFERENCES));
+
+      setPreferences(
+        validatePreferences(loadedPrefs, DEFAULT_USER_PREFERENCES),
+      );
       setIsLoaded(true);
     });
 
     // Listen for changes from other parts of the extension
-    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+    const listener = (changes: {
+      [key: string]: chrome.storage.StorageChange;
+    }) => {
       const updates: Partial<UserPreferences> = {};
-      if (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]) {
-        updates.summaryModel = (changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] || changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]).newValue;
+      if (
+        changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+        changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]
+      ) {
+        updates.summaryModel = (
+          changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+          changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]
+        ).newValue;
       }
-      if (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]) {
-        updates.targetLanguage = (changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] || changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]).newValue;
+      if (
+        changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+        changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
+      ) {
+        updates.targetLanguage = (
+          changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+          changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
+        ).newValue;
       }
-      if (changes[STORAGE_KEYS.FAST_MODE]) updates.fastMode = changes[STORAGE_KEYS.FAST_MODE].newValue;
-      if (changes[STORAGE_KEYS.QUALITY_MODEL]) updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
+      if (changes[STORAGE_KEYS.FAST_MODE])
+        updates.fastMode = changes[STORAGE_KEYS.FAST_MODE].newValue;
+      if (changes[STORAGE_KEYS.QUALITY_MODEL])
+        updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
 
       if (Object.keys(updates).length > 0) {
-        setPreferences(prev => validatePreferences({ ...prev, ...updates }, DEFAULT_USER_PREFERENCES));
+        setPreferences((prev) =>
+          validatePreferences(
+            { ...prev, ...updates },
+            DEFAULT_USER_PREFERENCES,
+          ),
+        );
       }
     };
 
@@ -199,10 +247,16 @@ export function useUserPreferences() {
 
     // Sync to chrome.storage.local
     const storageUpdates: Record<string, any> = {};
-    if (updates.summaryModel) storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] = updates.summaryModel;
-    if (updates.targetLanguage) storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] = updates.targetLanguage;
-    if (updates.fastMode !== undefined) storageUpdates[STORAGE_KEYS.FAST_MODE] = updates.fastMode;
-    if (updates.qualityModel) storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
+    if (updates.summaryModel)
+      storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] =
+        updates.summaryModel;
+    if (updates.targetLanguage)
+      storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] =
+        updates.targetLanguage;
+    if (updates.fastMode !== undefined)
+      storageUpdates[STORAGE_KEYS.FAST_MODE] = updates.fastMode;
+    if (updates.qualityModel)
+      storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
 
     chrome.storage.local.set(storageUpdates);
   };
@@ -213,7 +267,7 @@ export function useUserPreferences() {
       STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
       STORAGE_KEYS.FAST_MODE,
-      STORAGE_KEYS.QUALITY_MODEL
+      STORAGE_KEYS.QUALITY_MODEL,
     ]);
   };
 
@@ -221,6 +275,6 @@ export function useUserPreferences() {
     preferences,
     updatePreferences,
     resetPreferences,
-    isLoaded
+    isLoaded,
   };
 }

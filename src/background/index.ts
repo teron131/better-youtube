@@ -14,9 +14,10 @@ const latestSummaryRequestByVideo = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
 
-
 // Allow side panel to open on action click
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch(console.error);
 
 /**
  * Main message listener
@@ -33,7 +34,7 @@ createMessageListener((message, sender, sendResponse) => {
       handleFetchSubtitles(
         message,
         { tabId, latestCaptionRequestByVideo, pendingCaptionJobs },
-        sendResponse
+        sendResponse,
       );
       return true;
 
@@ -41,12 +42,15 @@ createMessageListener((message, sender, sendResponse) => {
       handleGenerateSummary(
         message,
         { latestSummaryRequestByVideo, pendingSummaryJobs },
-        sendResponse
+        sendResponse,
       );
       return true;
 
     case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
-      sendResponse({ status: "error", message: "Use content script for title" });
+      sendResponse({
+        status: "error",
+        message: "Use content script for title",
+      });
       return false;
 
     default:

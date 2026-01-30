@@ -9,15 +9,21 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
-    plugins: [
-      react(),
-    nodePolyfills(),
-    ],
+    plugins: [react(), nodePolyfills()],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
-        { find: "@ui", replacement: path.resolve(__dirname, "./src/sidepanel") },
-        { find: /^@langchain\/langgraph$/, replacement: path.resolve(__dirname, "./src/lib/langgraph-web-shim.ts") },
+        {
+          find: "@ui",
+          replacement: path.resolve(__dirname, "./src/sidepanel"),
+        },
+        {
+          find: /^@langchain\/langgraph$/,
+          replacement: path.resolve(
+            __dirname,
+            "./src/lib/langgraph-web-shim.ts",
+          ),
+        },
       ],
     },
     build: {

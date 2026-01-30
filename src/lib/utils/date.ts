@@ -17,7 +17,7 @@ export function formatTimestamp(ms: number): string {
  */
 export function formatDate(dateStr?: string | null): string | null {
   if (!dateStr) return null;
-  
+
   // Handle YYYYMMDD format
   if (/^\d{8}$/.test(dateStr)) {
     const year = dateStr.substring(0, 4);
@@ -25,21 +25,21 @@ export function formatDate(dateStr?: string | null): string | null {
     const day = dateStr.substring(6, 8);
     try {
       return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     } catch (e) {
       return dateStr;
     }
   }
-  
+
   // Handle ISO 8601 or other standard date strings
   try {
     return new Date(dateStr).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   } catch (e) {
     return dateStr;
@@ -49,7 +49,9 @@ export function formatDate(dateStr?: string | null): string | null {
 /**
  * Trim leading zeros from duration string (e.g. 00:45:30 -> 0:45:30)
  */
-export function trimDurationLeadingZeros(duration?: string | null): string | null {
+export function trimDurationLeadingZeros(
+  duration?: string | null,
+): string | null {
   if (!duration) return null;
   return duration.replace(/^0{1,2}:/, "");
 }

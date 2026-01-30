@@ -6,7 +6,10 @@ export async function createSummarizerLLM(model: string): Promise<ChatOpenAI> {
   const apiKey = await getOpenRouterApiKey();
   if (!apiKey) throw new Error("OpenRouter API key missing");
 
-  const httpReferer = typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("") : "";
+  const httpReferer =
+    typeof chrome !== "undefined" && chrome.runtime?.getURL
+      ? chrome.runtime.getURL("")
+      : "";
   return new ChatOpenAI({
     model,
     apiKey,
@@ -25,7 +28,10 @@ export async function createRefinerLLM(model: string): Promise<ChatOpenAI> {
   const apiKey = await getOpenRouterApiKey();
   if (!apiKey) throw new Error("OpenRouter API key missing");
 
-  const httpReferer = typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("") : "";
+  const httpReferer =
+    typeof chrome !== "undefined" && chrome.runtime?.getURL
+      ? chrome.runtime.getURL("")
+      : "";
   return new ChatOpenAI({
     model,
     apiKey,

@@ -16,7 +16,7 @@ export async function handleGenerateSummary(
     latestSummaryRequestByVideo: Map<string, string>;
     pendingSummaryJobs: Map<string, Promise<void>>;
   },
-  sendResponse: (response: any) => void
+  sendResponse: (response: any) => void,
 ): Promise<void> {
   const { latestSummaryRequestByVideo, pendingSummaryJobs } = ctx;
   const {
@@ -52,14 +52,26 @@ export async function handleGenerateSummary(
 
   const job = (async () => {
     try {
-      const storedSummary = await checkStoredSummary(videoId, modelSelection, targetLanguage, forceRegenerate);
+      const storedSummary = await checkStoredSummary(
+        videoId,
+        modelSelection,
+        targetLanguage,
+        forceRegenerate,
+      );
       if (storedSummary) {
         if (!isLatest()) return;
-        await broadcastStoredSummary(videoId, storedSummary, effectiveRequestId || undefined);
+        await broadcastStoredSummary(
+          videoId,
+          storedSummary,
+          effectiveRequestId || undefined,
+        );
         return;
       }
 
-      const transcript_or_url = await resolveTranscriptSource(videoId, msgTranscript);
+      const transcript_or_url = await resolveTranscriptSource(
+        videoId,
+        msgTranscript,
+      );
       const videoInfo = await resolveVideoInfo(videoId);
 
       const result = await executeSummarizationWorkflow({
@@ -83,7 +95,7 @@ export async function handleGenerateSummary(
         transcript_or_url,
         modelSelection,
         targetLanguage,
-        effectiveRequestId || undefined
+        effectiveRequestId || undefined,
       );
     } catch (error) {
       console.error("Summary error:", error);

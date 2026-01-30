@@ -50,7 +50,7 @@ export function validateAutoGenerationConditions(
   videoId: string,
   storageResult: StorageResult,
   showSubtitlesEnabled: boolean,
-  checkCaptionsEnabled: boolean
+  checkCaptionsEnabled: boolean,
 ): ValidationResult {
   if (storageResult[STORAGE_KEYS.AUTO_GENERATE] !== true) {
     console.log("Auto-gen skipped: setting disabled");
@@ -63,14 +63,18 @@ export function validateAutoGenerationConditions(
   }
 
   const hasTranscriptKey =
-    !!String(storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || "").trim() ||
+    !!String(
+      storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || "",
+    ).trim() ||
     !!String(storageResult[STORAGE_KEYS.SUPADATA_API_KEY] || "").trim();
   if (!hasTranscriptKey) {
     console.log("Auto-gen skipped: missing transcript API key");
     return { isValid: false, reason: "missing api key" };
   }
 
-  const hasOpenRouterKey = !!String(storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "").trim();
+  const hasOpenRouterKey = !!String(
+    storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "",
+  ).trim();
   if (!hasOpenRouterKey) {
     console.log("Auto-gen skipped: missing OpenRouter key");
     return { isValid: false, reason: "missing api key" };
@@ -87,7 +91,12 @@ export function validateAutoGenerationConditions(
 function verifyVideoIdUnchanged(originalVideoId: string): boolean {
   if (!isCurrentVideo(originalVideoId)) {
     const currentVideoId = extractVideoId(window.location.href);
-    console.log("Auto-gen cancel: video ID changed", originalVideoId, "->", currentVideoId);
+    console.log(
+      "Auto-gen cancel: video ID changed",
+      originalVideoId,
+      "->",
+      currentVideoId,
+    );
     clearAutoGenerationTrigger(originalVideoId);
     return false;
   }
@@ -100,7 +109,8 @@ function verifyVideoIdUnchanged(originalVideoId: string): boolean {
 function verifyCaptionsStillEnabled(videoId: string): Promise<boolean> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEYS.SHOW_SUBTITLES], (checkResult) => {
-      const captionsStillEnabled = checkResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
+      const captionsStillEnabled =
+        checkResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
       if (!captionsStillEnabled) {
         console.log("Auto-gen cancel: captions disabled");
         clearAutoGenerationTrigger(videoId);
@@ -118,7 +128,7 @@ function verifyCaptionsStillEnabled(videoId: string): Promise<boolean> {
 async function executeAutoGenerationTrigger(
   videoId: string,
   triggerFn: () => void,
-  checkCaptionsEnabled: boolean
+  checkCaptionsEnabled: boolean,
 ): Promise<void> {
   if (!verifyVideoIdUnchanged(videoId)) {
     return;
@@ -145,7 +155,7 @@ export function scheduleAutoGeneration(
   videoId: string,
   triggerFn: () => void,
   checkCaptionsEnabled: boolean,
-  withDelay: boolean
+  withDelay: boolean,
 ): void {
   markAutoGenerationTriggered(videoId);
 
@@ -153,7 +163,7 @@ export function scheduleAutoGeneration(
     "Auto-gen enabled,",
     withDelay ? "waiting for page to load..." : "triggering immediately...",
     "videoId:",
-    videoId
+    videoId,
   );
 
   const executeTrigger = () => {

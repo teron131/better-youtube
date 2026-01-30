@@ -1,5 +1,8 @@
 import { API_ENDPOINTS, TIMING } from "@/lib/core/constants";
-import type { RawTranscriptSegment, ScrapeCreatorsResponse } from "@/lib/core/types";
+import type {
+  RawTranscriptSegment,
+  ScrapeCreatorsResponse,
+} from "@/lib/core/types";
 
 function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
@@ -11,7 +14,9 @@ function buildTranscriptRequestUrl(videoId: string): URL {
   return requestUrl;
 }
 
-function normalizeApiResponse(data: ScrapeCreatorsResponse): ScrapeCreatorsResponse {
+function normalizeApiResponse(
+  data: ScrapeCreatorsResponse,
+): ScrapeCreatorsResponse {
   if (!Array.isArray(data.transcript)) return data;
   return {
     ...data,
@@ -23,7 +28,9 @@ function normalizeApiResponse(data: ScrapeCreatorsResponse): ScrapeCreatorsRespo
   };
 }
 
-export function createEmptyScrapeCreatorsResponse(videoId: string): ScrapeCreatorsResponse {
+export function createEmptyScrapeCreatorsResponse(
+  videoId: string,
+): ScrapeCreatorsResponse {
   return {
     success: true, // Mock success to prevent errors downstream
     credits_remaining: 0,
@@ -53,7 +60,7 @@ function delay(durationMs: number): Promise<void> {
 export async function fetchTranscriptFromScrapeCreators(
   videoId: string,
   apiKey: string,
-  retries: number
+  retries: number,
 ): Promise<ScrapeCreatorsResponse | null> {
   const requestUrl = buildTranscriptRequestUrl(videoId);
 
@@ -63,7 +70,10 @@ export async function fetchTranscriptFromScrapeCreators(
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMING.SCRAPE_API_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      TIMING.SCRAPE_API_TIMEOUT_MS,
+    );
 
     try {
       const response = await fetch(requestUrl.toString(), {

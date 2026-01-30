@@ -25,7 +25,10 @@ function calculateScore(quality: Quality): number {
     quality.correct_language,
   ];
 
-  const totalScore = aspects.reduce((sum, aspect) => sum + SCORE_MAP[aspect.rate], 0);
+  const totalScore = aspects.reduce(
+    (sum, aspect) => sum + SCORE_MAP[aspect.rate],
+    0,
+  );
   const maxPossibleScore = aspects.length * MAX_SCORE_PER_ASPECT;
 
   return Math.round((totalScore / maxPossibleScore) * 100);
@@ -45,23 +48,29 @@ function printQualityBreakdown(quality: Quality): void {
   const score = calculateScore(quality);
 
   console.log("📈 Quality breakdown:");
-  console.log(`Completeness: ${quality.completeness.rate} - ${quality.completeness.reason}`);
-  console.log(`Structure: ${quality.structure.rate} - ${quality.structure.reason}`);
-  console.log(`No Garbage: ${quality.no_garbage.rate} - ${quality.no_garbage.reason}`);
   console.log(
-    `Meta Language Avoidance: ${quality.meta_language_avoidance.rate} - ${quality.meta_language_avoidance.reason}`
+    `Completeness: ${quality.completeness.rate} - ${quality.completeness.reason}`,
   );
   console.log(
-    `Useful Keywords: ${quality.useful_keywords.rate} - ${quality.useful_keywords.reason}`
+    `Structure: ${quality.structure.rate} - ${quality.structure.reason}`,
   );
   console.log(
-    `Correct Language: ${quality.correct_language.rate} - ${quality.correct_language.reason}`
+    `No Garbage: ${quality.no_garbage.rate} - ${quality.no_garbage.reason}`,
+  );
+  console.log(
+    `Meta Language Avoidance: ${quality.meta_language_avoidance.rate} - ${quality.meta_language_avoidance.reason}`,
+  );
+  console.log(
+    `Useful Keywords: ${quality.useful_keywords.rate} - ${quality.useful_keywords.reason}`,
+  );
+  console.log(
+    `Correct Language: ${quality.correct_language.rate} - ${quality.correct_language.reason}`,
   );
   console.log(`Total Score: ${score}%`);
 
   if (!isAcceptable(quality)) {
     console.log(
-      `⚠️  Quality below threshold (${SUMMARY_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`
+      `⚠️  Quality below threshold (${SUMMARY_CONFIG.MIN_QUALITY_SCORE}%), refinement needed`,
     );
   }
 }

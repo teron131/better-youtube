@@ -113,7 +113,10 @@ export const RECOMMENDED_SUMMARIZER_MODELS = [
 ] as const;
 
 export const RECOMMENDED_REFINER_MODELS = [
-  { value: "google/gemini-2.5-flash-lite-preview-09-2025", label: "Gemini 2.5 Flash Lite" },
+  {
+    value: "google/gemini-2.5-flash-lite-preview-09-2025",
+    label: "Gemini 2.5 Flash Lite",
+  },
   { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
 ] as const;
 
@@ -162,9 +165,27 @@ export const TARGET_LANGUAGES = [
 
 export const FONT_SIZES = {
   CAPTION: {
-    S: { base: "1.4vw", max: "22px", min: "12px", fullscreen: "1.7vw", fullscreenMax: "28px" },
-    M: { base: "1.8vw", max: "28px", min: "14px", fullscreen: "2.2vw", fullscreenMax: "36px" },
-    L: { base: "2.2vw", max: "34px", min: "16px", fullscreen: "2.7vw", fullscreenMax: "44px" },
+    S: {
+      base: "1.4vw",
+      max: "22px",
+      min: "12px",
+      fullscreen: "1.7vw",
+      fullscreenMax: "28px",
+    },
+    M: {
+      base: "1.8vw",
+      max: "28px",
+      min: "14px",
+      fullscreen: "2.2vw",
+      fullscreenMax: "36px",
+    },
+    L: {
+      base: "2.2vw",
+      max: "34px",
+      min: "16px",
+      fullscreen: "2.7vw",
+      fullscreenMax: "44px",
+    },
   },
   SUMMARY: {
     S: { base: "16px", h2: "22px", h3: "19px" },
@@ -223,10 +244,12 @@ export const ERROR_MESSAGES = {
   VIDEO_ID_REQUIRED: "Video ID is required.",
   NO_VIDEO_ID: "Could not extract video ID from URL.",
   NO_TRANSCRIPT: "No transcript available for this video",
-  SCRAPE_KEY_MISSING: "Scrape Creators API key not found. Please set it in settings.",
+  SCRAPE_KEY_MISSING:
+    "Scrape Creators API key not found. Please set it in settings.",
   OPENROUTER_KEY_MISSING: "OpenRouter API key not found",
   NOT_YOUTUBE_PAGE: "Not a YouTube video page",
-  SUMMARY_IN_PROGRESS: "Summary generation is already in progress for this video.",
+  SUMMARY_IN_PROGRESS:
+    "Summary generation is already in progress for this video.",
 } as const;
 
 export const VIEW_COUNT = {

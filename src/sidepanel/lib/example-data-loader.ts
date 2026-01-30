@@ -2,8 +2,12 @@
  * Utility for loading example data with realistic progress states.
  */
 
-import { exampleData } from '@ui/services/example-data';
-import { StreamingProcessingResult, StreamingProgressState, VideoInfoResponse } from '@/lib/core/types';
+import { exampleData } from "@ui/services/example-data";
+import {
+  StreamingProcessingResult,
+  StreamingProgressState,
+  VideoInfoResponse,
+} from "@/lib/core/types";
 
 export interface ExampleDataResult {
   progressStates: StreamingProgressState[];
@@ -21,21 +25,21 @@ export function loadExampleData(): ExampleDataResult {
 
   const exampleProgressStates: StreamingProgressState[] = [
     {
-      step: 'scraping',
+      step: "scraping",
       stepName: "Scraping Video",
       status: "completed",
       message: `Video scraped: ${exampleData.videoInfo.title}`,
       processingTime: "0.1s",
     },
     {
-      step: 'summary_generation',
+      step: "summary_generation",
       stepName: "Summary Generation",
       status: "completed",
       message: `📝 Initial summary generated with ${chapterCount} chapters`,
       iterationCount: exampleData.iterationCount,
     },
     {
-      step: 'quality_check',
+      step: "quality_check",
       stepName: "Quality Assessment",
       status: "completed",
       message: exampleData.quality?.percentage_score
@@ -44,7 +48,7 @@ export function loadExampleData(): ExampleDataResult {
       qualityScore,
     },
     {
-      step: 'complete',
+      step: "complete",
       stepName: "Summary Complete",
       status: "completed",
       message: exampleData.quality?.percentage_score
@@ -64,4 +68,3 @@ export function loadExampleData(): ExampleDataResult {
     summaryResult: exampleData,
   };
 }
-

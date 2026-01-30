@@ -22,7 +22,7 @@ import {
   getRefinerModelFromStorage,
   isCurrentVideo,
   triggerCaptionRefinement,
-  validateLoadContext
+  validateLoadContext,
 } from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
 import {
@@ -30,7 +30,7 @@ import {
   clearRenderer,
   createSubtitleElements,
   findVideoElements,
-  startSubtitleDisplay
+  startSubtitleDisplay,
 } from "./subtitleRenderer";
 
 /**
@@ -48,7 +48,8 @@ class ContentManager {
   private urlObserver: MutationObserver | null = null;
 
   constructor() {
-    this.checkAndTriggerAutoGeneration = this.checkAndTriggerAutoGeneration.bind(this);
+    this.checkAndTriggerAutoGeneration =
+      this.checkAndTriggerAutoGeneration.bind(this);
     this.clearSubtitles = this.clearSubtitles.bind(this);
   }
 
@@ -60,7 +61,10 @@ class ContentManager {
 
     if (!findVideoElements()) {
       if (attempts < TIMING.MAX_INIT_ATTEMPTS) {
-        setTimeout(() => this.initialize(attempts + 1), TIMING.INIT_RETRY_DELAY_MS);
+        setTimeout(
+          () => this.initialize(attempts + 1),
+          TIMING.INIT_RETRY_DELAY_MS,
+        );
       }
       return;
     }
@@ -116,23 +120,30 @@ class ContentManager {
     if (!validation.isValid || !validation.videoId) return;
 
     const videoId = validation.videoId;
-    const keysToFetch = [videoId, STORAGE_KEYS.CAPTION_FONT_SIZE, ...buildStorageKeysForVideo()];
+    const keysToFetch = [
+      videoId,
+      STORAGE_KEYS.CAPTION_FONT_SIZE,
+      ...buildStorageKeysForVideo(),
+    ];
 
     chrome.storage.local.get(keysToFetch, (result) => {
       if (chrome.runtime.lastError || !isCurrentVideo(videoId)) return;
 
       // Apply font size
-      const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] || DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
+      const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] ||
+        DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
       applyCaptionFontSize(fontSize);
 
       if (!this.state.userInteractedWithToggle) {
-        this.state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
+        this.state.showSubtitlesEnabled =
+          result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
       }
 
       if (result[videoId]) {
         console.log("Found stored subtitles (already converted).");
         this.state.currentSubtitles = result[videoId] as SubtitleSegment[];
-        if (this.state.showSubtitlesEnabled) startSubtitleDisplay(this.state.currentSubtitles, videoId);
+        if (this.state.showSubtitlesEnabled)
+          startSubtitleDisplay(this.state.currentSubtitles, videoId);
       } else {
         this.checkAndTriggerAutoGeneration(videoId, result, true, true);
       }
@@ -156,18 +167,23 @@ class ContentManager {
     videoId: string,
     storageResult: Record<string, unknown>,
     checkCaptionsEnabled = true,
-    withDelay = false
+    withDelay = false,
   ): Promise<boolean> {
     const validation = validateAutoGenerationConditions(
       videoId,
       storageResult,
       this.state.showSubtitlesEnabled,
-      checkCaptionsEnabled
+      checkCaptionsEnabled,
     );
 
     if (!validation.isValid) return false;
 
-    scheduleAutoGeneration(videoId, () => this.triggerAutoGeneration(videoId, storageResult), checkCaptionsEnabled, withDelay);
+    scheduleAutoGeneration(
+      videoId,
+      () => this.triggerAutoGeneration(videoId, storageResult),
+      checkCaptionsEnabled,
+      withDelay,
+    );
     return true;
   }
 
@@ -176,7 +192,7 @@ class ContentManager {
    */
   private async triggerAutoGeneration(
     videoId: string,
-    storageResult: Record<string, unknown>
+    storageResult: Record<string, unknown>,
   ): Promise<void> {
     this.clearSubtitles();
 
@@ -185,7 +201,12 @@ class ContentManager {
         const refinerModel = getRefinerModelFromStorage(storageResult);
         const requestId = createRequestId("caption");
         this.state.currentCaptionRequestId = requestId;
-        triggerCaptionRefinement(videoId, requestId, refinerModel, clearAutoGenerationTrigger);
+        triggerCaptionRefinement(
+          videoId,
+          requestId,
+          refinerModel,
+          clearAutoGenerationTrigger,
+        );
       }
     } else {
       clearAutoGenerationTrigger(videoId);
@@ -204,7 +225,7 @@ class ContentManager {
   // Setup message listener exactly once
   setupMessageListener(manager.state, {
     clearSubtitles: manager.clearSubtitles,
-    checkAndTriggerAutoGeneration: manager.checkAndTriggerAutoGeneration
+    checkAndTriggerAutoGeneration: manager.checkAndTriggerAutoGeneration,
   });
 
   if (document.readyState === "loading") {

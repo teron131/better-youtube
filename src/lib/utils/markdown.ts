@@ -2,15 +2,15 @@
  * Markdown generation utilities
  */
 
-import { SummaryData, VideoInfoResponse } from '@/lib/core/types';
-import { convertSummaryChinese } from './text';
+import { SummaryData, VideoInfoResponse } from "@/lib/core/types";
+import { convertSummaryChinese } from "./text";
 
 /**
  * Generate markdown from summary data
  */
 export function generateSummaryMarkdown(
   summary: SummaryData,
-  videoInfo?: VideoInfoResponse
+  videoInfo?: VideoInfoResponse,
 ): string {
   const convertedSummary = convertSummaryChinese(summary);
   let markdown = "";
@@ -43,7 +43,7 @@ export function generateSummaryMarkdown(
   // Add takeaways
   if (convertedSummary.takeaways && convertedSummary.takeaways.length > 0) {
     markdown += "# Key Takeaways\n\n";
-    convertedSummary.takeaways.forEach(takeaway => {
+    convertedSummary.takeaways.forEach((takeaway) => {
       markdown += `- ${takeaway}\n`;
     });
     markdown += "\n";
@@ -52,7 +52,7 @@ export function generateSummaryMarkdown(
   // Add keywords
   if (convertedSummary.keywords && convertedSummary.keywords.length > 0) {
     markdown += "# Keywords\n\n";
-    convertedSummary.keywords.forEach(keyword => {
+    convertedSummary.keywords.forEach((keyword) => {
       markdown += `- ${keyword}\n`;
     });
     markdown += "\n";
@@ -61,12 +61,12 @@ export function generateSummaryMarkdown(
   // Add chapters
   if (convertedSummary.chapters && convertedSummary.chapters.length > 0) {
     markdown += "# Video Chapters\n\n";
-    convertedSummary.chapters.forEach(chapter => {
+    convertedSummary.chapters.forEach((chapter) => {
       markdown += `## ${chapter.header}\n\n`;
       markdown += `${chapter.summary}\n\n`;
 
       if (chapter.key_points && chapter.key_points.length > 0) {
-        chapter.key_points.forEach(point => {
+        chapter.key_points.forEach((point) => {
           markdown += `- ${point}\n`;
         });
         markdown += "\n";

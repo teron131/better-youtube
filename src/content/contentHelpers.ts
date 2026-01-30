@@ -6,7 +6,6 @@ import { createRequestId, type RequestId } from "@/lib/requestId";
 import { type SubtitleSegment } from "@/lib/core/storage";
 import { extractVideoId } from "@/lib/utils/url";
 
-
 export interface ContentScriptState {
   currentSubtitles: SubtitleSegment[];
   showSubtitlesEnabled: boolean;
@@ -50,9 +49,11 @@ export function buildStorageKeysForVideo(): string[] {
 }
 
 export function getRefinerModelFromStorage(storageResult: any): string {
-  return storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
+  return (
+    storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
     storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
-    DEFAULTS.MODEL_REFINER;
+    DEFAULTS.MODEL_REFINER
+  );
 }
 
 export function getAutoGenModels(storageResult: any): {
@@ -61,7 +62,8 @@ export function getAutoGenModels(storageResult: any): {
   targetLanguage: string;
   fastMode: boolean;
 } {
-  const summarizerModel = storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+  const summarizerModel =
+    storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
     storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
     DEFAULTS.MODEL_SUMMARIZER;
   return {
@@ -73,13 +75,15 @@ export function getAutoGenModels(storageResult: any): {
 }
 
 export function getTargetLanguageFromStorage(storageResult: any): string {
-  return storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+  return (
+    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
     storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
+    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED
+  );
 }
 
 export async function executeScrapeForAutoGen(
-  videoId: string
+  videoId: string,
 ): Promise<boolean> {
   console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
   const result = await sendChromeMessage<{ status: string }>({
@@ -91,7 +95,9 @@ export async function executeScrapeForAutoGen(
     console.error(`[Auto-gen] Scrape failed for ${videoId}`);
     return false;
   }
-  console.log(`[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`);
+  console.log(
+    `[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`,
+  );
   return true;
 }
 
@@ -99,7 +105,7 @@ export function triggerCaptionRefinement(
   videoId: string,
   requestId: RequestId,
   refinerModel: string,
-  onError?: (id: string) => void
+  onError?: (id: string) => void,
 ): void {
   sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
@@ -122,7 +128,7 @@ export function triggerSummaryGeneration(
     qualityModel: string;
     targetLanguage: string;
     fastMode: boolean;
-  }
+  },
 ): void {
   sendChromeMessage({
     action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
@@ -135,7 +141,7 @@ export function triggerSummaryGeneration(
   })
     .then((r) => console.log("[Auto-gen] Summary generation triggered:", r))
     .catch((e) =>
-      console.error("Error triggering summary auto-gen:", e.message)
+      console.error("Error triggering summary auto-gen:", e.message),
     );
 }
 
