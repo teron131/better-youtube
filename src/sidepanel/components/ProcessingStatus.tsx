@@ -16,11 +16,17 @@ interface ProcessingStatusProps {
 const STEP_TO_ANCHOR = [-1, 0, 1, 2, 3, 2, 4];
 const TOTAL_ANCHORS = 4;
 
-export function ProcessingStatus({ currentStage, currentStep, progressStates }: ProcessingStatusProps) {
-  const finished = progressStates.some(s => s.step === 'complete');
+export function ProcessingStatus({
+  currentStage,
+  currentStep,
+  progressStates,
+}: ProcessingStatusProps) {
+  const finished = progressStates.some((s) => s.step === "complete");
 
   const mapCurrentToAnchor = (stepIdx: number) =>
-    STEP_TO_ANCHOR[Math.max(0, Math.min(stepIdx + 1, STEP_TO_ANCHOR.length - 1))];
+    STEP_TO_ANCHOR[
+      Math.max(0, Math.min(stepIdx + 1, STEP_TO_ANCHOR.length - 1))
+    ];
 
   const activeAnchor = finished
     ? TOTAL_ANCHORS
@@ -56,7 +62,12 @@ export function ProcessingStatus({ currentStage, currentStep, progressStates }: 
             </div>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span>Now: <span className="text-foreground font-semibold">{stageText}</span></span>
+              <span>
+                Now:{" "}
+                <span className="text-foreground font-semibold">
+                  {stageText}
+                </span>
+              </span>
             </div>
           </div>
         </div>

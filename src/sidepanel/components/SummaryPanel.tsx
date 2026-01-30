@@ -6,12 +6,27 @@ import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { SectionHeader } from "@ui/components/ui/list-items";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
 import { generateSummaryMarkdown } from "@/lib/utils/markdown";
 import { convertSummaryChinese } from "@/lib/utils/text";
 import { SummaryData, QualityData, VideoInfoResponse } from "@/lib/core/types";
-import { BookOpen, ChevronDown, ChevronUp, Copy, Lightbulb, ListChecks, RefreshCw, Search, Sparkles, X } from "lucide-react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Lightbulb,
+  ListChecks,
+  RefreshCw,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface SummaryPanelProps {
@@ -22,7 +37,13 @@ interface SummaryPanelProps {
   isRegenerating?: boolean;
 }
 
-export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRegenerating }: SummaryPanelProps) => {
+export const SummaryPanel = ({
+  summary,
+  quality,
+  videoInfo,
+  onRegenerate,
+  isRegenerating,
+}: SummaryPanelProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
@@ -64,35 +85,40 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
     if (!text) return "";
     if (!searchQuery.trim()) return text;
 
-    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const regex = new RegExp(
+      `(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi",
+    );
     const parts = text.split(regex);
 
     let matchIndex = -1;
-    return parts.map((part) => {
-      if (regex.test(part)) {
-        matchIndex++;
-        const isCurrent = matchIndex === currentMatchIndex;
-        return `<mark class="${isCurrent ? 'bg-primary text-primary-foreground' : 'bg-yellow-500/30'}">${part}</mark>`;
-      }
-      return part;
-    }).join('');
+    return parts
+      .map((part) => {
+        if (regex.test(part)) {
+          matchIndex++;
+          const isCurrent = matchIndex === currentMatchIndex;
+          return `<mark class="${isCurrent ? "bg-primary text-primary-foreground" : "bg-yellow-500/30"}">${part}</mark>`;
+        }
+        return part;
+      })
+      .join("");
   };
 
   const getTextContent = () => {
-    let text = convertedSummary.summary || '';
+    let text = convertedSummary.summary || "";
     if (convertedSummary.takeaways) {
-      text += ' ' + convertedSummary.takeaways.join(' ');
+      text += " " + convertedSummary.takeaways.join(" ");
     }
     if (convertedSummary.chapters) {
-      convertedSummary.chapters.forEach(chapter => {
-        text += ' ' + chapter.header + ' ' + chapter.summary;
+      convertedSummary.chapters.forEach((chapter) => {
+        text += " " + chapter.header + " " + chapter.summary;
         if (chapter.key_points) {
-          text += ' ' + chapter.key_points.join(' ');
+          text += " " + chapter.key_points.join(" ");
         }
       });
     }
     if (convertedSummary.keywords) {
-      text += ' ' + convertedSummary.keywords.join(' ');
+      text += " " + convertedSummary.keywords.join(" ");
     }
     return text;
   };
@@ -103,7 +129,10 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
 
     if (query.trim()) {
       const text = getTextContent();
-      const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const regex = new RegExp(
+        query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "gi",
+      );
       const matches = text.match(regex);
       setMatchCount(matches ? matches.length : 0);
     } else {
@@ -111,10 +140,10 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
     }
   };
 
-  const navigateMatches = (direction: 'next' | 'prev') => {
+  const navigateMatches = (direction: "next" | "prev") => {
     if (matchCount === 0) return;
 
-    if (direction === 'next') {
+    if (direction === "next") {
       setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
     } else {
       setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
@@ -128,17 +157,20 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && matchCount > 0) {
+    if (e.key === "Enter" && matchCount > 0) {
       e.preventDefault();
-      navigateMatches('next');
+      navigateMatches("next");
     }
   };
 
   useEffect(() => {
     if (contentRef.current && searchQuery.trim()) {
-      const marks = contentRef.current.querySelectorAll('mark');
+      const marks = contentRef.current.querySelectorAll("mark");
       if (marks[currentMatchIndex]) {
-        marks[currentMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        marks[currentMatchIndex].scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }
   }, [currentMatchIndex, searchQuery]);
@@ -156,8 +188,12 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
                 <ListChecks className="h-4 w-4" />
                 AI Summary
               </div>
-              <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Structured Summary</h3>
-              <p className="text-sm md:text-base text-muted-foreground">Detailed breakdown and key takeaways from the video.</p>
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
+                Structured Summary
+              </h3>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Detailed breakdown and key takeaways from the video.
+              </p>
             </div>
 
             <div className="flex gap-2">
@@ -171,7 +207,9 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
                       disabled={isRegenerating}
                       className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <RefreshCw className={`w-5 h-5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`w-5 h-5 ${isRegenerating ? "animate-spin" : ""}`}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -212,7 +250,9 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
               {searchQuery && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : 'No matches'}
+                    {matchCount > 0
+                      ? `${currentMatchIndex + 1}/${matchCount}`
+                      : "No matches"}
                   </span>
                   <Button
                     variant="ghost"
@@ -231,7 +271,7 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => navigateMatches('prev')}
+                  onClick={() => navigateMatches("prev")}
                   className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
                   <ChevronUp className="w-5 h-5" />
@@ -239,7 +279,7 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => navigateMatches('next')}
+                  onClick={() => navigateMatches("next")}
                   className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
                   <ChevronDown className="w-5 h-5" />
@@ -253,89 +293,135 @@ export const SummaryPanel = ({ summary, quality, videoInfo, onRegenerate, isRege
           {/* Summary Section */}
           {convertedSummary.summary && (
             <div className="space-y-2.5">
-              <SectionHeader icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />} title="Summary" />
+              <SectionHeader
+                icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
+                title="Summary"
+              />
               <div
                 className="summary-text text-foreground"
-                dangerouslySetInnerHTML={{ __html: highlightText(convertedSummary.summary) }}
+                dangerouslySetInnerHTML={{
+                  __html: highlightText(convertedSummary.summary),
+                }}
               />
             </div>
           )}
 
           {/* Key Takeaways Section */}
-          {convertedSummary.takeaways && convertedSummary.takeaways.length > 0 && (
-            <div className="space-y-2.5">
-              <SectionHeader icon={<Lightbulb className="w-4 h-4 md:w-5 md:h-5" />} title="Key Takeaways" />
-              <ul className="space-y-2.5">
-                {convertedSummary.takeaways.map((item, index) => (
-                  <li key={index} className="flex items-start gap-2 md:gap-3">
-                    <div className="mt-1.5 flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-2.5 w-2.5 md:h-3 md:w-3">
-                        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span
-                      className="summary-text text-foreground"
-                      dangerouslySetInnerHTML={{ __html: highlightText(item) }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {convertedSummary.takeaways &&
+            convertedSummary.takeaways.length > 0 && (
+              <div className="space-y-2.5">
+                <SectionHeader
+                  icon={<Lightbulb className="w-4 h-4 md:w-5 md:h-5" />}
+                  title="Key Takeaways"
+                />
+                <ul className="space-y-2.5">
+                  {convertedSummary.takeaways.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2 md:gap-3">
+                      <div className="mt-1.5 flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-2.5 w-2.5 md:h-3 md:w-3"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <span
+                        className="summary-text text-foreground"
+                        dangerouslySetInnerHTML={{
+                          __html: highlightText(item),
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
           {/* Video Chapters Section */}
-          {convertedSummary.chapters && convertedSummary.chapters.length > 0 && (
-            <div className="space-y-2.5">
-              <SectionHeader icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />} title="Video Chapters" />
+          {convertedSummary.chapters &&
+            convertedSummary.chapters.length > 0 && (
+              <div className="space-y-2.5">
+                <SectionHeader
+                  icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />}
+                  title="Video Chapters"
+                />
 
-              <div className="space-y-4">
-                {convertedSummary.chapters.map((chapter, index) => (
-                  <div key={index} className="space-y-2">
-                    <h5 className="summary-subheading text-sm md:text-base font-semibold text-primary">
-                      <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
-                        {index + 1}
-                      </span>
-                      <span dangerouslySetInnerHTML={{ __html: highlightText(chapter.header) }} />
-                    </h5>
-                    <div
-                      className="summary-text text-foreground"
-                      dangerouslySetInnerHTML={{ __html: highlightText(chapter.summary) }}
-                    />
+                <div className="space-y-4">
+                  {convertedSummary.chapters.map((chapter, index) => (
+                    <div key={index} className="space-y-2">
+                      <h5 className="summary-subheading text-sm md:text-base font-semibold text-primary">
+                        <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
+                          {index + 1}
+                        </span>
+                        <span
+                          dangerouslySetInnerHTML={{
+                            __html: highlightText(chapter.header),
+                          }}
+                        />
+                      </h5>
+                      <div
+                        className="summary-text text-foreground"
+                        dangerouslySetInnerHTML={{
+                          __html: highlightText(chapter.summary),
+                        }}
+                      />
 
-                    {chapter.key_points && chapter.key_points.length > 0 && (
-                      <ul className="mt-2.5 space-y-2">
-                        {chapter.key_points.map((point, idx) => (
-                          <li key={idx} className="flex items-start gap-2 md:gap-2 text-foreground/90 summary-text">
-                            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
-                            <span dangerouslySetInnerHTML={{ __html: highlightText(point) }} />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
+                      {chapter.key_points && chapter.key_points.length > 0 && (
+                        <ul className="mt-2.5 space-y-2">
+                          {chapter.key_points.map((point, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 md:gap-2 text-foreground/90 summary-text"
+                            >
+                              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
+                              <span
+                                dangerouslySetInnerHTML={{
+                                  __html: highlightText(point),
+                                }}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Keywords Section */}
-          {convertedSummary.keywords && convertedSummary.keywords.length > 0 && (
-            <div className="space-y-2.5">
-              <SectionHeader icon={<span className="text-sm md:text-base font-bold text-primary">#</span>} title="Keywords" />
-              <div className="flex flex-wrap gap-1.5 md:gap-2">
-                {convertedSummary.keywords.map((keyword, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
-                    dangerouslySetInnerHTML={{ __html: highlightText(keyword) }}
-                  />
-                ))}
+          {convertedSummary.keywords &&
+            convertedSummary.keywords.length > 0 && (
+              <div className="space-y-2.5">
+                <SectionHeader
+                  icon={
+                    <span className="text-sm md:text-base font-bold text-primary">
+                      #
+                    </span>
+                  }
+                  title="Keywords"
+                />
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                  {convertedSummary.keywords.map((keyword, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+                      dangerouslySetInnerHTML={{
+                        __html: highlightText(keyword),
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </Card>
   );
 };
-

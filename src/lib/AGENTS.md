@@ -1,13 +1,16 @@
 # src/lib
 
 ## OVERVIEW
+
 `src/lib` is the shared, dependency-light boundary consumed by the extension’s `background/`, `content/`, and `sidepanel/` entrypoints. Treat exported functions/constants as a compatibility surface: small signature changes can break cross-context messaging or persisted data.
 
 This folder runs in multiple runtimes:
+
 - Chrome extension contexts (Service Worker + content script + side panel)
 - Non-extension demo/dev contexts (some modules fall back to `localStorage`)
 
 ## WHERE TO LOOK
+
 - `src/lib/constants.ts`
   - `MESSAGE_ACTIONS`: string contract for cross-context messaging.
   - `STORAGE_KEYS`: settings keys shared across UI/background.
@@ -28,6 +31,7 @@ This folder runs in multiple runtimes:
   - Summarization workflow exports are re-exported from `src/lib/summarizer/index.ts`.
 
 ## CONVENTIONS
+
 - Prefer importing shared identifiers from `src/lib/constants.ts` instead of hard-coding strings.
   - Message routing should use `MESSAGE_ACTIONS.*`.
   - Settings persistence should use `STORAGE_KEYS.*`.
@@ -41,6 +45,7 @@ This folder runs in multiple runtimes:
     - summary: `summary_${videoId}`
 
 ## ANTI-PATTERNS
+
 - Don’t change `MESSAGE_ACTIONS` or `STORAGE_KEYS` names without updating all consumers (background/content/sidepanel) and migration strategy.
 - Don’t call `chrome.*` APIs without guarding for non-extension contexts.
   - `storage.ts` intentionally supports a `localStorage` fallback; bypassing it breaks the demo/dev runtime.
@@ -50,6 +55,7 @@ This folder runs in multiple runtimes:
   - `tsconfig.json` is **not strict** (`strict: false`, `noImplicitAny: false`), so runtime validation matters.
 
 ## GOTCHAS
+
 - `fetchTranscript` returns `null` (not throw) for missing/invalid API key and for 401/403; callers must handle `null` explicitly.
 - Transcript fetch timeouts are enforced via `AbortController` and `TIMING.SCRAPE_API_TIMEOUT_MS`.
 - In `storage.ts`, quota errors are handled by deleting older video-related keys before retrying the write.

@@ -6,22 +6,42 @@ import { VideoUrlForm } from "@ui/components/VideoUrlForm";
 import { ShieldCheck, Sparkles, Zap } from "lucide-react";
 
 interface HeroSectionProps {
-  onSubmit: (url: string, options?: {
-    targetLanguage?: string;
-    summaryModel?: string;
-    qualityModel?: string;
-  }, action?: "caption" | "summary") => void;
+  onSubmit: (
+    url: string,
+    options?: {
+      targetLanguage?: string;
+      summaryModel?: string;
+      qualityModel?: string;
+    },
+    action?: "caption" | "summary",
+  ) => void;
   isLoading: boolean;
   initialUrl?: string;
 }
 
 const FEATURES = [
-  { icon: <Zap className="h-4 w-4" />, label: "Fast Processing", value: "< 1 min completion" },
-  { icon: <ShieldCheck className="h-4 w-4" />, label: "Structured Summary", value: "Save time on long videos" },
-  { icon: <Sparkles className="h-4 w-4" />, label: "Model Neutral", value: "OpenRouter models" },
+  {
+    icon: <Zap className="h-4 w-4" />,
+    label: "Fast Processing",
+    value: "< 1 min completion",
+  },
+  {
+    icon: <ShieldCheck className="h-4 w-4" />,
+    label: "Structured Summary",
+    value: "Save time on long videos",
+  },
+  {
+    icon: <Sparkles className="h-4 w-4" />,
+    label: "Model Neutral",
+    value: "OpenRouter models",
+  },
 ];
 
-export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProps) {
+export function HeroSection({
+  onSubmit,
+  isLoading,
+  initialUrl,
+}: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-transparent">
       <div className="relative container mx-auto px-6 sm:px-8 pt-24 pb-16 lg:pb-20">
@@ -44,9 +64,13 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
                 >
                   <div className="flex items-center gap-2 text-primary">
                     {item.icon}
-                    <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                      {item.label}
+                    </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{item.value}</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {item.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -54,7 +78,11 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
 
           <div className="relative fade-in-up stagger-3 w-full max-w-8xl">
             <div className="absolute inset-0 -z-10 rounded-[30px] bg-gradient-to-br from-primary/20 via-transparent to-foreground/10 blur-3xl" />
-            <VideoUrlForm onSubmit={onSubmit} isLoading={isLoading} initialUrl={initialUrl} />
+            <VideoUrlForm
+              onSubmit={onSubmit}
+              isLoading={isLoading}
+              initialUrl={initialUrl}
+            />
           </div>
         </div>
       </div>

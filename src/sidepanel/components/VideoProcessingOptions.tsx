@@ -5,7 +5,11 @@
 import { ModelSelector } from "@ui/components/ModelSelector";
 import { ComboboxOption } from "@ui/components/ui/editable-combobox";
 import { Switch } from "@ui/components/ui/switch";
-import { useLanguageSelection, useModelSelection, useUserPreferences } from "@ui/hooks/use-config";
+import {
+  useLanguageSelection,
+  useModelSelection,
+  useUserPreferences,
+} from "@ui/hooks/use-config";
 import { getProviderLogo } from "@ui/lib/provider-logos";
 import { Bot, Languages, Sparkles, Zap } from "lucide-react";
 
@@ -14,13 +18,22 @@ export function VideoProcessingOptions() {
   const { summarizerModels, refinerModels } = useModelSelection();
   const { preferences, updatePreferences } = useUserPreferences();
 
-  const toOption = (m: { key: string; label: string; provider?: string; flag?: string }): ComboboxOption => {
+  const toOption = (m: {
+    key: string;
+    label: string;
+    provider?: string;
+    flag?: string;
+  }): ComboboxOption => {
     const logo = m.provider ? getProviderLogo(m.provider) : null;
     return {
       value: m.key,
       label: m.label,
       icon: logo ? (
-        <img src={logo} alt={m.provider} className="w-full h-full object-contain" />
+        <img
+          src={logo}
+          alt={m.provider}
+          className="w-full h-full object-contain"
+        />
       ) : m.flag ? (
         <span className="text-sm">{m.flag}</span>
       ) : undefined,
@@ -61,12 +74,16 @@ export function VideoProcessingOptions() {
           <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
             <Zap className="w-3 h-3 text-white" />
           </div>
-          <span className="text-sm font-bold text-primary uppercase tracking-wide">QUALITY CHECK</span>
+          <span className="text-sm font-bold text-primary uppercase tracking-wide">
+            QUALITY CHECK
+          </span>
         </div>
         <div className="flex h-10 w-full items-center rounded-md border border-border/60 bg-background/40 px-3 hover:border-primary/30 transition-colors">
           <Switch
             checked={!preferences.fastMode}
-            onCheckedChange={(checked) => updatePreferences({ fastMode: !checked })}
+            onCheckedChange={(checked) =>
+              updatePreferences({ fastMode: !checked })
+            }
             className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted [&>span]:data-[state=checked]:bg-white"
           />
         </div>

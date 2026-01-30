@@ -1,28 +1,27 @@
-
-import { Button } from "@ui/components/ui/button"
-import { Input } from "@ui/components/ui/input"
-import { cn } from "@/lib/utils/text"
-import { Check, ChevronDown } from "lucide-react"
-import * as React from "react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
+import { cn } from "@/lib/utils/text";
+import { Check, ChevronDown } from "lucide-react";
+import * as React from "react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 export interface ComboboxOption {
-  value: string
-  label: string
-  icon?: React.ReactNode
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
 }
 
 interface EditableComboboxProps {
-  value: string
-  onChange: (value: string) => void
-  options: ComboboxOption[]
-  placeholder?: string
-  className?: string
-  inputClassName?: string
-  contentClassName?: string
-  renderOption?: (option: ComboboxOption) => React.ReactNode
-  renderIcon?: (value: string) => React.ReactNode
-  type?: "text" | "url"
+  value: string;
+  onChange: (value: string) => void;
+  options: ComboboxOption[];
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+  contentClassName?: string;
+  renderOption?: (option: ComboboxOption) => React.ReactNode;
+  renderIcon?: (value: string) => React.ReactNode;
+  type?: "text" | "url";
 }
 
 export function EditableCombobox({
@@ -37,79 +36,81 @@ export function EditableCombobox({
   renderIcon,
   type = "text",
 }: EditableComboboxProps) {
-  const [open, setOpen] = React.useState(false)
-  const [searchText, setSearchText] = React.useState("")
-  const [triggerWidth, setTriggerWidth] = React.useState<number | undefined>(undefined)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const [open, setOpen] = React.useState(false);
+  const [searchText, setSearchText] = React.useState("");
+  const [triggerWidth, setTriggerWidth] = React.useState<number | undefined>(
+    undefined,
+  );
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Sync searchText with value when value changes externally (only when closed)
   React.useEffect(() => {
     if (!open) {
-      setSearchText(value || "")
+      setSearchText(value || "");
     }
-  }, [value, open])
+  }, [value, open]);
 
   // Measure trigger width for the portal content
   React.useEffect(() => {
     if (open && containerRef.current) {
-      setTriggerWidth(containerRef.current.offsetWidth)
+      setTriggerWidth(containerRef.current.offsetWidth);
     }
-  }, [open])
+  }, [open]);
 
   // Filter options: show all when searchText is empty or matches current value, otherwise filter
   const filteredOptions = React.useMemo(() => {
-    if (!searchText || searchText === value) return options
-    
-    const lowerSearch = searchText.toLowerCase()
+    if (!searchText || searchText === value) return options;
+
+    const lowerSearch = searchText.toLowerCase();
     return options.filter(
       (option) =>
         option.label.toLowerCase().includes(lowerSearch) ||
-        option.value.toLowerCase().includes(lowerSearch)
-    )
-  }, [searchText, value, options])
+        option.value.toLowerCase().includes(lowerSearch),
+    );
+  }, [searchText, value, options]);
 
   const openDropdown = () => {
-    setSearchText("")
-    setOpen(true)
-  }
+    setSearchText("");
+    setOpen(true);
+  };
 
   const closeDropdown = () => {
-    setOpen(false)
-    setSearchText(value || "")
-  }
+    setOpen(false);
+    setSearchText(value || "");
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setSearchText(newValue)
-    onChange(newValue)
-    if (!open) setOpen(true)
-  }
+    const newValue = e.target.value;
+    setSearchText(newValue);
+    onChange(newValue);
+    if (!open) setOpen(true);
+  };
 
   const handleOptionSelect = (optionValue: string) => {
-    onChange(optionValue)
-    setSearchText(optionValue)
-    setOpen(false)
-  }
+    onChange(optionValue);
+    setSearchText(optionValue);
+    setOpen(false);
+  };
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    setOpen(true)
+    setOpen(true);
     // Don't clear search text immediately, let user see current value
     // but select it so typing replaces it
-    e.target.select()
-  }
+    e.target.select();
+  };
 
   const toggleOpen = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (open) {
-      closeDropdown()
+      closeDropdown();
     } else {
-      openDropdown()
+      openDropdown();
     }
-  }
+  };
 
-  const displayValue = open ? (searchText || value || "") : (value || "")
+  const displayValue = open ? searchText || value || "" : value || "";
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
@@ -122,7 +123,7 @@ export function EditableCombobox({
                 {renderIcon(value)}
               </div>
             )}
-            
+
             <Input
               ref={inputRef}
               type={type}
@@ -132,14 +133,16 @@ export function EditableCombobox({
               onClick={() => !open && setOpen(true)}
               placeholder={placeholder}
               className={cn(
-                "pr-10 transition-all duration-200", 
+                "pr-10 transition-all duration-200",
                 renderIcon ? "pl-10" : "pl-3",
-                open ? "ring-2 ring-ring ring-offset-2 border-primary/50" : "border-border/50",
-                inputClassName
+                open
+                  ? "ring-2 ring-ring ring-offset-2 border-primary/50"
+                  : "border-border/50",
+                inputClassName,
               )}
               autoComplete="off"
             />
-            
+
             <Button
               type="button"
               variant="ghost"
@@ -148,7 +151,12 @@ export function EditableCombobox({
               onClick={toggleOpen}
               aria-label="Toggle options"
             >
-              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  open && "rotate-180",
+                )}
+              />
             </Button>
           </div>
         </PopoverPrimitive.Anchor>
@@ -157,7 +165,7 @@ export function EditableCombobox({
           <PopoverPrimitive.Content
             className={cn(
               "z-[9999] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95",
-              contentClassName
+              contentClassName,
             )}
             style={{ width: triggerWidth }}
             align="start"
@@ -166,7 +174,7 @@ export function EditableCombobox({
             onInteractOutside={(e) => {
               // Prevent closing when clicking the input or container
               if (containerRef.current?.contains(e.target as Node)) {
-                e.preventDefault()
+                e.preventDefault();
               }
             }}
           >
@@ -181,11 +189,11 @@ export function EditableCombobox({
                     <div
                       key={option.value}
                       className={cn(
-                        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors"
+                        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
                       )}
                       onMouseDown={(e) => {
-                        e.preventDefault() // Prevent focus loss from input
-                        handleOptionSelect(option.value)
+                        e.preventDefault(); // Prevent focus loss from input
+                        handleOptionSelect(option.value);
                       }}
                     >
                       {value === option.value && (
@@ -198,7 +206,11 @@ export function EditableCombobox({
                           renderOption(option)
                         ) : (
                           <>
-                            {option.icon && <span className="flex h-4 w-4 items-center justify-center">{option.icon}</span>}
+                            {option.icon && (
+                              <span className="flex h-4 w-4 items-center justify-center">
+                                {option.icon}
+                              </span>
+                            )}
                             <span>{option.label}</span>
                           </>
                         )}
@@ -212,5 +224,5 @@ export function EditableCombobox({
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>
     </div>
-  )
+  );
 }

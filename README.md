@@ -35,15 +35,18 @@ better-youtube/
 ## Key Components
 
 ### Side Panel (React)
+
 - `MainView` - Caption/Summary generation UI
 - `SettingsView` - API keys, model selection, display settings
 
 ### Background Script
+
 - Message routing between side panel and content script
 - LLM API calls (OpenRouter)
 - Transcript fetching (Scrape Creators API)
 
 ### Content Script
+
 - Caption overlay on YouTube video player
 - URL change detection for SPA navigation
 - Font size and visibility control
@@ -55,17 +58,17 @@ better-youtube/
 
 ## Chrome Storage Keys
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `scrapeCreatorsApiKey` | string | Scrape Creators API key |
-| `openRouterApiKey` | string | OpenRouter API key |
-| `summarizerModel` | string | Model for summary |
-| `refinerModel` | string | Model for refinement |
-| `targetLanguage` | string | Target language (auto/en/zh-TW) |
-| `captionFontSize` | S/M/L | Caption overlay font size |
-| `summaryFontSize` | S/M/L | Summary display font size |
-| `autoGenerate` | boolean | Auto-generate on video load |
-| `showSubtitles` | boolean | Show caption overlay |
+| Key                    | Type    | Description                     |
+| ---------------------- | ------- | ------------------------------- |
+| `scrapeCreatorsApiKey` | string  | Scrape Creators API key         |
+| `openRouterApiKey`     | string  | OpenRouter API key              |
+| `summarizerModel`      | string  | Model for summary               |
+| `refinerModel`         | string  | Model for refinement            |
+| `targetLanguage`       | string  | Target language (auto/en/zh-TW) |
+| `captionFontSize`      | S/M/L   | Caption overlay font size       |
+| `summaryFontSize`      | S/M/L   | Summary display font size       |
+| `autoGenerate`         | boolean | Auto-generate on video load     |
+| `showSubtitles`        | boolean | Show caption overlay            |
 
 ## Development
 
@@ -78,6 +81,7 @@ npm run build        # Build extension
 ## Build Output
 
 The Vite build outputs to `dist/`:
+
 - `sidepanel.html` + React bundle
 - `background.js` (service worker)
 - `content.js` + `assets/subtitles.css` (content script)

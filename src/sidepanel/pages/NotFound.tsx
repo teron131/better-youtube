@@ -31,7 +31,8 @@ const NotFound = () => {
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We couldn't find the page you're looking for. Double-check the link or head back home to continue analyzing videos.
+            We couldn't find the page you're looking for. Double-check the link
+            or head back home to continue analyzing videos.
           </p>
         </div>
         <div className="flex justify-center">
