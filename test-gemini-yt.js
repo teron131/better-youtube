@@ -73,7 +73,7 @@ const VideoAnalysis = z
 const client = new GoogleGenAI({ apiKey });
 
 const model = "gemini-3-flash-preview";
-const videoUrl = "https://www.youtube.com/watch?v=XFdPFyc-xtc";
+const videoUrl = "https://youtu.be/MiUHjLxm3V0";
 const prompt = `
 Return ONLY valid JSON that matches the provided schema.
 
