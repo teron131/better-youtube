@@ -26,7 +26,7 @@ import { PromptBuilder } from "./promptBuilder";
 import {
   calculateScore,
   isAcceptable,
-  printQualityBreakdown,
+  logQuality,
   SUMMARY_CONFIG,
 } from "./qualityUtils";
 import type { GraphState, SummarizerOutput, Summary } from "./schemas";
@@ -43,9 +43,9 @@ const createOpenRouterLLM = createSummarizerLLM;
 // ============================================================================
 
 /**
- * Functional scrap_youtube_tool factory
+ * Functional scrape_youtube_tool factory
  */
-function createScrapYoutubeTool(input: SummarizationInput) {
+function createScrapeYoutubeTool(input: SummarizationInput) {
   return tool(
     async ({ youtube_url }) => {
       const { transcript_or_url, videoId } = input;
@@ -91,7 +91,7 @@ function createScrapYoutubeTool(input: SummarizationInput) {
       }
     },
     {
-      name: "scrap_youtube_tool",
+      name: "scrape_youtube_tool",
       description: "Scrape a YouTube video and return the transcript.",
       schema: z.object({
         youtube_url: z.string().describe("The YouTube video URL to scrape"),
@@ -112,7 +112,7 @@ function createGarbageFilterMiddleware(model: string) {
     name: "garbageFilterMiddleware",
     wrapToolCall: async (request, handler) => {
       if (
-        (request.tool?.name ?? request.toolCall.name) !== "scrap_youtube_tool"
+        (request.tool?.name ?? request.toolCall.name) !== "scrape_youtube_tool"
       )
         return handler(request);
 
@@ -164,12 +164,12 @@ function createGarbageFilterMiddleware(model: string) {
 function createSummaryNode() {
   return async (state: GraphState): Promise<Partial<GraphState>> => {
     const {
-      summary_model,
-      target_language,
+      summaryModel,
+      targetLang,
       transcript,
       quality,
       summary,
-      iteration_count,
+      iterations,
       onProgress,
       title,
       description,
@@ -182,18 +182,15 @@ function createSummaryNode() {
         : `Generating initial summary. Transcript length: ${transcript.length} characters`,
     );
 
-    const llm = (
-      await createOpenRouterLLM(summary_model!)
-    ).withStructuredOutput(SummarySchema);
-    const targetLang = target_language || "auto";
+    const llm = (await createOpenRouterLLM(summaryModel!)).withStructuredOutput(
+      SummarySchema,
+    );
+    const lang = targetLang || "auto";
 
     let result;
     if (quality && summary) {
       const prompt = ChatPromptTemplate.fromMessages([
-        [
-          "system",
-          PromptBuilder.buildImprovementPrompt(targetLang, title, description),
-        ],
+        ["system", PromptBuilder.getRefinePrompt(lang, title, description)],
         ["human", "{improvement_prompt}"],
       ]);
       result = await prompt.pipe(llm).invoke({
@@ -201,10 +198,7 @@ function createSummaryNode() {
       });
     } else {
       const prompt = ChatPromptTemplate.fromMessages([
-        [
-          "system",
-          PromptBuilder.buildSummaryPrompt(targetLang, title, description),
-        ],
+        ["system", PromptBuilder.getSummaryPrompt(lang, title, description)],
         ["human", "{content}"],
       ]);
       result = await prompt.pipe(llm).invoke({ content: transcript });
@@ -213,43 +207,43 @@ function createSummaryNode() {
     progress?.(
       quality && summary ? "Summary refined successfully" : "Summary completed",
     );
-    return { summary: result as Summary, iteration_count: iteration_count + 1 };
+    return { summary: result as Summary, iterations: iterations + 1 };
   };
 }
 
 function createQualityNode() {
   return async (state: GraphState): Promise<Partial<GraphState>> => {
-    const { quality_model, summary, iteration_count, onProgress } = state;
+    const { qualityModel, summary, iterations, onProgress } = state;
     const progress = onProgress as ((msg: string) => void) | undefined;
 
-    progress?.(`Performing quality check using model: ${quality_model}...`);
+    progress?.(`Performing quality check using model: ${qualityModel}...`);
 
-    const quality = await (await createOpenRouterLLM(quality_model!))
+    const quality = await (await createOpenRouterLLM(qualityModel!))
       .withStructuredOutput(QualitySchema, { method: "jsonMode" })
       .invoke([
-        ["system", PromptBuilder.buildQualityPrompt()],
+        ["system", PromptBuilder.getQualityPrompt()],
         ["human", JSON.stringify(summary, null, 2)],
       ]);
 
-    printQualityBreakdown(quality);
+    logQuality(quality);
     const score = calculateScore(quality);
 
     return {
       quality,
-      is_complete:
+      isComplete:
         score >= SUMMARY_CONFIG.MIN_QUALITY_SCORE ||
-        iteration_count >= SUMMARY_CONFIG.MAX_ITERATIONS,
+        iterations >= SUMMARY_CONFIG.MAX_ITERATIONS,
     };
   };
 }
 
 function shouldContinue(state: GraphState): string {
-  if (state.is_complete) return END;
+  if (state.isComplete) return END;
 
   if (
     state.quality &&
     !isAcceptable(state.quality) &&
-    state.iteration_count < SUMMARY_CONFIG.MAX_ITERATIONS
+    state.iterations < SUMMARY_CONFIG.MAX_ITERATIONS
   ) {
     console.log(
       `Quality ${calculateScore(state.quality)}% below threshold, refining...`,
@@ -264,7 +258,7 @@ function shouldContinue(state: GraphState): string {
 // Workflow & Execution
 // ============================================================================
 
-function createSummarizationGraph() {
+function createSummaryGraph() {
   return new StateGraph(GraphStateSchema)
     .addNode("summaryNode", createSummaryNode())
     .addNode("qualityNode", createQualityNode())
@@ -277,7 +271,7 @@ function createSummarizationGraph() {
     .compile();
 }
 
-function formatSummaryAsMarkdown(summary: Summary): string {
+function summaryToMarkdown(summary: Summary): string {
   const parts: string[] = [];
   if (summary.overview) {
     parts.push("## Summary\n\n", summary.overview, "\n");
@@ -299,17 +293,17 @@ export interface SummarizationInput {
   videoId?: string;
   title?: string;
   description?: string;
-  summary_model?: string;
-  quality_model?: string;
-  refiner_model?: string;
-  target_language?: string;
-  fast_mode?: boolean;
+  summaryModel?: string;
+  qualityModel?: string;
+  refinerModel?: string;
+  targetLang?: string;
+  fastMode?: boolean;
 }
 
 const isYoutubeUrl = (input: string) =>
   input.includes("youtube.com/watch") || input.includes("youtu.be/");
 
-async function executeFastSummarization(
+async function summarizeFast(
   input: SummarizationInput,
   onProgress?: (message: string) => void,
 ): Promise<SummarizerOutput> {
@@ -318,12 +312,12 @@ async function executeFastSummarization(
     `Generating summary in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`,
   );
 
-  const model = input.summary_model ?? SUMMARY_CONFIG.MODEL;
-  const targetLang = input.target_language ?? "auto";
+  const model = input.summaryModel ?? SUMMARY_CONFIG.MODEL;
+  const targetLang = input.targetLang ?? "auto";
   const agent = createAgent({
     model: await createOpenRouterLLM(model),
-    tools: isUrl ? [createScrapYoutubeTool(input)] : [],
-    systemPrompt: PromptBuilder.buildSummaryPrompt(
+    tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
+    systemPrompt: PromptBuilder.getSummaryPrompt(
       targetLang,
       input.title,
       input.description,
@@ -332,7 +326,7 @@ async function executeFastSummarization(
     middleware: isUrl
       ? [
           createGarbageFilterMiddleware(
-            input.refiner_model ?? DEFAULTS.MODEL_REFINER,
+            input.refinerModel ?? DEFAULTS.MODEL_REFINER,
           ),
         ]
       : [],
@@ -357,38 +351,38 @@ async function executeFastSummarization(
   return {
     summary,
     quality: null,
-    iteration_count: 1,
-    quality_score: 0,
-    summary_text: formatSummaryAsMarkdown(summary),
+    iterations: 1,
+    qualityScore: 0,
+    summaryText: summaryToMarkdown(summary),
   };
 }
 
-export async function executeSummarizationWorkflow(
+export async function summarizeWorkflow(
   input: SummarizationInput,
   onProgress?: (message: string) => void,
 ): Promise<SummarizerOutput> {
-  if (input.fast_mode) return executeFastSummarization(input, onProgress);
+  if (input.fastMode) return summarizeFast(input, onProgress);
 
   let transcript = input.transcript_or_url;
   if (isYoutubeUrl(transcript)) {
     onProgress?.("Resolving URL to transcript for workflow...");
-    transcript = await createScrapYoutubeTool(input).invoke({
+    transcript = await createScrapeYoutubeTool(input).invoke({
       youtube_url: transcript,
     });
     if (transcript.startsWith("Error")) throw new Error(transcript);
   }
 
-  const result = await createSummarizationGraph().invoke({
+  const result = await createSummaryGraph().invoke({
     transcript,
     title: input.title,
     description: input.description,
-    summary_model: input.summary_model ?? SUMMARY_CONFIG.MODEL,
-    quality_model: input.quality_model ?? SUMMARY_CONFIG.QUALITY_MODEL,
-    target_language: input.target_language ?? "auto",
+    summaryModel: input.summaryModel ?? SUMMARY_CONFIG.MODEL,
+    qualityModel: input.qualityModel ?? SUMMARY_CONFIG.QUALITY_MODEL,
+    targetLang: input.targetLang ?? "auto",
     summary: null,
     quality: null,
-    iteration_count: 0,
-    is_complete: false,
+    iterations: 0,
+    isComplete: false,
     onProgress,
   });
 
@@ -397,9 +391,9 @@ export async function executeSummarizationWorkflow(
   return {
     summary,
     quality: result.quality,
-    iteration_count: result.iteration_count,
-    quality_score: result.quality ? calculateScore(result.quality) : 0,
-    summary_text: formatSummaryAsMarkdown(summary),
+    iterations: result.iterations,
+    qualityScore: result.quality ? calculateScore(result.quality) : 0,
+    summaryText: summaryToMarkdown(summary),
   };
 }
 

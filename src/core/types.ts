@@ -79,11 +79,11 @@ export interface ScrapRequest {
 
 export interface SummarizeRequest {
   content: string;
-  content_type?: "url" | "transcript";
-  summary_model?: string;
-  quality_model?: string;
-  target_language?: string | null;
-  fast_mode?: boolean;
+  contentType?: "url" | "transcript";
+  summaryModel?: string;
+  qualityModel?: string;
+  targetLang?: string | null;
+  fastMode?: boolean;
 }
 
 // Response Types
@@ -109,11 +109,11 @@ export interface SummarizeResponse {
   timestamp: string;
   summary: Summary;
   quality?: QualityData;
-  processing_time: string;
-  iteration_count: number;
-  summary_model: string;
-  quality_model: string;
-  target_language?: string | null;
+  processingTime: string;
+  iterations: number;
+  summaryModel: string;
+  qualityModel: string;
+  targetLang?: string | null;
 }
 
 export interface ConfigurationResponse {
@@ -157,10 +157,10 @@ export interface QualityData {
   no_garbage: QualityRate;
   meta_language_avoidance: QualityRate;
   correct_language: QualityRate;
-  total_score?: number;
-  max_possible_score?: number;
-  percentage_score?: number;
-  is_acceptable?: boolean;
+  totalScore?: number;
+  maxPossibleScore?: number;
+  percentageScore?: number;
+  isAcceptable?: boolean;
 }
 
 export interface QualityRate {
@@ -173,14 +173,14 @@ export interface StreamingChunk {
   transcript_or_url?: string;
   summary?: Summary;
   quality?: QualityData;
-  iteration_count?: number;
-  is_complete?: boolean;
+  iterations?: number;
+  isComplete?: boolean;
   timestamp?: string;
-  chunk_number?: number;
+  chunkNumber?: number;
   type?: "status" | "summary" | "quality" | "complete" | "error";
   message?: string;
-  processing_time?: string;
-  total_chunks?: number;
+  processingTime?: string;
+  totalChunks?: number;
 }
 
 export interface StreamingProgressState {
@@ -200,7 +200,7 @@ export interface StreamingProgressState {
   };
   error?: ApiError;
   processingTime?: string;
-  iterationCount?: number;
+  iterations?: number;
   qualityScore?: number;
   chunkCount?: number;
 }
@@ -215,7 +215,7 @@ export interface StreamingProcessingResult {
   qualityScore?: number;
   error?: ApiError;
   totalTime: string;
-  iterationCount: number;
+  iterations: number;
   chunksProcessed: number;
 }
 

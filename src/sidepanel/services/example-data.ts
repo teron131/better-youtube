@@ -24,6 +24,6 @@ export const exampleData: StreamingProcessingResult = {
   quality: null,
   summaryText: null,
   qualityScore: 0,
-  iterationCount: 1,
+  iterations: 1,
   chunksProcessed: 0,
 };

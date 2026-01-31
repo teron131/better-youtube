@@ -31,7 +31,7 @@ export class PromptBuilder {
   /**
    * Build prompt for initial summary generation
    */
-  static buildSummaryPrompt(
+  static getSummaryPrompt(
     targetLanguage = "auto",
     title?: string,
     description?: string,
@@ -73,7 +73,7 @@ export class PromptBuilder {
   /**
    * Build prompt for quality assessment
    */
-  static buildQualityPrompt(): string {
+  static getQualityPrompt(): string {
     return [
       "Evaluate the summary JSON.",
       "Rate each aspect as 'Fail', 'Refine', or 'Pass' and include a specific reason.",
@@ -94,7 +94,7 @@ export class PromptBuilder {
   /**
    * Build prompt for summary improvement
    */
-  static buildImprovementPrompt(
+  static getRefinePrompt(
     targetLanguage = "auto",
     title?: string,
     description?: string,

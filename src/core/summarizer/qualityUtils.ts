@@ -42,7 +42,7 @@ function isAcceptable(quality: Quality): boolean {
 /**
  * Log detailed quality breakdown to console
  */
-function printQualityBreakdown(quality: Quality): void {
+function logQuality(quality: Quality): void {
   const score = calculateScore(quality);
 
   console.log("📈 Quality breakdown:");
@@ -70,4 +70,4 @@ function printQualityBreakdown(quality: Quality): void {
   }
 }
 
-export { calculateScore, isAcceptable, printQualityBreakdown };
+export { calculateScore, isAcceptable, logQuality };

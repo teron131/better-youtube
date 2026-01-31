@@ -19,11 +19,11 @@ import {
   fetchTranscript,
   getCachedTranscript,
 } from "@/core/transcript";
-import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarizer";
+import { summarizeWorkflow } from "@/core/summarizer/captionSummarizer";
 import {
-  formatSummaryAsMarkdown,
+  summaryToMarkdown,
   summarizeGemini,
-  toSummaryFromOpenRouter,
+  parseOpenRouterSummary,
   type Summary,
 } from "@/core/summarizer";
 import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
@@ -35,9 +35,9 @@ import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 type SummaryResult = {
   summary: Summary;
   quality?: any;
-  summary_text?: string;
-  iteration_count?: number;
-  quality_score?: number;
+  summaryText?: string;
+  iterations?: number;
+  qualityScore?: number;
 };
 
 type SummaryProvider = "openrouter" | "gemini" | "auto";
@@ -147,9 +147,7 @@ async function broadcastStoredSummary(
   const videoInfo = await getStoredVideoMetadata(videoId);
 
   const summary = storedSummary.summary as any;
-  const summaryText = videoInfo
-    ? formatSummaryAsMarkdown(summary, videoInfo)
-    : "";
+  const summaryText = videoInfo ? summaryToMarkdown(summary, videoInfo) : "";
 
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
@@ -158,9 +156,9 @@ async function broadcastStoredSummary(
     summary: {
       summary,
       quality: storedSummary.quality ?? null,
-      summary_text: summaryText,
-      iteration_count: 0,
-      quality_score: 0,
+      summaryText: summaryText,
+      iterations: 0,
+      qualityScore: 0,
     },
     videoInfo,
     transcript: null,
@@ -332,7 +330,7 @@ export async function handleGenerateSummary(
               {
                 kind: "transcript",
                 transcript: transcript_or_url,
-                targetLanguage,
+                targetLang: targetLanguage,
               },
               { model: geminiModel },
             )
@@ -340,7 +338,7 @@ export async function handleGenerateSummary(
               {
                 kind: "youtube_url",
                 videoUrl: transcript_or_url,
-                targetLanguage,
+                targetLang: targetLanguage,
               },
               { model: geminiModel },
             );
@@ -349,31 +347,31 @@ export async function handleGenerateSummary(
         result = {
           summary,
           quality: null,
-          iteration_count: 1,
-          quality_score: 0,
-          summary_text: formatSummaryAsMarkdown(summary, videoInfo),
+          iterations: 1,
+          qualityScore: 0,
+          summaryText: summaryToMarkdown(summary, videoInfo),
         };
       } else {
         if (!openRouterKey) throw new Error("OpenRouter API key missing");
-        const workflow = await executeSummarizationWorkflow({
+        const workflow = await summarizeWorkflow({
           transcript_or_url,
           videoId,
           title: videoInfo?.title || undefined,
           description: videoInfo?.description || undefined,
-          summary_model: modelSelection,
-          quality_model: qualityModel || modelSelection,
-          refiner_model: refinerModel,
-          target_language: targetLanguage,
-          fast_mode: fastMode,
+          summaryModel: modelSelection,
+          qualityModel: qualityModel || modelSelection,
+          refinerModel: refinerModel,
+          targetLang: targetLanguage,
+          fastMode: fastMode,
         });
 
-        const summary = toSummaryFromOpenRouter(workflow.summary);
+        const summary = parseOpenRouterSummary(workflow.summary);
         result = {
           summary,
           quality: workflow.quality,
-          iteration_count: workflow.iteration_count,
-          quality_score: workflow.quality_score,
-          summary_text: formatSummaryAsMarkdown(summary, videoInfo),
+          iterations: workflow.iterations,
+          qualityScore: workflow.qualityScore,
+          summaryText: summaryToMarkdown(summary, videoInfo),
         };
       }
 

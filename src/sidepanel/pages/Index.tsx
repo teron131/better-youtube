@@ -147,7 +147,7 @@ const Index = () => {
             videoInfo: storedVideoInfo ?? undefined,
             transcript: transcript ?? undefined,
             totalTime: "cached",
-            iterationCount: 0,
+            iterations: 0,
             chunksProcessed: 0,
           },
           scrapedVideoInfo: storedVideoInfo ?? null,

@@ -27,12 +27,24 @@ export function toSummaryFromOpenRouter(summary: unknown): Summary {
   throw new Error("Invalid summary shape from OpenRouter");
 }
 
+export function parseGeminiSummary(summary: unknown): Summary {
+  const coerced = coerceSummary(summary);
+  if (coerced) return coerced;
+  throw new Error("Invalid summary shape from Gemini");
+}
+
+export function parseOpenRouterSummary(summary: unknown): Summary {
+  const coerced = coerceSummary(summary);
+  if (coerced) return coerced;
+  throw new Error("Invalid summary shape from OpenRouter");
+}
+
 export function isSummary(value: unknown): value is Summary {
   const coerced = coerceSummary(value);
   return !!coerced && typeof coerced.overview === "string";
 }
 
-export function formatSummaryAsMarkdown(
+export function summaryToMarkdown(
   summary: Summary,
   videoInfo?: VideoMetadata | null,
 ): string {
