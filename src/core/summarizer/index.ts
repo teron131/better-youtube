@@ -14,3 +14,11 @@ export {
   GeminiChapterSchema,
 } from "./geminiSchemas";
 export type { GeminiVideoAnalysis, GeminiChapter } from "./geminiSchemas";
+
+export {
+  formatSimpleSummaryAsMarkdown,
+  isSimpleSummary,
+  toSimpleSummaryFromGemini,
+  toSimpleSummaryFromOpenRouter,
+} from "./simpleSummary";
+export type { SimpleSummary, SimpleChapter } from "./simpleSummary";
