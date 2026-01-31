@@ -75,8 +75,6 @@ const client = new GoogleGenAI({ apiKey });
 const model = "gemini-3-flash-preview";
 const videoUrl = "https://youtu.be/MiUHjLxm3V0";
 const prompt = `
-Return ONLY valid JSON that matches the provided schema.
-
 Task:
 - Analyze the video and output:
   - overallSummary: an end-to-end summary of the whole video.
