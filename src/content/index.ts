@@ -10,16 +10,13 @@ import { type SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
 import {
-  clearAutoGenerationTrigger,
+  clearAutoGenTrigger,
   isExtensionContextValid,
-  scheduleAutoGeneration,
-  validateAutoGenerationConditions,
+  scheduleAutoGen,
+  validateAutoGen,
 } from "./autoGeneration";
 import { ContentScriptState, triggerCaptionRefinement } from "./contentHelpers";
-import {
-  buildStorageKeysForVideo,
-  getRefinerModelFromStorage,
-} from "./storageHelpers";
+import { getVideoStorageKeys, getRefinerModel } from "./storageHelpers";
 import {
   executeScrapeForAutoGen,
   isCurrentVideo,
@@ -95,7 +92,7 @@ class ContentManager {
 
         // Only trigger updates if the video ID actually changed
         if (oldVideoId !== newVideoId) {
-          if (oldVideoId) clearAutoGenerationTrigger(oldVideoId);
+          if (oldVideoId) clearAutoGenTrigger(oldVideoId);
           this.onUrlChange();
         }
       }
@@ -124,7 +121,7 @@ class ContentManager {
     const keysToFetch = [
       videoId,
       STORAGE_KEYS.CAPTION_FONT_SIZE,
-      ...buildStorageKeysForVideo(),
+      ...getVideoStorageKeys(),
     ];
 
     chrome.storage.local.get(keysToFetch, (result) => {
@@ -170,7 +167,7 @@ class ContentManager {
     checkCaptionsEnabled = true,
     withDelay = false,
   ): Promise<boolean> {
-    const validation = validateAutoGenerationConditions(
+    const validation = validateAutoGen(
       videoId,
       storageResult,
       this.state.showSubtitlesEnabled,
@@ -179,7 +176,7 @@ class ContentManager {
 
     if (!validation.isValid) return false;
 
-    scheduleAutoGeneration(
+    scheduleAutoGen(
       videoId,
       () => this.triggerAutoGeneration(videoId, storageResult),
       checkCaptionsEnabled,
@@ -199,18 +196,18 @@ class ContentManager {
 
     if (await executeScrapeForAutoGen(videoId)) {
       if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
-        const refinerModel = getRefinerModelFromStorage(storageResult);
+        const refinerModel = getRefinerModel(storageResult);
         const requestId = createRequestId("caption");
         this.state.currentCaptionRequestId = requestId;
         triggerCaptionRefinement(
           videoId,
           requestId,
           refinerModel,
-          clearAutoGenerationTrigger,
+          clearAutoGenTrigger,
         );
       }
     } else {
-      clearAutoGenerationTrigger(videoId);
+      clearAutoGenTrigger(videoId);
     }
   }
 }

@@ -2,7 +2,7 @@
  * Component displaying video metadata including thumbnail, title, author, and statistics.
  */
 
-import { formatDate, trimDurationLeadingZeros } from "@/core/utils/date";
+import { formatDate, trimLeadingZeros } from "@/core/utils/date";
 import { s2tw } from "@/core/utils/text";
 import { cleanVideoUrl } from "@/core/utils/url";
 import { Card } from "@ui/components/ui/card";
@@ -46,7 +46,7 @@ export const VideoInfo = ({
 }: VideoInfoProps) => {
   if (!title) return null;
 
-  const displayDuration = trimDurationLeadingZeros(duration || undefined);
+  const displayDuration = trimLeadingZeros(duration || undefined);
   const hasMetrics = viewCount != null || likeCount != null;
 
   const convertedInfo = {

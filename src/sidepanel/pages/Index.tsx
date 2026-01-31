@@ -5,9 +5,9 @@
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
   getStorageValue,
-  getStoredSubtitles,
-  getStoredSummary,
-  getStoredVideoMetadata,
+  getSubtitles,
+  getSummary,
+  getVideoMetadata,
   setStorageValue,
 } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
@@ -125,9 +125,9 @@ const Index = () => {
       try {
         const [storedSummary, storedVideoInfo, storedSubtitles] =
           await Promise.all([
-            getStoredSummary(videoId),
-            getStoredVideoMetadata(videoId),
-            getStoredSubtitles(videoId),
+            getSummary(videoId),
+            getVideoMetadata(videoId),
+            getSubtitles(videoId),
           ]);
 
         if (cancelled || !storedSummary) return;

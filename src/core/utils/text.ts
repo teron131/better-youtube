@@ -29,7 +29,7 @@ export function s2tw(content: string): string {
  * Convert subtitles to traditional Chinese
  * Batch processes all segments for performance
  */
-export function convertSubtitlesToTraditionalChinese(
+export function toTraditionalChinese(
   subtitles: SubtitleSegment[],
 ): SubtitleSegment[] {
   if (!subtitles || subtitles.length === 0) return subtitles;
@@ -69,7 +69,7 @@ function convertSummaryChineseFieldwise(summary: Summary): Summary {
   };
 }
 
-export function convertSummaryChinese(summary: Summary): Summary {
+export function toChineseSummary(summary: Summary): Summary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
 
   const converted: Summary = {
@@ -123,7 +123,7 @@ export function convertSummaryChinese(summary: Summary): Summary {
  * Convert video info text fields to traditional Chinese (Taiwan variant)
  * Only converts the final display fields
  */
-export function convertVideoInfoChinese(
+export function toChineseVideoInfo(
   videoInfo: VideoInfoResponse,
 ): VideoInfoResponse {
   return {

@@ -170,7 +170,7 @@ async function storageGetAll(): Promise<Record<string, unknown>> {
 // Video Data Storage
 // ============================================================================
 
-export async function getStoredSubtitles(
+export async function getSubtitles(
   videoId: string,
 ): Promise<SubtitleSegment[] | null> {
   return storageGet<SubtitleSegment[]>(StorageKeys.subtitles(videoId));
@@ -193,7 +193,7 @@ export async function saveSubtitles(
   }
 }
 
-export async function getStoredVideoMetadata(
+export async function getVideoMetadata(
   videoId: string,
 ): Promise<VideoMetadata | null> {
   return storageGet<VideoMetadata>(StorageKeys.metadata(videoId));
@@ -206,7 +206,7 @@ export async function saveVideoMetadata(
   return storageSet({ [StorageKeys.metadata(videoId)]: metadata });
 }
 
-export async function getStoredSummary(
+export async function getSummary(
   videoId: string,
 ): Promise<StoredSummary | null> {
   return storageGet<StoredSummary>(StorageKeys.summary(videoId));

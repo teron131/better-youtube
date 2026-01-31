@@ -8,9 +8,9 @@ import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 import {
   StoredSummary,
   VideoMetadata,
-  getStoredSubtitles,
-  getStoredSummary,
-  getStoredVideoMetadata,
+  getSubtitles,
+  getSummary,
+  getVideoMetadata,
   saveSummary,
   saveVideoMetadata,
 } from "@/core/storage";
@@ -47,16 +47,16 @@ type SummaryProvider = "openrouter" | "gemini" | "auto";
 // ============================================================================
 
 /**
- * Check if stored summary exists and is still valid for the current request
+ * Check if cached summary exists and is still valid for the current request
  */
-async function checkStoredSummary(
+async function checkCachedSummary(
   videoId: string,
   modelSelection: string,
   targetLanguage: string,
   forceRegenerate: boolean,
 ): Promise<StoredSummary | null> {
   if (forceRegenerate) return null;
-  const storedSummary = await getStoredSummary(videoId);
+  const storedSummary = await getSummary(videoId);
   if (!storedSummary) return null;
   if (storedSummary.modelUsed !== modelSelection) return null;
   if (storedSummary.targetLanguage !== targetLanguage) return null;
@@ -66,7 +66,7 @@ async function checkStoredSummary(
 /**
  * Resolve transcript source (message → cache → stored → URL)
  */
-async function resolveTranscriptSource(
+async function getTranscriptSource(
   videoId: string,
   messageTranscript: string | undefined,
 ): Promise<string> {
@@ -85,7 +85,7 @@ async function resolveTranscriptSource(
     return segmentsToText(cached.transcript);
   }
 
-  const storedSubtitles = await getStoredSubtitles(videoId);
+  const storedSubtitles = await getSubtitles(videoId);
   if (storedSubtitles?.length) {
     console.log(`Using stored subtitles for summary of ${videoId}`);
     return segmentsToText(storedSubtitles);
@@ -98,8 +98,8 @@ async function resolveTranscriptSource(
 /**
  * Resolve video info (stored → cache → fetch)
  */
-async function resolveVideoInfo(videoId: string): Promise<VideoMetadata> {
-  const stored = await getStoredVideoMetadata(videoId);
+async function getVideoInfo(videoId: string): Promise<VideoMetadata> {
+  const stored = await getVideoMetadata(videoId);
   if (stored) {
     console.log(`Using stored video info for ${videoId}`);
     return stored;
@@ -144,7 +144,7 @@ async function broadcastStoredSummary(
   storedSummary: StoredSummary,
   requestId?: string,
 ): Promise<void> {
-  const videoInfo = await getStoredVideoMetadata(videoId);
+  const videoInfo = await getVideoMetadata(videoId);
 
   const summary = storedSummary.summary as any;
   const summaryText = videoInfo ? summaryToMarkdown(summary, videoInfo) : "";
@@ -228,12 +228,12 @@ function sendRuntimeMessage(payload: Record<string, unknown>): void {
 export async function handleGenerateSummary(
   message: ChromeMessage,
   ctx: {
-    latestSummaryRequestByVideo: Map<string, string>;
+    summaryRequests: Map<string, string>;
     pendingSummaryJobs: Map<string, Promise<void>>;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { latestSummaryRequestByVideo, pendingSummaryJobs } = ctx;
+  const { summaryRequests, pendingSummaryJobs } = ctx;
   const {
     videoId,
     requestId,
@@ -248,7 +248,7 @@ export async function handleGenerateSummary(
   } = message as any;
 
   if (requestId) {
-    latestSummaryRequestByVideo.set(videoId, String(requestId));
+    summaryRequests.set(videoId, String(requestId));
   }
 
   sendResponse({ status: "processing" });
@@ -269,7 +269,7 @@ export async function handleGenerateSummary(
 
   const isLatest = () => {
     if (!effectiveRequestId) return true;
-    return latestSummaryRequestByVideo.get(videoId) === effectiveRequestId;
+    return summaryRequests.get(videoId) === effectiveRequestId;
   };
 
   const job = (async () => {
@@ -299,7 +299,7 @@ export async function handleGenerateSummary(
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
 
-      const storedSummary = await checkStoredSummary(
+      const storedSummary = await checkCachedSummary(
         videoId,
         modelUsedKey,
         targetLanguage,
@@ -315,11 +315,11 @@ export async function handleGenerateSummary(
         return;
       }
 
-      const transcript_or_url = await resolveTranscriptSource(
+      const transcript_or_url = await getTranscriptSource(
         videoId,
         msgTranscript,
       );
-      const videoInfo = await resolveVideoInfo(videoId);
+      const videoInfo = await getVideoInfo(videoId);
 
       let result: SummaryResult;
       if (provider === "gemini") {

@@ -3,7 +3,7 @@
  */
 
 import { Summary, VideoInfoResponse } from "@/core/types";
-import { convertSummaryChinese } from "./text";
+import { toChineseSummary } from "./text";
 
 /**
  * Generate markdown from summary data
@@ -12,7 +12,7 @@ export function generateSummaryMarkdown(
   summary: Summary,
   videoInfo?: VideoInfoResponse,
 ): string {
-  const convertedSummary = convertSummaryChinese(summary);
+  const convertedSummary = toChineseSummary(summary);
   let markdown = "";
 
   // Add video info if available
