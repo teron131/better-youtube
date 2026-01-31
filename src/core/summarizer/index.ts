@@ -4,21 +4,17 @@ export {
 } from "./captionSummarizer";
 export type { SummarizationInput } from "./captionSummarizer";
 export { SUMMARY_CONFIG } from "./qualityUtils";
-export { SummarySchema, QualitySchema, GraphStateSchema } from "./schemas";
-export type {
-  Summary as LegacySummary,
-  Quality,
-  GraphState,
-  SummarizerOutput,
-} from "./schemas";
-
-export { summarizeWithGeminiNative } from "./geminiNative";
-export type { GeminiNativeInput } from "./geminiNative";
 export {
-  GeminiVideoAnalysisSchema,
-  GeminiChapterSchema,
-} from "./geminiSchemas";
-export type { GeminiVideoAnalysis, GeminiChapter } from "./geminiSchemas";
+  SummarySchema,
+  ChapterSchema,
+  QualitySchema,
+  GraphStateSchema,
+} from "./schemas";
+export type { Quality, GraphState, SummarizerOutput } from "./schemas";
+
+export { summarizeWithGemini } from "./gemini";
+export type { GeminiInput } from "./gemini";
+export type { Summary, Chapter } from "@/core/types";
 
 export {
   formatSummaryAsMarkdown,
@@ -26,4 +22,3 @@ export {
   toSummaryFromGemini,
   toSummaryFromOpenRouter,
 } from "./summary";
-export type { Summary, Chapter } from "./summary";

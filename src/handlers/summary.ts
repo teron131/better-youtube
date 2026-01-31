@@ -22,8 +22,7 @@ import {
 import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarizer";
 import {
   formatSummaryAsMarkdown,
-  summarizeWithGeminiNative,
-  toSummaryFromGemini,
+  summarizeWithGemini,
   toSummaryFromOpenRouter,
   type Summary,
 } from "@/core/summarizer";
@@ -327,22 +326,26 @@ export async function handleGenerateSummary(
       let result: SummaryResult;
       if (provider === "gemini") {
         const geminiModel = normalizeGeminiModel(String(modelSelection));
-        const gemini = await summarizeWithGeminiNative(
-          transcript_or_url.startsWith("http")
-            ? {
-                kind: "youtube_url",
-                videoUrl: transcript_or_url,
-                targetLanguage,
-              }
-            : {
+        const useTranscript = !transcript_or_url.startsWith("http");
+        const gemini = useTranscript
+          ? await summarizeWithGemini(
+              {
                 kind: "transcript",
                 transcript: transcript_or_url,
                 targetLanguage,
               },
-          { model: geminiModel },
-        );
+              { model: geminiModel },
+            )
+          : await summarizeWithGemini(
+              {
+                kind: "youtube_url",
+                videoUrl: transcript_or_url,
+                targetLanguage,
+              },
+              { model: geminiModel },
+            );
 
-        const simple = toSummaryFromGemini(gemini.analysis);
+        const simple = gemini.summary;
         result = {
           summary: simple,
           quality: null,

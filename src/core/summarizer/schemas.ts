@@ -1,5 +1,10 @@
 import * as z from "zod";
 
+import type {
+  Chapter as CoreChapter,
+  Summary as CoreSummary,
+} from "@/core/types";
+
 /**
  * Chapter output schema
  */
@@ -10,7 +15,9 @@ export const ChapterSchema = z.object({
     .optional(),
   endTime: z
     .string()
-    .describe("Optional chapter end timestamp matching the same format as startTime.")
+    .describe(
+      "Optional chapter end timestamp matching the same format as startTime.",
+    )
     .optional(),
   title: z.string().describe("A concise chapter heading."),
   description: z
@@ -20,7 +27,7 @@ export const ChapterSchema = z.object({
     ),
 });
 
-export type Chapter = z.infer<typeof ChapterSchema>;
+export type Chapter = CoreChapter;
 
 /**
  * Summary output schema
@@ -29,7 +36,9 @@ export const SummarySchema = z.object({
   chapters: z
     .array(ChapterSchema)
     .min(1)
-    .describe("Chronological, non-overlapping chapters covering the core content."),
+    .describe(
+      "Chronological, non-overlapping chapters covering the core content.",
+    ),
   overallSummary: z
     .string()
     .describe(
@@ -37,7 +46,7 @@ export const SummarySchema = z.object({
     ),
 });
 
-export type Summary = z.infer<typeof SummarySchema>;
+export type Summary = CoreSummary;
 
 /**
  * Rate schema for quality assessment
