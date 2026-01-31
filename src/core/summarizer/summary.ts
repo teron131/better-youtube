@@ -2,21 +2,21 @@ import type { VideoMetadata } from "@/core/storage";
 
 import type { GeminiVideoAnalysis } from "./geminiSchemas";
 
-export type SimpleChapter = {
+export type Chapter = {
   startTime?: string;
   endTime?: string;
   title: string;
   description: string;
 };
 
-export type SimpleSummary = {
-  chapters: SimpleChapter[];
+export type Summary = {
+  chapters: Chapter[];
   overallSummary: string;
 };
 
-export function toSimpleSummaryFromGemini(
+export function toSummaryFromGemini(
   analysis: GeminiVideoAnalysis,
-): SimpleSummary {
+): Summary {
   return {
     overallSummary: analysis.overallSummary ?? "",
     chapters: (analysis.chapters ?? []).map((c) => ({
@@ -28,14 +28,14 @@ export function toSimpleSummaryFromGemini(
   };
 }
 
-export function toSimpleSummaryFromOpenRouter(summaryData: any): SimpleSummary {
-  if (isSimpleSummary(summaryData)) return summaryData;
+export function toSummaryFromOpenRouter(summaryData: any): Summary {
+  if (isSummary(summaryData)) return summaryData;
 
   const chaptersInput = Array.isArray(summaryData?.chapters)
     ? summaryData.chapters
     : [];
 
-  const chapters: SimpleChapter[] = chaptersInput
+  const chapters: Chapter[] = chaptersInput
     .map((c: any) => {
       const header = typeof c?.header === "string" ? c.header : "";
       const summary = typeof c?.summary === "string" ? c.summary : "";
@@ -53,7 +53,7 @@ export function toSimpleSummaryFromOpenRouter(summaryData: any): SimpleSummary {
         description: appended,
       };
     })
-    .filter((c: SimpleChapter) => c.title || c.description);
+    .filter((c: Chapter) => c.title || c.description);
 
   const overallSummary =
     typeof summaryData?.summary === "string" ? summaryData.summary : "";
@@ -66,7 +66,7 @@ export function toSimpleSummaryFromOpenRouter(summaryData: any): SimpleSummary {
   };
 }
 
-export function isSimpleSummary(value: unknown): value is SimpleSummary {
+export function isSummary(value: unknown): value is Summary {
   if (!value || typeof value !== "object") return false;
   const v = value as any;
   if (typeof v.overallSummary !== "string") return false;
@@ -74,8 +74,8 @@ export function isSimpleSummary(value: unknown): value is SimpleSummary {
   return true;
 }
 
-export function formatSimpleSummaryAsMarkdown(
-  summary: SimpleSummary,
+export function formatSummaryAsMarkdown(
+  summary: Summary,
   videoInfo?: VideoMetadata | null,
 ): string {
   const parts: string[] = [];

@@ -2,14 +2,14 @@
  * Markdown generation utilities
  */
 
-import { SimpleSummary, VideoInfoResponse } from "@/core/types";
+import { Summary, VideoInfoResponse } from "@/core/types";
 import { convertSummaryChinese } from "./text";
 
 /**
  * Generate markdown from summary data
  */
 export function generateSummaryMarkdown(
-  summary: SimpleSummary,
+  summary: Summary,
   videoInfo?: VideoInfoResponse,
 ): string {
   const convertedSummary = convertSummaryChinese(summary);

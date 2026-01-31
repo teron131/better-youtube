@@ -107,7 +107,7 @@ export interface SummarizeResponse {
   status: string;
   message: string;
   timestamp: string;
-  summary: SimpleSummary;
+  summary: Summary;
   quality?: QualityData;
   processing_time: string;
   iteration_count: number;
@@ -138,12 +138,12 @@ export interface HealthCheckResponse {
 }
 
 // Summary Data Structures
-export interface SimpleSummary {
-  chapters: SimpleChapter[];
+export interface Summary {
+  chapters: Chapter[];
   overallSummary: string;
 }
 
-export interface SimpleChapter {
+export interface Chapter {
   startTime?: string;
   endTime?: string;
   title: string;
@@ -172,7 +172,7 @@ export interface QualityRate {
 // Streaming Types
 export interface StreamingChunk {
   transcript_or_url?: string;
-  summary?: SimpleSummary;
+  summary?: Summary;
   quality?: QualityData;
   iteration_count?: number;
   is_complete?: boolean;
@@ -210,7 +210,7 @@ export interface StreamingProcessingResult {
   success: boolean;
   videoInfo?: VideoInfoResponse;
   transcript?: string;
-  summary?: SimpleSummary;
+  summary?: Summary;
   quality?: QualityData;
   summaryText?: string;
   qualityScore?: number;

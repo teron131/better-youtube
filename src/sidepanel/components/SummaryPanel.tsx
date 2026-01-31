@@ -14,7 +14,7 @@ import {
 import { useToast } from "@ui/hooks/use-toast";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { convertSummaryChinese } from "@/core/utils/text";
-import { SimpleSummary, QualityData, VideoInfoResponse } from "@/core/types";
+import { Summary, QualityData, VideoInfoResponse } from "@/core/types";
 import {
   BookOpen,
   ChevronDown,
@@ -29,7 +29,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 interface SummaryPanelProps {
-  summary: SimpleSummary;
+  summary: Summary;
   quality?: QualityData;
   videoInfo?: VideoInfoResponse;
   onRegenerate?: () => void;

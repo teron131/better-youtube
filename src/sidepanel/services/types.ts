@@ -4,14 +4,14 @@
 
 export type {
   ApiError,
+  Chapter,
   ConfigurationResponse,
   HealthCheckResponse,
   QualityData,
   QualityRate,
   ScrapRequest,
   ScrapResponse,
-  SimpleChapter,
-  SimpleSummary,
+  Summary,
   StreamingChunk,
   StreamingProcessingResult,
   StreamingProgressState,
