@@ -4,7 +4,7 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
+import { getApiKeys } from "@/core/config";
 import {
   StoredSummary,
   VideoMetadata,
@@ -41,6 +41,25 @@ type SummaryResult = {
 };
 
 type SummaryProvider = "openrouter" | "gemini" | "auto";
+
+/**
+ * Resolve which provider to use based on requested provider and available API keys
+ */
+function resolveProvider(
+  requestedProvider: SummaryProvider,
+  geminiKey: string | null,
+  openRouterKey: string | null,
+): "gemini" | "openrouter" {
+  if (requestedProvider === "auto") {
+    return geminiKey ? "gemini" : "openrouter";
+  }
+
+  if (requestedProvider === "gemini") {
+    return geminiKey ? "gemini" : openRouterKey ? "openrouter" : "gemini";
+  }
+
+  return openRouterKey ? "openrouter" : geminiKey ? "gemini" : "openrouter";
+}
 
 // ============================================================================
 // Storage Resolution Helpers
@@ -274,28 +293,17 @@ export async function handleGenerateSummary(
 
   const job = (async () => {
     try {
-      const openRouterKey = await getOpenRouterApiKey();
-      const geminiKey = await getGeminiApiKey();
+      const apiKeys = await getApiKeys();
+      const requestedProviderEnum: SummaryProvider =
+        summaryProvider === "gemini" || summaryProvider === "auto"
+          ? summaryProvider
+          : "openrouter";
 
-      const resolvedProvider: Exclude<SummaryProvider, "auto"> =
-        requestedProvider === "auto"
-          ? geminiKey
-            ? "gemini"
-            : "openrouter"
-          : requestedProvider;
-
-      const provider =
-        resolvedProvider === "gemini"
-          ? geminiKey
-            ? "gemini"
-            : openRouterKey
-              ? "openrouter"
-              : "gemini"
-          : openRouterKey
-            ? "openrouter"
-            : geminiKey
-              ? "gemini"
-              : "openrouter";
+      const provider = resolveProvider(
+        requestedProviderEnum,
+        apiKeys.geminiApiKey,
+        apiKeys.openRouterApiKey,
+      );
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
 
@@ -352,7 +360,8 @@ export async function handleGenerateSummary(
           summaryText: summaryToMarkdown(summary, videoInfo),
         };
       } else {
-        if (!openRouterKey) throw new Error("OpenRouter API key missing");
+        if (!apiKeys.openRouterApiKey)
+          throw new Error("OpenRouter API key missing");
         const workflow = await summarizeWorkflow({
           transcript_or_url,
           videoId,

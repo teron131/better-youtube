@@ -1,6 +1,7 @@
 /** Storage-related helper functions */
 
-import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
+import { STORAGE_KEYS } from "@/core/constants";
+import { loadConfig, resolveModel } from "@/core/config";
 
 export function getVideoStorageKeys(): string[] {
   return [
@@ -20,38 +21,23 @@ export function getVideoStorageKeys(): string[] {
   ];
 }
 
-export function getRefinerModel(storageResult: any): string {
-  return (
-    storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
-    storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
-    DEFAULTS.MODEL_REFINER
-  );
+export async function getRefinerModel(): Promise<string> {
+  return (await loadConfig()).refinerModel;
 }
 
-export function getAutoGenModels(storageResult: any): {
+export async function getAutoGenModels(): Promise<{
   summarizerModel: string;
   qualityModel: string;
   targetLanguage: string;
   fastMode: boolean;
-} {
-  const summarizerModel =
-    storageResult[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-    storageResult[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
-    DEFAULTS.MODEL_SUMMARIZER;
+}> {
+  const config = await loadConfig();
   return {
-    summarizerModel,
-    qualityModel: storageResult[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
-    targetLanguage: getTargetLanguage(storageResult),
-    fastMode: storageResult[STORAGE_KEYS.FAST_MODE] === true,
+    summarizerModel: config.summarizerModel,
+    qualityModel: config.qualityModel,
+    targetLanguage: config.targetLanguage,
+    fastMode: config.fastMode,
   };
-}
-
-export function getTargetLanguage(storageResult: any): string {
-  return (
-    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-    storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED
-  );
 }
 
 export function getToggleStorageKeys(): string[] {

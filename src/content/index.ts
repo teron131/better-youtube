@@ -196,7 +196,7 @@ class ContentManager {
 
     if (await executeScrapeForAutoGen(videoId)) {
       if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
-        const refinerModel = getRefinerModel(storageResult);
+        const refinerModel = await getRefinerModel();
         const requestId = createRequestId("caption");
         this.state.currentCaptionRequestId = requestId;
         triggerCaptionRefinement(

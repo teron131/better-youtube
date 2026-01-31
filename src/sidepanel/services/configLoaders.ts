@@ -3,10 +3,10 @@
  * Centralized functions to load model settings from storage
  */
 
-import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
+import { loadConfig } from "@/core/config";
 
 /**
- * Get model settings from chrome.storage
+ * Get model settings from storage
  */
 export async function getModelSettings(): Promise<{
   summarizerModel: string;
@@ -14,41 +14,13 @@ export async function getModelSettings(): Promise<{
   targetLanguage: string;
   showSubtitles: boolean;
 }> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(
-      [
-        STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
-        STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-        STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-        STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-        STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-        STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-        STORAGE_KEYS.SHOW_SUBTITLES,
-      ],
-      (result) => {
-        const summarizerModel =
-          result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-          result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL] ||
-          DEFAULTS.MODEL_SUMMARIZER;
-        const refinerModel =
-          result[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
-          result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
-          DEFAULTS.MODEL_REFINER;
-        const targetLanguage =
-          result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-          result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
-          DEFAULTS.TARGET_LANGUAGE_RECOMMENDED;
-        const showSubtitles = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
-
-        resolve({
-          summarizerModel,
-          refinerModel,
-          targetLanguage,
-          showSubtitles,
-        });
-      },
-    );
-  });
+  const config = await loadConfig();
+  return {
+    summarizerModel: config.summarizerModel,
+    refinerModel: config.refinerModel,
+    targetLanguage: config.targetLanguage,
+    showSubtitles: config.showSubtitles,
+  };
 }
 
 /**

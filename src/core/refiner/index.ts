@@ -3,15 +3,43 @@
  * Refines YouTube transcript segments using LLM batch processing
  */
 
-import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
+import { API_ENDPOINTS, DEFAULTS, REFINER_CONFIG } from "@/core/constants";
+import { getOpenRouterApiKey } from "@/core/runtimeConfig";
 import { SubtitleSegment } from "@/core/storage";
-import { createRefinerLLM } from "@/core/summarizer/openrouter";
+import { ChatOpenAI } from "@langchain/openai";
 import {
   chunkSegmentsByCount,
   parseRefinedSegments,
 } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+
+// ============================================================================
+// LLM Client
+// ============================================================================
+
+async function createRefinerLLM(model: string): Promise<ChatOpenAI> {
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) throw new Error("OpenRouter API key missing");
+
+  const httpReferer =
+    typeof chrome !== "undefined" && chrome.runtime?.getURL
+      ? chrome.runtime.getURL("")
+      : "";
+
+  return new ChatOpenAI({
+    model,
+    apiKey,
+    configuration: {
+      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
+      defaultHeaders: {
+        "HTTP-Referer": httpReferer,
+        "X-Title": "Better YouTube - Refiner",
+      },
+    },
+    temperature: 0.0,
+  });
+}
 
 // ============================================================================
 // Constants

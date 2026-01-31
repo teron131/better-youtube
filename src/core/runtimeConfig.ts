@@ -1,32 +1,17 @@
-import { STORAGE_KEYS } from "./constants";
-import { getStorageValue } from "./storage";
-
-function normalizeKey(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
+import { loadConfig } from "./config";
 
 export async function getOpenRouterApiKey(): Promise<string | null> {
-  return normalizeKey(
-    await getStorageValue<string>(STORAGE_KEYS.OPENROUTER_API_KEY),
-  );
+  return (await loadConfig()).openRouterApiKey;
 }
 
 export async function getGeminiApiKey(): Promise<string | null> {
-  return normalizeKey(
-    await getStorageValue<string>(STORAGE_KEYS.GEMINI_API_KEY),
-  );
+  return (await loadConfig()).geminiApiKey;
 }
 
 export async function getScrapeCreatorsApiKey(): Promise<string | null> {
-  return normalizeKey(
-    await getStorageValue<string>(STORAGE_KEYS.SCRAPE_CREATORS_API_KEY),
-  );
+  return (await loadConfig()).scrapeCreatorsApiKey;
 }
 
 export async function getSupadataApiKey(): Promise<string | null> {
-  return normalizeKey(
-    await getStorageValue<string>(STORAGE_KEYS.SUPADATA_API_KEY),
-  );
+  return (await loadConfig()).supadataApiKey;
 }

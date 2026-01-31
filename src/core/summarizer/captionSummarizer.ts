@@ -9,7 +9,10 @@ import {
   createMiddleware,
   toolStrategy,
 } from "@/core/langgraph-web-shim";
-import { getScrapeCreatorsApiKey } from "@/core/runtimeConfig";
+import {
+  getOpenRouterApiKey,
+  getScrapeCreatorsApiKey,
+} from "@/core/runtimeConfig";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -19,9 +22,9 @@ import {
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
-import { createSummarizerLLM } from "./openrouter";
 import { PromptBuilder } from "./promptBuilder";
 import {
   calculateScore,
@@ -36,7 +39,28 @@ import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
 // Model Client
 // ============================================================================
 
-const createOpenRouterLLM = createSummarizerLLM;
+async function createOpenRouterLLM(model: string): Promise<ChatOpenAI> {
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) throw new Error("OpenRouter API key missing");
+
+  const httpReferer =
+    typeof chrome !== "undefined" && chrome.runtime?.getURL
+      ? chrome.runtime.getURL("")
+      : "";
+
+  return new ChatOpenAI({
+    model,
+    apiKey,
+    configuration: {
+      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
+      defaultHeaders: {
+        "HTTP-Referer": httpReferer,
+        "X-Title": "Better YouTube - Summarizer",
+      },
+    },
+    temperature: 0.0,
+  });
+}
 
 // ============================================================================
 // Tools
