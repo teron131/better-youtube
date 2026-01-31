@@ -21,7 +21,7 @@ const VideoAnalysis = z
           startTime: z
             .string()
             .describe(
-              "Chapter start timestamp in the format HH:MM:SS (or HH:MM:SS.mmm) so the section can be referenced precisely.",
+              "Chapter start timestamp in the format MM:SS so the section can be referenced precisely.",
             ),
           endTime: z
             .string()
@@ -83,10 +83,13 @@ Task:
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
 
+const USD_PER_M_TOKENS_BY_MODEL = {
+  "gemini-3-flash-preview": { input: 0.5, output: 3 },
+  "gemini-3-pro-preview": { input: 2, output: 12 },
+};
+
 function getUsdPerMTokensPricing(modelName) {
-  if (modelName === "gemini-3-flash-preview") return { input: 0.5, output: 3 };
-  if (modelName === "gemini-3-pro-preview") return { input: 2, output: 12 };
-  return null;
+  return USD_PER_M_TOKENS_BY_MODEL[modelName] ?? null;
 }
 
 const usdPerMTokens = getUsdPerMTokensPricing(model);
@@ -95,21 +98,10 @@ async function analyzeVideoUrl(url) {
   try {
     const response = await client.models.generateContent({
       model,
-      contents: [
-        {
-          fileData: {
-            fileUri: url,
-          },
-        },
-        { text: prompt },
-      ],
+      contents: [{ fileData: { fileUri: url } }, { text: prompt }],
       config: {
-        httpOptions: {
-          timeout: 10 * 60 * 1000,
-        },
-        thinkingConfig: {
-          thinkingLevel: ThinkingLevel.HIGH,
-        },
+        httpOptions: { timeout: 10 * 60 * 1000 },
+        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
         responseMimeType: "application/json",
         responseJsonSchema: zodToJsonSchema(VideoAnalysis),
       },
@@ -118,8 +110,7 @@ async function analyzeVideoUrl(url) {
     const raw = response.text;
     if (!raw) return null;
 
-    const json = JSON.parse(raw);
-    const parsed = VideoAnalysis.parse(json);
+    const parsed = VideoAnalysis.parse(JSON.parse(raw));
 
     const usageMetadata = response.usageMetadata;
     if (usageMetadata) {
@@ -127,6 +118,7 @@ async function analyzeVideoUrl(url) {
 
       const promptTokens = usageMetadata.promptTokenCount;
       const totalTokens = usageMetadata.totalTokenCount;
+
       if (
         usdPerMTokens &&
         typeof promptTokens === "number" &&
