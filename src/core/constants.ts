@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   SCRAPE_CREATORS_API_KEY: "scrapeCreatorsApiKey",
   SUPADATA_API_KEY: "supadataApiKey",
   OPENROUTER_API_KEY: "openRouterApiKey",
+  GEMINI_API_KEY: "geminiApiKey",
   SUMMARIZER_RECOMMENDED_MODEL: "summarizerRecommendedModel",
   SUMMARIZER_CUSTOM_MODEL: "summarizerCustomModel",
   REFINER_RECOMMENDED_MODEL: "refinerRecommendedModel",
