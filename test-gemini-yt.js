@@ -7,7 +7,7 @@ const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 if (!apiKey)
   throw new Error("Set GOOGLE_API_KEY or GEMINI_API_KEY (or put it in .env)");
 
-const MultimodalSummary = z
+const VideoAnalysis = z
   .object({
     videoUrl: z
       .string()
@@ -98,14 +98,14 @@ const response = await client.models.generateContent({
       thinkingLevel: ThinkingLevel.HIGH,
     },
     responseMimeType: "application/json",
-    responseJsonSchema: zodToJsonSchema(MultimodalSummary),
+    responseJsonSchema: zodToJsonSchema(VideoAnalysis),
   },
 });
 
 const raw = response.text;
 if (!raw) throw new Error("Model returned no text.");
 
-const parsed = MultimodalSummary.parse(JSON.parse(raw));
+const parsed = VideoAnalysis.parse(JSON.parse(raw));
 console.log(JSON.stringify(parsed, null, 2));
 
 
