@@ -1,5 +1,5 @@
 import type { SubtitleSegment } from "@/core/storage";
-import type { SimpleSummary, VideoInfoResponse } from "@/core/types";
+import type { Summary, VideoInfoResponse } from "@/core/types";
 import * as OpenCC from "opencc-js";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -56,7 +56,7 @@ export function convertSubtitlesToTraditionalChinese(
  * Convert summary text fields to traditional Chinese (Taiwan variant)
  * Only converts the final results that are displayed to the user
  */
-function convertSummaryChineseFieldwise(summary: SimpleSummary): SimpleSummary {
+function convertSummaryChineseFieldwise(summary: Summary): Summary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
   return {
     ...summary,
@@ -69,10 +69,10 @@ function convertSummaryChineseFieldwise(summary: SimpleSummary): SimpleSummary {
   };
 }
 
-export function convertSummaryChinese(summary: SimpleSummary): SimpleSummary {
+export function convertSummaryChinese(summary: Summary): Summary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
 
-  const converted: SimpleSummary = {
+  const converted: Summary = {
     ...summary,
     overallSummary: summary.overallSummary || "",
     chapters: chapters.length

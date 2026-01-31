@@ -21,11 +21,11 @@ import {
 } from "@/core/transcript";
 import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarizer";
 import {
-  formatSimpleSummaryAsMarkdown,
+  formatSummaryAsMarkdown,
   summarizeWithGeminiNative,
-  toSimpleSummaryFromGemini,
-  toSimpleSummaryFromOpenRouter,
-  type SimpleSummary,
+  toSummaryFromGemini,
+  toSummaryFromOpenRouter,
+  type Summary,
 } from "@/core/summarizer";
 import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 
@@ -34,7 +34,7 @@ import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 // ============================================================================
 
 type SummaryResult = {
-  summary: SimpleSummary;
+  summary: Summary;
   quality?: any;
   summary_text?: string;
   iteration_count?: number;
@@ -149,7 +149,7 @@ async function broadcastStoredSummary(
 
   const summary = storedSummary.summary as any;
   const summaryText = videoInfo
-    ? formatSimpleSummaryAsMarkdown(summary, videoInfo)
+    ? formatSummaryAsMarkdown(summary, videoInfo)
     : "";
 
   sendRuntimeMessage({
@@ -342,13 +342,13 @@ export async function handleGenerateSummary(
           { model: geminiModel },
         );
 
-        const simple = toSimpleSummaryFromGemini(gemini.analysis);
+        const simple = toSummaryFromGemini(gemini.analysis);
         result = {
           summary: simple,
           quality: null,
           iteration_count: 1,
           quality_score: 0,
-          summary_text: formatSimpleSummaryAsMarkdown(simple, videoInfo),
+          summary_text: formatSummaryAsMarkdown(simple, videoInfo),
         };
       } else {
         if (!openRouterKey) throw new Error("OpenRouter API key missing");
@@ -364,13 +364,13 @@ export async function handleGenerateSummary(
           fast_mode: fastMode,
         });
 
-        const simple = toSimpleSummaryFromOpenRouter(workflow.summary);
+        const simple = toSummaryFromOpenRouter(workflow.summary);
         result = {
           summary: simple,
           quality: workflow.quality,
           iteration_count: workflow.iteration_count,
           quality_score: workflow.quality_score,
-          summary_text: formatSimpleSummaryAsMarkdown(simple, videoInfo),
+          summary_text: formatSummaryAsMarkdown(simple, videoInfo),
         };
       }
 
