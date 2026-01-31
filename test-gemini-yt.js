@@ -77,25 +77,6 @@ Task:
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
 
-function logTokenUsage({
-  label,
-  promptTokens,
-  outputTokens,
-  totalTokens,
-  details,
-}) {
-  console.log(
-    `${label}:`,
-    `prompt=${promptTokens ?? "n/a"} output=${outputTokens ?? "n/a"} total=${
-      totalTokens ??
-      (promptTokens != null && outputTokens != null
-        ? promptTokens + outputTokens
-        : "n/a")
-    }`,
-  );
-  if (details) console.log(`${label} details:`, details);
-}
-
 const response = await client.models.generateContent({
   model,
   contents: [
@@ -121,12 +102,5 @@ if (!raw) throw new Error("Model returned no text.");
 const parsed = MultimodalSummary.parse(JSON.parse(raw));
 console.log(JSON.stringify(parsed, null, 2));
 
-const usage = response.usageMetadata;
-if (usage)
-  logTokenUsage({
-    label: "Token usage",
-    promptTokens: usage.promptTokenCount,
-    outputTokens: usage.candidatesTokenCount,
-    totalTokens: usage.totalTokenCount,
-    details: usage,
-  });
+if (response.usageMetadata)
+  console.log("usageMetadata", response.usageMetadata);
