@@ -31,6 +31,28 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+function normalizeStoredSummary(summary: any): any {
+  if (!summary || typeof summary !== "object") {
+    return { overallSummary: "", chapters: [] };
+  }
+
+  if (typeof (summary as any).overallSummary === "string" && Array.isArray((summary as any).chapters)) {
+    return summary;
+  }
+
+  const legacy = summary as any;
+  const chapters = Array.isArray(legacy.chapters) ? legacy.chapters : [];
+  return {
+    overallSummary: typeof legacy.summary === "string" ? legacy.summary : "",
+    chapters: chapters
+      .map((c: any) => ({
+        title: typeof c?.header === "string" ? c.header : "",
+        description: typeof c?.summary === "string" ? c.summary : "",
+      }))
+      .filter((c: any) => c.title || c.description),
+  };
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const [initialUrl, setInitialUrl] = useState<string>("");
@@ -131,6 +153,8 @@ const Index = () => {
 
         if (cancelled || !storedSummary) return;
 
+        const normalizedSummary = normalizeStoredSummary(storedSummary.summary);
+
         const transcript = storedSubtitles?.length
           ? storedSubtitles.map((segment) => segment.text).join(" ")
           : null;
@@ -141,7 +165,7 @@ const Index = () => {
         updateState({
           summaryResult: {
             success: true,
-            summary: storedSummary.summary,
+            summary: normalizedSummary,
             quality: storedSummary.quality,
             videoInfo: storedVideoInfo ?? undefined,
             transcript: transcript ?? undefined,

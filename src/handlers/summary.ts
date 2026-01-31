@@ -34,9 +34,8 @@ import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 // ============================================================================
 
 type SummaryResult = {
-  summary: any;
+  summary: SimpleSummary;
   quality?: any;
-  simple_summary?: SimpleSummary;
   summary_text?: string;
   iteration_count?: number;
   quality_score?: number;
@@ -148,13 +147,21 @@ async function broadcastStoredSummary(
 ): Promise<void> {
   const videoInfo = await getStoredVideoMetadata(videoId);
 
+  const summary = storedSummary.summary as any;
+  const summaryText = videoInfo
+    ? formatSimpleSummaryAsMarkdown(summary, videoInfo)
+    : "";
+
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
     requestId,
     summary: {
-      summary: storedSummary.summary,
-      quality: storedSummary.quality,
+      summary,
+      quality: storedSummary.quality ?? null,
+      summary_text: summaryText,
+      iteration_count: 0,
+      quality_score: 0,
     },
     videoInfo,
     transcript: null,
@@ -336,12 +343,9 @@ export async function handleGenerateSummary(
         );
 
         const simple = toSimpleSummaryFromGemini(gemini.analysis);
-        const legacy = geminiToLegacySummary(simple, videoInfo, targetLanguage);
-
         result = {
-          summary: legacy,
+          summary: simple,
           quality: null,
-          simple_summary: simple,
           iteration_count: 1,
           quality_score: 0,
           summary_text: formatSimpleSummaryAsMarkdown(simple, videoInfo),
@@ -362,12 +366,11 @@ export async function handleGenerateSummary(
 
         const simple = toSimpleSummaryFromOpenRouter(workflow.summary);
         result = {
-          ...workflow,
-          simple_summary: simple,
-          summary_text:
-            typeof (workflow as any).summary_text === "string"
-              ? (workflow as any).summary_text
-              : formatSimpleSummaryAsMarkdown(simple, videoInfo),
+          summary: simple,
+          quality: workflow.quality,
+          iteration_count: workflow.iteration_count,
+          quality_score: workflow.quality_score,
+          summary_text: formatSimpleSummaryAsMarkdown(simple, videoInfo),
         };
       }
 
@@ -407,23 +410,4 @@ function normalizeGeminiModel(modelSelection: string): string {
   if (modelSelection.startsWith("google/")) return modelSelection.slice("google/".length);
   if (modelSelection.startsWith("gemini-")) return modelSelection;
   return "gemini-3-flash-preview";
-}
-
-function geminiToLegacySummary(
-  simple: SimpleSummary,
-  videoInfo: VideoMetadata,
-  targetLanguage: string,
-): any {
-  return {
-    title: videoInfo?.title || "",
-    summary: simple.overallSummary,
-    takeaways: [],
-    chapters: simple.chapters.map((c) => ({
-      header: c.title,
-      summary: c.description,
-      key_points: [],
-    })),
-    keywords: [],
-    target_language: targetLanguage,
-  };
 }

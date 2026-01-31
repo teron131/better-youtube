@@ -1,5 +1,5 @@
 import type { SubtitleSegment } from "@/core/storage";
-import { SummaryData, VideoInfoResponse } from "@/core/types";
+import type { SimpleSummary, VideoInfoResponse } from "@/core/types";
 import * as OpenCC from "opencc-js";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -56,48 +56,30 @@ export function convertSubtitlesToTraditionalChinese(
  * Convert summary text fields to traditional Chinese (Taiwan variant)
  * Only converts the final results that are displayed to the user
  */
-function convertSummaryChineseFieldwise(summary: SummaryData): SummaryData {
-  const takeaways = Array.isArray(summary.takeaways) ? summary.takeaways : [];
-  const keywords = Array.isArray(summary.keywords) ? summary.keywords : [];
+function convertSummaryChineseFieldwise(summary: SimpleSummary): SimpleSummary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
-
   return {
     ...summary,
-    title: s2tw(summary.title || ""),
-    summary: s2tw(summary.summary || ""),
-    takeaways: takeaways.map(s2tw),
-    keywords: keywords.map(s2tw),
-    chapters: chapters.map((chapter) => ({
-      ...chapter,
-      header: s2tw(chapter.header || ""),
-      summary: s2tw(chapter.summary || ""),
-      key_points: (Array.isArray(chapter.key_points)
-        ? chapter.key_points
-        : []
-      ).map(s2tw),
+    overallSummary: s2tw(summary.overallSummary || ""),
+    chapters: chapters.map((c) => ({
+      ...c,
+      title: s2tw(c.title || ""),
+      description: s2tw(c.description || ""),
     })),
   };
 }
 
-export function convertSummaryChinese(summary: SummaryData): SummaryData {
-  const takeaways = Array.isArray(summary.takeaways) ? summary.takeaways : [];
-  const keywords = Array.isArray(summary.keywords) ? summary.keywords : [];
+export function convertSummaryChinese(summary: SimpleSummary): SimpleSummary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
 
-  const converted: SummaryData = {
+  const converted: SimpleSummary = {
     ...summary,
-    title: summary.title || "",
-    summary: summary.summary || "",
-    takeaways: takeaways.length ? [...takeaways] : [],
-    keywords: keywords.length ? [...keywords] : [],
+    overallSummary: summary.overallSummary || "",
     chapters: chapters.length
-      ? chapters.map((chapter) => ({
-          ...chapter,
-          header: chapter.header || "",
-          summary: chapter.summary || "",
-          key_points: Array.isArray(chapter.key_points)
-            ? [...chapter.key_points]
-            : [],
+      ? chapters.map((c) => ({
+          ...c,
+          title: c.title || "",
+          description: c.description || "",
         }))
       : [],
   };
@@ -113,23 +95,11 @@ export function convertSummaryChinese(summary: SummaryData): SummaryData {
     targets.push({ container, key });
   };
 
-  pushTarget(converted, "title", converted.title);
-  pushTarget(converted, "summary", converted.summary);
+  pushTarget(converted, "overallSummary", converted.overallSummary);
 
-  converted.takeaways.forEach((takeaway, index) => {
-    pushTarget(converted.takeaways, index, takeaway);
-  });
-
-  converted.keywords.forEach((keyword, index) => {
-    pushTarget(converted.keywords, index, keyword);
-  });
-
-  converted.chapters.forEach((chapter) => {
-    pushTarget(chapter, "header", chapter.header);
-    pushTarget(chapter, "summary", chapter.summary);
-    chapter.key_points.forEach((point, pointIndex) => {
-      pushTarget(chapter.key_points, pointIndex, point);
-    });
+  converted.chapters.forEach((c) => {
+    pushTarget(c, "title", c.title);
+    pushTarget(c, "description", c.description);
   });
 
   const separator = "\u001F";
@@ -140,10 +110,11 @@ export function convertSummaryChinese(summary: SummaryData): SummaryData {
     return convertSummaryChineseFieldwise(summary);
   }
 
-  for (let i = 0; i < convertedParts.length; i += 1) {
-    const target = targets[i];
-    target.container[target.key] = convertedParts[i];
-  }
+  convertedParts.forEach((part, index) => {
+    const target = targets[index];
+    if (!target) return;
+    target.container[target.key] = part;
+  });
 
   return converted;
 }
