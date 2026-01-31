@@ -28,11 +28,12 @@ import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
 import { Settings as SettingsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const navigate = useNavigate();
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const [initialUrl, setInitialUrl] = useState<string>("");
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
@@ -113,7 +114,7 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    if (!initialUrl || isLoading) return;
+    if (!initialUrl || isLoading || isExampleMode) return;
 
     const videoId = extractVideoId(initialUrl);
     if (!videoId) return;
@@ -167,7 +168,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, [initialUrl, isLoading, updateState]);
+  }, [initialUrl, isLoading, isExampleMode, updateState]);
 
   const handleToggleSubtitles = async (nextState: boolean) => {
     setShowSubtitles(nextState);
@@ -220,6 +221,13 @@ const Index = () => {
       summaryResult: example.summaryResult,
       isLoading: false,
       error: null,
+    });
+
+    requestAnimationFrame(() => {
+      resultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   };
 
@@ -401,7 +409,7 @@ const Index = () => {
         initialUrl={initialUrl}
       />
 
-      <div className="relative">
+      <div className="relative" ref={resultsRef}>
         <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-12 -mt-10">
           <div className="max-w-8xl w-full mx-auto space-y-4">
             {!isExampleMode && videoInfo && (
@@ -417,16 +425,14 @@ const Index = () => {
               />
             )}
 
-            {!isExampleMode && transcript && (
-              <TranscriptPanel transcript={transcript} />
-            )}
+            {transcript && <TranscriptPanel transcript={transcript} />}
 
-            {!isExampleMode && summaryResult?.summary && (
+            {summaryResult?.summary && (
               <SummaryPanel
                 summary={summaryResult.summary}
                 quality={summaryResult.quality}
                 videoInfo={summaryResult.videoInfo}
-                onRegenerate={handleRegenerate}
+                onRegenerate={isExampleMode ? undefined : handleRegenerate}
                 isRegenerating={isLoading}
               />
             )}
