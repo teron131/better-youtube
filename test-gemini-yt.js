@@ -11,21 +11,6 @@ if (!apiKey) {
 
 const VideoAnalysis = z
   .object({
-    videoUrl: z
-      .string()
-      .url()
-      .describe("The YouTube URL analyzed for chapter generation."),
-    overallSummary: z
-      .string()
-      .describe(
-        "An overall summary covering the full video end-to-end, written without meta-language and capturing the main thesis and arc.",
-      ),
-    keyTakeaways: z
-      .array(z.string())
-      .min(3)
-      .describe(
-        "Key takeaways as a bullet list (each item is one concise, standalone takeaway).",
-      ),
     chapters: z
       .array(
         z.object({
@@ -33,37 +18,34 @@ const VideoAnalysis = z
             .string()
             .describe(
               "Chapter start timestamp in the format MM:SS so the section can be referenced precisely.",
-            ),
+            )
+            .optional(),
           endTime: z
             .string()
             .describe(
               "Chapter end timestamp matching the same format as startTime.",
-            ),
+            )
+            .optional(),
           title: z
             .string()
             .describe(
               "A concise heading summarizing the chapter's main topic.",
             ),
-          transcript: z
+          description: z
             .string()
             .describe(
-              "Word-level transcript rendered as a single space-delimited string of tokens representing the spoken content.",
-            ),
-          visualDescription: z
-            .string()
-            .describe(
-              "Only contextually useful visuals (e.g., diagrams, UI steps, code/math on screen, key gestures, scene changes, and any on-screen text). Avoid trivial appearance details like colors or generic descriptions.",
-            ),
-          summary: z
-            .string()
-            .describe(
-              "A detailed chapter summary capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present). Avoid meta-language like 'the video', 'the author', 'the speaker says'—state the content directly.",
+              "A detailed chapter description capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present). Avoid meta-language like 'the video', 'the author', 'the speaker says'—state the content directly.",
             ),
         }),
       )
       .min(1)
       .describe(
         "Chronological, non-ad chapters that capture the video's core scenes.",
+      ),
+    overallSummary: z
+      .string()
+      .describe(
+        "An overall summary covering the full video end-to-end, written without meta-language and capturing the main thesis and arc.",
       ),
   })
   .describe(
@@ -75,27 +57,29 @@ const client = new GoogleGenAI({ apiKey });
 const model = "gemini-3-flash-preview";
 const videoUrl = "https://youtu.be/MiUHjLxm3V0";
 const prompt = `
-Task:
-- Analyze the video and output:
-  - overallSummary: an end-to-end summary of the whole video.
-  - keyTakeaways: a bullet list of the most important takeaways.
-  - chapters.
-- For overallSummary + keyTakeaways:
-  - Avoid meta-language like "the video..." / "the author..." / "the speaker..."; write direct statements.
-  - Keep takeaways concise and standalone (no numbering required; each array entry is one bullet).
-- For each chapter:
-  - Provide a clear title.
-  - Provide a detailed summary that captures viewpoints, arguments, and concrete facts mentioned (include key numbers/names/steps when present).
-    - Avoid meta-language like "the video..." / "the author..." / "the speaker..."; summarize in direct statements.
-  - Provide visualDescription with only contextually useful visual cues (e.g., diagrams, UI steps, code/math on screen, key gestures, scene changes, and any on-screen text).
-    - Avoid trivial appearance details (e.g., colors) and generic filler.
-  - Provide word-level transcript tokens as a single space-delimited string.
-- STRICT FILTERING:
-  - NEVER include sponsor/advertisement/promotion sections as chapters.
-  - If a segment contains sponsorship language (e.g., sponsor, ad, promotion, "brought to you by", "thanks to", discount codes, affiliate links, subscribe/like CTAs), OMIT it entirely and stitch the surrounding content together.
-  - Do not output chapters with empty or near-empty fields (summary/transcript/visualDescription must be substantive). If needed, merge with adjacent chapters.
-  - When unsure whether a segment is sponsored/promotional, exclude it.
-- Language: Traditional Chinese if the video is in Chinese, otherwise English.
+1) Watch/analyze the video in chronological order.
+2) Build the chapter list in the same chronological order (merge adjacent segments when needed).
+3) Write overallSummary AFTER chapters, based on the chapter sequence (end-to-end arc + main thesis).
+
+Requirements:
+- Output fields:
+  - chapters
+  - overallSummary
+- Chapters:
+  - Must be chronological and non-overlapping.
+  - Each chapter must have a clear title and a substantive description with key viewpoints/arguments and concrete facts (numbers/names/steps when present).
+  - If unsure about timestamps, you may omit startTime/endTime.
+- Overall summary:
+  - Summarize the whole video end-to-end using direct statements.
+  - Avoid meta-language like "the video..." / "the author..." / "the speaker...".
+
+STRICT FILTERING:
+- NEVER include sponsor/advertisement/promotion sections as chapters.
+- If a segment contains sponsorship language (e.g., sponsor, ad, promotion, "brought to you by", "thanks to", discount codes, affiliate links, subscribe/like CTAs), OMIT it entirely and stitch the surrounding content together.
+- Do not output chapters with empty or near-empty titles/descriptions; merge with adjacent chapters instead.
+- When unsure whether a segment is sponsored/promotional, exclude it.
+
+Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
 
 const USD_PER_M_TOKENS_BY_MODEL = {
@@ -116,7 +100,7 @@ async function analyzeVideoUrl(url) {
       contents: [{ fileData: { fileUri: url } }, { text: prompt }],
       config: {
         httpOptions: { timeout: 10 * 60 * 1000 },
-        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
         responseMimeType: "application/json",
         responseJsonSchema: zodToJsonSchema(VideoAnalysis),
       },
