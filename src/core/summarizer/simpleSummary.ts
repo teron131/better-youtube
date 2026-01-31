@@ -85,7 +85,8 @@ export function formatSimpleSummaryAsMarkdown(
     if (videoInfo.title) parts.push(`**Title:** ${String(videoInfo.title)}\n`);
     if (videoInfo.thumbnail)
       parts.push(`**Thumbnail:** ${String(videoInfo.thumbnail)}\n`);
-    if (videoInfo.author) parts.push(`**Channel:** ${String(videoInfo.author)}\n`);
+    if (videoInfo.author)
+      parts.push(`**Channel:** ${String(videoInfo.author)}\n`);
     if (parts.length) parts.push("\n");
   }
 
