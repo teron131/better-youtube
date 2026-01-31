@@ -235,7 +235,7 @@ const Index = () => {
   };
 
   const loadExample = () => {
-    setIsExampleMode(false);
+    setIsExampleMode(true);
     const example = loadExampleData();
 
     updateState({
@@ -246,6 +246,7 @@ const Index = () => {
       scrapedTranscript: example.transcript,
       summaryResult: example.summaryResult,
       isLoading: false,
+      error: null,
     });
   };
 
@@ -273,18 +274,13 @@ const Index = () => {
 
     const videoUrl = await resolveVideoUrl(url);
     if (!videoUrl) {
-      const errorMsg =
-        "Not on a YouTube video page. Please open a YouTube video or enter a URL.";
-      updateState({
-        error: { message: errorMsg, type: "validation" },
-        currentStage: "❌ Not a YouTube page",
+      toast({
+        title: "Loading example",
+        description:
+          "Not on a YouTube video page and no URL provided. Loading example data.",
       });
 
-      toast({
-        title: "Not a YouTube Page",
-        description: errorMsg,
-        variant: "destructive",
-      });
+      loadExample();
       return;
     }
 
@@ -326,11 +322,12 @@ const Index = () => {
     const videoUrl = await resolveVideoUrl(url);
     if (!videoUrl) {
       toast({
-        title: "Not a YouTube Page",
+        title: "Loading example",
         description:
-          "Not on a YouTube video page. Please open a YouTube video or enter a URL.",
-        variant: "destructive",
+          "Not on a YouTube video page and no URL provided. Loading example data.",
       });
+
+      loadExample();
       return;
     }
 
