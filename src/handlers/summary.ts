@@ -407,7 +407,8 @@ export async function handleGenerateSummary(
 }
 
 function normalizeGeminiModel(modelSelection: string): string {
-  if (modelSelection.startsWith("google/")) return modelSelection.slice("google/".length);
+  if (modelSelection.startsWith("google/"))
+    return modelSelection.slice("google/".length);
   if (modelSelection.startsWith("gemini-")) return modelSelection;
   return "gemini-3-flash-preview";
 }

@@ -11,7 +11,9 @@ export const GeminiChapterSchema = z.object({
     .string()
     .describe("Chapter end timestamp matching the same format as startTime.")
     .optional(),
-  title: z.string().describe("A concise heading summarizing the chapter's main topic."),
+  title: z
+    .string()
+    .describe("A concise heading summarizing the chapter's main topic."),
   description: z
     .string()
     .describe(

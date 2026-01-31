@@ -14,7 +14,9 @@ export async function getOpenRouterApiKey(): Promise<string | null> {
 }
 
 export async function getGeminiApiKey(): Promise<string | null> {
-  return normalizeKey(await getStorageValue<string>(STORAGE_KEYS.GEMINI_API_KEY));
+  return normalizeKey(
+    await getStorageValue<string>(STORAGE_KEYS.GEMINI_API_KEY),
+  );
 }
 
 export async function getScrapeCreatorsApiKey(): Promise<string | null> {

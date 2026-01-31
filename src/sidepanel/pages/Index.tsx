@@ -36,7 +36,10 @@ function normalizeStoredSummary(summary: any): any {
     return { overallSummary: "", chapters: [] };
   }
 
-  if (typeof (summary as any).overallSummary === "string" && Array.isArray((summary as any).chapters)) {
+  if (
+    typeof (summary as any).overallSummary === "string" &&
+    Array.isArray((summary as any).chapters)
+  ) {
     return summary;
   }
 
