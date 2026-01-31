@@ -395,12 +395,14 @@ export async function executeSummarizationWorkflow(
     onProgress,
   });
 
+  const summary = result.summary as Summary;
+
   return {
-    summary: result.summary!,
+    summary,
     quality: result.quality,
     iteration_count: result.iteration_count,
     quality_score: result.quality ? calculateScore(result.quality) : 0,
-    summary_text: formatSummaryAsMarkdown(result.summary!),
+    summary_text: formatSummaryAsMarkdown(summary),
   };
 }
 

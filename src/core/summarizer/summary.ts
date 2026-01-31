@@ -1,67 +1,14 @@
 import type { VideoMetadata } from "@/core/storage";
+import type { Summary } from "@/core/types";
 
-import type { GeminiVideoAnalysis } from "./geminiSchemas";
-
-export type Chapter = {
-  startTime?: string;
-  endTime?: string;
-  title: string;
-  description: string;
-};
-
-export type Summary = {
-  chapters: Chapter[];
-  overallSummary: string;
-};
-
-export function toSummaryFromGemini(analysis: GeminiVideoAnalysis): Summary {
-  return {
-    overallSummary: analysis.overallSummary ?? "",
-    chapters: (analysis.chapters ?? []).map((c) => ({
-      startTime: c.startTime,
-      endTime: c.endTime,
-      title: c.title ?? "",
-      description: c.description ?? "",
-    })),
-  };
+export function toSummaryFromGemini(summary: unknown): Summary {
+  if (isSummary(summary)) return summary;
+  throw new Error("Invalid summary shape from Gemini");
 }
 
-export function toSummaryFromOpenRouter(summaryData: any): Summary {
-  if (isSummary(summaryData)) return summaryData;
-
-  const chaptersInput = Array.isArray(summaryData?.chapters)
-    ? summaryData.chapters
-    : [];
-
-  const chapters: Chapter[] = chaptersInput
-    .map((c: any) => {
-      const header = typeof c?.header === "string" ? c.header : "";
-      const summary = typeof c?.summary === "string" ? c.summary : "";
-      const keyPoints = Array.isArray(c?.key_points)
-        ? c.key_points.filter((x: unknown) => typeof x === "string")
-        : [];
-
-      const appended =
-        keyPoints.length > 0
-          ? `${summary}\n\nKey points:\n${keyPoints.map((p: string) => `- ${p}`).join("\n")}`
-          : summary;
-
-      return {
-        title: header,
-        description: appended,
-      };
-    })
-    .filter((c: Chapter) => c.title || c.description);
-
-  const overallSummary =
-    typeof summaryData?.summary === "string" ? summaryData.summary : "";
-
-  return {
-    overallSummary,
-    chapters: chapters.length
-      ? chapters
-      : [{ title: "", description: overallSummary }],
-  };
+export function toSummaryFromOpenRouter(summary: unknown): Summary {
+  if (isSummary(summary)) return summary;
+  throw new Error("Invalid summary shape from OpenRouter");
 }
 
 export function isSummary(value: unknown): value is Summary {

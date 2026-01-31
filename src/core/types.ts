@@ -156,7 +156,6 @@ export interface QualityData {
   structure: QualityRate;
   no_garbage: QualityRate;
   meta_language_avoidance: QualityRate;
-  useful_keywords: QualityRate;
   correct_language: QualityRate;
   total_score?: number;
   max_possible_score?: number;

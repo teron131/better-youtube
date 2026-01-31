@@ -2,13 +2,11 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { getGeminiApiKey } from "@/core/runtimeConfig";
+import type { Summary } from "@/core/types";
 
-import {
-  GeminiVideoAnalysisSchema,
-  type GeminiVideoAnalysis,
-} from "./geminiSchemas";
+import { SummarySchema } from "./schemas";
 
-export type GeminiNativeInput =
+export type GeminiInput =
   | {
       kind: "youtube_url";
       videoUrl: string;
@@ -20,14 +18,14 @@ export type GeminiNativeInput =
       targetLanguage?: string;
     };
 
-export async function summarizeWithGeminiNative(
-  input: GeminiNativeInput,
+export async function summarizeWithGemini(
+  input: GeminiInput,
   options?: {
     model?: string;
     thinkingLevel?: ThinkingLevel;
     timeoutMs?: number;
   },
-): Promise<{ analysis: GeminiVideoAnalysis; usage?: unknown }> {
+): Promise<{ summary: Summary; usage?: unknown }> {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error("Gemini API key missing");
 
@@ -50,15 +48,15 @@ export async function summarizeWithGeminiNative(
       httpOptions: { timeout: timeoutMs },
       thinkingConfig: { thinkingLevel },
       responseMimeType: "application/json",
-      responseJsonSchema: zodToJsonSchema(GeminiVideoAnalysisSchema),
+      responseJsonSchema: zodToJsonSchema(SummarySchema),
     },
   });
 
   const raw = response.text;
   if (!raw) throw new Error("Gemini returned empty response");
 
-  const parsed = GeminiVideoAnalysisSchema.parse(JSON.parse(raw));
-  return { analysis: parsed, usage: response.usageMetadata };
+  const parsed = SummarySchema.parse(JSON.parse(raw)) as Summary;
+  return { summary: parsed, usage: response.usageMetadata };
 }
 
 function buildPrompt(targetLanguage: string): string {
