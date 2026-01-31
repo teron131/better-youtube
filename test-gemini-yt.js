@@ -73,9 +73,15 @@ Task:
   - Provide visualDescription with only contextually useful visual cues (e.g., diagrams, UI steps, code/math on screen, key gestures, scene changes, and any on-screen text).
     - Avoid trivial appearance details (e.g., colors) and generic filler.
   - Provide word-level transcript tokens as a single space-delimited string.
-- Skip ALL ads, promotional segments, and irrelevant garbage content.
+- STRICT FILTERING:
+  - NEVER include sponsor/advertisement/promotion sections as chapters.
+  - If a segment contains sponsorship language (e.g., sponsor, ad, promotion, "brought to you by", "thanks to", discount codes, affiliate links, subscribe/like CTAs), OMIT it entirely and stitch the surrounding content together.
+  - Do not output chapters with empty or near-empty fields (summary/transcript/visualDescription must be substantive). If needed, merge with adjacent chapters.
+  - When unsure whether a segment is sponsored/promotional, exclude it.
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
+
+
 
 const response = await client.models.generateContent({
   model,
@@ -102,5 +108,53 @@ if (!raw) throw new Error("Model returned no text.");
 const parsed = MultimodalSummary.parse(JSON.parse(raw));
 console.log(JSON.stringify(parsed, null, 2));
 
-if (response.usageMetadata)
-  console.log("usageMetadata", response.usageMetadata);
+
+function getUsdPerMTokensPricing(modelName) {
+  const envInput = process.env.GEMINI_INPUT_USD_PER_M_TOKENS;
+  const envOutput = process.env.GEMINI_OUTPUT_USD_PER_M_TOKENS;
+  if (envInput && envOutput) {
+    const input = Number(envInput);
+    const output = Number(envOutput);
+    if (Number.isFinite(input) && Number.isFinite(output)) {
+      return { input, output, source: "env" };
+    }
+  }
+
+  const defaults = {
+    // USD per 1M tokens; output billed tokens generally include thinking tokens.
+    "gemini-3-flash-preview": { input: 0.5, output: 3 },
+  };
+
+  const hit = defaults[modelName];
+  return hit ? { ...hit, source: "defaults" } : undefined;
+}
+
+const usage = response.usageMetadata;
+if (usage) {
+  console.log("usageMetadata", usage);
+
+  const pricing = getUsdPerMTokensPricing(model);
+  const promptTokens = usage.promptTokenCount;
+  const totalTokens = usage.totalTokenCount;
+
+  if (
+    pricing &&
+    typeof promptTokens === "number" &&
+    typeof totalTokens === "number"
+  ) {
+    const outputBilledTokens = Math.max(0, totalTokens - promptTokens);
+    const estimatedUsd =
+      (promptTokens / 1_000_000) * pricing.input +
+      (outputBilledTokens / 1_000_000) * pricing.output;
+
+    console.log("estimatedCost", {
+      currency: "USD",
+      model,
+      pricingUsdPerMTokens: { input: pricing.input, output: pricing.output },
+      pricingSource: pricing.source,
+      promptTokens,
+      outputBilledTokens,
+      estimatedUsd,
+    });
+  }
+}
