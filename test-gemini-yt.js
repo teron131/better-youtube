@@ -15,6 +15,17 @@ const VideoAnalysis = z
       .string()
       .url()
       .describe("The YouTube URL analyzed for chapter generation."),
+    overallSummary: z
+      .string()
+      .describe(
+        "An overall summary covering the full video end-to-end, written without meta-language and capturing the main thesis and arc.",
+      ),
+    keyTakeaways: z
+      .array(z.string())
+      .min(3)
+      .describe(
+        "Key takeaways as a bullet list (each item is one concise, standalone takeaway).",
+      ),
     chapters: z
       .array(
         z.object({
@@ -67,7 +78,13 @@ const prompt = `
 Return ONLY valid JSON that matches the provided schema.
 
 Task:
-- Analyze the video and output chapters.
+- Analyze the video and output:
+  - overallSummary: an end-to-end summary of the whole video.
+  - keyTakeaways: a bullet list of the most important takeaways.
+  - chapters.
+- For overallSummary + keyTakeaways:
+  - Avoid meta-language like "the video..." / "the author..." / "the speaker..."; write direct statements.
+  - Keep takeaways concise and standalone (no numbering required; each array entry is one bullet).
 - For each chapter:
   - Provide a clear title.
   - Provide a detailed summary that captures viewpoints, arguments, and concrete facts mentioned (include key numbers/names/steps when present).
