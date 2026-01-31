@@ -1,7 +1,7 @@
 import type { SubtitleSegment } from "@/core/storage";
 import type { Summary, VideoInfoResponse } from "@/core/types";
-import * as OpenCC from "opencc-js";
 import { clsx, type ClassValue } from "clsx";
+import * as OpenCC from "opencc-js";
 import { twMerge } from "tailwind-merge";
 
 const converterCN2TW = OpenCC.Converter({ from: "cn", to: "tw" });

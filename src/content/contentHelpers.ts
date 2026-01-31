@@ -1,9 +1,9 @@
 /** Content Script Helper Functions - Messaging Logic */
 
-import { sendChromeMessage } from "@/core/utils/chrome";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { type RequestId } from "@/core/requestId";
 import { type SubtitleSegment } from "@/core/storage";
+import { sendChromeMessage } from "@/core/utils/chrome";
 
 export interface ContentScriptState {
   currentSubtitles: SubtitleSegment[];

@@ -16,13 +16,8 @@ import {
   validateAutoGen,
 } from "./autoGeneration";
 import { ContentScriptState, triggerCaptionRefinement } from "./contentHelpers";
-import { getVideoStorageKeys, getRefinerModel } from "./storageHelpers";
-import {
-  executeScrapeForAutoGen,
-  isCurrentVideo,
-  validateLoadContext,
-} from "./videoHelpers";
 import { setupMessageListener } from "./messageHandler";
+import { getRefinerModel, getVideoStorageKeys } from "./storageHelpers";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -30,6 +25,11 @@ import {
   findVideoElements,
   startSubtitleDisplay,
 } from "./subtitleRenderer";
+import {
+  executeScrapeForAutoGen,
+  isCurrentVideo,
+  validateLoadContext,
+} from "./videoHelpers";
 
 /**
  * Manages the content script lifecycle and state

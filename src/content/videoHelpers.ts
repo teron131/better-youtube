@@ -1,8 +1,8 @@
 /** Video and validation helper functions */
 
-import { sendChromeMessage } from "@/core/utils/chrome";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createRequestId } from "@/core/requestId";
+import { sendChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
 export function isCurrentVideo(videoId: string): boolean {

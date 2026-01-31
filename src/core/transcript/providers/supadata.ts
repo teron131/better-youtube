@@ -1,10 +1,10 @@
 import { API_ENDPOINTS } from "@/core/constants";
-import { formatTimestamp } from "@/core/utils/date";
 import type {
   ApiTranscriptSegment,
   ScrapeCreatorsResponse,
   SupadataResponse,
 } from "@/core/types";
+import { formatTimestamp } from "@/core/utils/date";
 
 function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
