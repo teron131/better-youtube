@@ -419,9 +419,9 @@ const Index = () => {
                 thumbnail={videoInfo.thumbnail}
                 author={videoInfo.author}
                 duration={videoInfo.duration}
-                upload_date={videoInfo.upload_date}
-                view_count={videoInfo.view_count}
-                like_count={videoInfo.like_count}
+                uploadDate={videoInfo.uploadDate}
+                viewCount={videoInfo.viewCount}
+                likeCount={videoInfo.likeCount}
               />
             )}
 

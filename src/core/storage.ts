@@ -21,9 +21,9 @@ export interface VideoMetadata {
   thumbnail: string | null;
   author: string | null;
   duration: string | null;
-  upload_date: string | null;
-  view_count: number | null;
-  like_count: number | null;
+  uploadDate: string | null;
+  viewCount: number | null;
+  likeCount: number | null;
   description?: string | null;
 }
 

@@ -3,8 +3,8 @@
  * Handles summary generation requests with caching and workflow orchestration
  */
 
-import type { ChromeMessage } from "@/core/utils/chrome";
 import { MESSAGE_ACTIONS } from "@/core/constants";
+import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 import {
   StoredSummary,
   VideoMetadata,
@@ -15,18 +15,18 @@ import {
   saveVideoMetadata,
 } from "@/core/storage";
 import {
+  parseOpenRouterSummary,
+  summarizeGemini,
+  summaryToMarkdown,
+  type Summary,
+} from "@/core/summarizer";
+import { summarizeWorkflow } from "@/core/summarizer/captionSummarizer";
+import {
   extractVideoInfo,
   fetchTranscript,
   getCachedTranscript,
 } from "@/core/transcript";
-import { summarizeWorkflow } from "@/core/summarizer/captionSummarizer";
-import {
-  summaryToMarkdown,
-  summarizeGemini,
-  parseOpenRouterSummary,
-  type Summary,
-} from "@/core/summarizer";
-import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
+import type { ChromeMessage } from "@/core/utils/chrome";
 
 // ============================================================================
 // Types
@@ -126,9 +126,9 @@ async function resolveVideoInfo(videoId: string): Promise<VideoMetadata> {
     thumbnail: null,
     author: null,
     duration: null,
-    upload_date: null,
-    view_count: null,
-    like_count: null,
+    uploadDate: null,
+    viewCount: null,
+    likeCount: null,
   };
 }
 
@@ -330,7 +330,7 @@ export async function handleGenerateSummary(
               {
                 kind: "transcript",
                 transcript: transcript_or_url,
-                targetLang: targetLanguage,
+                targetLanguage: targetLanguage,
               },
               { model: geminiModel },
             )
@@ -338,7 +338,7 @@ export async function handleGenerateSummary(
               {
                 kind: "youtube_url",
                 videoUrl: transcript_or_url,
-                targetLang: targetLanguage,
+                targetLanguage: targetLanguage,
               },
               { model: geminiModel },
             );
@@ -361,7 +361,7 @@ export async function handleGenerateSummary(
           summaryModel: modelSelection,
           qualityModel: qualityModel || modelSelection,
           refinerModel: refinerModel,
-          targetLang: targetLanguage,
+          targetLanguage: targetLanguage,
           fastMode: fastMode,
         });
 
