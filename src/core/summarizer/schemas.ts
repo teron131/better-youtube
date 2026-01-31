@@ -92,13 +92,13 @@ export const GraphStateSchema = z.object({
   transcript: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
-  summary_model: z.string().optional(),
-  quality_model: z.string().optional(),
-  target_language: z.string().default("auto"),
+  summaryModel: z.string().optional(),
+  qualityModel: z.string().optional(),
+  targetLang: z.string().default("auto"),
   summary: SummarySchema.nullable().default(null),
   quality: QualitySchema.nullable().default(null),
-  iteration_count: z.number().default(0),
-  is_complete: z.boolean().default(false),
+  iterations: z.number().default(0),
+  isComplete: z.boolean().default(false),
   onProgress: z.any().optional(),
 });
 
@@ -110,7 +110,7 @@ export type GraphState = z.infer<typeof GraphStateSchema>;
 export interface SummarizerOutput {
   summary: Summary;
   quality: Quality | null;
-  iteration_count: number;
-  quality_score: number;
-  summary_text: string;
+  iterations: number;
+  qualityScore: number;
+  summaryText: string;
 }

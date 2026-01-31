@@ -1,7 +1,4 @@
-export {
-  executeSummarizationWorkflow,
-  PromptBuilder,
-} from "./captionSummarizer";
+export { summarizeWorkflow, PromptBuilder } from "./captionSummarizer";
 export type { SummarizationInput } from "./captionSummarizer";
 export { SUMMARY_CONFIG } from "./qualityUtils";
 export {
@@ -17,8 +14,8 @@ export type { GeminiInput } from "./gemini";
 export type { Summary, Chapter } from "@/core/types";
 
 export {
-  formatSummaryAsMarkdown,
+  summaryToMarkdown,
   isSummary,
-  toSummaryFromGemini,
-  toSummaryFromOpenRouter,
+  parseGeminiSummary,
+  parseOpenRouterSummary,
 } from "./summary";

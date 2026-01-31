@@ -36,7 +36,7 @@ export function loadExampleData(): ExampleDataResult {
       stepName: "Summary Generation",
       status: "completed",
       message: `📝 Initial summary generated with ${chapterCount} chapters`,
-      iterationCount: exampleData.iterationCount,
+      iterations: exampleData.iterations,
     },
     {
       step: "quality_check",
@@ -52,7 +52,7 @@ export function loadExampleData(): ExampleDataResult {
       message: `✅ Summary completed successfully`,
       processingTime: exampleData.totalTime,
       chunkCount: exampleData.chunksProcessed,
-      iterationCount: exampleData.iterationCount,
+      iterations: exampleData.iterations,
       qualityScore,
     },
   ];

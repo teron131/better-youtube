@@ -277,10 +277,10 @@ export async function streamSummary(
       transcript,
       summary: summary.summary,
       quality: summary.quality,
-      summaryText: summary.summary_text,
-      qualityScore: summary.quality_score,
+      summaryText: summary.summaryText,
+      qualityScore: summary.qualityScore,
       totalTime: formatTime(),
-      iterationCount: summary.iteration_count || 0,
+      iterations: summary.iterations || 0,
       chunksProcessed: 0,
     };
   } catch (error) {
@@ -296,7 +296,7 @@ export async function streamSummary(
     return {
       success: false,
       totalTime: formatTime(),
-      iterationCount: 0,
+      iterations: 0,
       chunksProcessed: 0,
       error: apiError,
     };

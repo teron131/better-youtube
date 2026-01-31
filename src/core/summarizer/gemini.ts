@@ -10,12 +10,12 @@ export type GeminiInput =
   | {
       kind: "youtube_url";
       videoUrl: string;
-      targetLanguage?: string;
+      targetLang?: string;
     }
   | {
       kind: "transcript";
       transcript: string;
-      targetLanguage?: string;
+      targetLang?: string;
     };
 
 export async function summarizeGemini(
@@ -34,7 +34,7 @@ export async function summarizeGemini(
   const thinkingLevel = options?.thinkingLevel ?? ThinkingLevel.MEDIUM;
   const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
 
-  const prompt = buildPrompt(input.targetLanguage ?? "auto");
+  const prompt = buildPrompt(input.targetLang ?? "auto");
 
   const contents =
     input.kind === "youtube_url"
