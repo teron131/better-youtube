@@ -46,15 +46,26 @@ export class PromptBuilder {
         : "";
 
     return [
-      "Create a comprehensive summary that strictly follows the transcript content.",
+      "Create a transcript-grounded summary.",
       metadata,
       languageInstruction,
       "",
+      "OUTPUT FORMAT (STRICT):",
+      "- Return JSON matching the required schema ONLY.",
+      "- Top-level fields:",
+      "  - overallSummary (string)",
+      "  - chapters (array)",
+      "- Each chapter:",
+      "  - title (string)",
+      "  - description (string)",
+      "  - startTime/endTime are optional (MM:SS) and may be omitted.",
+      "",
       "REQUIREMENTS:",
       "- Every claim must be directly supported by the transcript",
+      "- Chapters must be chronological and non-overlapping; merge adjacent topics when needed",
       "- Write in objective, article-like style (avoid 'This video...', 'The speaker...')",
       "- No meta-descriptive language ('This summary explores', etc.)",
-      "- Remove promotional content (speaker intros, calls-to-action)",
+      "- Remove promotional content (intros/outros/calls-to-action/sponsors)",
       "- Keep only educational content",
     ].join("\n");
   }
@@ -63,7 +74,21 @@ export class PromptBuilder {
    * Build prompt for quality assessment
    */
   static buildQualityPrompt(): string {
-    return "Evaluate the summary. Rate each aspect 'Fail', 'Refine', or 'Pass' with a specific reason.";
+    return [
+      "Evaluate the summary JSON.",
+      "Rate each aspect as 'Fail', 'Refine', or 'Pass' and include a specific reason.",
+      "",
+      "EXPECTED SUMMARY SCHEMA:",
+      "- overallSummary: string",
+      "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
+      "",
+      "ASPECT GUIDELINES:",
+      "- completeness: covers the full transcript end-to-end",
+      "- structure: schema is followed; chapters are chronological and substantive",
+      "- no_garbage: no sponsorships/promos/filler",
+      "- meta_language_avoidance: no 'this video...' style framing",
+      "- correct_language: matches requested target language",
+    ].join("\n");
   }
 
   /**
@@ -88,11 +113,15 @@ export class PromptBuilder {
       metadata,
       languageInstruction,
       "",
+      "OUTPUT FORMAT (STRICT):",
+      "- Keep the same schema: { overallSummary, chapters[] } only.",
+      "",
       "PRIORITIES:",
       "- All content must be transcript-supported",
       "- Remove promotional content",
       "- Use objective, article-like tone",
       "- No meta-descriptive language",
+      "- Improve structure by merging/splitting chapters (chronological, non-overlapping)",
     ].join("\n");
   }
 

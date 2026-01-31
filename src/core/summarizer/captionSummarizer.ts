@@ -279,30 +279,19 @@ function createSummarizationGraph() {
 
 function formatSummaryAsMarkdown(summary: Summary): string {
   const parts: string[] = [];
-  if (summary.title) parts.push(`# ${summary.title}\n`);
-  parts.push("## Summary\n\n", summary.summary, "\n");
-
-  if (summary.takeaways?.length) {
-    parts.push("## Key Takeaways\n");
-    summary.takeaways.forEach((t) => parts.push(`- ${t}`));
-    parts.push("");
+  if (summary.overallSummary) {
+    parts.push("## Summary\n\n", summary.overallSummary, "\n");
   }
 
   if (summary.chapters?.length) {
     parts.push("## Chapters\n");
     summary.chapters.forEach((c) => {
-      parts.push(`### ${c.header}\n\n`, c.summary, "\n");
-      c.key_points?.forEach((p) => parts.push(`- ${p}`));
-      parts.push("");
+      const timeRange =
+        c.startTime || c.endTime
+          ? ` (${[c.startTime, c.endTime].filter(Boolean).join("-")})`
+          : "";
+      parts.push(`### ${c.title}${timeRange}\n\n`, c.description, "\n");
     });
-  }
-
-  if (summary.keywords?.length) {
-    parts.push(
-      "## Keywords\n\n",
-      summary.keywords.map((kw) => `\`${kw}\``).join("  "),
-      "\n",
-    );
   }
 
   return parts.join("\n");

@@ -13,7 +13,6 @@ export const SUMMARY_CONFIG = {
 
 /**
  * Calculate percentage quality score from quality assessment
- * Updated to use 6 aspects aligned with Python backend
  */
 function calculateScore(quality: Quality): number {
   const aspects = [
@@ -21,7 +20,6 @@ function calculateScore(quality: Quality): number {
     quality.structure,
     quality.no_garbage,
     quality.meta_language_avoidance,
-    quality.useful_keywords,
     quality.correct_language,
   ];
 
@@ -59,9 +57,6 @@ function printQualityBreakdown(quality: Quality): void {
   );
   console.log(
     `Meta Language Avoidance: ${quality.meta_language_avoidance.rate} - ${quality.meta_language_avoidance.reason}`,
-  );
-  console.log(
-    `Useful Keywords: ${quality.useful_keywords.rate} - ${quality.useful_keywords.reason}`,
   );
   console.log(
     `Correct Language: ${quality.correct_language.rate} - ${quality.correct_language.reason}`,
