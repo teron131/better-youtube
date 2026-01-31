@@ -28,7 +28,7 @@ function createVideoUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
-export function convertToSubtitleSegments(
+export function toSubtitleSegments(
   transcript: ApiTranscriptSegment[],
 ): SubtitleSegment[] {
   return transcript.map((segment) => ({

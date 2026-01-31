@@ -11,27 +11,27 @@ import { isCurrentVideo } from "./videoHelpers";
 export { isExtensionContextValid };
 
 // Track which videos have had auto-generation triggered
-const autoGenerationTriggered = new Set<string>();
+const autoGenTriggered = new Set<string>();
 
 /**
  * Check if auto-generation has been triggered for a video
  */
-export function isAutoGenerationTriggered(videoId: string): boolean {
-  return autoGenerationTriggered.has(videoId);
+export function isAutoGenTriggered(videoId: string): boolean {
+  return autoGenTriggered.has(videoId);
 }
 
 /**
  * Mark auto-generation as triggered for a video
  */
-export function markAutoGenerationTriggered(videoId: string): void {
-  autoGenerationTriggered.add(videoId);
+export function markAutoGenTriggered(videoId: string): void {
+  autoGenTriggered.add(videoId);
 }
 
 /**
  * Clear auto-generation trigger for a video
  */
-export function clearAutoGenerationTrigger(videoId: string): void {
-  autoGenerationTriggered.delete(videoId);
+export function clearAutoGenTrigger(videoId: string): void {
+  autoGenTriggered.delete(videoId);
 }
 
 interface StorageResult {
@@ -46,7 +46,7 @@ interface ValidationResult {
 /**
  * Check if auto-generation conditions are met
  */
-export function validateAutoGenerationConditions(
+export function validateAutoGen(
   videoId: string,
   storageResult: StorageResult,
   showSubtitlesEnabled: boolean,
@@ -80,7 +80,7 @@ export function validateAutoGenerationConditions(
     return { isValid: false, reason: "missing api key" };
   }
 
-  if (isAutoGenerationTriggered(videoId)) {
+  if (isAutoGenTriggered(videoId)) {
     console.log("Auto-gen skipped: already triggered for video", videoId);
     return { isValid: false, reason: "already triggered" };
   }
@@ -88,7 +88,7 @@ export function validateAutoGenerationConditions(
   return { isValid: true };
 }
 
-function verifyVideoIdUnchanged(originalVideoId: string): boolean {
+function isVideoIdSame(originalVideoId: string): boolean {
   if (!isCurrentVideo(originalVideoId)) {
     const currentVideoId = extractVideoId(window.location.href);
     console.log(
@@ -97,7 +97,7 @@ function verifyVideoIdUnchanged(originalVideoId: string): boolean {
       "->",
       currentVideoId,
     );
-    clearAutoGenerationTrigger(originalVideoId);
+    clearAutoGenTrigger(originalVideoId);
     return false;
   }
   return true;
@@ -106,14 +106,14 @@ function verifyVideoIdUnchanged(originalVideoId: string): boolean {
 /**
  * Verify captions are still enabled
  */
-function verifyCaptionsStillEnabled(videoId: string): Promise<boolean> {
+function areCaptionsEnabled(videoId: string): Promise<boolean> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEYS.SHOW_SUBTITLES], (checkResult) => {
       const captionsStillEnabled =
         checkResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false;
       if (!captionsStillEnabled) {
         console.log("Auto-gen cancel: captions disabled");
-        clearAutoGenerationTrigger(videoId);
+        clearAutoGenTrigger(videoId);
         resolve(false);
       } else {
         resolve(true);
@@ -125,22 +125,22 @@ function verifyCaptionsStillEnabled(videoId: string): Promise<boolean> {
 /**
  * Execute auto-generation trigger with validation
  */
-async function executeAutoGenerationTrigger(
+async function executeAutoGen(
   videoId: string,
   triggerFn: () => void,
   checkCaptionsEnabled: boolean,
 ): Promise<void> {
-  if (!verifyVideoIdUnchanged(videoId)) {
+  if (!isVideoIdSame(videoId)) {
     return;
   }
 
   if (checkCaptionsEnabled) {
-    const captionsEnabled = await verifyCaptionsStillEnabled(videoId);
+    const captionsEnabled = await areCaptionsEnabled(videoId);
     if (!captionsEnabled) {
       return;
     }
     // Re-verify video ID after async operation
-    if (!verifyVideoIdUnchanged(videoId)) {
+    if (!isVideoIdSame(videoId)) {
       return;
     }
   }
@@ -151,13 +151,13 @@ async function executeAutoGenerationTrigger(
 /**
  * Schedule auto-generation with optional delay
  */
-export function scheduleAutoGeneration(
+export function scheduleAutoGen(
   videoId: string,
   triggerFn: () => void,
   checkCaptionsEnabled: boolean,
   withDelay: boolean,
 ): void {
-  markAutoGenerationTriggered(videoId);
+  markAutoGenTriggered(videoId);
 
   console.log(
     "Auto-gen enabled,",
@@ -167,14 +167,14 @@ export function scheduleAutoGeneration(
   );
 
   const executeTrigger = () => {
-    executeAutoGenerationTrigger(videoId, triggerFn, checkCaptionsEnabled);
+    executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
   };
 
   if (withDelay) {
     setTimeout(() => {
       if (!isExtensionContextValid()) {
         console.log("Context invalidated before auto-generation, aborting.");
-        clearAutoGenerationTrigger(videoId);
+        clearAutoGenTrigger(videoId);
         return;
       }
       console.log("Auto-gen delay elapsed; triggering now for", videoId);

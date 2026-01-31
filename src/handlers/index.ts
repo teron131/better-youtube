@@ -9,8 +9,8 @@ import { handleFetchSubtitles } from "./refine";
 import { handleGenerateSummary } from "./summary";
 import { handleScrapeVideo } from "./transcript";
 
-const latestCaptionRequestByVideo = new Map<string, string>();
-const latestSummaryRequestByVideo = new Map<string, string>();
+const captionRequests = new Map<string, string>();
+const summaryRequests = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
 
@@ -33,7 +33,7 @@ createMessageListener((message, sender, sendResponse) => {
     case MESSAGE_ACTIONS.FETCH_SUBTITLES:
       handleFetchSubtitles(
         message,
-        { tabId, latestCaptionRequestByVideo, pendingCaptionJobs },
+        { tabId, captionRequests, pendingCaptionJobs },
         sendResponse,
       );
       return true;
@@ -41,7 +41,7 @@ createMessageListener((message, sender, sendResponse) => {
     case MESSAGE_ACTIONS.GENERATE_SUMMARY:
       handleGenerateSummary(
         message,
-        { latestSummaryRequestByVideo, pendingSummaryJobs },
+        { summaryRequests, pendingSummaryJobs },
         sendResponse,
       );
       return true;

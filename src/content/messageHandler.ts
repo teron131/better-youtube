@@ -2,7 +2,7 @@
  * Message Handler for Content Script
  */
 
-import { convertSubtitlesToTraditionalChinese } from "@/core/utils/text";
+import { toTraditionalChinese } from "@/core/utils/text";
 import { sendChromeMessage } from "@/core/utils/chrome";
 import type { FontSize } from "@/core/constants";
 import {
@@ -14,18 +14,15 @@ import {
 import { createRequestId, type RequestId } from "@/core/requestId";
 import { saveSubtitles, type SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
-import {
-  clearAutoGenerationTrigger,
-  markAutoGenerationTriggered,
-} from "./autoGeneration";
+import { clearAutoGenTrigger, markAutoGenTriggered } from "./autoGeneration";
 import {
   ContentScriptState,
   triggerCaptionRefinement,
   triggerSummaryGeneration,
 } from "./contentHelpers";
 import {
-  buildStorageKeysForToggle,
-  getRefinerModelFromStorage,
+  getToggleStorageKeys,
+  getRefinerModel,
   getAutoGenModels,
 } from "./storageHelpers";
 import { determineToggleState, isCurrentVideo } from "./videoHelpers";
@@ -138,7 +135,7 @@ function handleGenerateSubtitles(
   }
 
   clearSubtitles();
-  markAutoGenerationTriggered(videoId);
+  markAutoGenTriggered(videoId);
 
   const requestId: RequestId =
     (message.requestId as RequestId | undefined) ?? createRequestId("caption");
@@ -153,7 +150,7 @@ function handleGenerateSubtitles(
   })
     .then((response) => {
       if (response?.status === "error") {
-        clearAutoGenerationTrigger(videoId);
+        clearAutoGenTrigger(videoId);
       }
     })
     .catch((error) => {
@@ -193,7 +190,7 @@ function handleSubtitlesGenerated(
     return;
   }
 
-  const convertedSubtitles = convertSubtitlesToTraditionalChinese(subtitles);
+  const convertedSubtitles = toTraditionalChinese(subtitles);
   handleConvertedSubtitles(
     convertedSubtitles,
     messageVideoId,
@@ -286,7 +283,7 @@ function handleToggleSubtitles(
     !wasEnabled &&
     state.currentSubtitles.length === 0
   ) {
-    triggerSubtitleAutoGenOnToggle(state, checkAndTriggerAutoGeneration);
+    triggerAutoGenOnToggle(state, checkAndTriggerAutoGeneration);
   }
 
   sendResponse({ status: "success" });
@@ -295,7 +292,7 @@ function handleToggleSubtitles(
 /**
  * Trigger subtitle auto-generation when toggle is enabled without cached subtitles
  */
-function triggerSubtitleAutoGenOnToggle(
+function triggerAutoGenOnToggle(
   state: ContentScriptState,
   checkAndTriggerAutoGeneration: (
     videoId: string,
@@ -307,7 +304,7 @@ function triggerSubtitleAutoGenOnToggle(
   const videoId = extractVideoId(window.location.href);
   if (!videoId) return;
 
-  const keysToFetch = [videoId, ...buildStorageKeysForToggle()];
+  const keysToFetch = [videoId, ...getToggleStorageKeys()];
   chrome.storage.local.get(keysToFetch, (result) => {
     // Verify we are still on the same video
     if (!isCurrentVideo(videoId)) {

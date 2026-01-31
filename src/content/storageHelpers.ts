@@ -2,7 +2,7 @@
 
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
 
-export function buildStorageKeysForVideo(): string[] {
+export function getVideoStorageKeys(): string[] {
   return [
     STORAGE_KEYS.AUTO_GENERATE,
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
@@ -20,7 +20,7 @@ export function buildStorageKeysForVideo(): string[] {
   ];
 }
 
-export function getRefinerModelFromStorage(storageResult: any): string {
+export function getRefinerModel(storageResult: any): string {
   return (
     storageResult[STORAGE_KEYS.REFINER_CUSTOM_MODEL] ||
     storageResult[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL] ||
@@ -41,12 +41,12 @@ export function getAutoGenModels(storageResult: any): {
   return {
     summarizerModel,
     qualityModel: storageResult[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
-    targetLanguage: getTargetLanguageFromStorage(storageResult),
+    targetLanguage: getTargetLanguage(storageResult),
     fastMode: storageResult[STORAGE_KEYS.FAST_MODE] === true,
   };
 }
 
-export function getTargetLanguageFromStorage(storageResult: any): string {
+export function getTargetLanguage(storageResult: any): string {
   return (
     storageResult[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
     storageResult[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED] ||
@@ -54,7 +54,7 @@ export function getTargetLanguageFromStorage(storageResult: any): string {
   );
 }
 
-export function buildStorageKeysForToggle(): string[] {
+export function getToggleStorageKeys(): string[] {
   return [
     STORAGE_KEYS.AUTO_GENERATE,
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,

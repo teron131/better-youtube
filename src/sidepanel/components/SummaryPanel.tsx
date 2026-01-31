@@ -13,7 +13,7 @@ import {
 } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
-import { convertSummaryChinese } from "@/core/utils/text";
+import { toChineseSummary } from "@/core/utils/text";
 import { Summary, QualityData, VideoInfoResponse } from "@/core/types";
 import {
   BookOpen,
@@ -51,7 +51,7 @@ export const SummaryPanel = ({
 
   if (!summary) return null;
 
-  const convertedSummary = convertSummaryChinese(summary);
+  const convertedSummary = toChineseSummary(summary);
 
   const copyToClipboard = async () => {
     try {

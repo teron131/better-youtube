@@ -3,7 +3,7 @@ import { MESSAGE_ACTIONS } from "@/core/constants";
 import { refineTranscriptWithLLM } from "@/core/refiner";
 import {
   clearTranscriptCache,
-  convertToSubtitleSegments,
+  toSubtitleSegments,
   fetchTranscript,
 } from "@/core/transcript";
 
@@ -11,17 +11,17 @@ export async function handleFetchSubtitles(
   message: ChromeMessage,
   ctx: {
     tabId: number | undefined;
-    latestCaptionRequestByVideo: Map<string, string>;
+    captionRequests: Map<string, string>;
     pendingCaptionJobs: Map<string, Promise<void>>;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { tabId, latestCaptionRequestByVideo, pendingCaptionJobs } = ctx;
+  const { tabId, captionRequests, pendingCaptionJobs } = ctx;
   const { videoId, requestId, modelSelection, forceRegenerate } =
     message as any;
 
   if (requestId) {
-    latestCaptionRequestByVideo.set(videoId, String(requestId));
+    captionRequests.set(videoId, String(requestId));
   }
 
   sendResponse({ status: "processing" });
@@ -54,11 +54,11 @@ export async function handleFetchSubtitles(
         return;
       }
 
-      const segments = convertToSubtitleSegments(data.transcript);
+      const segments = toSubtitleSegments(data.transcript);
 
       const isLatest = () => {
         if (!effectiveRequestId) return true;
-        return latestCaptionRequestByVideo.get(videoId) === effectiveRequestId;
+        return captionRequests.get(videoId) === effectiveRequestId;
       };
 
       const refinedSegments = await refineTranscriptWithLLM(
