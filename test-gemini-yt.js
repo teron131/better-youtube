@@ -4,8 +4,10 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-if (!apiKey)
-  throw new Error("Set GOOGLE_API_KEY or GEMINI_API_KEY (or put it in .env)");
+if (!apiKey) {
+  console.error("Set GOOGLE_API_KEY or GEMINI_API_KEY (or put it in .env)");
+  process.exit(1);
+}
 
 const VideoAnalysis = z
   .object({
@@ -102,62 +104,77 @@ function getUsdPerMTokensPricing(modelName) {
 }
 
 async function analyzeVideoUrl(url) {
-  const response = await client.models.generateContent({
-    model,
-    contents: [
-      {
-        fileData: {
-          fileUri: url,
-        },
-      },
-      { text: prompt },
-    ],
-    config: {
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.HIGH,
-      },
-      responseMimeType: "application/json",
-      responseJsonSchema: zodToJsonSchema(VideoAnalysis),
-    },
-  });
-
-  const raw = response.text;
-  if (!raw) throw new Error("Model returned no text.");
-
-  const parsed = VideoAnalysis.parse(JSON.parse(raw));
-
-  const usageMetadata = response.usageMetadata;
-  if (usageMetadata) console.log("usageMetadata", usageMetadata);
-
-  const pricing = getUsdPerMTokensPricing(model);
-  const promptTokens = usageMetadata?.promptTokenCount;
-  const totalTokens = usageMetadata?.totalTokenCount;
-
-  const estimatedCost =
-    pricing &&
-    typeof promptTokens === "number" &&
-    typeof totalTokens === "number"
-      ? {
-          currency: "USD",
-          model,
-          pricingUsdPerMTokens: {
-            input: pricing.input,
-            output: pricing.output,
+  try {
+    const response = await client.models.generateContent({
+      model,
+      contents: [
+        {
+          fileData: {
+            fileUri: url,
           },
-          pricingSource: pricing.source,
-          promptTokens,
-          outputBilledTokens: Math.max(0, totalTokens - promptTokens),
-          estimatedUsd:
-            (promptTokens / 1_000_000) * pricing.input +
-            (Math.max(0, totalTokens - promptTokens) / 1_000_000) *
-              pricing.output,
-        }
-      : undefined;
+        },
+        { text: prompt },
+      ],
+      config: {
+        httpOptions: {
+          timeout: 10 * 60 * 1000,
+        },
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.HIGH,
+        },
+        responseMimeType: "application/json",
+        responseJsonSchema: zodToJsonSchema(VideoAnalysis),
+      },
+    });
+    const raw = response.text;
+    if (!raw) return null;
 
-  if (estimatedCost) console.log("estimatedCost", estimatedCost);
+    let json;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return null;
+    }
 
-  return { parsed, usageMetadata, estimatedCost };
+    const parsedResult = VideoAnalysis.safeParse(json);
+    if (!parsedResult.success) return null;
+    const parsed = parsedResult.data;
+
+    const usageMetadata = response.usageMetadata;
+    if (usageMetadata) console.log("usageMetadata", usageMetadata);
+
+    const pricing = getUsdPerMTokensPricing(model);
+    const promptTokens = usageMetadata?.promptTokenCount;
+    const totalTokens = usageMetadata?.totalTokenCount;
+
+    const estimatedCost =
+      pricing &&
+      typeof promptTokens === "number" &&
+      typeof totalTokens === "number"
+        ? {
+            currency: "USD",
+            model,
+            pricingUsdPerMTokens: {
+              input: pricing.input,
+              output: pricing.output,
+            },
+            pricingSource: pricing.source,
+            promptTokens,
+            outputBilledTokens: Math.max(0, totalTokens - promptTokens),
+            estimatedUsd:
+              (promptTokens / 1_000_000) * pricing.input +
+              (Math.max(0, totalTokens - promptTokens) / 1_000_000) *
+                pricing.output,
+          }
+        : undefined;
+
+    if (estimatedCost) console.log("estimatedCost", estimatedCost);
+
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
-const { parsed } = await analyzeVideoUrl(videoUrl);
-console.log(JSON.stringify(parsed, null, 2));
+const parsed = await analyzeVideoUrl(videoUrl);
+console.log(parsed ? JSON.stringify(parsed, null, 2) : null);
