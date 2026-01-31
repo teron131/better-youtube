@@ -20,6 +20,14 @@ import {
   getCachedTranscript,
 } from "@/core/transcript";
 import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarizer";
+import {
+  formatSimpleSummaryAsMarkdown,
+  summarizeWithGeminiNative,
+  toSimpleSummaryFromGemini,
+  toSimpleSummaryFromOpenRouter,
+  type SimpleSummary,
+} from "@/core/summarizer";
+import { getGeminiApiKey, getOpenRouterApiKey } from "@/core/runtimeConfig";
 
 // ============================================================================
 // Types
@@ -28,7 +36,13 @@ import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarize
 type SummaryResult = {
   summary: any;
   quality?: any;
+  simple_summary?: SimpleSummary;
+  summary_text?: string;
+  iteration_count?: number;
+  quality_score?: number;
 };
+
+type SummaryProvider = "openrouter" | "gemini" | "auto";
 
 // ============================================================================
 // Storage Resolution Helpers
@@ -226,6 +240,7 @@ export async function handleGenerateSummary(
     targetLanguage,
     fastMode,
     forceRegenerate,
+    summaryProvider,
   } = message as any;
 
   if (requestId) {
@@ -235,7 +250,13 @@ export async function handleGenerateSummary(
   sendResponse({ status: "processing" });
 
   const effectiveRequestId = requestId ? String(requestId) : "";
-  const jobKey = `${videoId}:${effectiveRequestId}:${modelSelection}:${targetLanguage}:${fastMode ? "fast" : "full"}`;
+  const requestedProvider: SummaryProvider =
+    summaryProvider === "gemini" || summaryProvider === "auto"
+      ? summaryProvider
+      : "openrouter";
+
+  const providerForKey = requestedProvider;
+  const jobKey = `${videoId}:${effectiveRequestId}:${providerForKey}:${modelSelection}:${targetLanguage}:${fastMode ? "fast" : "full"}`;
 
   if (pendingSummaryJobs.has(jobKey)) {
     await pendingSummaryJobs.get(jobKey);
@@ -249,9 +270,34 @@ export async function handleGenerateSummary(
 
   const job = (async () => {
     try {
+      const openRouterKey = await getOpenRouterApiKey();
+      const geminiKey = await getGeminiApiKey();
+
+      const resolvedProvider: Exclude<SummaryProvider, "auto"> =
+        requestedProvider === "auto"
+          ? geminiKey
+            ? "gemini"
+            : "openrouter"
+          : requestedProvider;
+
+      const provider =
+        resolvedProvider === "gemini"
+          ? geminiKey
+            ? "gemini"
+            : openRouterKey
+              ? "openrouter"
+              : "gemini"
+          : openRouterKey
+            ? "openrouter"
+            : geminiKey
+              ? "gemini"
+              : "openrouter";
+
+      const modelUsedKey = `${provider}::${String(modelSelection)}`;
+
       const storedSummary = await checkStoredSummary(
         videoId,
-        modelSelection,
+        modelUsedKey,
         targetLanguage,
         forceRegenerate,
       );
@@ -271,17 +317,59 @@ export async function handleGenerateSummary(
       );
       const videoInfo = await resolveVideoInfo(videoId);
 
-      const result = await executeSummarizationWorkflow({
-        transcript_or_url,
-        videoId,
-        title: videoInfo?.title || undefined,
-        description: videoInfo?.description || undefined,
-        summary_model: modelSelection,
-        quality_model: qualityModel || modelSelection,
-        refiner_model: refinerModel,
-        target_language: targetLanguage,
-        fast_mode: fastMode,
-      });
+      let result: SummaryResult;
+      if (provider === "gemini") {
+        const geminiModel = normalizeGeminiModel(String(modelSelection));
+        const gemini = await summarizeWithGeminiNative(
+          transcript_or_url.startsWith("http")
+            ? {
+                kind: "youtube_url",
+                videoUrl: transcript_or_url,
+                targetLanguage,
+              }
+            : {
+                kind: "transcript",
+                transcript: transcript_or_url,
+                targetLanguage,
+              },
+          { model: geminiModel },
+        );
+
+        const simple = toSimpleSummaryFromGemini(gemini.analysis);
+        const legacy = geminiToLegacySummary(simple, videoInfo, targetLanguage);
+
+        result = {
+          summary: legacy,
+          quality: null,
+          simple_summary: simple,
+          iteration_count: 1,
+          quality_score: 0,
+          summary_text: formatSimpleSummaryAsMarkdown(simple, videoInfo),
+        };
+      } else {
+        if (!openRouterKey) throw new Error("OpenRouter API key missing");
+        const workflow = await executeSummarizationWorkflow({
+          transcript_or_url,
+          videoId,
+          title: videoInfo?.title || undefined,
+          description: videoInfo?.description || undefined,
+          summary_model: modelSelection,
+          quality_model: qualityModel || modelSelection,
+          refiner_model: refinerModel,
+          target_language: targetLanguage,
+          fast_mode: fastMode,
+        });
+
+        const simple = toSimpleSummaryFromOpenRouter(workflow.summary);
+        result = {
+          ...workflow,
+          simple_summary: simple,
+          summary_text:
+            typeof (workflow as any).summary_text === "string"
+              ? (workflow as any).summary_text
+              : formatSimpleSummaryAsMarkdown(simple, videoInfo),
+        };
+      }
 
       if (!isLatest()) return;
 
@@ -290,7 +378,7 @@ export async function handleGenerateSummary(
         result,
         videoInfo,
         transcript_or_url,
-        modelSelection,
+        modelUsedKey,
         targetLanguage,
         effectiveRequestId || undefined,
       );
@@ -313,4 +401,29 @@ export async function handleGenerateSummary(
   } finally {
     pendingSummaryJobs.delete(jobKey);
   }
+}
+
+function normalizeGeminiModel(modelSelection: string): string {
+  if (modelSelection.startsWith("google/")) return modelSelection.slice("google/".length);
+  if (modelSelection.startsWith("gemini-")) return modelSelection;
+  return "gemini-3-flash-preview";
+}
+
+function geminiToLegacySummary(
+  simple: SimpleSummary,
+  videoInfo: VideoMetadata,
+  targetLanguage: string,
+): any {
+  return {
+    title: videoInfo?.title || "",
+    summary: simple.overallSummary,
+    takeaways: [],
+    chapters: simple.chapters.map((c) => ({
+      header: c.title,
+      summary: c.description,
+      key_points: [],
+    })),
+    keywords: [],
+    target_language: targetLanguage,
+  };
 }
