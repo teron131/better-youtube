@@ -1,4 +1,4 @@
-const exampleDataGemini = {
+export const exampleSummaryGemini = {
   "chapters": [
     {
       "startTime": "00:00",

@@ -1,15 +1,15 @@
-/**
+/*
  * Markdown generation utilities
  */
 
-import { SummaryData, VideoInfoResponse } from "@/core/types";
+import { SimpleSummary, VideoInfoResponse } from "@/core/types";
 import { convertSummaryChinese } from "./text";
 
 /**
  * Generate markdown from summary data
  */
 export function generateSummaryMarkdown(
-  summary: SummaryData,
+  summary: SimpleSummary,
   videoInfo?: VideoInfoResponse,
 ): string {
   const convertedSummary = convertSummaryChinese(summary);
@@ -35,42 +35,21 @@ export function generateSummaryMarkdown(
   }
 
   // Add summary
-  if (convertedSummary.summary) {
+  if (convertedSummary.overallSummary) {
     markdown += `# Summary\n\n`;
-    markdown += `${convertedSummary.summary}\n\n`;
-  }
-
-  // Add takeaways
-  if (convertedSummary.takeaways && convertedSummary.takeaways.length > 0) {
-    markdown += "# Key Takeaways\n\n";
-    convertedSummary.takeaways.forEach((takeaway) => {
-      markdown += `- ${takeaway}\n`;
-    });
-    markdown += "\n";
-  }
-
-  // Add keywords
-  if (convertedSummary.keywords && convertedSummary.keywords.length > 0) {
-    markdown += "# Keywords\n\n";
-    convertedSummary.keywords.forEach((keyword) => {
-      markdown += `- ${keyword}\n`;
-    });
-    markdown += "\n";
+    markdown += `${convertedSummary.overallSummary}\n\n`;
   }
 
   // Add chapters
   if (convertedSummary.chapters && convertedSummary.chapters.length > 0) {
     markdown += "# Video Chapters\n\n";
     convertedSummary.chapters.forEach((chapter) => {
-      markdown += `## ${chapter.header}\n\n`;
-      markdown += `${chapter.summary}\n\n`;
-
-      if (chapter.key_points && chapter.key_points.length > 0) {
-        chapter.key_points.forEach((point) => {
-          markdown += `- ${point}\n`;
-        });
-        markdown += "\n";
-      }
+      const timeRange =
+        chapter.startTime || chapter.endTime
+          ? ` (${[chapter.startTime, chapter.endTime].filter(Boolean).join("-")})`
+          : "";
+      markdown += `## ${chapter.title}${timeRange}\n\n`;
+      markdown += `${chapter.description}\n\n`;
     });
   }
 

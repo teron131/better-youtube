@@ -14,13 +14,12 @@ import {
 import { useToast } from "@ui/hooks/use-toast";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { convertSummaryChinese } from "@/core/utils/text";
-import { SummaryData, QualityData, VideoInfoResponse } from "@/core/types";
+import { SimpleSummary, QualityData, VideoInfoResponse } from "@/core/types";
 import {
   BookOpen,
   ChevronDown,
   ChevronUp,
   Copy,
-  Lightbulb,
   ListChecks,
   RefreshCw,
   Search,
@@ -30,7 +29,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 interface SummaryPanelProps {
-  summary: SummaryData;
+  summary: SimpleSummary;
   quality?: QualityData;
   videoInfo?: VideoInfoResponse;
   onRegenerate?: () => void;
@@ -105,20 +104,11 @@ export const SummaryPanel = ({
   };
 
   const getTextContent = () => {
-    let text = convertedSummary.summary || "";
-    if (convertedSummary.takeaways) {
-      text += " " + convertedSummary.takeaways.join(" ");
-    }
+    let text = convertedSummary.overallSummary || "";
     if (convertedSummary.chapters) {
       convertedSummary.chapters.forEach((chapter) => {
-        text += " " + chapter.header + " " + chapter.summary;
-        if (chapter.key_points) {
-          text += " " + chapter.key_points.join(" ");
-        }
+        text += " " + (chapter.title || "") + " " + (chapter.description || "");
       });
-    }
-    if (convertedSummary.keywords) {
-      text += " " + convertedSummary.keywords.join(" ");
     }
     return text;
   };
@@ -291,7 +281,7 @@ export const SummaryPanel = ({
 
         <div ref={contentRef} className="space-y-6 md:space-y-7">
           {/* Summary Section */}
-          {convertedSummary.summary && (
+          {convertedSummary.overallSummary && (
             <div className="space-y-2.5">
               <SectionHeader
                 icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
@@ -300,48 +290,11 @@ export const SummaryPanel = ({
               <div
                 className="summary-text text-foreground"
                 dangerouslySetInnerHTML={{
-                  __html: highlightText(convertedSummary.summary),
+                  __html: highlightText(convertedSummary.overallSummary),
                 }}
               />
             </div>
           )}
-
-          {/* Key Takeaways Section */}
-          {convertedSummary.takeaways &&
-            convertedSummary.takeaways.length > 0 && (
-              <div className="space-y-2.5">
-                <SectionHeader
-                  icon={<Lightbulb className="w-4 h-4 md:w-5 md:h-5" />}
-                  title="Key Takeaways"
-                />
-                <ul className="space-y-2.5">
-                  {convertedSummary.takeaways.map((item, index) => (
-                    <li key={index} className="flex items-start gap-2 md:gap-3">
-                      <div className="mt-1.5 flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="h-2.5 w-2.5 md:h-3 md:w-3"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                      <span
-                        className="summary-text text-foreground"
-                        dangerouslySetInnerHTML={{
-                          __html: highlightText(item),
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
           {/* Video Chapters Section */}
           {convertedSummary.chapters &&
@@ -359,63 +312,26 @@ export const SummaryPanel = ({
                         <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
                           {index + 1}
                         </span>
+                        {(chapter.startTime || chapter.endTime) && (
+                          <span className="mr-2 text-xs md:text-sm text-muted-foreground font-medium">
+                            {[chapter.startTime, chapter.endTime]
+                              .filter(Boolean)
+                              .join("-")}
+                          </span>
+                        )}
                         <span
                           dangerouslySetInnerHTML={{
-                            __html: highlightText(chapter.header),
+                            __html: highlightText(chapter.title),
                           }}
                         />
                       </h5>
                       <div
                         className="summary-text text-foreground"
                         dangerouslySetInnerHTML={{
-                          __html: highlightText(chapter.summary),
+                          __html: highlightText(chapter.description),
                         }}
                       />
-
-                      {chapter.key_points && chapter.key_points.length > 0 && (
-                        <ul className="mt-2.5 space-y-2">
-                          {chapter.key_points.map((point, idx) => (
-                            <li
-                              key={idx}
-                              className="flex items-start gap-2 md:gap-2 text-foreground/90 summary-text"
-                            >
-                              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
-                              <span
-                                dangerouslySetInnerHTML={{
-                                  __html: highlightText(point),
-                                }}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          {/* Keywords Section */}
-          {convertedSummary.keywords &&
-            convertedSummary.keywords.length > 0 && (
-              <div className="space-y-2.5">
-                <SectionHeader
-                  icon={
-                    <span className="text-sm md:text-base font-bold text-primary">
-                      #
-                    </span>
-                  }
-                  title="Keywords"
-                />
-                <div className="flex flex-wrap gap-1.5 md:gap-2">
-                  {convertedSummary.keywords.map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
-                      dangerouslySetInnerHTML={{
-                        __html: highlightText(keyword),
-                      }}
-                    />
                   ))}
                 </div>
               </div>
