@@ -127,37 +127,37 @@ async function analyzeVideoUrl(url) {
   const parsed = VideoAnalysis.parse(JSON.parse(raw));
 
   const usageMetadata = response.usageMetadata;
-  if (usageMetadata) {
-    console.log("usageMetadata", usageMetadata);
+  if (usageMetadata) console.log("usageMetadata", usageMetadata);
 
-    const pricing = getUsdPerMTokensPricing(model);
-    const promptTokens = usageMetadata.promptTokenCount;
-    const totalTokens = usageMetadata.totalTokenCount;
+  const pricing = getUsdPerMTokensPricing(model);
+  const promptTokens = usageMetadata?.promptTokenCount;
+  const totalTokens = usageMetadata?.totalTokenCount;
 
-    if (
-      pricing &&
-      typeof promptTokens === "number" &&
-      typeof totalTokens === "number"
-    ) {
-      const outputBilledTokens = Math.max(0, totalTokens - promptTokens);
-      const estimatedUsd =
-        (promptTokens / 1_000_000) * pricing.input +
-        (outputBilledTokens / 1_000_000) * pricing.output;
+  const estimatedCost =
+    pricing &&
+    typeof promptTokens === "number" &&
+    typeof totalTokens === "number"
+      ? {
+          currency: "USD",
+          model,
+          pricingUsdPerMTokens: {
+            input: pricing.input,
+            output: pricing.output,
+          },
+          pricingSource: pricing.source,
+          promptTokens,
+          outputBilledTokens: Math.max(0, totalTokens - promptTokens),
+          estimatedUsd:
+            (promptTokens / 1_000_000) * pricing.input +
+            (Math.max(0, totalTokens - promptTokens) / 1_000_000) *
+              pricing.output,
+        }
+      : undefined;
 
-      console.log("estimatedCost", {
-        currency: "USD",
-        model,
-        pricingUsdPerMTokens: { input: pricing.input, output: pricing.output },
-        pricingSource: pricing.source,
-        promptTokens,
-        outputBilledTokens,
-        estimatedUsd,
-      });
-    }
-  }
+  if (estimatedCost) console.log("estimatedCost", estimatedCost);
 
-  return parsed;
+  return { parsed, usageMetadata, estimatedCost };
 }
 
-const parsed = await analyzeVideoUrl(videoUrl);
+const { parsed } = await analyzeVideoUrl(videoUrl);
 console.log(JSON.stringify(parsed, null, 2));
