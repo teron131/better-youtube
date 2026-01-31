@@ -140,7 +140,7 @@ export interface HealthCheckResponse {
 // Summary Data Structures
 export interface Summary {
   chapters: Chapter[];
-  overallSummary: string;
+  overview: string;
 }
 
 export interface Chapter {

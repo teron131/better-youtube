@@ -35,9 +35,9 @@ export function generateSummaryMarkdown(
   }
 
   // Add summary
-  if (convertedSummary.overallSummary) {
+  if (convertedSummary.overview) {
     markdown += `# Summary\n\n`;
-    markdown += `${convertedSummary.overallSummary}\n\n`;
+    markdown += `${convertedSummary.overview}\n\n`;
   }
 
   // Add chapters

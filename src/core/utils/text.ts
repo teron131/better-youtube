@@ -60,7 +60,7 @@ function convertSummaryChineseFieldwise(summary: Summary): Summary {
   const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
   return {
     ...summary,
-    overallSummary: s2tw(summary.overallSummary || ""),
+    overview: s2tw(summary.overview || ""),
     chapters: chapters.map((c) => ({
       ...c,
       title: s2tw(c.title || ""),
@@ -74,7 +74,7 @@ export function convertSummaryChinese(summary: Summary): Summary {
 
   const converted: Summary = {
     ...summary,
-    overallSummary: summary.overallSummary || "",
+    overview: summary.overview || "",
     chapters: chapters.length
       ? chapters.map((c) => ({
           ...c,
@@ -95,7 +95,7 @@ export function convertSummaryChinese(summary: Summary): Summary {
     targets.push({ container, key });
   };
 
-  pushTarget(converted, "overallSummary", converted.overallSummary);
+  pushTarget(converted, "overview", converted.overview);
 
   converted.chapters.forEach((c) => {
     pushTarget(c, "title", c.title);

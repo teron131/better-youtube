@@ -18,7 +18,7 @@ export type GeminiInput =
       targetLanguage?: string;
     };
 
-export async function summarizeWithGemini(
+export async function summarizeGemini(
   input: GeminiInput,
   options?: {
     model?: string;
@@ -68,17 +68,17 @@ function buildPrompt(targetLanguage: string): string {
   return `
 1) Analyze in chronological order.
 2) Build the chapter list in the same chronological order (merge adjacent segments when needed).
-3) Write overallSummary AFTER chapters, based on the chapter sequence (end-to-end arc + main thesis).
+3) Write overview AFTER chapters, based on the chapter sequence (end-to-end arc + main thesis).
 
 Requirements:
 - Output fields:
   - chapters
-  - overallSummary
+  - overview
 - Chapters:
   - Must be chronological and non-overlapping.
   - Each chapter must have a clear title and a substantive description with key viewpoints/arguments and concrete facts (numbers/names/steps when present).
   - If unsure about timestamps, you may omit startTime/endTime.
-- Overall summary:
+- Overview:
   - Summarize the whole content end-to-end using direct statements.
   - Avoid meta-language like "the video..." / "the author..." / "the speaker...".
 

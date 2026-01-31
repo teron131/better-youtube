@@ -279,22 +279,19 @@ function createSummarizationGraph() {
 
 function formatSummaryAsMarkdown(summary: Summary): string {
   const parts: string[] = [];
-  if (summary.overallSummary) {
-    parts.push("## Summary\n\n", summary.overallSummary, "\n");
+  if (summary.overview) {
+    parts.push("## Summary\n\n", summary.overview, "\n");
   }
 
-  if (summary.chapters?.length) {
-    parts.push("## Chapters\n");
-    summary.chapters.forEach((c) => {
-      const timeRange =
-        c.startTime || c.endTime
-          ? ` (${[c.startTime, c.endTime].filter(Boolean).join("-")})`
-          : "";
-      parts.push(`### ${c.title}${timeRange}\n\n`, c.description, "\n");
+  if (summary.chapters && summary.chapters.length > 0) {
+    parts.push("## Chapters\n\n");
+    summary.chapters.forEach((chapter, index) => {
+      parts.push(`### ${index + 1}. ${chapter.title}\n\n`);
+      parts.push(chapter.description + "\n\n");
     });
   }
 
-  return parts.join("\n");
+  return parts.join("");
 }
 
 export interface SummarizationInput {

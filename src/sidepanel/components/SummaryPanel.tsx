@@ -104,7 +104,7 @@ export const SummaryPanel = ({
   };
 
   const getTextContent = () => {
-    let text = convertedSummary.overallSummary || "";
+    let text = convertedSummary.overview || "";
     if (convertedSummary.chapters) {
       convertedSummary.chapters.forEach((chapter) => {
         text += " " + (chapter.title || "") + " " + (chapter.description || "");
@@ -281,7 +281,7 @@ export const SummaryPanel = ({
 
         <div ref={contentRef} className="space-y-6 md:space-y-7">
           {/* Summary Section */}
-          {convertedSummary.overallSummary && (
+          {convertedSummary.overview && (
             <div className="space-y-2.5">
               <SectionHeader
                 icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
@@ -290,7 +290,7 @@ export const SummaryPanel = ({
               <div
                 className="summary-text text-foreground"
                 dangerouslySetInnerHTML={{
-                  __html: highlightText(convertedSummary.overallSummary),
+                  __html: highlightText(convertedSummary.overview),
                 }}
               />
             </div>
