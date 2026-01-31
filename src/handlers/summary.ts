@@ -22,7 +22,7 @@ import {
 import { executeSummarizationWorkflow } from "@/core/summarizer/captionSummarizer";
 import {
   formatSummaryAsMarkdown,
-  summarizeWithGemini,
+  summarizeGemini,
   toSummaryFromOpenRouter,
   type Summary,
 } from "@/core/summarizer";
@@ -328,7 +328,7 @@ export async function handleGenerateSummary(
         const geminiModel = normalizeGeminiModel(String(modelSelection));
         const useTranscript = !transcript_or_url.startsWith("http");
         const gemini = useTranscript
-          ? await summarizeWithGemini(
+          ? await summarizeGemini(
               {
                 kind: "transcript",
                 transcript: transcript_or_url,
@@ -336,7 +336,7 @@ export async function handleGenerateSummary(
               },
               { model: geminiModel },
             )
-          : await summarizeWithGemini(
+          : await summarizeGemini(
               {
                 kind: "youtube_url",
                 videoUrl: transcript_or_url,
@@ -345,13 +345,13 @@ export async function handleGenerateSummary(
               { model: geminiModel },
             );
 
-        const simple = gemini.summary;
+        const summary = gemini.summary;
         result = {
-          summary: simple,
+          summary,
           quality: null,
           iteration_count: 1,
           quality_score: 0,
-          summary_text: formatSummaryAsMarkdown(simple, videoInfo),
+          summary_text: formatSummaryAsMarkdown(summary, videoInfo),
         };
       } else {
         if (!openRouterKey) throw new Error("OpenRouter API key missing");
@@ -367,13 +367,13 @@ export async function handleGenerateSummary(
           fast_mode: fastMode,
         });
 
-        const simple = toSummaryFromOpenRouter(workflow.summary);
+        const summary = toSummaryFromOpenRouter(workflow.summary);
         result = {
-          summary: simple,
+          summary,
           quality: workflow.quality,
           iteration_count: workflow.iteration_count,
           quality_score: workflow.quality_score,
-          summary_text: formatSummaryAsMarkdown(simple, videoInfo),
+          summary_text: formatSummaryAsMarkdown(summary, videoInfo),
         };
       }
 

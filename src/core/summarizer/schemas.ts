@@ -39,7 +39,7 @@ export const SummarySchema = z.object({
     .describe(
       "Chronological, non-overlapping chapters covering the core content.",
     ),
-  overallSummary: z
+  overview: z
     .string()
     .describe(
       "An end-to-end summary of the whole content (main thesis + arc), written in direct statements without meta-language.",
@@ -70,7 +70,7 @@ export const QualitySchema = z.object({
     "Rate for completeness: The entire transcript has been considered",
   ),
   structure: RateSchema.describe(
-    "Rate for structure: Output follows the required schema (overallSummary + chapters with title/description)",
+    "Rate for structure: Output follows the required schema (overview + chapters with title/description)",
   ),
   no_garbage: RateSchema.describe(
     "Rate for no_garbage: Promotional and meaningless content are removed",

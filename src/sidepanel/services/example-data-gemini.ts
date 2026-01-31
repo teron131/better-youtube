@@ -64,6 +64,6 @@ export const exampleSummaryGemini = {
         "ASML has become the sole provider of EUV machines, which cost approximately $400 million each and are essential for the world's most advanced chip fabs. The success of the machine is a testament to 'unreasonable' persistence against physical limits. Future advancements will continue to scale from the micro to the nano and pico levels, driven by the ongoing demand for greater computing power.",
     },
   ],
-  overallSummary:
+  overview:
     "EUV lithography machines are arguably the most sophisticated tools ever built, representing a multi-decade triumph of engineering over physics. The video details how ASML and its partners overcame the 'wavelength wall' by utilizing 13.5nm Extreme Ultraviolet light, which behaves so uniquely it requires a complete vacuum and mirrors polished to atomic-level smoothness. It highlights the critical roles of global collaboration—from Hiroo Kinoshita's early proofs to the US National Labs' consortium and Cymer's laser-blasted tin droplet source. By successfully scaling this technology to high-volume manufacturing, ASML has enabled the continued growth of semiconductor performance, cementing its position as the critical gatekeeper for all modern high-performance computing.",
 };

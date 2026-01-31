@@ -1,22 +1,35 @@
 import type { VideoMetadata } from "@/core/storage";
 import type { Summary } from "@/core/types";
 
+function coerceSummary(value: unknown): Summary | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as any;
+
+  const chapters = Array.isArray(v.chapters) ? v.chapters : null;
+  if (!chapters) return null;
+
+  if (typeof v.overview === "string") {
+    return { overview: v.overview, chapters } as Summary;
+  }
+
+  return null;
+}
+
 export function toSummaryFromGemini(summary: unknown): Summary {
-  if (isSummary(summary)) return summary;
+  const coerced = coerceSummary(summary);
+  if (coerced) return coerced;
   throw new Error("Invalid summary shape from Gemini");
 }
 
 export function toSummaryFromOpenRouter(summary: unknown): Summary {
-  if (isSummary(summary)) return summary;
+  const coerced = coerceSummary(summary);
+  if (coerced) return coerced;
   throw new Error("Invalid summary shape from OpenRouter");
 }
 
 export function isSummary(value: unknown): value is Summary {
-  if (!value || typeof value !== "object") return false;
-  const v = value as any;
-  if (typeof v.overallSummary !== "string") return false;
-  if (!Array.isArray(v.chapters)) return false;
-  return true;
+  const coerced = coerceSummary(value);
+  return !!coerced && typeof coerced.overview === "string";
 }
 
 export function formatSummaryAsMarkdown(
@@ -24,6 +37,8 @@ export function formatSummaryAsMarkdown(
   videoInfo?: VideoMetadata | null,
 ): string {
   const parts: string[] = [];
+
+  const normalized = coerceSummary(summary) ?? summary;
 
   if (videoInfo) {
     if (videoInfo.url) parts.push(`**URL:** ${String(videoInfo.url)}\n`);
@@ -35,11 +50,13 @@ export function formatSummaryAsMarkdown(
     if (parts.length) parts.push("\n");
   }
 
-  if (summary.overallSummary) {
-    parts.push("# Summary\n\n", summary.overallSummary.trim(), "\n\n");
+  if (normalized.overview) {
+    parts.push("# Summary\n\n", normalized.overview.trim(), "\n\n");
   }
 
-  const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
+  const chapters = Array.isArray(normalized.chapters)
+    ? normalized.chapters
+    : [];
   if (chapters.length) {
     parts.push("# Video Chapters\n\n");
     chapters.forEach((c) => {

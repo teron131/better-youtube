@@ -12,7 +12,7 @@ export {
 } from "./schemas";
 export type { Quality, GraphState, SummarizerOutput } from "./schemas";
 
-export { summarizeWithGemini } from "./gemini";
+export { summarizeGemini } from "./gemini";
 export type { GeminiInput } from "./gemini";
 export type { Summary, Chapter } from "@/core/types";
 
