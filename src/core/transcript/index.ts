@@ -49,9 +49,9 @@ export function extractVideoInfo(
     thumbnail: data.thumbnail || null,
     author: data.channel?.title || null,
     duration: data.durationFormatted || null,
-    upload_date: data.publishDate || null,
-    view_count: data.viewCountInt ?? null,
-    like_count: data.likeCountInt ?? null,
+    uploadDate: data.publishDate || null,
+    viewCount: data.viewCountInt ?? null,
+    likeCount: data.likeCountInt ?? null,
     description: data.description || null,
   };
 }

@@ -29,9 +29,9 @@ interface VideoInfoProps {
   thumbnail?: string | null;
   author?: string | null;
   duration?: string | null;
-  view_count?: number | null;
-  like_count?: number | null;
-  upload_date?: string | null;
+  viewCount?: number | null;
+  likeCount?: number | null;
+  uploadDate?: string | null;
 }
 
 export const VideoInfo = ({
@@ -39,15 +39,15 @@ export const VideoInfo = ({
   thumbnail,
   author,
   duration,
-  view_count,
-  like_count,
-  upload_date,
+  viewCount,
+  likeCount,
+  uploadDate,
   url,
 }: VideoInfoProps) => {
   if (!title) return null;
 
   const displayDuration = trimDurationLeadingZeros(duration || undefined);
-  const hasMetrics = view_count != null || like_count != null;
+  const hasMetrics = viewCount != null || likeCount != null;
 
   const convertedInfo = {
     title: title ? s2tw(title) : title,
@@ -98,26 +98,26 @@ export const VideoInfo = ({
               />
             )}
 
-            {upload_date && (
+            {uploadDate && (
               <InfoItem
                 icon={<CalendarDays className="w-4 h-4 text-primary" />}
-                value={formatDate(upload_date)!}
+                value={formatDate(uploadDate)!}
               />
             )}
 
             {hasMetrics && <div className="basis-full" />}
 
-            {view_count != null && (
+            {viewCount != null && (
               <InfoItem
                 icon={<Eye className="w-4 h-4 text-primary" />}
-                value={view_count.toLocaleString()}
+                value={viewCount.toLocaleString()}
               />
             )}
 
-            {like_count != null && (
+            {likeCount != null && (
               <InfoItem
                 icon={<ThumbsUp className="w-4 h-4 text-primary" />}
-                value={like_count.toLocaleString()}
+                value={likeCount.toLocaleString()}
               />
             )}
           </div>

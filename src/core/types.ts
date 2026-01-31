@@ -67,9 +67,9 @@ export interface VideoInfoResponse {
   thumbnail?: string;
   author: string | null;
   duration?: string;
-  upload_date?: string;
-  view_count?: number;
-  like_count?: number;
+  uploadDate?: string;
+  viewCount?: number;
+  likeCount?: number;
 }
 
 // Request Types
@@ -82,7 +82,7 @@ export interface SummarizeRequest {
   contentType?: "url" | "transcript";
   summaryModel?: string;
   qualityModel?: string;
-  targetLang?: string | null;
+  targetLanguage?: string | null;
   fastMode?: boolean;
 }
 
@@ -92,15 +92,15 @@ export interface ScrapResponse {
   message: string;
   timestamp: string;
   transcript: string | null;
-  processing_time: string;
+  processingTime: string;
   url?: string | null;
   title?: string | null;
   thumbnail?: string | null;
   author?: string | null;
   duration?: string | null;
-  upload_date?: string | null;
-  view_count?: number | null;
-  like_count?: number | null;
+  uploadDate?: string | null;
+  viewCount?: number | null;
+  likeCount?: number | null;
 }
 
 export interface SummarizeResponse {
@@ -113,7 +113,7 @@ export interface SummarizeResponse {
   iterations: number;
   summaryModel: string;
   qualityModel: string;
-  targetLang?: string | null;
+  targetLanguage?: string | null;
 }
 
 export interface ConfigurationResponse {

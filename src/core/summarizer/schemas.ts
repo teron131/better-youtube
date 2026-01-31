@@ -94,7 +94,7 @@ export const GraphStateSchema = z.object({
   description: z.string().optional(),
   summaryModel: z.string().optional(),
   qualityModel: z.string().optional(),
-  targetLang: z.string().default("auto"),
+  targetLanguage: z.string().default("auto"),
   summary: SummarySchema.nullable().default(null),
   quality: QualitySchema.nullable().default(null),
   iterations: z.number().default(0),

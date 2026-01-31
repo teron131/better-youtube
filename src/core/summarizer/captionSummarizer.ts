@@ -3,25 +3,25 @@
  * Implements summary generation with quality verification and refinement loop
  */
 
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { tool } from "@langchain/core/tools";
-import { END, START, StateGraph } from "@langchain/langgraph";
+import { API_ENDPOINTS, DEFAULTS } from "@/core/constants";
 import {
   createAgent,
   createMiddleware,
   toolStrategy,
 } from "@/core/langgraph-web-shim";
-import { z } from "zod";
 import { getScrapeCreatorsApiKey } from "@/core/runtimeConfig";
-import { API_ENDPOINTS, DEFAULTS } from "@/core/constants";
-import { createSummarizerLLM } from "./openrouter";
 import {
   filterContent,
   GarbageIdentificationSchema,
   tagContent,
   untagContent,
 } from "@/core/transcript/lineTag";
+import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { tool } from "@langchain/core/tools";
+import { END, START, StateGraph } from "@langchain/langgraph";
+import { z } from "zod";
+import { createSummarizerLLM } from "./openrouter";
 import { PromptBuilder } from "./promptBuilder";
 import {
   calculateScore,
@@ -165,7 +165,7 @@ function createSummaryNode() {
   return async (state: GraphState): Promise<Partial<GraphState>> => {
     const {
       summaryModel,
-      targetLang,
+      targetLanguage,
       transcript,
       quality,
       summary,
@@ -185,7 +185,7 @@ function createSummaryNode() {
     const llm = (await createOpenRouterLLM(summaryModel!)).withStructuredOutput(
       SummarySchema,
     );
-    const lang = targetLang || "auto";
+    const lang = targetLanguage || "auto";
 
     let result;
     if (quality && summary) {
@@ -296,7 +296,7 @@ export interface SummarizationInput {
   summaryModel?: string;
   qualityModel?: string;
   refinerModel?: string;
-  targetLang?: string;
+  targetLanguage?: string;
   fastMode?: boolean;
 }
 
@@ -313,12 +313,12 @@ async function summarizeFast(
   );
 
   const model = input.summaryModel ?? SUMMARY_CONFIG.MODEL;
-  const targetLang = input.targetLang ?? "auto";
+  const targetLanguage = input.targetLanguage ?? "auto";
   const agent = createAgent({
     model: await createOpenRouterLLM(model),
     tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
     systemPrompt: PromptBuilder.getSummaryPrompt(
-      targetLang,
+      targetLanguage,
       input.title,
       input.description,
     ),
@@ -378,7 +378,7 @@ export async function summarizeWorkflow(
     description: input.description,
     summaryModel: input.summaryModel ?? SUMMARY_CONFIG.MODEL,
     qualityModel: input.qualityModel ?? SUMMARY_CONFIG.QUALITY_MODEL,
-    targetLang: input.targetLang ?? "auto",
+    targetLanguage: input.targetLanguage ?? "auto",
     summary: null,
     quality: null,
     iterations: 0,
