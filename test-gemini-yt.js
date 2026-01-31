@@ -39,12 +39,12 @@ const MultimodalSummary = z
           visualDescription: z
             .string()
             .describe(
-              "Narrative of the dominant visuals, scene changes, or onscreen text.",
-          ),
+              "Only contextually useful visuals (e.g., diagrams, UI steps, code/math on screen, key gestures, scene changes, and any on-screen text). Avoid trivial appearance details like colors or generic descriptions.",
+            ),
           summary: z
             .string()
             .describe(
-              "A detailed chapter summary capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present).",
+              "A detailed chapter summary capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present). Avoid meta-language like 'the video', 'the author', 'the speaker says'—state the content directly.",
             ),
         }),
       )
@@ -69,7 +69,9 @@ Task:
 - For each chapter:
   - Provide a clear title.
   - Provide a detailed summary that captures viewpoints, arguments, and concrete facts mentioned (include key numbers/names/steps when present).
-  - Provide vivid visual narration grounded in what is shown on screen.
+    - Avoid meta-language like "the video..." / "the author..." / "the speaker..."; summarize in direct statements.
+  - Provide visualDescription with only contextually useful visual cues (e.g., diagrams, UI steps, code/math on screen, key gestures, scene changes, and any on-screen text).
+    - Avoid trivial appearance details (e.g., colors) and generic filler.
   - Provide word-level transcript tokens as a single space-delimited string.
 - Skip ALL ads, promotional segments, and irrelevant garbage content.
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
