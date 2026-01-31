@@ -40,6 +40,11 @@ const MultimodalSummary = z
             .string()
             .describe(
               "Narrative of the dominant visuals, scene changes, or onscreen text.",
+          ),
+          summary: z
+            .string()
+            .describe(
+              "A detailed chapter summary capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present).",
             ),
         }),
       )
@@ -61,34 +66,44 @@ Return ONLY valid JSON that matches the provided schema.
 
 Task:
 - Analyze the video and output chapters.
-- Describe each chapter with a clear title, vivid visual narration, and word-level transcript tokens.
+- For each chapter:
+  - Provide a clear title.
+  - Provide a detailed summary that captures viewpoints, arguments, and concrete facts mentioned (include key numbers/names/steps when present).
+  - Provide vivid visual narration grounded in what is shown on screen.
+  - Provide word-level transcript tokens as a single space-delimited string.
 - Skip ALL ads, promotional segments, and irrelevant garbage content.
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
 
-const contents = [
-  {
-    fileData: {
-      fileUri: videoUrl,
-    },
-  },
-  { text: prompt },
-];
-
-let promptTokens;
-try {
-  const counted = await client.models.countTokens({
-    model,
-    contents,
-  });
-  promptTokens = counted.totalTokens;
-} catch {
-  // ignore
+function logTokenUsage({
+  label,
+  promptTokens,
+  outputTokens,
+  totalTokens,
+  details,
+}) {
+  console.log(
+    `${label}:`,
+    `prompt=${promptTokens ?? "n/a"} output=${outputTokens ?? "n/a"} total=${
+      totalTokens ??
+      (promptTokens != null && outputTokens != null
+        ? promptTokens + outputTokens
+        : "n/a")
+    }`,
+  );
+  if (details) console.log(`${label} details:`, details);
 }
 
 const response = await client.models.generateContent({
   model,
-  contents,
+  contents: [
+    {
+      fileData: {
+        fileUri: videoUrl,
+      },
+    },
+    { text: prompt },
+  ],
   config: {
     thinkingConfig: {
       thinkingLevel: ThinkingLevel.HIGH,
@@ -99,36 +114,17 @@ const response = await client.models.generateContent({
 });
 
 const raw = response.text;
+if (!raw) throw new Error("Model returned no text.");
+
 const parsed = MultimodalSummary.parse(JSON.parse(raw));
 console.log(JSON.stringify(parsed, null, 2));
 
-if (response.usageMetadata) {
-  const u = response.usageMetadata;
-  console.log(
-    "Token usage:",
-    `prompt=${u.promptTokenCount ?? "n/a"} output=${
-      u.candidatesTokenCount ?? "n/a"
-    } total=${u.totalTokenCount ?? "n/a"}`,
-  );
-  console.log("Token usage details:", u);
-} else {
-  let outputTokens;
-  try {
-    const counted = await client.models.countTokens({
-      model,
-      contents: raw ?? "",
-    });
-    outputTokens = counted.totalTokens;
-  } catch {
-    // ignore
-  }
-
-  console.log(
-    "Token usage not included in generateContent response; counted via tokens API (https://ai.google.dev/api/tokens):",
-    `prompt=${promptTokens ?? "n/a"} output=${outputTokens ?? "n/a"} total=${
-      promptTokens != null && outputTokens != null
-        ? promptTokens + outputTokens
-        : "n/a"
-    }`,
-  );
-}
+const usage = response.usageMetadata;
+if (usage)
+  logTokenUsage({
+    label: "Token usage",
+    promptTokens: usage.promptTokenCount,
+    outputTokens: usage.candidatesTokenCount,
+    totalTokens: usage.totalTokenCount,
+    details: usage,
+  });
