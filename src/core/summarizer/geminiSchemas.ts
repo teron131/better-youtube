@@ -3,21 +3,19 @@ import { z } from "zod";
 export const GeminiChapterSchema = z.object({
   startTime: z
     .string()
-    .describe(
-      "Chapter start timestamp in the format MM:SS so the section can be referenced precisely.",
-    )
+    .describe("Optional chapter start timestamp in the format MM:SS.")
     .optional(),
   endTime: z
     .string()
-    .describe("Chapter end timestamp matching the same format as startTime.")
+    .describe("Optional chapter end timestamp matching the same format as startTime.")
     .optional(),
   title: z
     .string()
-    .describe("A concise heading summarizing the chapter's main topic."),
+    .describe("A concise chapter heading (chronological)."),
   description: z
     .string()
     .describe(
-      "A detailed chapter description capturing key viewpoints, claims, and concrete facts mentioned (include important numbers/names/steps when present). Avoid meta-language like 'the video', 'the author', 'the speaker says'—state the content directly.",
+      "A substantive chapter description grounded in the content. Include key facts (numbers/names/steps) when present. Avoid meta-language like 'this video...' and omit sponsorship/promotional segments.",
     ),
 });
 
@@ -28,17 +26,13 @@ export const GeminiVideoAnalysisSchema = z
     chapters: z
       .array(GeminiChapterSchema)
       .min(1)
-      .describe(
-        "Chronological, non-ad chapters that capture the video's core scenes.",
-      ),
+      .describe("Chronological, non-overlapping chapters covering core content."),
     overallSummary: z
       .string()
       .describe(
-        "An overall summary covering the full video end-to-end, written without meta-language and capturing the main thesis and arc.",
+        "An end-to-end summary of the full content (main thesis + arc), written in direct statements without meta-language.",
       ),
   })
-  .describe(
-    "A multimodal summary describing chapter structure, visuals, and transcripts.",
-  );
+  .describe("Structured summary output (chapters + overallSummary).");
 
 export type GeminiVideoAnalysis = z.infer<typeof GeminiVideoAnalysisSchema>;

@@ -4,13 +4,20 @@ import * as z from "zod";
  * Chapter output schema
  */
 export const ChapterSchema = z.object({
-  header: z.string().describe("A descriptive title for the chapter"),
-  summary: z
+  startTime: z
     .string()
-    .describe("A comprehensive summary of the chapter content"),
-  key_points: z
-    .array(z.string())
-    .describe("Important takeaways and insights from this chapter"),
+    .describe("Optional chapter start timestamp in the format MM:SS.")
+    .optional(),
+  endTime: z
+    .string()
+    .describe("Optional chapter end timestamp matching the same format as startTime.")
+    .optional(),
+  title: z.string().describe("A concise chapter heading."),
+  description: z
+    .string()
+    .describe(
+      "A substantive chapter description grounded in the transcript. Include key facts (numbers/names/steps) when present. Avoid meta-language like 'this video...' and do not include sponsorship/promotional content.",
+    ),
 });
 
 export type Chapter = z.infer<typeof ChapterSchema>;
@@ -19,27 +26,15 @@ export type Chapter = z.infer<typeof ChapterSchema>;
  * Summary output schema
  */
 export const SummarySchema = z.object({
-  title: z.string().describe("The main title or topic of the video content"),
-  summary: z.string().describe("A comprehensive summary of the video content"),
-  takeaways: z
-    .array(z.string())
-    .min(3)
-    .max(8)
-    .describe("Key insights and actionable takeaways for the audience"),
   chapters: z
     .array(ChapterSchema)
-    .describe("Structured breakdown of content into logical chapters"),
-  keywords: z
-    .array(z.string())
-    .min(3)
-    .max(3)
-    .describe(
-      "The most relevant keywords in the summary worthy of highlighting",
-    ),
-  target_language: z
+    .min(1)
+    .describe("Chronological, non-overlapping chapters covering the core content."),
+  overallSummary: z
     .string()
-    .nullable()
-    .describe("The language the content to be translated to"),
+    .describe(
+      "An end-to-end summary of the whole content (main thesis + arc), written in direct statements without meta-language.",
+    ),
 });
 
 export type Summary = z.infer<typeof SummarySchema>;
@@ -59,23 +54,20 @@ export const RateSchema = z.object({
 export type Rate = z.infer<typeof RateSchema>;
 
 /**
- * Quality assessment schema - aligned with Python backend's 6 aspects
+ * Quality assessment schema
  */
 export const QualitySchema = z.object({
   completeness: RateSchema.describe(
     "Rate for completeness: The entire transcript has been considered",
   ),
   structure: RateSchema.describe(
-    "Rate for structure: Summary, takeaways, and key_facts are properly formatted",
+    "Rate for structure: Output follows the required schema (overallSummary + chapters with title/description)",
   ),
   no_garbage: RateSchema.describe(
     "Rate for no_garbage: Promotional and meaningless content are removed",
   ),
   meta_language_avoidance: RateSchema.describe(
     "Rate for meta_language_avoidance: No meta-descriptive language like 'This video explains...'",
-  ),
-  useful_keywords: RateSchema.describe(
-    "Rate for useful_keywords: Key facts are relevant and useful for understanding",
   ),
   correct_language: RateSchema.describe(
     "Rate for correct_language: Output is in the correct target language",
