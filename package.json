@@ -10,8 +10,10 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@google/genai": "^1.38.0",
     "@hookform/resolvers": "^3.10.0",
-    "@langchain/core": "^1.1.7",
+    "@langchain/core": "^1.1.17",
+    "@langchain/google-genai": "^2.1.13",
     "@langchain/langgraph": "^1.0.7",
     "@langchain/openai": "^1.2.0",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -46,6 +48,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "langchain": "^1.2.2",
@@ -64,7 +67,8 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
