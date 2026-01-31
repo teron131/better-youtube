@@ -84,24 +84,12 @@ Task:
 `;
 
 function getUsdPerMTokensPricing(modelName) {
-  const envInput = process.env.GEMINI_INPUT_USD_PER_M_TOKENS;
-  const envOutput = process.env.GEMINI_OUTPUT_USD_PER_M_TOKENS;
-  if (envInput && envOutput) {
-    const input = Number(envInput);
-    const output = Number(envOutput);
-    if (Number.isFinite(input) && Number.isFinite(output)) {
-      return { input, output, source: "env" };
-    }
-  }
-
-  const defaults = {
-    // USD per 1M tokens; output billed tokens generally include thinking tokens.
-    "gemini-3-flash-preview": { input: 0.5, output: 3 },
-  };
-
-  const hit = defaults[modelName];
-  return hit ? { ...hit, source: "defaults" } : undefined;
+  if (modelName === "gemini-3-flash-preview") return { input: 0.5, output: 3 };
+  if (modelName === "gemini-3-pro-preview") return { input: 2, output: 12 };
+  return null;
 }
+
+const usdPerMTokens = getUsdPerMTokensPricing(model);
 
 async function analyzeVideoUrl(url) {
   try {
@@ -126,49 +114,39 @@ async function analyzeVideoUrl(url) {
         responseJsonSchema: zodToJsonSchema(VideoAnalysis),
       },
     });
+
     const raw = response.text;
     if (!raw) return null;
 
-    let json;
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      return null;
-    }
-
-    const parsedResult = VideoAnalysis.safeParse(json);
-    if (!parsedResult.success) return null;
-    const parsed = parsedResult.data;
+    const json = JSON.parse(raw);
+    const parsed = VideoAnalysis.parse(json);
 
     const usageMetadata = response.usageMetadata;
-    if (usageMetadata) console.log("usageMetadata", usageMetadata);
+    if (usageMetadata) {
+      console.log("usageMetadata", usageMetadata);
 
-    const pricing = getUsdPerMTokensPricing(model);
-    const promptTokens = usageMetadata?.promptTokenCount;
-    const totalTokens = usageMetadata?.totalTokenCount;
+      const promptTokens = usageMetadata.promptTokenCount;
+      const totalTokens = usageMetadata.totalTokenCount;
+      if (
+        usdPerMTokens &&
+        typeof promptTokens === "number" &&
+        typeof totalTokens === "number"
+      ) {
+        const outputBilledTokens = Math.max(0, totalTokens - promptTokens);
+        const estimatedUsd =
+          (promptTokens / 1_000_000) * usdPerMTokens.input +
+          (outputBilledTokens / 1_000_000) * usdPerMTokens.output;
 
-    const estimatedCost =
-      pricing &&
-      typeof promptTokens === "number" &&
-      typeof totalTokens === "number"
-        ? {
-            currency: "USD",
-            model,
-            pricingUsdPerMTokens: {
-              input: pricing.input,
-              output: pricing.output,
-            },
-            pricingSource: pricing.source,
-            promptTokens,
-            outputBilledTokens: Math.max(0, totalTokens - promptTokens),
-            estimatedUsd:
-              (promptTokens / 1_000_000) * pricing.input +
-              (Math.max(0, totalTokens - promptTokens) / 1_000_000) *
-                pricing.output,
-          }
-        : undefined;
-
-    if (estimatedCost) console.log("estimatedCost", estimatedCost);
+        console.log("estimatedCost", {
+          currency: "USD",
+          model,
+          pricingUsdPerMTokens: usdPerMTokens,
+          promptTokens,
+          outputBilledTokens,
+          estimatedUsd,
+        });
+      }
+    }
 
     return parsed;
   } catch {
