@@ -1,6 +1,6 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS } from "@/core/constants";
 import { getOpenRouterApiKey } from "@/core/runtimeConfig";
+import { ChatOpenAI } from "@langchain/openai";
 
 export async function createSummarizerLLM(model: string): Promise<ChatOpenAI> {
   const apiKey = await getOpenRouterApiKey();

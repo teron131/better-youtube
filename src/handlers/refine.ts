@@ -1,11 +1,11 @@
-import type { ChromeMessage } from "@/core/utils/chrome";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { refineTranscriptWithLLM } from "@/core/refiner";
 import {
   clearTranscriptCache,
-  toSubtitleSegments,
   fetchTranscript,
+  toSubtitleSegments,
 } from "@/core/transcript";
+import type { ChromeMessage } from "@/core/utils/chrome";
 
 export async function handleFetchSubtitles(
   message: ChromeMessage,

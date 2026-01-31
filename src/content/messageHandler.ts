@@ -2,8 +2,6 @@
  * Message Handler for Content Script
  */
 
-import { toTraditionalChinese } from "@/core/utils/text";
-import { sendChromeMessage } from "@/core/utils/chrome";
 import type { FontSize } from "@/core/constants";
 import {
   DEFAULTS,
@@ -13,25 +11,19 @@ import {
 } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
 import { saveSubtitles, type SubtitleSegment } from "@/core/storage";
+import { sendChromeMessage } from "@/core/utils/chrome";
+import { toTraditionalChinese } from "@/core/utils/text";
 import { extractVideoId } from "@/core/utils/url";
 import { clearAutoGenTrigger, markAutoGenTriggered } from "./autoGeneration";
-import {
-  ContentScriptState,
-  triggerCaptionRefinement,
-  triggerSummaryGeneration,
-} from "./contentHelpers";
-import {
-  getToggleStorageKeys,
-  getRefinerModel,
-  getAutoGenModels,
-} from "./storageHelpers";
-import { determineToggleState, isCurrentVideo } from "./videoHelpers";
+import { ContentScriptState } from "./contentHelpers";
+import { getToggleStorageKeys } from "./storageHelpers";
 import {
   applyCaptionFontSize,
   clearRenderer,
   startSubtitleDisplay,
   stopSubtitleDisplay,
 } from "./subtitleRenderer";
+import { determineToggleState, isCurrentVideo } from "./videoHelpers";
 
 export function setupMessageListener(
   state: ContentScriptState,

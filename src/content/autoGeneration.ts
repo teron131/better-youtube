@@ -4,8 +4,8 @@
  */
 
 import { STORAGE_KEYS, TIMING } from "@/core/constants";
-import { extractVideoId } from "@/core/utils/url";
 import { isChromeContextValid as isExtensionContextValid } from "@/core/utils/chrome";
+import { extractVideoId } from "@/core/utils/url";
 import { isCurrentVideo } from "./videoHelpers";
 
 export { isExtensionContextValid };
