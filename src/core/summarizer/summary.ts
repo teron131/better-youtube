@@ -14,9 +14,7 @@ export type Summary = {
   overallSummary: string;
 };
 
-export function toSummaryFromGemini(
-  analysis: GeminiVideoAnalysis,
-): Summary {
+export function toSummaryFromGemini(analysis: GeminiVideoAnalysis): Summary {
   return {
     overallSummary: analysis.overallSummary ?? "",
     chapters: (analysis.chapters ?? []).map((c) => ({
