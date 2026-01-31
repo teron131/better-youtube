@@ -81,34 +81,6 @@ Task:
 - Language: Traditional Chinese if the video is in Chinese, otherwise English.
 `;
 
-
-
-const response = await client.models.generateContent({
-  model,
-  contents: [
-    {
-      fileData: {
-        fileUri: videoUrl,
-      },
-    },
-    { text: prompt },
-  ],
-  config: {
-    thinkingConfig: {
-      thinkingLevel: ThinkingLevel.HIGH,
-    },
-    responseMimeType: "application/json",
-    responseJsonSchema: zodToJsonSchema(VideoAnalysis),
-  },
-});
-
-const raw = response.text;
-if (!raw) throw new Error("Model returned no text.");
-
-const parsed = VideoAnalysis.parse(JSON.parse(raw));
-console.log(JSON.stringify(parsed, null, 2));
-
-
 function getUsdPerMTokensPricing(modelName) {
   const envInput = process.env.GEMINI_INPUT_USD_PER_M_TOKENS;
   const envOutput = process.env.GEMINI_OUTPUT_USD_PER_M_TOKENS;
@@ -129,32 +101,63 @@ function getUsdPerMTokensPricing(modelName) {
   return hit ? { ...hit, source: "defaults" } : undefined;
 }
 
-const usage = response.usageMetadata;
-if (usage) {
-  console.log("usageMetadata", usage);
+async function analyzeVideoUrl(url) {
+  const response = await client.models.generateContent({
+    model,
+    contents: [
+      {
+        fileData: {
+          fileUri: url,
+        },
+      },
+      { text: prompt },
+    ],
+    config: {
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.HIGH,
+      },
+      responseMimeType: "application/json",
+      responseJsonSchema: zodToJsonSchema(VideoAnalysis),
+    },
+  });
 
-  const pricing = getUsdPerMTokensPricing(model);
-  const promptTokens = usage.promptTokenCount;
-  const totalTokens = usage.totalTokenCount;
+  const raw = response.text;
+  if (!raw) throw new Error("Model returned no text.");
 
-  if (
-    pricing &&
-    typeof promptTokens === "number" &&
-    typeof totalTokens === "number"
-  ) {
-    const outputBilledTokens = Math.max(0, totalTokens - promptTokens);
-    const estimatedUsd =
-      (promptTokens / 1_000_000) * pricing.input +
-      (outputBilledTokens / 1_000_000) * pricing.output;
+  const parsed = VideoAnalysis.parse(JSON.parse(raw));
 
-    console.log("estimatedCost", {
-      currency: "USD",
-      model,
-      pricingUsdPerMTokens: { input: pricing.input, output: pricing.output },
-      pricingSource: pricing.source,
-      promptTokens,
-      outputBilledTokens,
-      estimatedUsd,
-    });
+  const usageMetadata = response.usageMetadata;
+  if (usageMetadata) {
+    console.log("usageMetadata", usageMetadata);
+
+    const pricing = getUsdPerMTokensPricing(model);
+    const promptTokens = usageMetadata.promptTokenCount;
+    const totalTokens = usageMetadata.totalTokenCount;
+
+    if (
+      pricing &&
+      typeof promptTokens === "number" &&
+      typeof totalTokens === "number"
+    ) {
+      const outputBilledTokens = Math.max(0, totalTokens - promptTokens);
+      const estimatedUsd =
+        (promptTokens / 1_000_000) * pricing.input +
+        (outputBilledTokens / 1_000_000) * pricing.output;
+
+      console.log("estimatedCost", {
+        currency: "USD",
+        model,
+        pricingUsdPerMTokens: { input: pricing.input, output: pricing.output },
+        pricingSource: pricing.source,
+        promptTokens,
+        outputBilledTokens,
+        estimatedUsd,
+      });
+    }
   }
+
+  return parsed;
 }
+
+const parsed = await analyzeVideoUrl(videoUrl);
+console.log(JSON.stringify(parsed, null, 2));
