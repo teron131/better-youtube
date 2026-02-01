@@ -167,8 +167,6 @@ export const SummaryPanel = ({
 
   return (
     <Card className="p-0 shadow-md">
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 via-transparent to-transparent" />
-
       <div className="relative space-y-6 p-6">
         {/* Main Header */}
         <div className="space-y-4">
