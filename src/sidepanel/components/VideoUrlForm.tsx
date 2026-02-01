@@ -123,32 +123,30 @@ export const VideoUrlForm = ({
               type="button"
               disabled={isLoading || !isFormValid(url)}
               onClick={(event) => handleSubmit(event, "caption")}
-              className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
+              className="group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary shadow-inner transition-colors duration-200 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
             >
               <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
-              <Play className="w-6 h-6 flex-shrink-0" />
-              <span className="font-semibold text-base break-words">
-                Caption
-              </span>
+              <Play className="w-4 h-4 flex-shrink-0" />
+              <span className="font-semibold text-sm break-words">Caption</span>
             </Button>
 
             <Button
               type="submit"
               disabled={isLoading || !isFormValid(url)}
-              className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary/80 text-lg font-semibold text-white shadow-2xl transition-transform duration-300 hover:scale-[1.01] hover:bg-primary/60 focus-visible:ring-2 focus-visible:ring-primary/80 disabled:scale-100 disabled:opacity-60"
+              className="group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary shadow-inner transition-colors duration-200 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
             >
               <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
               {isLoading ? (
                 <>
-                  <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
-                  <span className="font-semibold text-base break-words">
+                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                  <span className="font-semibold text-sm break-words">
                     Processing
                   </span>
                 </>
               ) : (
                 <>
-                  <Play className="w-6 h-6 flex-shrink-0" />
-                  <span className="font-semibold text-base break-words">
+                  <Play className="w-4 h-4 flex-shrink-0" />
+                  <span className="font-semibold text-sm break-words">
                     Summary
                   </span>
                 </>

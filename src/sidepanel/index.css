@@ -18,7 +18,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 5%;
 
-    --primary: 0 100% 50%;
+    --primary: 0 100% 40%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
@@ -35,17 +35,17 @@ All colors MUST be HSL.
 
     --border: 0 0% 89%;
     --input: 0 0% 89%;
-    --ring: 0 100% 50%;
+    --ring: 0 100% 40%;
 
     /* YouTube Pure Red Design System */
-    --youtube-red: 0 100% 50%;
-    --youtube-red-light: 0 100% 60%;
+    --youtube-red: 0 100% 40%;
+    --youtube-red-light: 0 100% 50%;
     --youtube-red-dark: 0 100% 40%;
 
     /* Modern Gradients - Light Mode */
     --gradient-primary: linear-gradient(
       135deg,
-      hsl(0 100% 50%),
+      hsl(var(--primary)),
       hsl(350 100% 55%)
     );
     --gradient-card: linear-gradient(
@@ -61,7 +61,7 @@ All colors MUST be HSL.
     );
     --gradient-button: linear-gradient(
       135deg,
-      hsl(0 100% 50%),
+      hsl(var(--primary)),
       hsl(15 100% 55%)
     );
     --gradient-glass: linear-gradient(
@@ -71,10 +71,10 @@ All colors MUST be HSL.
     );
 
     /* Modern Shadows & Effects - Light Mode */
-    --shadow-glow: 0 0 40px hsl(0 100% 50% / 0.2);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.2);
     --shadow-card:
       0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 0, 0, 0.1);
-    --shadow-button: 0 4px 24px hsl(0 100% 50% / 0.3);
+    --shadow-button: 0 4px 24px hsl(var(--primary) / 0.3);
     --shadow-glass:
       0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
@@ -118,7 +118,7 @@ All colors MUST be HSL.
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 0 100% 50%;
+    --primary: 0 100% 40%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 12%;
@@ -135,7 +135,7 @@ All colors MUST be HSL.
 
     --border: 0 0% 18%;
     --input: 0 0% 12%;
-    --ring: 0 100% 50%;
+    --ring: 0 100% 40%;
 
     /* Dark mode gradients and effects */
     --gradient-card: linear-gradient(

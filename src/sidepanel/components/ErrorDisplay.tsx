@@ -24,7 +24,7 @@ const getErrorTypeStyle = (type: string) => {
 
 const getStatusColor = (status: string) => {
   if (status === "completed") return "bg-green-500";
-  if (status === "error") return "bg-red-500";
+  if (status === "error") return "bg-primary";
   return "bg-yellow-500";
 };
 
