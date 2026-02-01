@@ -61,7 +61,7 @@ export function ProcessingStatus({
               />
             </div>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span>
                 Now:{" "}
                 <span className="text-foreground font-semibold">

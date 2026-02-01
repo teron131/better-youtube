@@ -183,7 +183,7 @@ function parseWithChunks(
   chunkSentinel: string,
   maxSegmentsPerChunk: number,
 ): SubtitleSegment[] {
-  let rawBlocks = refinedText.split(chunkSentinel);
+  const rawBlocks = refinedText.split(chunkSentinel);
   const ranges = chunkSegmentsByCount(originalSegments, maxSegmentsPerChunk);
 
   while (rawBlocks.length < ranges.length) {

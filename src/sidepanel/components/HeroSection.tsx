@@ -46,7 +46,7 @@ export function HeroSection({
     <section className="relative overflow-hidden bg-transparent">
       <div className="relative container mx-auto px-6 sm:px-8 pt-24 pb-16 lg:pb-20">
         <div className="flex flex-col items-center gap-8">
-          <div className="space-y-6 w-full max-w-8xl">
+          <div className="space-y-6 w-full max-w-4xl">
             <div className="space-y-3 fade-in-up stagger-1">
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight">
                 YouTube Video
@@ -76,7 +76,7 @@ export function HeroSection({
             </div>
           </div>
 
-          <div className="relative fade-in-up stagger-3 w-full max-w-8xl">
+          <div className="relative fade-in-up stagger-3 w-full max-w-4xl">
             <div className="absolute inset-0 -z-10 rounded-[30px] bg-gradient-to-br from-primary/20 via-transparent to-foreground/10 blur-3xl" />
             <VideoUrlForm
               onSubmit={onSubmit}

@@ -370,7 +370,7 @@ const Index = () => {
               aria-pressed={showSubtitles}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
                 showSubtitles
-                  ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_rgba(239,68,68,0.2)]"
+                  ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_hsl(var(--primary)_/_0.2)]"
                   : "border-border/60 bg-muted/30 text-muted-foreground"
               }`}
               title="Toggle subtitles overlay on the video player"
@@ -378,7 +378,7 @@ const Index = () => {
               <span
                 className={`h-2 w-2 rounded-full ${
                   showSubtitles
-                    ? "bg-primary shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                    ? "bg-primary shadow-[0_0_10px_hsl(var(--primary)_/_0.6)]"
                     : "bg-muted-foreground/60"
                 }`}
               />
@@ -411,7 +411,7 @@ const Index = () => {
 
       <div className="relative" ref={resultsRef}>
         <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-12 -mt-10">
-          <div className="max-w-8xl w-full mx-auto space-y-4">
+          <div className="max-w-4xl w-full mx-auto space-y-4">
             {!isExampleMode && videoInfo && (
               <VideoInfo
                 url={videoInfo.url}
