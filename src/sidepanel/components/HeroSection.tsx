@@ -44,11 +44,11 @@ export function HeroSection({
 }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-transparent">
-      <div className="relative container mx-auto px-6 sm:px-8 pt-24 pb-16 lg:pb-20">
-        <div className="flex flex-col items-center gap-8">
-          <div className="space-y-6 w-full max-w-4xl">
-            <div className="space-y-3 fade-in-up stagger-1">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight">
+      <div className="relative sidepanel-container pt-24 pb-16 lg:pb-20">
+        <div className="flex flex-col items-stretch gap-8">
+          <div className="space-y-6 w-full">
+            <div className="space-y-3 fade-in-up stagger-1 px-6">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight text-left">
                 YouTube Video
                 <span className="block bg-gradient-to-r from-primary via-primary/80 to-white bg-clip-text text-transparent animate-glow">
                   Structured Summary
@@ -56,19 +56,19 @@ export function HeroSection({
               </h1>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 fade-in-up stagger-2">
+            <div className="space-y-3 fade-in-up stagger-2">
               {FEATURES.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-2xl border border-border/50 bg-background/60 px-6 py-4 shadow-lg hover:border-primary/30 transition-colors duration-300"
+                  className="rounded-[24px] border border-border/50 bg-background/60 p-6 shadow-lg hover:border-primary/30 transition-colors duration-300"
                 >
                   <div className="flex items-center gap-2 text-primary">
                     {item.icon}
-                    <span className="text-xs font-bold uppercase tracking-widest">
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
                       {item.label}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">
+                  <p className="mt-1.5 text-xs font-semibold text-foreground">
                     {item.value}
                   </p>
                 </div>
@@ -76,7 +76,7 @@ export function HeroSection({
             </div>
           </div>
 
-          <div className="relative fade-in-up stagger-3 w-full max-w-4xl">
+          <div className="relative fade-in-up stagger-3 w-full">
             <div className="absolute inset-0 -z-10 rounded-[30px] bg-gradient-to-br from-primary/20 via-transparent to-foreground/10 blur-3xl" />
             <VideoUrlForm
               onSubmit={onSubmit}

@@ -362,44 +362,48 @@ const Index = () => {
   return (
     <div className="app-shell pb-10">
       <div className="absolute top-6 left-0 right-0 z-50">
-        <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleToggleSubtitles(!showSubtitles)}
-              aria-pressed={showSubtitles}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
-                showSubtitles
-                  ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_hsl(var(--primary)_/_0.2)]"
-                  : "border-border/60 bg-muted/30 text-muted-foreground"
-              }`}
-              title="Toggle subtitles overlay on the video player"
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
+        <div className="sidepanel-container">
+          <div className="px-6 flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleToggleSubtitles(!showSubtitles)}
+                aria-pressed={showSubtitles}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
                   showSubtitles
-                    ? "bg-primary shadow-[0_0_10px_hsl(var(--primary)_/_0.6)]"
-                    : "bg-muted-foreground/60"
+                    ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_hsl(var(--primary)_/_0.2)]"
+                    : "border-border/60 bg-muted/30 text-muted-foreground"
                 }`}
-              />
-              Subtitles Overlay
-              <span
-                className={`text-[10px] font-bold ${
-                  showSubtitles ? "text-primary/80" : "text-muted-foreground/70"
-                }`}
+                title="Toggle subtitles overlay on the video player"
               >
-                {showSubtitles ? "On" : "Off"}
-              </span>
-            </button>
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    showSubtitles
+                      ? "bg-primary shadow-[0_0_10px_hsl(var(--primary)_/_0.6)]"
+                      : "bg-muted-foreground/60"
+                  }`}
+                />
+                Subtitles Overlay
+                <span
+                  className={`text-[10px] font-bold ${
+                    showSubtitles
+                      ? "text-primary/80"
+                      : "text-muted-foreground/70"
+                  }`}
+                >
+                  {showSubtitles ? "On" : "Off"}
+                </span>
+              </button>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/settings")}
+              className="text-muted-foreground hover:text-foreground transition-all"
+            >
+              <SettingsIcon className="h-6 w-6" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/settings")}
-            className="text-muted-foreground hover:text-foreground transition-all"
-          >
-            <SettingsIcon className="h-6 w-6" />
-          </Button>
         </div>
       </div>
 
@@ -410,8 +414,8 @@ const Index = () => {
       />
 
       <div className="relative" ref={resultsRef}>
-        <div className="container relative z-10 mx-auto px-6 sm:px-8 pb-12 -mt-10">
-          <div className="max-w-4xl w-full mx-auto space-y-4">
+        <div className="sidepanel-container relative z-10 pb-12 -mt-10">
+          <div className="space-y-4">
             {!isExampleMode && videoInfo && (
               <VideoInfo
                 url={videoInfo.url}

@@ -1,14 +1,14 @@
+import {
+  isFormValid,
+  prepareProcessingOptions,
+  validateYouTubeUrl,
+} from "@/core/utils/validation";
 import { ExampleUrls } from "@ui/components/ExampleUrls";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { useUserPreferences } from "@ui/hooks/use-config";
-import {
-  isFormValid,
-  prepareProcessingOptions,
-  validateYouTubeUrl,
-} from "@/core/utils/validation";
 import { AlertCircle, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -85,22 +85,22 @@ export const VideoUrlForm = ({
   };
 
   return (
-    <Card className="rounded-[28px] p-0 border-border/50">
-      <div className="space-y-6 p-6 sm:p-8">
+    <Card className="w-full rounded-[24px] p-0 border-border/50 hover:border-primary/20 transition-all duration-500">
+      <div className="space-y-5 p-6">
         <form
           onSubmit={(event) => handleSubmit(event, "summary")}
-          className="space-y-5"
+          className="space-y-4"
         >
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <Input
               type="url"
               placeholder="https://youtube.com/watch?v=..."
               value={url}
               onChange={handleUrlChange}
-              className={`h-14 rounded-2xl border-2 bg-card/70 px-6 text-lg shadow-inner transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-primary ${
+              className={`h-12 rounded-xl border-input bg-background text-sm shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-1 focus:ring-primary ${
                 validationError
                   ? "border-destructive focus:ring-destructive"
-                  : "border-border/60 hover:border-primary/40"
+                  : "hover:border-primary/40"
               }`}
               disabled={isLoading}
             />
@@ -123,32 +123,28 @@ export const VideoUrlForm = ({
               type="button"
               disabled={isLoading || !isFormValid(url)}
               onClick={(event) => handleSubmit(event, "caption")}
-              className="group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary shadow-inner transition-colors duration-200 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
+              variant="outline"
+              className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-primary/20 bg-transparent text-sm font-semibold text-primary/80 shadow-sm transition-all duration-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
             >
-              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
               <Play className="w-4 h-4 flex-shrink-0" />
-              <span className="font-semibold text-sm break-words">Caption</span>
+              <span className="break-words">Caption</span>
             </Button>
 
             <Button
               type="submit"
               disabled={isLoading || !isFormValid(url)}
-              className="group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary shadow-inner transition-colors duration-200 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
+              variant="outline"
+              className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-primary/20 bg-transparent text-sm font-semibold text-primary/80 shadow-sm transition-all duration-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
             >
-              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20 bg-white/10" />
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                  <span className="font-semibold text-sm break-words">
-                    Processing
-                  </span>
+                  <span className="break-words">Processing</span>
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 flex-shrink-0" />
-                  <span className="font-semibold text-sm break-words">
-                    Summary
-                  </span>
+                  <span className="break-words">Summary</span>
                 </>
               )}
             </Button>
