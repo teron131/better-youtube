@@ -105,6 +105,9 @@ All colors MUST be HSL.
     --summary-font-size-base: 18px;
     --summary-font-size-h2: 26px;
     --summary-font-size-h3: 22px;
+
+    /* Sidepanel layout */
+    --sidepanel-container-max-width: 72rem; /* wider than max-w-4xl; aligns pages in large view */
   }
 
   .dark {
@@ -181,6 +184,22 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .sidepanel-container {
+    width: 100%;
+    max-width: var(--sidepanel-container-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem; /* px-6 */
+    padding-right: 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .sidepanel-container {
+      padding-left: 2rem; /* sm:px-8 */
+      padding-right: 2rem;
+    }
   }
 
   .summary-text {

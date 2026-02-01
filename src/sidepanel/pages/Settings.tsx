@@ -135,24 +135,26 @@ const Settings = () => {
   return (
     <div className="app-shell pb-10">
       <div className="absolute top-6 left-0 right-0 z-50">
-        <div className="container mx-auto px-6 sm:px-8 flex items-center justify-between">
-          <div className="fade-in-up px-6">
-            <h1 className="text-4xl font-black tracking-tight text-foreground">
-              Settings
-            </h1>
+        <div className="sidepanel-container">
+          <div className="px-6 flex items-center justify-between w-full">
+            <div className="fade-in-up">
+              <h1 className="text-4xl font-black tracking-tight text-foreground">
+                Settings
+              </h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/")}
+              className="text-muted-foreground hover:text-foreground transition-all"
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/")}
-            className="text-muted-foreground hover:text-foreground transition-all"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </Button>
         </div>
       </div>
 
-      <div className="container mx-auto px-6 sm:px-8 max-w-4xl pt-24">
+      <div className="sidepanel-container pt-24">
         <div className="grid grid-cols-1 gap-3 fade-in-up stagger-1">
           {/* API Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
