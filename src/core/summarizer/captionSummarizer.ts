@@ -9,9 +9,10 @@ import {
   createMiddleware,
   toolStrategy,
 } from "@/core/langgraph-web-shim";
+import { createOpenRouterClient } from "@/core/llmClients";
 import {
-  getOpenRouterApiKey,
-  getScrapeCreatorsApiKey,
+  globalOpenRouterKey,
+  globalScrapeCreatorsKey,
 } from "@/core/runtimeConfig";
 import {
   filterContent,
@@ -36,33 +37,6 @@ import type { GraphState, SummarizerOutput, Summary } from "./schemas";
 import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
 
 // ============================================================================
-// Model Client
-// ============================================================================
-
-async function createOpenRouterLLM(model: string): Promise<ChatOpenAI> {
-  const apiKey = await getOpenRouterApiKey();
-  if (!apiKey) throw new Error("OpenRouter API key missing");
-
-  const httpReferer =
-    typeof chrome !== "undefined" && chrome.runtime?.getURL
-      ? chrome.runtime.getURL("")
-      : "";
-
-  return new ChatOpenAI({
-    model,
-    apiKey,
-    configuration: {
-      baseURL: API_ENDPOINTS.OPENROUTER_BASE,
-      defaultHeaders: {
-        "HTTP-Referer": httpReferer,
-        "X-Title": "Better YouTube - Summarizer",
-      },
-    },
-    temperature: 0.0,
-  });
-}
-
-// ============================================================================
 // Tools
 // ============================================================================
 
@@ -73,7 +47,6 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
   return tool(
     async ({ youtube_url }) => {
       const { transcript_or_url, videoId } = input;
-      const scrapeCreatorsApiKey = await getScrapeCreatorsApiKey();
 
       if (
         !isYoutubeUrl(transcript_or_url) &&
@@ -82,7 +55,7 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
         return transcript_or_url;
       }
 
-      if (!scrapeCreatorsApiKey) {
+      if (!globalScrapeCreatorsKey) {
         return "Error: Scrape Creators API key not configured.";
       }
 
@@ -93,7 +66,7 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
 
         const response = await fetch(url.toString(), {
           headers: {
-            "x-api-key": scrapeCreatorsApiKey,
+            "x-api-key": globalScrapeCreatorsKey,
             Accept: "application/json",
           },
           cache: "no-store",
@@ -150,8 +123,9 @@ function createGarbageFilterMiddleware(model: string) {
 
       try {
         const taggedTranscript = tagContent(transcript);
-        const garbage = await (
-          await createOpenRouterLLM(model)
+        const garbage = await createOpenRouterClient(
+          model,
+          "Better YouTube - Filter",
         )
           .withStructuredOutput(GarbageIdentificationSchema, {
             method: "jsonMode",
@@ -206,9 +180,10 @@ function createSummaryNode() {
         : `Generating initial summary. Transcript length: ${transcript.length} characters`,
     );
 
-    const llm = (await createOpenRouterLLM(summaryModel!)).withStructuredOutput(
-      SummarySchema,
-    );
+    const llm = createOpenRouterClient(
+      summaryModel!,
+      "Better YouTube - Summarizer",
+    ).withStructuredOutput(SummarySchema);
     const lang = targetLanguage || "auto";
 
     let result;
@@ -242,7 +217,10 @@ function createQualityNode() {
 
     progress?.(`Performing quality check using model: ${qualityModel}...`);
 
-    const quality = await (await createOpenRouterLLM(qualityModel!))
+    const quality = await createOpenRouterClient(
+      qualityModel!,
+      "Better YouTube - Quality",
+    )
       .withStructuredOutput(QualitySchema, { method: "jsonMode" })
       .invoke([
         ["system", PromptBuilder.getQualityPrompt()],
@@ -339,7 +317,7 @@ async function summarizeFast(
   const model = input.summaryModel ?? SUMMARY_CONFIG.MODEL;
   const targetLanguage = input.targetLanguage ?? "auto";
   const agent = createAgent({
-    model: await createOpenRouterLLM(model),
+    model: createOpenRouterClient(model, "Better YouTube - Summarizer"),
     tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
     systemPrompt: PromptBuilder.getSummaryPrompt(
       targetLanguage,

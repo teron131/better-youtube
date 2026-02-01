@@ -4,6 +4,7 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
+import { initGlobalConfig, clearConfigCache } from "@/core/runtimeConfig";
 import { createMessageListener } from "@/core/utils/chrome";
 import { handleFetchSubtitles } from "./refine";
 import { handleGenerateSummary } from "./summary";
@@ -25,35 +26,46 @@ chrome.sidePanel
 createMessageListener((message, sender, sendResponse) => {
   const tabId = sender.tab?.id;
 
-  switch (message.action) {
-    case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-      handleScrapeVideo(message, sendResponse);
-      return true;
+  // Initialize config and handle message asynchronously
+  (async () => {
+    try {
+      // Initialize global config at start of each request
+      await initGlobalConfig();
 
-    case MESSAGE_ACTIONS.FETCH_SUBTITLES:
-      handleFetchSubtitles(
-        message,
-        { tabId, captionRequests, pendingCaptionJobs },
-        sendResponse,
-      );
-      return true;
+      switch (message.action) {
+        case MESSAGE_ACTIONS.SCRAPE_VIDEO:
+          handleScrapeVideo(message, sendResponse);
+          break;
 
-    case MESSAGE_ACTIONS.GENERATE_SUMMARY:
-      handleGenerateSummary(
-        message,
-        { summaryRequests, pendingSummaryJobs },
-        sendResponse,
-      );
-      return true;
+        case MESSAGE_ACTIONS.FETCH_SUBTITLES:
+          handleFetchSubtitles(
+            message,
+            { tabId, captionRequests, pendingCaptionJobs },
+            sendResponse,
+          );
+          break;
 
-    case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
-      sendResponse({
-        status: "error",
-        message: "Use content script for title",
-      });
-      return false;
+        case MESSAGE_ACTIONS.GENERATE_SUMMARY:
+          handleGenerateSummary(
+            message,
+            { summaryRequests, pendingSummaryJobs },
+            sendResponse,
+          );
+          break;
 
-    default:
-      return false;
-  }
+        case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
+          sendResponse({
+            status: "error",
+            message: "Use content script for title",
+          });
+          break;
+      }
+    } finally {
+      // Clear config cache after request completes
+      clearConfigCache();
+    }
+  })();
+
+  // Return true for async handling
+  return message.action !== MESSAGE_ACTIONS.GET_VIDEO_TITLE;
 });
