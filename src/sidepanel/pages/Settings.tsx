@@ -53,7 +53,7 @@ const DEFAULT_SETTINGS = {
   supadataApiKey: "",
   openRouterApiKey: "",
   geminiApiKey: "",
-  summarizerModel: "x-ai/grok-4.1-fast",
+  summarizerModel: "google/gemini-3-flash-preview",
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
   targetLanguage: "auto",
   captionFontSize: "M",
