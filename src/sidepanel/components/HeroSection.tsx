@@ -31,7 +31,7 @@ export function HeroSection({
             <div className="space-y-3 fade-in-up stagger-1 px-6">
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight text-left">
                 YouTube Video
-                <span className="block bg-gradient-to-r from-primary via-primary/80 to-white bg-clip-text text-transparent animate-glow">
+                <span className="block text-[hsl(0,100%,40%)]">
                   Structured Summary
                 </span>
               </h1>

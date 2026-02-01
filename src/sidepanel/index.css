@@ -280,20 +280,6 @@ All colors MUST be HSL.
 }
 
 /* Modern animations and effects */
-.animate-glow {
-  animation: glow 3s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-  from {
-    text-shadow: 0 0 20px hsl(var(--primary) / 0.6);
-  }
-  to {
-    text-shadow:
-      0 0 40px hsl(var(--primary) / 1),
-      0 0 60px hsl(var(--primary) / 0.8);
-  }
-}
 
 .hover-lift {
   transition: var(--transition-smooth);
@@ -321,20 +307,6 @@ All colors MUST be HSL.
   background: var(--gradient-glass);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.youtube-pulse {
-  animation: youtubePulse 2s infinite;
-}
-
-@keyframes youtubePulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 20px hsl(var(--primary) / 0);
-  }
 }
 
 .modern-blur {
@@ -372,23 +344,9 @@ All colors MUST be HSL.
     hsl(350 100% 55%)
   );
   box-shadow:
-    0 0 24px hsl(var(--youtube-red) / 0.6),
-    0 0 48px hsl(var(--youtube-red) / 0.4);
+    0 0 20px hsl(var(--youtube-red) / 0.5),
+    0 0 40px hsl(var(--youtube-red) / 0.3);
   height: 100%;
   border-radius: 9999px;
-  animation: timelineGlow 1.8s ease-in-out infinite alternate;
-}
-@keyframes timelineGlow {
-  from {
-    box-shadow:
-      0 0 16px hsl(var(--youtube-red) / 0.35),
-      0 0 32px hsl(var(--youtube-red) / 0.2);
-    filter: saturate(1) brightness(1);
-  }
-  to {
-    box-shadow:
-      0 0 28px hsl(var(--youtube-red) / 0.75),
-      0 0 64px hsl(var(--youtube-red) / 0.5);
-    filter: saturate(1.15) brightness(1.15);
-  }
+  filter: saturate(1.15) brightness(1.15);
 }
