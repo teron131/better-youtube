@@ -1,6 +1,6 @@
 import {
-  getScrapeCreatorsApiKey,
-  getSupadataApiKey,
+  globalScrapeCreatorsKey,
+  globalSupadataKey,
 } from "@/core/runtimeConfig";
 import type { SubtitleSegment, VideoMetadata } from "@/core/storage";
 import type {
@@ -19,8 +19,8 @@ import {
 import {
   createEmptyScrapeCreatorsResponse,
   fetchTranscriptFromScrapeCreators,
-} from "./providers/scrapeCreators";
-import { fetchTranscriptFromSupadata } from "./providers/supadata";
+} from "./scrapeCreators";
+import { fetchTranscriptFromSupadata } from "./supadata";
 
 export { clearTranscriptCache, getCachedTranscript } from "./cache";
 
@@ -70,10 +70,8 @@ export async function fetchTranscript(
   const pending = getPendingTranscript(videoId);
   if (pending) return pending;
 
-  const [scrapeCreatorsKey, supadataKey] = await Promise.all([
-    getScrapeCreatorsApiKey(),
-    getSupadataApiKey(),
-  ]);
+  const scrapeCreatorsKey = globalScrapeCreatorsKey;
+  const supadataKey = globalSupadataKey;
 
   if (!scrapeCreatorsKey && !supadataKey) {
     console.error("No transcript API keys configured");
