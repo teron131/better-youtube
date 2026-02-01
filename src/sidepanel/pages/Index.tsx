@@ -361,7 +361,7 @@ const Index = () => {
 
   return (
     <div className="app-shell pb-10">
-      <div className="absolute top-6 left-0 right-0 z-50">
+      <div className="absolute top-10 left-0 right-0 z-50">
         <div className="sidepanel-container">
           <div className="px-6 flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
