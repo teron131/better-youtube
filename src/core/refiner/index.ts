@@ -3,16 +3,15 @@
  * Refines YouTube transcript segments using LLM batch processing
  */
 
-import { API_ENDPOINTS, DEFAULTS, REFINER_CONFIG } from "@/core/constants";
+import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
 import { createOpenRouterClient } from "@/core/llmClients";
 import { SubtitleSegment } from "@/core/storage";
-import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import {
   chunkSegmentsByCount,
   parseRefinedSegments,
 } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 // ============================================================================
 // Constants
