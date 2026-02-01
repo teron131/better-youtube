@@ -64,7 +64,11 @@ export function isValidYouTubeUrl(url: string): boolean {
 export function cleanVideoUrl(input?: string | null): string | null {
   if (!input) return null;
   const videoId = extractVideoId(input);
-  return videoId ? `https://www.youtube.com/watch?v=${videoId}` : input;
+  return videoId ? createYouTubeWatchUrl(videoId) : input;
+}
+
+export function createYouTubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 /**

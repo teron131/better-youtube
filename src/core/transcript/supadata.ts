@@ -1,14 +1,11 @@
 import { API_ENDPOINTS } from "@/core/constants";
+import { createYouTubeWatchUrl } from "@/core/utils/url";
 import type {
   ApiTranscriptSegment,
   ScrapeCreatorsResponse,
   SupadataResponse,
 } from "@/core/types";
 import { formatTimestamp } from "@/core/utils/date";
-
-function createVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
 
 function normalizeSupadataResponse(
   data: SupadataResponse,
@@ -25,7 +22,7 @@ function normalizeSupadataResponse(
     success: true,
     credits_remaining: 0,
     type: "video",
-    url: createVideoUrl(videoId),
+    url: createYouTubeWatchUrl(videoId),
     transcript,
     title: "", // Metadata not provided by this specific endpoint
     description: "",
@@ -50,7 +47,7 @@ export async function fetchTranscriptFromSupadata(
   apiKey: string,
 ): Promise<ScrapeCreatorsResponse | null> {
   const requestUrl = new URL(API_ENDPOINTS.SUPADATA);
-  requestUrl.searchParams.set("url", createVideoUrl(videoId));
+  requestUrl.searchParams.set("url", createYouTubeWatchUrl(videoId));
   requestUrl.searchParams.set("lang", "en");
   requestUrl.searchParams.set("text", "true");
 

@@ -8,6 +8,7 @@ import type {
   ScrapeCreatorsResponse,
 } from "@/core/types";
 import { formatTimestamp } from "@/core/utils/date";
+import { createYouTubeWatchUrl } from "@/core/utils/url";
 
 import {
   clearPendingTranscript,
@@ -23,10 +24,6 @@ import {
 import { fetchTranscriptFromSupadata } from "./supadata";
 
 export { clearTranscriptCache, getCachedTranscript } from "./cache";
-
-function createVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
 
 export function toSubtitleSegments(
   transcript: ApiTranscriptSegment[],
@@ -44,7 +41,7 @@ export function extractVideoInfo(
   videoId: string,
 ): VideoMetadata {
   return {
-    url: data.url || createVideoUrl(videoId),
+    url: data.url || createYouTubeWatchUrl(videoId),
     title: data.title || null,
     thumbnail: data.thumbnail || null,
     author: data.channel?.title || null,
