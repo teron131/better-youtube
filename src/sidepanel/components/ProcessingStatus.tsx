@@ -45,7 +45,7 @@ export function ProcessingStatus({
             <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center">
               <Loader2 className="w-10 h-10 text-white animate-spin" />
             </div>
-            <div className="absolute inset-0 w-20 h-20 bg-primary/30 rounded-full animate-ping" />
+            <div className="absolute inset-0 w-20 h-20 bg-primary/30 rounded-full" />
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export function ProcessingStatus({
               />
             </div>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="inline-block w-2 h-2 rounded-full bg-primary" />
               <span>
                 Now:{" "}
                 <span className="text-foreground font-semibold">
