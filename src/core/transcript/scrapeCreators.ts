@@ -1,16 +1,13 @@
 import { API_ENDPOINTS, TIMING } from "@/core/constants";
+import { createYouTubeWatchUrl } from "@/core/utils/url";
 import type {
   RawTranscriptSegment,
   ScrapeCreatorsResponse,
 } from "@/core/types";
 
-function createVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
 function buildTranscriptRequestUrl(videoId: string): URL {
   const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
-  requestUrl.searchParams.set("url", createVideoUrl(videoId));
+  requestUrl.searchParams.set("url", createYouTubeWatchUrl(videoId));
   return requestUrl;
 }
 
@@ -35,7 +32,7 @@ export function createEmptyScrapeCreatorsResponse(
     success: true, // Mock success to prevent errors downstream
     credits_remaining: 0,
     type: "video",
-    url: createVideoUrl(videoId),
+    url: createYouTubeWatchUrl(videoId),
     transcript: [],
     title: "",
     description: "",

@@ -4,7 +4,8 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { getApiKeys } from "@/core/config";
+import { globalGeminiKey, globalOpenRouterKey } from "@/core/runtimeConfig";
+import { createYouTubeWatchUrl } from "@/core/utils/url";
 import {
   StoredSummary,
   VideoMetadata,
@@ -111,7 +112,7 @@ async function getTranscriptSource(
   }
 
   console.log(`No cached transcript for ${videoId}, will use URL.`);
-  return createVideoUrl(videoId);
+  return createYouTubeWatchUrl(videoId);
 }
 
 /**
@@ -140,7 +141,7 @@ async function getVideoInfo(videoId: string): Promise<VideoMetadata> {
   }
 
   return {
-    url: createVideoUrl(videoId),
+    url: createYouTubeWatchUrl(videoId),
     title: null,
     thumbnail: null,
     author: null,
@@ -224,10 +225,6 @@ async function broadcastSummaryResult(
 // Utility Helpers
 // ============================================================================
 
-function createVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
 function segmentsToText(segments: Array<{ text: string }>): string {
   return segments.map((segment) => segment.text).join(" ");
 }
@@ -293,7 +290,9 @@ export async function handleGenerateSummary(
 
   const job = (async () => {
     try {
-      const apiKeys = await getApiKeys();
+      const geminiKey = globalGeminiKey;
+      const openRouterKey = globalOpenRouterKey;
+
       const requestedProviderEnum: SummaryProvider =
         summaryProvider === "gemini" || summaryProvider === "auto"
           ? summaryProvider
@@ -301,8 +300,8 @@ export async function handleGenerateSummary(
 
       const provider = resolveProvider(
         requestedProviderEnum,
-        apiKeys.geminiApiKey,
-        apiKeys.openRouterApiKey,
+        geminiKey,
+        openRouterKey,
       );
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
@@ -360,8 +359,7 @@ export async function handleGenerateSummary(
           summaryText: summaryToMarkdown(summary, videoInfo),
         };
       } else {
-        if (!apiKeys.openRouterApiKey)
-          throw new Error("OpenRouter API key missing");
+        if (!openRouterKey) throw new Error("OpenRouter API key missing");
         const workflow = await summarizeWorkflow({
           transcript_or_url,
           videoId,
