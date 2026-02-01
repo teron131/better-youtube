@@ -36,7 +36,9 @@ import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
   "scrapeCreatorsApiKey",
+  "supadataApiKey",
   "openRouterApiKey",
+  "geminiApiKey",
   "summarizerModel",
   "refinerModel",
   "targetLanguage",
@@ -48,7 +50,9 @@ const SETTINGS_KEYS = [
 
 const DEFAULT_SETTINGS = {
   scrapeCreatorsApiKey: "",
+  supadataApiKey: "",
   openRouterApiKey: "",
+  geminiApiKey: "",
   summarizerModel: "x-ai/grok-4.1-fast",
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
   targetLanguage: "auto",
@@ -192,6 +196,34 @@ const Settings = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label
+                    htmlFor="supadataApiKey"
+                    className="text-sm font-semibold"
+                  >
+                    Supadata API Key
+                  </Label>
+                  <a
+                    href="https://supadata.ai"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Get Key
+                  </a>
+                </div>
+                <Input
+                  id="supadataApiKey"
+                  type="password"
+                  value={settings.supadataApiKey}
+                  onChange={(e) =>
+                    handleChange("supadataApiKey", e.target.value)
+                  }
+                  className="h-12 rounded-xl"
+                  placeholder="..."
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
                     htmlFor="openRouterApiKey"
                     className="text-sm font-semibold"
                   >
@@ -215,6 +247,32 @@ const Settings = () => {
                   }
                   className="h-12 rounded-xl"
                   placeholder="sk-or-v1-..."
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="geminiApiKey"
+                    className="text-sm font-semibold"
+                  >
+                    Gemini API Key
+                  </Label>
+                  <a
+                    href="https://aistudio.google.com/api-keys"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Get Key
+                  </a>
+                </div>
+                <Input
+                  id="geminiApiKey"
+                  type="password"
+                  value={settings.geminiApiKey}
+                  onChange={(e) => handleChange("geminiApiKey", e.target.value)}
+                  className="h-12 rounded-xl"
+                  placeholder="..."
                 />
               </div>
             </CardContent>
