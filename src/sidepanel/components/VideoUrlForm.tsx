@@ -9,7 +9,7 @@ import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { useUserPreferences } from "@ui/hooks/use-config";
-import { AlertCircle, Loader2, Play } from "lucide-react";
+import { AlertCircle, Captions, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface VideoUrlFormProps {
@@ -124,27 +124,29 @@ export const VideoUrlForm = ({
               disabled={isLoading || !isFormValid(url)}
               onClick={(event) => handleSubmit(event, "caption")}
               variant="outline"
-              className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-primary/20 bg-transparent text-sm font-semibold text-primary/80 shadow-sm transition-all duration-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
+              size="sm"
+              className="h-9 w-full gap-2 rounded-lg border-primary/20 bg-transparent text-xs font-medium text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all"
             >
-              <Play className="w-4 h-4 flex-shrink-0" />
-              <span className="break-words">Caption</span>
+              <Captions className="w-3.5 h-3.5" />
+              <span>Caption</span>
             </Button>
 
             <Button
               type="submit"
               disabled={isLoading || !isFormValid(url)}
               variant="outline"
-              className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-primary/20 bg-transparent text-sm font-semibold text-primary/80 shadow-sm transition-all duration-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
+              size="sm"
+              className="h-9 w-full gap-2 rounded-lg border-primary/20 bg-transparent text-xs font-medium text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                  <span className="break-words">Processing</span>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Processing</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 flex-shrink-0" />
-                  <span className="break-words">Summary</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Summary</span>
                 </>
               )}
             </Button>

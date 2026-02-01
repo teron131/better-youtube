@@ -27,7 +27,7 @@ import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Captions, Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -365,43 +365,28 @@ const Index = () => {
         <div className="sidepanel-container">
           <div className="px-6 flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleToggleSubtitles(!showSubtitles)}
-                aria-pressed={showSubtitles}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
+                className={`gap-2 text-xs font-medium transition-colors ${
                   showSubtitles
-                    ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_hsl(var(--primary)_/_0.2)]"
-                    : "border-border/60 bg-muted/30 text-muted-foreground"
+                    ? "text-primary bg-primary/10 hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="Toggle subtitles overlay on the video player"
+                title="Toggle subtitles overlay"
               >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    showSubtitles
-                      ? "bg-primary shadow-[0_0_10px_hsl(var(--primary)_/_0.6)]"
-                      : "bg-muted-foreground/60"
-                  }`}
-                />
-                Subtitles Overlay
-                <span
-                  className={`text-[10px] font-bold ${
-                    showSubtitles
-                      ? "text-primary/80"
-                      : "text-muted-foreground/70"
-                  }`}
-                >
-                  {showSubtitles ? "On" : "Off"}
-                </span>
-              </button>
+                <Captions className="h-4 w-4" />
+                <span>Overlay</span>
+              </Button>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/settings")}
-              className="text-muted-foreground hover:text-foreground transition-all"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground transition-all"
             >
-              <SettingsIcon className="h-6 w-6" />
+              <SettingsIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
