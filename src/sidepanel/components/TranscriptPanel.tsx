@@ -168,7 +168,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="pl-10 pr-24 h-12 border-border/60 focus:border-primary/50"
+                  className="pl-10 pr-24 h-9 text-sm border-border/60 focus:border-primary/50"
                 />
                 {searchQuery && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
@@ -193,19 +193,19 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="icon"
                     onClick={() => navigateMatches("prev")}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
-                    <ChevronUp className="w-5 h-5" />
+                    <ChevronUp className="w-4 h-4" />
                   </Button>
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="icon"
                     onClick={() => navigateMatches("next")}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-4 h-4" />
                   </Button>
                 </div>
               )}
@@ -214,11 +214,11 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="icon"
                     onClick={copyToClipboard}
-                    className="gap-3 h-12 px-4 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
-                    <Copy className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>

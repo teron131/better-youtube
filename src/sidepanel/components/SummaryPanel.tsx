@@ -195,10 +195,10 @@ export const SummaryPanel = ({
                       size="icon"
                       onClick={handleRegenerate}
                       disabled={isRegenerating}
-                      className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-8 w-8 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <RefreshCw
-                        className={`w-5 h-5 ${isRegenerating ? "animate-spin" : ""}`}
+                        className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`}
                       />
                     </Button>
                   </TooltipTrigger>
@@ -213,9 +213,9 @@ export const SummaryPanel = ({
                     variant="outline"
                     size="icon"
                     onClick={copyToClipboard}
-                    className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-8 w-8 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                   >
-                    <Copy className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -235,7 +235,7 @@ export const SummaryPanel = ({
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pl-10 pr-24 h-10 border-border/60 focus:border-primary/50"
+                className="pl-10 pr-24 h-8 text-sm border-border/60 focus:border-primary/50"
               />
               {searchQuery && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
@@ -262,17 +262,17 @@ export const SummaryPanel = ({
                   variant="outline"
                   size="icon"
                   onClick={() => navigateMatches("prev")}
-                  className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="h-8 w-8 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
-                  <ChevronUp className="w-5 h-5" />
+                  <ChevronUp className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => navigateMatches("next")}
-                  className="h-10 w-10 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  className="h-8 w-8 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                 >
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-4 h-4" />
                 </Button>
               </div>
             )}
