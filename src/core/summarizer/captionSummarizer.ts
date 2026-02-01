@@ -10,10 +10,7 @@ import {
   toolStrategy,
 } from "@/core/langgraph-web-shim";
 import { createOpenRouterClient } from "@/core/llmClients";
-import {
-  globalOpenRouterKey,
-  globalScrapeCreatorsKey,
-} from "@/core/runtimeConfig";
+import { globalScrapeCreatorsKey } from "@/core/runtimeConfig";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -23,7 +20,6 @@ import {
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
-import { ChatOpenAI } from "@langchain/openai";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
 import { PromptBuilder } from "./promptBuilder";
