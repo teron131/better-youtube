@@ -134,7 +134,7 @@ const Settings = () => {
 
   return (
     <div className="app-shell pb-10">
-      <div className="absolute top-6 left-0 right-0 z-50">
+      <div className="absolute top-10 left-0 right-0 z-50">
         <div className="sidepanel-container">
           <div className="px-6 flex items-center justify-between w-full">
             <div className="fade-in-up">
@@ -154,7 +154,7 @@ const Settings = () => {
         </div>
       </div>
 
-      <div className="sidepanel-container pt-24">
+      <div className="sidepanel-container pt-32">
         <div className="grid grid-cols-1 gap-3 fade-in-up stagger-1">
           {/* API Configuration */}
           <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">

@@ -3,7 +3,6 @@
  */
 
 import { VideoUrlForm } from "@ui/components/VideoUrlForm";
-import { ShieldCheck, Sparkles, Zap } from "lucide-react";
 
 interface HeroSectionProps {
   onSubmit: (
@@ -19,24 +18,6 @@ interface HeroSectionProps {
   initialUrl?: string;
 }
 
-const FEATURES = [
-  {
-    icon: <Zap className="h-4 w-4" />,
-    label: "Fast Processing",
-    value: "< 1 min completion",
-  },
-  {
-    icon: <ShieldCheck className="h-4 w-4" />,
-    label: "Structured Summary",
-    value: "Save time on long videos",
-  },
-  {
-    icon: <Sparkles className="h-4 w-4" />,
-    label: "Model Neutral",
-    value: "OpenRouter models",
-  },
-];
-
 export function HeroSection({
   onSubmit,
   isLoading,
@@ -44,7 +25,7 @@ export function HeroSection({
 }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-transparent">
-      <div className="relative sidepanel-container pt-24 pb-16 lg:pb-20">
+      <div className="relative sidepanel-container pt-32 pb-16 lg:pb-20">
         <div className="flex flex-col items-stretch gap-8">
           <div className="space-y-6 w-full">
             <div className="space-y-3 fade-in-up stagger-1 px-6">
@@ -54,25 +35,6 @@ export function HeroSection({
                   Structured Summary
                 </span>
               </h1>
-            </div>
-
-            <div className="space-y-3 fade-in-up stagger-2">
-              {FEATURES.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-[24px] border border-border/50 bg-background/60 p-6 shadow-lg hover:border-primary/30 transition-colors duration-300"
-                >
-                  <div className="flex items-center gap-2 text-primary">
-                    {item.icon}
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      {item.label}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-xs font-semibold text-foreground">
-                    {item.value}
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
 
