@@ -136,7 +136,7 @@ export function EditableCombobox({
                 "pr-10 transition-all duration-200",
                 renderIcon ? "pl-10" : "pl-3",
                 open
-                  ? "ring-2 ring-ring ring-offset-2 border-primary/50"
+                  ? "ring-1 ring-primary/20 border-primary/25"
                   : "border-border/50",
                 inputClassName,
               )}

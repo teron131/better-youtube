@@ -8,9 +8,40 @@ import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
-import { useUserPreferences } from "@ui/hooks/use-config";
-import { AlertCircle, Captions, Loader2, Sparkles } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ui/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@ui/components/ui/tooltip";
+import {
+  useLanguageSelection,
+  useModelSelection,
+  useUserPreferences,
+} from "@ui/hooks/use-config";
+import { getProviderLogo } from "@ui/lib/provider-logos";
+import { AlertCircle, ArrowUp, Captions, Loader2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+
+function ProviderLogo({ provider }: { provider?: string }) {
+  const src = provider ? getProviderLogo(provider) : null;
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={provider || ""}
+      className="h-4 w-4 opacity-80"
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
 
 interface VideoUrlFormProps {
   onSubmit: (
@@ -35,7 +66,13 @@ export const VideoUrlForm = ({
   const [url, setUrl] = useState(initialUrl || "");
   const [validationError, setValidationError] = useState<string>("");
   const [showExamples, setShowExamples] = useState(false);
-  const { preferences } = useUserPreferences();
+  const { preferences, updatePreferences } = useUserPreferences();
+  const { summarizerModels } = useModelSelection();
+  const { languages } = useLanguageSelection();
+
+  const selectedModel = summarizerModels.find(
+    (m) => m.key === preferences.summaryModel,
+  );
 
   useEffect(() => {
     if (initialUrl) setUrl(initialUrl);
@@ -85,74 +122,150 @@ export const VideoUrlForm = ({
   };
 
   return (
-    <Card className="w-full rounded-[24px] p-0 border-border/50 hover:border-primary/20 transition-all duration-500">
-      <div className="space-y-5 p-6">
-        <form
-          onSubmit={(event) => handleSubmit(event, "summary")}
-          className="space-y-4"
-        >
-          <div className="space-y-2">
+    <Card className="w-full rounded-[24px] p-0 border border-border/60 bg-background/60 hover:border-primary/15 transition-all duration-500">
+      <form
+        onSubmit={(event) => handleSubmit(event, "summary")}
+        className="space-y-3 p-4 sm:p-5"
+      >
+        <div className="space-y-2">
+          <div
+            className={`rounded-2xl border bg-muted/25 px-4 py-2 shadow-sm transition-all duration-300 focus-within:ring-1 ${
+              validationError
+                ? "border-destructive focus-within:ring-destructive"
+                : "border-border/60 hover:border-primary/20 focus-within:border-primary/25 focus-within:ring-primary/20"
+            }`}
+          >
             <Input
               type="url"
               placeholder="https://youtube.com/watch?v=..."
               value={url}
               onChange={handleUrlChange}
-              className={`h-12 rounded-xl border-input bg-background text-sm shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:border-primary focus:ring-1 focus:ring-primary ${
-                validationError
-                  ? "border-destructive focus:ring-destructive"
-                  : "hover:border-primary/40"
-              }`}
+              className="h-8 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isLoading}
             />
-
-            {validationError && (
-              <Alert
-                variant="destructive"
-                className="border-destructive/50 bg-destructive/10"
-              >
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{validationError}</AlertDescription>
-              </Alert>
-            )}
-
-            {showExamples && <ExampleUrls onSelect={handleExampleClick} />}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {validationError && (
+            <Alert
+              variant="destructive"
+              className="border-destructive/50 bg-destructive/10"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{validationError}</AlertDescription>
+            </Alert>
+          )}
+
+          {showExamples && <ExampleUrls onSelect={handleExampleClick} />}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={preferences.summaryModel}
+              onValueChange={(val) => updatePreferences({ summaryModel: val })}
+            >
+              <SelectTrigger className="h-8 w-[200px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-muted/30 hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-muted/30 data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <ProviderLogo provider={selectedModel?.provider} />
+                  <span className="truncate">
+                    {selectedModel?.label || "Model"}
+                  </span>
+                </div>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {summarizerModels.map((m) => (
+                  <SelectItem key={m.key} value={m.key}>
+                    <div className="flex items-center gap-2">
+                      <ProviderLogo provider={m.provider} />
+                      <span>{m.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={preferences.targetLanguage}
+              onValueChange={(val) =>
+                updatePreferences({ targetLanguage: val })
+              }
+            >
+              <SelectTrigger className="h-8 w-[140px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-muted/30 hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-muted/30 data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {languages.map((l) => (
+                  <SelectItem key={l.key} value={l.key}>
+                    {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Button
               type="button"
-              disabled={isLoading || !isFormValid(url)}
-              onClick={(event) => handleSubmit(event, "caption")}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-9 w-full gap-2 rounded-lg border-primary/20 bg-transparent text-xs font-medium text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all"
+              disabled={isLoading}
+              onClick={() =>
+                updatePreferences({ fastMode: !preferences.fastMode })
+              }
+              className={`h-8 rounded-full px-3 text-xs font-medium border border-transparent hover:border-primary/25 bg-transparent hover:bg-muted/30 transition-all active:border-transparent ${
+                preferences.fastMode
+                  ? "text-primary border-primary/40 bg-primary/10 hover:bg-primary/15"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-pressed={preferences.fastMode}
+              title="Toggle fast mode"
             >
-              <Captions className="w-3.5 h-3.5" />
-              <span>Caption</span>
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={isLoading || !isFormValid(url)}
-              variant="outline"
-              size="sm"
-              className="h-9 w-full gap-2 rounded-lg border-primary/20 bg-transparent text-xs font-medium text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Processing</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Summary</span>
-                </>
-              )}
+              <Zap className="h-3.5 w-3.5" />
+              <span className="ml-1">Fast</span>
             </Button>
           </div>
-        </form>
-      </div>
+
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={isLoading || !isFormValid(url)}
+                  onClick={(event) => handleSubmit(event, "caption")}
+                  className="h-9 w-9 rounded-full border border-transparent bg-transparent text-foreground hover:bg-muted/30 hover:border-primary/25 transition-all active:border-transparent"
+                  aria-label="Generate captions"
+                >
+                  <Captions className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Caption</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isLoading || !isFormValid(url)}
+                  className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all disabled:opacity-60"
+                  aria-label="Generate summary"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Summary</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </form>
     </Card>
   );
 };

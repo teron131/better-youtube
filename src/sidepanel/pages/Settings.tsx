@@ -157,7 +157,7 @@ const Settings = () => {
       <div className="sidepanel-container pt-24">
         <div className="grid grid-cols-1 gap-2 fade-in-up stagger-1">
           {/* API Configuration */}
-          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
             <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Key className="h-4 w-4" />
@@ -281,7 +281,7 @@ const Settings = () => {
           </Card>
 
           {/* Model Configuration */}
-          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
             <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Cpu className="h-4 w-4" />
@@ -330,7 +330,7 @@ const Settings = () => {
           </Card>
 
           {/* User Experience */}
-          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
             <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Zap className="h-4 w-4" />
@@ -415,7 +415,7 @@ const Settings = () => {
           </Card>
 
           {/* Appearance */}
-          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+          <Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
             <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Type className="h-4 w-4" />
