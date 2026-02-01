@@ -154,11 +154,11 @@ const Settings = () => {
         </div>
       </div>
 
-      <div className="sidepanel-container pt-32">
-        <div className="grid grid-cols-1 gap-3 fade-in-up stagger-1">
+      <div className="sidepanel-container pt-24">
+        <div className="grid grid-cols-1 gap-2 fade-in-up stagger-1">
           {/* API Configuration */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-6 pb-2">
+          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+            <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Key className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -166,8 +166,8 @@ const Settings = () => {
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 pt-2 space-y-4">
-              <div className="space-y-2">
+            <CardContent className="p-4 pt-1 space-y-2.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="scrapeCreatorsApiKey"
@@ -191,11 +191,11 @@ const Settings = () => {
                   onChange={(e) =>
                     handleChange("scrapeCreatorsApiKey", e.target.value)
                   }
-                  className="h-12 rounded-xl"
+                  className="h-10 rounded-xl"
                   placeholder="..."
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="supadataApiKey"
@@ -219,11 +219,11 @@ const Settings = () => {
                   onChange={(e) =>
                     handleChange("supadataApiKey", e.target.value)
                   }
-                  className="h-12 rounded-xl"
+                  className="h-10 rounded-xl"
                   placeholder="..."
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="openRouterApiKey"
@@ -247,11 +247,11 @@ const Settings = () => {
                   onChange={(e) =>
                     handleChange("openRouterApiKey", e.target.value)
                   }
-                  className="h-12 rounded-xl"
+                  className="h-10 rounded-xl"
                   placeholder="sk-or-v1-..."
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="geminiApiKey"
@@ -273,7 +273,7 @@ const Settings = () => {
                   type="password"
                   value={settings.geminiApiKey}
                   onChange={(e) => handleChange("geminiApiKey", e.target.value)}
-                  className="h-12 rounded-xl"
+                  className="h-10 rounded-xl"
                   placeholder="..."
                 />
               </div>
@@ -281,8 +281,8 @@ const Settings = () => {
           </Card>
 
           {/* Model Configuration */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-6 pb-2">
+          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+            <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Cpu className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -290,8 +290,8 @@ const Settings = () => {
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <CardContent className="p-4 pt-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
                 <Label
                   htmlFor="summarizerModel"
                   className="text-sm font-semibold"
@@ -306,11 +306,11 @@ const Settings = () => {
                     label: m.label,
                   }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 rounded-xl"
+                  inputClassName="h-10 rounded-xl"
                   contentClassName="rounded-xl"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="refinerModel" className="text-sm font-semibold">
                   Caption Refinement Model
                 </Label>
@@ -322,7 +322,7 @@ const Settings = () => {
                     label: m.label,
                   }))}
                   placeholder="Select or type model..."
-                  inputClassName="h-12 rounded-xl"
+                  inputClassName="h-10 rounded-xl"
                   contentClassName="rounded-xl"
                 />
               </div>
@@ -330,8 +330,8 @@ const Settings = () => {
           </Card>
 
           {/* User Experience */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-6 pb-2">
+          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+            <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Zap className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -339,27 +339,24 @@ const Settings = () => {
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 pt-2 space-y-4">
+            <CardContent className="p-4 pt-1 space-y-2">
               {/* Language */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 rounded-2xl bg-muted/30 border border-border/60">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                    <Globe className="h-5 w-5" />
+              <div className="flex flex-row items-center justify-between gap-4 p-2 rounded-2xl bg-muted/30 border border-border/60">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                    <Globe className="h-4 w-4" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-foreground">
+                    <h4 className="font-bold text-foreground text-sm">
                       Target Language
                     </h4>
-                    <p className="text-xs text-muted-foreground">
-                      Summaries and captions will be in this language
-                    </p>
                   </div>
                 </div>
                 <Select
                   value={settings.targetLanguage}
                   onValueChange={(val) => handleChange("targetLanguage", val)}
                 >
-                  <SelectTrigger className="w-full md:w-[180px] h-10 rounded-xl">
+                  <SelectTrigger className="w-[150px] h-9 rounded-xl text-xs">
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -373,19 +370,16 @@ const Settings = () => {
               </div>
 
               {/* Toggles */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                      <Sparkles className="h-5 w-5" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex items-center justify-between p-2 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Sparkles className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground text-sm">
+                      <h4 className="font-bold text-foreground text-xs">
                         Auto-Generate
                       </h4>
-                      <p className="text-[10px] text-muted-foreground">
-                        Process on video load
-                      </p>
                     </div>
                   </div>
                   <Switch
@@ -393,22 +387,19 @@ const Settings = () => {
                     onCheckedChange={(checked) =>
                       handleChange("autoGenerate", checked)
                     }
-                    className="data-[state=checked]:bg-primary"
+                    className="data-[state=checked]:bg-primary scale-75"
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                      <Zap className="h-5 w-5" />
+                <div className="flex items-center justify-between p-2 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Zap className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-foreground text-sm">
+                      <h4 className="font-bold text-foreground text-xs">
                         Quality Check
                       </h4>
-                      <p className="text-[10px] text-muted-foreground">
-                        Enable refinement loop (Slower)
-                      </p>
                     </div>
                   </div>
                   <Switch
@@ -416,7 +407,7 @@ const Settings = () => {
                     onCheckedChange={(checked) =>
                       handleChange("fastMode", !checked)
                     }
-                    className="data-[state=checked]:bg-primary"
+                    className="data-[state=checked]:bg-primary scale-75"
                   />
                 </div>
               </div>
@@ -424,8 +415,8 @@ const Settings = () => {
           </Card>
 
           {/* Appearance */}
-          <Card className="rounded-[24px] hover:border-primary/20 transition-all duration-500">
-            <CardHeader className="p-6 pb-2">
+          <Card className="rounded-xl hover:border-primary/20 transition-all duration-500">
+            <CardHeader className="p-4 pb-1">
               <div className="flex items-center gap-2 text-primary mb-0.5">
                 <Type className="h-4 w-4" />
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -433,7 +424,7 @@ const Settings = () => {
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 pt-2 space-y-3">
+            <CardContent className="p-4 pt-1 space-y-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[11px] text-muted-foreground uppercase ml-1">
