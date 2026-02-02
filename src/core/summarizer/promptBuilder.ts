@@ -66,7 +66,7 @@ export class PromptBuilder {
       "Rules:",
       "- Chapters must be chronological and non-overlapping",
       "- Avoid meta-language (no 'this video...' framing)",
-      "- Exclude sponsors/promos/CTAs entirely",
+      "- Exclude sponsors/promos/calls to action entirely",
     ].join("\n");
   }
 
@@ -101,7 +101,7 @@ export class PromptBuilder {
       "- Every claim must be supported by the transcript",
       "- Chapters must be chronological and non-overlapping",
       "- Avoid meta-language",
-      "- Exclude sponsors/promos/CTAs",
+      "- Exclude sponsors/promos/calls to action",
     ].join("\n");
   }
 
@@ -135,7 +135,7 @@ export class PromptBuilder {
       "- Every claim must be supported by the transcript",
       "- Chapters must be chronological and non-overlapping",
       "- Avoid meta-language",
-      "- Exclude sponsors/promos/CTAs",
+      "- Exclude sponsors/promos/calls to action",
     ].join("\n");
   }
 
