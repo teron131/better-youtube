@@ -10,7 +10,51 @@ Chrome extension combining YouTube caption refinement and AI-powered summarizati
 
 ## Workflow
 
+```mermaid
+graph TD
+  A[YouTube Video Page] --> B{Stored Summary?}
+  B -- Yes --> C[Display Stored Summary]
+  B -- No --> P{Summarizer Provider}
 
+  C --> UI[Side Panel]
+
+  P -- Gemini --> G0[Gemini API]
+  P -- OpenRouter --> OR0[OpenRouter API]
+
+  G0 -- Fail (OR key) --> OR0
+  OR0 -- Fail (Gemini key) --> G0
+
+  subgraph Fetch[Transcript Fetch]
+    T0{Transcript available?}
+    T0 -- Yes --> TReady[Transcript]
+    T0 -- No --> T1{Scrape Creators key?}
+    T1 -- Yes --> T2[Scrape Creators API]
+    T2 -- Success --> TReady
+    T2 -- Fail --> T3{Supadata key?}
+    T1 -- No --> T3
+    T3 -- Yes --> T4[Supadata API]
+    T4 -- Success --> TReady
+    T3 -- No --> TEmpty[Empty transcript]
+    TEmpty --> TReady
+  end
+
+  subgraph Sum[Summarization]
+    OMode{OpenRouter Mode}
+    OMode -- LangGraph ReAct --> OReAct[ReAct workflow]
+    OMode -- Fast --> OFast[Fast summary]
+
+    GSum[Gemini direct summary]
+  end
+
+  OR0 --> T0
+  TReady --> OMode
+  G0 --> GSum
+
+  OReAct --> OUT[Save & broadcast]
+  OFast --> OUT
+  GSum --> OUT
+  OUT --> UI
+```
 
 ## Tech Stack
 
@@ -40,7 +84,8 @@ Chrome extension combining YouTube caption refinement and AI-powered summarizati
 
 ## External APIs
 
-- **Scrape Creators API** - YouTube transcript fetching
+- **Scrape Creators API** - Primary YouTube transcript fetching
+- **Supadata API** - Fallback transcript fetching
 - **OpenRouter** - LLM access (Grok, Gemini, etc.)
 
 ## Chrome Storage Keys
