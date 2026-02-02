@@ -8,22 +8,9 @@ Chrome extension combining YouTube caption refinement and AI-powered summarizati
 
 **The Challenge**: YouTube's caption API has strict access limitations. While Gemini provides native YouTube access (in preview), it lacks robustness across varying video lengths and does not capture word-level caption details effectively.
 
-## Project Structure
+## Workflow
 
-```
-better-youtube/
-├── public/
-│   ├── manifest.json         # Chrome extension manifest v3
-│   └── assets/subtitles.css  # CSS (caption overlay styles)
-├── sidepanel.html            # React side panel entry point
-├── src/
-│   ├── handlers/             # Service worker (message routing, API calls)
-│   ├── content/              # Content script (YouTube page integration)
-│   ├── sidepanel/            # React UI (main views, settings)
-│   └── core/                 # Shared libraries (summarizer, storage, refiner)
-├── vite.config.ts            # Multi-entry Vite build for extension
-└── tailwind.config.js
-```
+
 
 ## Tech Stack
 
