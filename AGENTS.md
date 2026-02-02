@@ -16,7 +16,7 @@ Chrome MV3 extension for YouTube caption refinement + AI summarization. Stack: V
 ├── src/handlers/               # Service worker (routing + orchestration)
 ├── src/content/                # Content script (YouTube integration + subtitle overlay)
 ├── src/sidepanel/              # React UI (side panel + settings)
-└── src/core/                   # Shared libs (storage, constants, summarizer)
+└── src/core/                   # Shared libs (storage, constants, summarizer, refiner)
 ```
 
 ## Nested AGENTS.md (precedence)
@@ -36,8 +36,11 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
 | Add/rename message actions      | `src/core/constants.ts`               | `MESSAGE_ACTIONS` is the cross-context contract.        |
 | Handler routing / orchestration | `src/handlers/index.ts`               | MV3 service worker entrypoint.                          |
 | Handler summary logic           | `src/handlers/summary.ts`             | Sends `SUMMARY_GENERATED` / error broadcasts.           |
+| Handler refine logic            | `src/handlers/refine.ts`              | Handles caption refinement requests.                    |
+| Handler transcript logic        | `src/handlers/transcript.ts`          | Manages transcript fetching requests.                   |
 | Content script lifecycle        | `src/content/index.ts`                | `ContentManager` + SPA navigation handling.             |
 | Content message handling        | `src/content/messageHandler.ts`       | `chrome.runtime.onMessage` switch on `MESSAGE_ACTIONS`. |
+| Content auto-generation         | `src/content/autoGeneration.ts`       | Logic for auto-triggering summary/refinement.           |
 | Content video helpers           | `src/content/videoHelpers.ts`         | Video validation and scraping helpers.                  |
 | Content storage helpers         | `src/content/storageHelpers.ts`       | Storage key builders and model resolution.              |
 | Subtitle overlay rendering      | `src/content/subtitleRenderer.ts`     | CSS lives in `public/assets/subtitles.css`.             |
@@ -47,6 +50,7 @@ The closest `AGENTS.md` to the file you are editing takes precedence.
 | Storage layer                   | `src/core/storage.ts`                 | `chrome.storage.local` with `localStorage` fallback.    |
 | Transcript fetching             | `src/core/transcript/index.ts`        | ScrapeCreators client + caching/deduplication.          |
 | LLM summarization               | `src/core/summarizer/*`               | LangGraph/LangChain + zod schemas.                      |
+| LLM refinement                  | `src/core/refiner/*`                  | Caption refinement logic.                               |
 
 ## Conventions (project-specific)
 

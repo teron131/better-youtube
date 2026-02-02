@@ -17,10 +17,10 @@ better-youtube/
 │   └── assets/subtitles.css  # CSS (caption overlay styles)
 ├── sidepanel.html            # React side panel entry point
 ├── src/
-│   ├── background/           # Service worker (message routing, API calls)
+│   ├── handlers/             # Service worker (message routing, API calls)
 │   ├── content/              # Content script (YouTube page integration)
 │   ├── sidepanel/            # React UI (main views, settings)
-│   └── lib/                  # Shared libraries (summarizer, storage)
+│   └── core/                 # Shared libraries (summarizer, storage, refiner)
 ├── vite.config.ts            # Multi-entry Vite build for extension
 └── tailwind.config.js
 ```
