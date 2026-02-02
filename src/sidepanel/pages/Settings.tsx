@@ -78,7 +78,23 @@ const Settings = () => {
     const loadSettings = async () => {
       try {
         const stored = await getStorageValues(SETTINGS_KEYS);
-        setSettings((prev) => ({ ...prev, ...stored }));
+        setSettings((prev) => {
+          const next: any = { ...prev, ...stored };
+
+          // Back-compat / normalization between summarizerMode and fastMode.
+          if (!next.summarizerMode) {
+            next.summarizerMode = next.fastMode ? "fast" : "react";
+          }
+          if (next.summarizerMode === "fast") next.fastMode = true;
+          if (
+            next.summarizerMode === "react" ||
+            next.summarizerMode === "native"
+          ) {
+            next.fastMode = false;
+          }
+
+          return next;
+        });
         if (stored.summaryFontSize) {
           applySummaryFontSize(stored.summaryFontSize as FontSize);
         }
@@ -362,7 +378,7 @@ const Settings = () => {
                   value={settings.targetLanguage}
                   onValueChange={(val) => handleChange("targetLanguage", val)}
                 >
-                  <SelectTrigger className="w-[150px] h-9 rounded-xl text-xs">
+                  <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -394,7 +410,7 @@ const Settings = () => {
                       handleChange("summarizerProvider", val)
                     }
                   >
-                    <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
                       <SelectValue placeholder="Auto" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -427,13 +443,13 @@ const Settings = () => {
                         await handleChange("fastMode", false);
                     }}
                   >
-                    <SelectTrigger className="w-[160px] h-9 rounded-xl text-xs">
-                      <SelectValue placeholder="ReAct" />
+                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
+                      <SelectValue placeholder="Fast Agent" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="native">Gemini Native</SelectItem>
-                      <SelectItem value="react">LangGraph ReAct</SelectItem>
-                      <SelectItem value="fast">LangChain Fast</SelectItem>
+                      <SelectItem value="react">Validation Agent</SelectItem>
+                      <SelectItem value="fast">Fast Agent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -455,7 +471,7 @@ const Settings = () => {
                       handleChange("transcriptProviderPreference", val)
                     }
                   >
-                    <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
                       <SelectValue placeholder="Scrape Creators" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">

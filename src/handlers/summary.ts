@@ -7,8 +7,11 @@ import { MESSAGE_ACTIONS } from "@/core/constants";
 import {
   globalGeminiKey,
   globalOpenRouterKey,
+  globalScrapeCreatorsKey,
   globalSummarizerMode,
   globalSummarizerProvider,
+  globalSupadataKey,
+  globalTranscriptProviderPreference,
 } from "@/core/runtimeConfig";
 import {
   StoredSummary,
@@ -54,23 +57,83 @@ type SummaryResult = {
 type SummaryProvider = "openrouter" | "gemini" | "auto";
 type SummarizerMode = "native" | "react" | "fast";
 
-/**
- * Resolve which provider to use based on requested provider and available API keys
- */
-function resolveProvider(
-  requestedProvider: SummaryProvider,
-  geminiKey: string | null,
-  openRouterKey: string | null,
-): "gemini" | "openrouter" {
-  if (requestedProvider === "auto") {
-    return geminiKey ? "gemini" : "openrouter";
+type ProviderPref = "auto" | "gemini" | "openrouter";
+
+function normalizeProviderPreference(input: {
+  summaryProvider?: unknown;
+  summarizerProvider?: unknown;
+  globalProvider: ProviderPref;
+}): ProviderPref {
+  const { summaryProvider, summarizerProvider, globalProvider } = input;
+
+  if (summarizerProvider === "gemini" || summarizerProvider === "openrouter") {
+    return summarizerProvider;
   }
 
-  if (requestedProvider === "gemini") {
-    return geminiKey ? "gemini" : openRouterKey ? "openrouter" : "gemini";
+  if (summaryProvider === "gemini") return "gemini";
+  if (summaryProvider === "openrouter") return "openrouter";
+  if (summaryProvider === "auto") return "auto";
+
+  return globalProvider;
+}
+
+function normalizeModePreference(input: {
+  summarizerMode?: unknown;
+  fastMode?: unknown;
+  globalMode: SummarizerMode;
+}): SummarizerMode {
+  const { summarizerMode, fastMode, globalMode } = input;
+
+  if (
+    summarizerMode === "native" ||
+    summarizerMode === "react" ||
+    summarizerMode === "fast"
+  ) {
+    return summarizerMode;
   }
 
-  return openRouterKey ? "openrouter" : geminiKey ? "gemini" : "openrouter";
+  if (fastMode === true) return "fast";
+  if (fastMode === false) return "react";
+  return globalMode;
+}
+
+function logSummaryConfig(payload: {
+  videoId: string;
+  requestId: string;
+  modelSelection: string;
+  targetLanguage: string;
+  providerPref: ProviderPref;
+  modePref: SummarizerMode;
+  transcriptProviderPreference: string;
+  resolvedProvider: string;
+  desiredOpenRouterMode: "react" | "fast";
+  msgHasTranscript: boolean;
+}) {
+  console.log(
+    "[summary] config",
+    JSON.stringify(
+      {
+        videoId: payload.videoId,
+        requestId: payload.requestId,
+        modelSelection: payload.modelSelection,
+        targetLanguage: payload.targetLanguage,
+        providerPref: payload.providerPref,
+        modePref: payload.modePref,
+        transcriptProviderPreference: payload.transcriptProviderPreference,
+        desiredOpenRouterMode: payload.desiredOpenRouterMode,
+        resolvedProvider: payload.resolvedProvider,
+        msgHasTranscript: payload.msgHasTranscript,
+        hasKeys: {
+          gemini: Boolean(globalGeminiKey),
+          openrouter: Boolean(globalOpenRouterKey),
+          scrapeCreators: Boolean(globalScrapeCreatorsKey),
+          supadata: Boolean(globalSupadataKey),
+        },
+      },
+      null,
+      0,
+    ),
+  );
 }
 
 // ============================================================================
@@ -292,28 +355,19 @@ export async function handleGenerateSummary(
   sendResponse({ status: "processing" });
 
   const effectiveRequestId = requestId ? String(requestId) : "";
-  const requestedProvider: SummaryProvider =
-    summaryProvider === "gemini" || summaryProvider === "auto"
-      ? summaryProvider
-      : "auto";
+  const providerPref = normalizeProviderPreference({
+    summarizerProvider,
+    summaryProvider,
+    globalProvider: globalSummarizerProvider,
+  });
 
-  const providerPref: "auto" | "gemini" | "openrouter" =
-    summarizerProvider === "gemini" || summarizerProvider === "openrouter"
-      ? summarizerProvider
-      : requestedProvider === "gemini"
-        ? "gemini"
-        : requestedProvider === "openrouter"
-          ? "openrouter"
-          : globalSummarizerProvider;
+  const modePref = normalizeModePreference({
+    summarizerMode,
+    fastMode,
+    globalMode: globalSummarizerMode,
+  });
 
-  const modePref: SummarizerMode =
-    summarizerMode === "native" ||
-    summarizerMode === "react" ||
-    summarizerMode === "fast"
-      ? summarizerMode
-      : fastMode === true
-        ? "fast"
-        : globalSummarizerMode;
+  const desiredOpenRouterMode = modePref === "fast" ? "fast" : "react";
 
   const providerForKey = `${providerPref}:${modePref}`;
   const jobKey = `${videoId}:${effectiveRequestId}:${providerForKey}:${modelSelection}:${targetLanguage}`;
@@ -333,12 +387,27 @@ export async function handleGenerateSummary(
       const geminiKey = globalGeminiKey;
       const openRouterKey = globalOpenRouterKey;
 
-      const { provider, openRouterMode } = resolveSummarizationRoute({
+      const { provider } = resolveSummarizationRoute({
         providerPreference: providerPref,
         modePreference: modePref,
         modelSelection: String(modelSelection),
         hasGeminiKey: Boolean(geminiKey),
         hasOpenRouterKey: Boolean(openRouterKey),
+      });
+
+      logSummaryConfig({
+        videoId,
+        requestId: effectiveRequestId,
+        modelSelection: String(modelSelection),
+        targetLanguage: String(targetLanguage),
+        providerPref,
+        modePref,
+        transcriptProviderPreference: String(
+          globalTranscriptProviderPreference,
+        ),
+        resolvedProvider: provider,
+        desiredOpenRouterMode,
+        msgHasTranscript: Boolean(msgTranscript),
       });
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
@@ -427,7 +496,7 @@ export async function handleGenerateSummary(
           qualityModel: qualityModel || modelSelection,
           refinerModel: refinerModel,
           targetLanguage: targetLanguage,
-          fastMode: openRouterMode === "fast",
+          fastMode: desiredOpenRouterMode === "fast",
         });
 
         const summary = parseOpenRouterSummary(workflow.summary);
@@ -456,7 +525,12 @@ export async function handleGenerateSummary(
           result = await tryOpenRouter();
         }
       } catch (error) {
-        console.warn(`${provider} failed, trying fallback...`, error);
+        console.warn("[summary] primary failed, trying fallback", {
+          provider,
+          videoId,
+          requestId: effectiveRequestId,
+          error: String(error),
+        });
         if (provider === "gemini" && openRouterKey) {
           result = await tryOpenRouter();
           finalProvider = "openrouter";
