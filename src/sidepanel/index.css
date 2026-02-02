@@ -108,6 +108,10 @@ All colors MUST be HSL.
 
     /* Sidepanel layout */
     --sidepanel-container-max-width: 72rem; /* wider than max-w-4xl; aligns pages in large view */
+
+    /* Sidepanel top bar */
+    --sidepanel-topbar-offset: 2.5rem; /* matches top-10 */
+    --sidepanel-topbar-height: 3.5rem;
   }
 
   .dark {
@@ -175,6 +179,18 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge legacy */
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
   }
 
   body {
