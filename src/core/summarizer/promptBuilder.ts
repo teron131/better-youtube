@@ -29,7 +29,7 @@ export class PromptBuilder {
   static LANGUAGE_DESCRIPTIONS = LANGUAGE_DESCRIPTIONS;
 
   /**
-   * Build prompt for initial summary generation
+   * Build prompt for initial summary generation (Gemini / time-aware)
    */
   static getSummaryPrompt(
     targetLanguage = "auto",
@@ -71,6 +71,47 @@ export class PromptBuilder {
   }
 
   /**
+   * Build OpenRouter prompt for initial summary generation (no timestamps)
+   */
+  static getOpenRouterSummaryPrompt(
+    targetLanguage = "auto",
+    title?: string,
+    description?: string,
+  ): string {
+    const languageInstruction = getLanguageInstruction(targetLanguage);
+    const metadataParts = [];
+    if (title) metadataParts.push(`Video Title: ${title}`);
+    if (description) metadataParts.push(`Video Description: ${description}`);
+    const metadata =
+      metadataParts.length > 0
+        ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n`
+        : "";
+
+    return [
+      "Create a transcript-grounded summary.",
+      metadata,
+      languageInstruction,
+      "",
+      "OUTPUT FORMAT (STRICT):",
+      "- Return JSON matching the required schema ONLY.",
+      "- Top-level fields:",
+      "  - overview (string)",
+      "  - chapters (array)",
+      "- Each chapter:",
+      "  - title (string)",
+      "  - description (string)",
+      "",
+      "REQUIREMENTS:",
+      "- Every claim must be directly supported by the transcript",
+      "- Chapters must be chronological and non-overlapping; merge adjacent topics when needed",
+      "- Write in objective, article-like style (avoid 'This video...', 'The speaker...')",
+      "- No meta-descriptive language ('This summary explores', etc.)",
+      "- Remove promotional content (intros/outros/calls-to-action/sponsors)",
+      "- Keep only educational content",
+    ].join("\n");
+  }
+
+  /**
    * Build prompt for quality assessment
    */
   static getQualityPrompt(): string {
@@ -80,7 +121,7 @@ export class PromptBuilder {
       "",
       "EXPECTED SUMMARY SCHEMA:",
       "- overview: string",
-      "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
+      "- chapters: array of { title: string, description: string }",
       "",
       "ASPECT GUIDELINES:",
       "- completeness: covers the full transcript end-to-end",
@@ -95,6 +136,40 @@ export class PromptBuilder {
    * Build prompt for summary improvement
    */
   static getRefinePrompt(
+    targetLanguage = "auto",
+    title?: string,
+    description?: string,
+  ): string {
+    const languageInstruction = getLanguageInstruction(targetLanguage, true);
+    const metadataParts = [];
+    if (title) metadataParts.push(`Video Title: ${title}`);
+    if (description) metadataParts.push(`Video Description: ${description}`);
+    const metadata =
+      metadataParts.length > 0
+        ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n`
+        : "";
+
+    return [
+      "Improve the summary based on quality feedback while maintaining transcript accuracy.",
+      metadata,
+      languageInstruction,
+      "",
+      "OUTPUT FORMAT (STRICT):",
+      "- Keep the same schema: { overview, chapters[] } only.",
+      "",
+      "PRIORITIES:",
+      "- All content must be transcript-supported",
+      "- Remove promotional content",
+      "- Use objective, article-like tone",
+      "- No meta-descriptive language",
+      "- Improve structure by merging/splitting chapters (chronological, non-overlapping)",
+    ].join("\n");
+  }
+
+  /**
+   * Build OpenRouter prompt for summary improvement (no timestamps)
+   */
+  static getOpenRouterRefinePrompt(
     targetLanguage = "auto",
     title?: string,
     description?: string,

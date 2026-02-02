@@ -33,7 +33,7 @@ export async function summarizeGemini(
   const thinkingLevel = options?.thinkingLevel ?? ThinkingLevel.MEDIUM;
   const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
 
-  const prompt = buildPrompt(input.targetLanguage ?? "auto");
+  const prompt = buildPrompt(input.targetLanguage ?? "auto", input.kind);
 
   const contents =
     input.kind === "youtube_url"
@@ -58,16 +58,27 @@ export async function summarizeGemini(
   return { summary: parsed, usage: response.usageMetadata };
 }
 
-function buildPrompt(targetLanguage: string): string {
+function buildPrompt(
+  targetLanguage: string,
+  kind: GeminiInput["kind"],
+): string {
   const langRule =
     targetLanguage === "auto"
       ? "Traditional Chinese if the video is in Chinese, otherwise English."
       : `Write ALL output in ${targetLanguage}.`;
 
+  const sourceRule =
+    kind === "youtube_url"
+      ? "You are given the full video as input. Use BOTH audio/spoken content AND visuals (on-screen text, slides, charts/plots, code, UI, scene changes) to ground the summary. If a detail is not clearly supported by what you can see/hear, do NOT invent it."
+      : "You are given a transcript. Ground the summary ONLY in the transcript text; do NOT add visual-only details.";
+
   return `
 1) Analyze in chronological order.
 2) Build the chapter list in the same chronological order (merge adjacent segments when needed).
 3) Write overview AFTER chapters, based on the chapter sequence (end-to-end arc + main thesis).
+
+Source:
+- ${sourceRule}
 
 Requirements:
 - Output fields:

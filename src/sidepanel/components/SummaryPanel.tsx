@@ -32,6 +32,7 @@ interface SummaryPanelProps {
   summary: Summary;
   quality?: QualityData;
   videoInfo?: VideoInfoResponse;
+  provider?: "gemini" | "openrouter";
   onRegenerate?: () => void;
   isRegenerating?: boolean;
 }
@@ -40,6 +41,7 @@ export const SummaryPanel = ({
   summary,
   quality,
   videoInfo,
+  provider,
   onRegenerate,
   isRegenerating,
 }: SummaryPanelProps) => {
@@ -310,13 +312,14 @@ export const SummaryPanel = ({
                         <span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
                           {index + 1}
                         </span>
-                        {(chapter.startTime || chapter.endTime) && (
-                          <span className="mr-2 text-xs md:text-sm text-muted-foreground font-medium">
-                            {[chapter.startTime, chapter.endTime]
-                              .filter(Boolean)
-                              .join("-")}
-                          </span>
-                        )}
+                        {provider === "gemini" &&
+                          (chapter.startTime || chapter.endTime) && (
+                            <span className="mr-2 text-xs md:text-sm text-muted-foreground font-medium">
+                              {[chapter.startTime, chapter.endTime]
+                                .filter(Boolean)
+                                .join("-")}
+                            </span>
+                          )}
                         <span
                           dangerouslySetInnerHTML={{
                             __html: highlightText(chapter.title),

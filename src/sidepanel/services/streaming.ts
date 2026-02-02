@@ -71,6 +71,7 @@ interface SummaryListenerResult {
   summary: any;
   videoInfo: any;
   transcript: string | null;
+  provider?: "gemini" | "openrouter";
 }
 
 /**
@@ -112,6 +113,7 @@ function createSummaryListener(
           summary,
           videoInfo: msgVideoInfo || videoInfo,
           transcript: transcript || null,
+          provider: (msg as any).provider,
         });
       } else if (
         msg.action === MESSAGE_ACTIONS.SHOW_ERROR &&
@@ -269,6 +271,7 @@ export async function streamSummary(
       summary,
       videoInfo: resultVideoInfo,
       transcript,
+      provider,
     } = await listenerPromise;
 
     return {
@@ -279,6 +282,7 @@ export async function streamSummary(
       quality: summary.quality,
       summaryText: summary.summaryText,
       qualityScore: summary.qualityScore,
+      provider,
       totalTime: formatTime(),
       iterations: summary.iterations || 0,
       chunksProcessed: 0,

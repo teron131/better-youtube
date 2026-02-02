@@ -43,17 +43,17 @@ createMessageListener((message, sender, sendResponse) => {
 
           switch (message.action) {
             case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-              handleScrapeVideo(message, sendResponse);
+              await handleScrapeVideo(message, sendResponse);
               break;
             case MESSAGE_ACTIONS.FETCH_SUBTITLES:
-              handleFetchSubtitles(
+              await handleFetchSubtitles(
                 message,
                 { tabId, captionRequests, pendingCaptionJobs },
                 sendResponse,
               );
               break;
             case MESSAGE_ACTIONS.GENERATE_SUMMARY:
-              handleGenerateSummary(
+              await handleGenerateSummary(
                 message,
                 { summaryRequests, pendingSummaryJobs },
                 sendResponse,
