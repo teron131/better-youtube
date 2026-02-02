@@ -129,10 +129,8 @@ export const VideoUrlForm = ({
       >
         <div className="space-y-2">
           <div
-            className={`rounded-2xl border bg-muted/40 px-4 py-2 shadow-sm transition-all duration-300 focus-within:ring-1 ${
-              validationError
-                ? "border-destructive focus-within:ring-destructive"
-                : "border-border/60 hover:border-primary/20 focus-within:border-primary/25 focus-within:ring-primary/20"
+            className={`rounded-2xl bg-transparent px-4 py-2 shadow-none transition-all duration-300 ${
+              validationError ? "ring-1 ring-destructive/60" : ""
             }`}
           >
             <Input
