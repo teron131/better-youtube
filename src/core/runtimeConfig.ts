@@ -1,5 +1,5 @@
-import type { AppConfig } from "./config";
-import { loadConfig } from "./config";
+import { loadConfig, type AppConfig } from "./config";
+import { DEFAULTS } from "@/core/constants";
 
 // ============================================================================
 // Global Config Cache & Variables
@@ -18,11 +18,11 @@ export let globalQualityModel: string = "";
 export let globalTargetLanguage: string = "";
 export let globalAutoGenerate: boolean = false;
 export let globalShowSubtitles: boolean = false;
-export let globalFastMode: boolean = false;
 export let globalCaptionFontSize: string = "";
 export let globalSummaryFontSize: string = "";
 export let globalSummarizerProvider: "auto" | "gemini" | "openrouter" = "auto";
-export let globalSummarizerMode: "native" | "react" | "fast" = "react";
+export let globalSummarizerMode: "native" | "validation" | "fast" =
+  DEFAULTS.SUMMARIZER_MODE;
 export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
   "scrapeCreators";
 
@@ -31,27 +31,23 @@ export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
  * Should be called once at the start of each request
  */
 export async function initGlobalConfig(): Promise<void> {
-  if (!cachedConfig) {
-    cachedConfig = await loadConfig();
-  }
+  const config = await loadConfig();
 
-  globalOpenRouterKey = cachedConfig.openRouterApiKey;
-  globalGeminiKey = cachedConfig.geminiApiKey;
-  globalScrapeCreatorsKey = cachedConfig.scrapeCreatorsApiKey;
-  globalSupadataKey = cachedConfig.supadataApiKey;
-  globalSummarizerProvider = cachedConfig.summarizerProvider;
-  globalSummarizerMode = cachedConfig.summarizerMode;
-  globalTranscriptProviderPreference =
-    cachedConfig.transcriptProviderPreference;
-  globalSummarizerModel = cachedConfig.summarizerModel;
-  globalRefinerModel = cachedConfig.refinerModel;
-  globalQualityModel = cachedConfig.qualityModel;
-  globalTargetLanguage = cachedConfig.targetLanguage;
-  globalAutoGenerate = cachedConfig.autoGenerate;
-  globalShowSubtitles = cachedConfig.showSubtitles;
-  globalFastMode = cachedConfig.fastMode;
-  globalCaptionFontSize = cachedConfig.captionFontSize;
-  globalSummaryFontSize = cachedConfig.summaryFontSize;
+  globalOpenRouterKey = config.openRouterApiKey;
+  globalGeminiKey = config.geminiApiKey;
+  globalScrapeCreatorsKey = config.scrapeCreatorsApiKey;
+  globalSupadataKey = config.supadataApiKey;
+  globalSummarizerProvider = config.summarizerProvider;
+  globalSummarizerMode = config.summarizerMode;
+  globalTranscriptProviderPreference = config.transcriptProviderPreference;
+  globalSummarizerModel = config.summarizerModel;
+  globalRefinerModel = config.refinerModel;
+  globalQualityModel = config.qualityModel;
+  globalTargetLanguage = config.targetLanguage;
+  globalAutoGenerate = config.autoGenerate;
+  globalShowSubtitles = config.showSubtitles;
+  globalCaptionFontSize = config.captionFontSize;
+  globalSummaryFontSize = config.summaryFontSize;
 }
 
 /**
@@ -70,12 +66,11 @@ export function clearConfigCache(): void {
   globalTargetLanguage = "";
   globalAutoGenerate = false;
   globalShowSubtitles = false;
-  globalFastMode = false;
   globalCaptionFontSize = "";
   globalSummaryFontSize = "";
 
   globalSummarizerProvider = "auto";
-  globalSummarizerMode = "react";
+  globalSummarizerMode = DEFAULTS.SUMMARIZER_MODE;
   globalTranscriptProviderPreference = "scrapeCreators";
 }
 

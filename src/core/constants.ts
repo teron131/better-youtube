@@ -22,7 +22,6 @@ export const STORAGE_KEYS = {
   SUMMARY_FONT_SIZE: "summaryFontSize",
   TARGET_LANGUAGE_RECOMMENDED: "targetLanguageRecommended",
   TARGET_LANGUAGE_CUSTOM: "targetLanguageCustom",
-  FAST_MODE: "fastMode",
   QUALITY_MODEL: "qualityModel",
 } as const;
 
@@ -146,7 +145,7 @@ export const DEFAULTS = {
   TARGET_LANGUAGE_RECOMMENDED: "auto",
   TARGET_LANGUAGE_CUSTOM: "",
   SUMMARIZER_PROVIDER: "auto" as const,
-  SUMMARIZER_MODE: "react" as const,
+  SUMMARIZER_MODE: "validation" as const,
   TRANSCRIPT_PROVIDER_PREFERENCE: "scrapeCreators" as const,
 } as const;
 

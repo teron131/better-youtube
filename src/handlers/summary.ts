@@ -55,7 +55,7 @@ type SummaryResult = {
 };
 
 type SummaryProvider = "openrouter" | "gemini" | "auto";
-type SummarizerMode = "native" | "react" | "fast";
+type SummarizerMode = "native" | "validation" | "fast";
 
 type ProviderPref = "auto" | "gemini" | "openrouter";
 
@@ -79,21 +79,18 @@ function normalizeProviderPreference(input: {
 
 function normalizeModePreference(input: {
   summarizerMode?: unknown;
-  fastMode?: unknown;
   globalMode: SummarizerMode;
 }): SummarizerMode {
-  const { summarizerMode, fastMode, globalMode } = input;
+  const { summarizerMode, globalMode } = input;
 
   if (
     summarizerMode === "native" ||
-    summarizerMode === "react" ||
+    summarizerMode === "validation" ||
     summarizerMode === "fast"
   ) {
     return summarizerMode;
   }
 
-  if (fastMode === true) return "fast";
-  if (fastMode === false) return "react";
   return globalMode;
 }
 
@@ -341,11 +338,11 @@ export async function handleGenerateSummary(
     qualityModel,
     refinerModel,
     targetLanguage,
-    fastMode,
     forceRegenerate,
     summaryProvider,
     summarizerMode,
     summarizerProvider,
+    transcriptProviderPreference,
   } = message as any;
 
   if (requestId) {
@@ -363,7 +360,6 @@ export async function handleGenerateSummary(
 
   const modePref = normalizeModePreference({
     summarizerMode,
-    fastMode,
     globalMode: globalSummarizerMode,
   });
 
@@ -388,11 +384,11 @@ export async function handleGenerateSummary(
       const openRouterKey = globalOpenRouterKey;
 
       const { provider } = resolveSummarizationRoute({
-        providerPreference: providerPref,
-        modePreference: modePref,
-        modelSelection: String(modelSelection),
-        hasGeminiKey: Boolean(geminiKey),
-        hasOpenRouterKey: Boolean(openRouterKey),
+        requestedProvider: providerPref,
+        requestedMode: modePref,
+        summarizerModel: String(modelSelection),
+        hasGeminiKey: !!geminiKey,
+        hasOpenRouterKey: !!openRouterKey,
       });
 
       logSummaryConfig({

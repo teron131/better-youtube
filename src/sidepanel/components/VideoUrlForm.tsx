@@ -26,7 +26,7 @@ import {
   useUserPreferences,
 } from "@ui/hooks/use-config";
 import { getProviderLogo } from "@ui/lib/provider-logos";
-import { AlertCircle, ArrowUp, Captions, Loader2, Zap } from "lucide-react";
+import { AlertCircle, ArrowUp, Captions, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 function ProviderLogo({ provider }: { provider?: string }) {
@@ -50,7 +50,6 @@ interface VideoUrlFormProps {
       targetLanguage?: string;
       summaryModel?: string;
       qualityModel?: string;
-      fastMode?: boolean;
     },
     action?: "caption" | "summary",
   ) => void;
@@ -96,7 +95,6 @@ export const VideoUrlForm = ({
       preferences.targetLanguage,
       preferences.summaryModel,
       preferences.qualityModel,
-      preferences.fastMode,
     );
 
     if (!trimmedUrl) {
@@ -199,26 +197,6 @@ export const VideoUrlForm = ({
                 ))}
               </SelectContent>
             </Select>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isLoading}
-              onClick={() =>
-                updatePreferences({ fastMode: !preferences.fastMode })
-              }
-              className={`h-8 rounded-full px-3 text-xs font-medium border border-transparent hover:border-primary/25 bg-transparent hover:bg-transparent transition-all active:border-transparent ${
-                preferences.fastMode
-                  ? "text-primary border-primary/40"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-pressed={preferences.fastMode}
-              title="Toggle fast mode"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span className="ml-1">Fast</span>
-            </Button>
           </div>
 
           <div className="flex items-center gap-2">

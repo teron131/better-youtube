@@ -16,7 +16,7 @@ export function getVideoStorageKeys(): string[] {
     STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
     STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
     STORAGE_KEYS.SHOW_SUBTITLES,
-    STORAGE_KEYS.FAST_MODE,
+    STORAGE_KEYS.SUMMARIZER_MODE,
     STORAGE_KEYS.QUALITY_MODEL,
   ];
 }
@@ -29,14 +29,14 @@ export async function getAutoGenModels(): Promise<{
   summarizerModel: string;
   qualityModel: string;
   targetLanguage: string;
-  fastMode: boolean;
+  summarizerMode: "native" | "validation" | "fast";
 }> {
   const config = await loadConfig();
   return {
     summarizerModel: config.summarizerModel,
     qualityModel: config.qualityModel,
     targetLanguage: config.targetLanguage,
-    fastMode: config.fastMode,
+    summarizerMode: config.summarizerMode,
   };
 }
 

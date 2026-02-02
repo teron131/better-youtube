@@ -83,7 +83,6 @@ export interface SummarizeRequest {
   summaryModel?: string;
   qualityModel?: string;
   targetLanguage?: string | null;
-  fastMode?: boolean;
 }
 
 // Response Types

@@ -21,7 +21,6 @@ export interface VideoProcessingOptions {
   summaryModel?: string;
   qualityModel?: string;
   targetLanguage?: string;
-  fastMode?: boolean;
   transcript?: string;
   forceRegenerate?: boolean;
 }

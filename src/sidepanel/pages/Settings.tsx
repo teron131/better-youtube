@@ -48,7 +48,6 @@ const SETTINGS_KEYS = [
   "captionFontSize",
   "summaryFontSize",
   "autoGenerate",
-  "fastMode",
 ];
 
 const DEFAULT_SETTINGS = {
@@ -57,7 +56,7 @@ const DEFAULT_SETTINGS = {
   openRouterApiKey: "",
   geminiApiKey: "",
   summarizerProvider: "auto",
-  summarizerMode: "react",
+  summarizerMode: "validation",
   transcriptProviderPreference: "scrapeCreators",
   summarizerModel: "google/gemini-3-flash-preview",
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
@@ -65,8 +64,9 @@ const DEFAULT_SETTINGS = {
   captionFontSize: "M",
   summaryFontSize: "M",
   autoGenerate: false,
-  fastMode: false,
 };
+
+const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -80,18 +80,6 @@ const Settings = () => {
         const stored = await getStorageValues(SETTINGS_KEYS);
         setSettings((prev) => {
           const next: any = { ...prev, ...stored };
-
-          // Back-compat / normalization between summarizerMode and fastMode.
-          if (!next.summarizerMode) {
-            next.summarizerMode = next.fastMode ? "fast" : "react";
-          }
-          if (next.summarizerMode === "fast") next.fastMode = true;
-          if (
-            next.summarizerMode === "react" ||
-            next.summarizerMode === "native"
-          ) {
-            next.fastMode = false;
-          }
 
           return next;
         });
@@ -378,7 +366,7 @@ const Settings = () => {
                   value={settings.targetLanguage}
                   onValueChange={(val) => handleChange("targetLanguage", val)}
                 >
-                  <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
+                  <SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -410,7 +398,7 @@ const Settings = () => {
                       handleChange("summarizerProvider", val)
                     }
                   >
-                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
+                    <SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
                       <SelectValue placeholder="Auto" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -436,19 +424,16 @@ const Settings = () => {
                     value={settings.summarizerMode}
                     onValueChange={async (val) => {
                       await handleChange("summarizerMode", val);
-                      if (val === "fast") await handleChange("fastMode", true);
-                      else if (val === "react")
-                        await handleChange("fastMode", false);
-                      else if (val === "native")
-                        await handleChange("fastMode", false);
                     }}
                   >
-                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
-                      <SelectValue placeholder="Fast Agent" />
+                    <SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
+                      <SelectValue placeholder="Select mode" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="native">Gemini Native</SelectItem>
-                      <SelectItem value="react">Validation Agent</SelectItem>
+                      <SelectItem value="validation">
+                        Validation Agent
+                      </SelectItem>
                       <SelectItem value="fast">Fast Agent</SelectItem>
                     </SelectContent>
                   </Select>
@@ -471,7 +456,7 @@ const Settings = () => {
                       handleChange("transcriptProviderPreference", val)
                     }
                   >
-                    <SelectTrigger className="w-[200px] h-9 rounded-xl text-xs">
+                    <SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
                       <SelectValue placeholder="Scrape Creators" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -502,32 +487,6 @@ const Settings = () => {
                     onCheckedChange={(checked) =>
                       handleChange("autoGenerate", checked)
                     }
-                    className="data-[state=checked]:bg-primary scale-75"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2 rounded-2xl bg-muted/30 border border-border/60">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                      <Zap className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-foreground text-xs">
-                        Quality Check
-                      </h4>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={!settings.fastMode}
-                    onCheckedChange={async (checked) => {
-                      await handleChange("fastMode", !checked);
-                      if (settings.summarizerMode !== "native") {
-                        await handleChange(
-                          "summarizerMode",
-                          checked ? "react" : "fast",
-                        );
-                      }
-                    }}
                     className="data-[state=checked]:bg-primary scale-75"
                   />
                 </div>

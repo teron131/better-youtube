@@ -38,7 +38,7 @@ export function triggerSummaryGeneration(
     summarizerModel: string;
     qualityModel: string;
     targetLanguage: string;
-    fastMode: boolean;
+    summarizerMode: "native" | "validation" | "fast";
   },
 ): void {
   sendChromeMessage({
@@ -48,7 +48,7 @@ export function triggerSummaryGeneration(
     modelSelection: m.summarizerModel,
     qualityModel: m.qualityModel,
     targetLanguage: m.targetLanguage,
-    fastMode: m.fastMode,
+    summarizerMode: m.summarizerMode,
   })
     .then((r) => console.log("[Auto-gen] Summary generation triggered:", r))
     .catch((e) =>

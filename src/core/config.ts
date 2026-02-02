@@ -11,6 +11,10 @@ import { getStorageValues } from "./storage";
 // Types
 // ============================================================================
 
+export type SummarizerProviderPreference = "auto" | "gemini" | "openrouter";
+export type SummarizerModePreference = "native" | "validation" | "fast";
+export type TranscriptProviderPreference = "scrapeCreators" | "supadata";
+
 export interface AppConfig {
   // API Keys (nullable)
   openRouterApiKey: string | null;
@@ -20,7 +24,7 @@ export interface AppConfig {
 
   // Routing
   summarizerProvider: "auto" | "gemini" | "openrouter";
-  summarizerMode: "native" | "react" | "fast";
+  summarizerMode: "native" | "validation" | "fast";
   transcriptProviderPreference: "scrapeCreators" | "supadata";
 
   // Model selections
@@ -32,7 +36,6 @@ export interface AppConfig {
   targetLanguage: string;
   autoGenerate: boolean;
   showSubtitles: boolean;
-  fastMode: boolean;
   captionFontSize: FontSize;
   summaryFontSize: FontSize;
 }
@@ -97,7 +100,6 @@ export async function loadConfig(): Promise<AppConfig> {
     STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
     STORAGE_KEYS.AUTO_GENERATE,
     STORAGE_KEYS.SHOW_SUBTITLES,
-    STORAGE_KEYS.FAST_MODE,
     STORAGE_KEYS.CAPTION_FONT_SIZE,
     STORAGE_KEYS.SUMMARY_FONT_SIZE,
   ];
@@ -113,12 +115,10 @@ export async function loadConfig(): Promise<AppConfig> {
       : "auto";
 
   const modeRaw = String(result[STORAGE_KEYS.SUMMARIZER_MODE] ?? "");
-  const summarizerMode: "native" | "react" | "fast" =
-    modeRaw === "native" || modeRaw === "react" || modeRaw === "fast"
+  const summarizerMode: "native" | "validation" | "fast" =
+    modeRaw === "native" || modeRaw === "validation" || modeRaw === "fast"
       ? modeRaw
-      : result[STORAGE_KEYS.FAST_MODE] === true
-        ? "fast"
-        : DEFAULTS.SUMMARIZER_MODE;
+      : DEFAULTS.SUMMARIZER_MODE;
 
   const transcriptPrefRaw = String(
     result[STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE] ??
@@ -163,7 +163,6 @@ export async function loadConfig(): Promise<AppConfig> {
     autoGenerate: result[STORAGE_KEYS.AUTO_GENERATE] ?? DEFAULTS.AUTO_GENERATE,
     showSubtitles:
       result[STORAGE_KEYS.SHOW_SUBTITLES] ?? DEFAULTS.SHOW_SUBTITLES,
-    fastMode: result[STORAGE_KEYS.FAST_MODE] === true,
     captionFontSize:
       result[STORAGE_KEYS.CAPTION_FONT_SIZE] ?? DEFAULTS.CAPTION_FONT_SIZE,
     summaryFontSize:
