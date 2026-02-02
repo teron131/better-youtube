@@ -30,7 +30,12 @@ import {
   SUMMARY_CONFIG,
 } from "./qualityUtils";
 import type { GraphState, SummarizerOutput, Summary } from "./schemas";
-import { GraphStateSchema, QualitySchema, SummarySchema } from "./schemas";
+import {
+  GraphStateSchema,
+  QualitySchema,
+  SummarySchema,
+  SummarySchemaNoTimestamps,
+} from "./schemas";
 
 // ============================================================================
 // Tools
@@ -179,13 +184,16 @@ function createSummaryNode() {
     const llm = createOpenRouterClient(
       summaryModel!,
       "Better YouTube - Summarizer",
-    ).withStructuredOutput(SummarySchema);
+    ).withStructuredOutput(SummarySchemaNoTimestamps);
     const lang = targetLanguage || "auto";
 
     let result;
     if (quality && summary) {
       const prompt = ChatPromptTemplate.fromMessages([
-        ["system", PromptBuilder.getRefinePrompt(lang, title, description)],
+        [
+          "system",
+          PromptBuilder.getOpenRouterRefinePrompt(lang, title, description),
+        ],
         ["human", "{improvement_prompt}"],
       ]);
       result = await prompt.pipe(llm).invoke({
@@ -193,7 +201,10 @@ function createSummaryNode() {
       });
     } else {
       const prompt = ChatPromptTemplate.fromMessages([
-        ["system", PromptBuilder.getSummaryPrompt(lang, title, description)],
+        [
+          "system",
+          PromptBuilder.getOpenRouterSummaryPrompt(lang, title, description),
+        ],
         ["human", "{content}"],
       ]);
       result = await prompt.pipe(llm).invoke({ content: transcript });
@@ -315,12 +326,12 @@ async function summarizeFast(
   const agent = createAgent({
     model: createOpenRouterClient(model, "Better YouTube - Summarizer"),
     tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
-    systemPrompt: PromptBuilder.getSummaryPrompt(
+    systemPrompt: PromptBuilder.getOpenRouterSummaryPrompt(
       targetLanguage,
       input.title,
       input.description,
     ),
-    responseFormat: toolStrategy(SummarySchema),
+    responseFormat: toolStrategy(SummarySchemaNoTimestamps),
     middleware: isUrl
       ? [
           createGarbageFilterMiddleware(

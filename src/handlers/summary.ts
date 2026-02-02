@@ -169,6 +169,12 @@ async function broadcastStoredSummary(
   const summary = storedSummary.summary as any;
   const summaryText = videoInfo ? summaryToMarkdown(summary, videoInfo) : "";
 
+  const provider = storedSummary.modelUsed?.startsWith("gemini::")
+    ? "gemini"
+    : storedSummary.modelUsed?.startsWith("openrouter::")
+      ? "openrouter"
+      : undefined;
+
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
@@ -180,6 +186,7 @@ async function broadcastStoredSummary(
       iterations: 0,
       qualityScore: 0,
     },
+    provider,
     videoInfo,
     transcript: null,
   });
@@ -197,6 +204,7 @@ async function broadcastSummaryResult(
   transcript_or_url: string,
   modelSelection: string,
   targetLanguage: string,
+  provider: "openrouter" | "gemini",
   requestId?: string,
 ): Promise<void> {
   // Save summary to storage
@@ -214,6 +222,7 @@ async function broadcastSummaryResult(
     videoId,
     requestId,
     summary: result,
+    provider,
     videoInfo,
     transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
   });
@@ -391,6 +400,7 @@ export async function handleGenerateSummary(
         transcript_or_url,
         modelUsedKey,
         targetLanguage,
+        provider,
         effectiveRequestId || undefined,
       );
     } catch (error) {

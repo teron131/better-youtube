@@ -136,6 +136,12 @@ const Index = () => {
           ? storedSubtitles.map((segment) => segment.text).join(" ")
           : null;
 
+        const provider = storedSummary.modelUsed?.startsWith("gemini::")
+          ? "gemini"
+          : storedSummary.modelUsed?.startsWith("openrouter::")
+            ? "openrouter"
+            : undefined;
+
         setIsExampleMode(false);
         setLastProcessedUrl(initialUrl);
 
@@ -146,6 +152,7 @@ const Index = () => {
             quality: storedSummary.quality,
             videoInfo: storedVideoInfo ?? undefined,
             transcript: transcript ?? undefined,
+            provider,
             totalTime: "cached",
             iterations: 0,
             chunksProcessed: 0,
@@ -421,6 +428,7 @@ const Index = () => {
                 summary={summaryResult.summary}
                 quality={summaryResult.quality}
                 videoInfo={summaryResult.videoInfo}
+                provider={summaryResult.provider}
                 onRegenerate={isExampleMode ? undefined : handleRegenerate}
                 isRegenerating={isLoading}
               />

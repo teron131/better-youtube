@@ -29,6 +29,16 @@ export const ChapterSchema = z.object({
 
 export type Chapter = CoreChapter;
 
+// OpenRouter: explicitly omit timestamps to avoid hallucinated time ranges.
+export const ChapterSchemaNoTimestamps = z.object({
+  title: z.string().describe("A concise chapter heading."),
+  description: z
+    .string()
+    .describe(
+      "A substantive chapter description grounded in the transcript. Include key facts (numbers/names/steps) when present. Avoid meta-language like 'this video...' and do not include sponsorship/promotional content.",
+    ),
+});
+
 /**
  * Summary output schema
  */
@@ -47,6 +57,20 @@ export const SummarySchema = z.object({
 });
 
 export type Summary = CoreSummary;
+
+export const SummarySchemaNoTimestamps = z.object({
+  chapters: z
+    .array(ChapterSchemaNoTimestamps)
+    .min(1)
+    .describe(
+      "Chronological, non-overlapping chapters covering the core content.",
+    ),
+  overview: z
+    .string()
+    .describe(
+      "An end-to-end summary of the whole content (main thesis + arc), written in direct statements without meta-language.",
+    ),
+});
 
 /**
  * Rate schema for quality assessment
