@@ -29,6 +29,48 @@ export class PromptBuilder {
   static LANGUAGE_DESCRIPTIONS = LANGUAGE_DESCRIPTIONS;
 
   /**
+   * Gemini prompt (supports youtube_url input with visuals)
+   */
+  static getGeminiSummaryPrompt(
+    targetLanguage: string = "auto",
+    kind: "youtube_url" | "transcript" = "transcript",
+    title?: string,
+    description?: string,
+  ): string {
+    const languageInstruction = getLanguageInstruction(targetLanguage);
+    const metadataParts = [];
+    if (title) metadataParts.push(`Video Title: ${title}`);
+    if (description) metadataParts.push(`Video Description: ${description}`);
+    const metadata =
+      metadataParts.length > 0
+        ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n`
+        : "";
+
+    const sourceRule =
+      kind === "youtube_url"
+        ? "You are given the full video. Use BOTH spoken content and visuals (on-screen text/slides/charts/code/UI). Do not invent details that are not clearly supported by what you can see/hear."
+        : "You are given a transcript only. Ground the summary ONLY in the transcript text and do not add visual-only details.";
+
+    return [
+      "Create a grounded, chronological summary.",
+      metadata,
+      languageInstruction,
+      "",
+      `SOURCE: ${sourceRule}`,
+      "",
+      "Return JSON only (no extra text) with:",
+      "- overview: string",
+      "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
+      "(startTime/endTime are optional MM:SS; omit if unsure)",
+      "",
+      "Rules:",
+      "- Chapters must be chronological and non-overlapping",
+      "- Avoid meta-language (no 'this video...' framing)",
+      "- Exclude sponsors/promos/CTAs entirely",
+    ].join("\n");
+  }
+
+  /**
    * Build prompt for initial summary generation (Gemini / time-aware)
    */
   static getSummaryPrompt(
@@ -46,27 +88,20 @@ export class PromptBuilder {
         : "";
 
     return [
-      "Create a transcript-grounded summary.",
+      "Create a grounded, chronological summary.",
       metadata,
       languageInstruction,
       "",
-      "OUTPUT FORMAT (STRICT):",
-      "- Return JSON matching the required schema ONLY.",
-      "- Top-level fields:",
-      "  - overview (string)",
-      "  - chapters (array)",
-      "- Each chapter:",
-      "  - title (string)",
-      "  - description (string)",
-      "  - startTime/endTime are optional (MM:SS) and may be omitted.",
+      "Return JSON only with overview + chapters.",
+      "- overview: string",
+      "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
+      "(startTime/endTime are optional MM:SS; omit if unsure)",
       "",
-      "REQUIREMENTS:",
-      "- Every claim must be directly supported by the transcript",
-      "- Chapters must be chronological and non-overlapping; merge adjacent topics when needed",
-      "- Write in objective, article-like style (avoid 'This video...', 'The speaker...')",
-      "- No meta-descriptive language ('This summary explores', etc.)",
-      "- Remove promotional content (intros/outros/calls-to-action/sponsors)",
-      "- Keep only educational content",
+      "Rules:",
+      "- Every claim must be supported by the transcript",
+      "- Chapters must be chronological and non-overlapping",
+      "- Avoid meta-language",
+      "- Exclude sponsors/promos/CTAs",
     ].join("\n");
   }
 
@@ -88,26 +123,19 @@ export class PromptBuilder {
         : "";
 
     return [
-      "Create a transcript-grounded summary.",
+      "Create a grounded, chronological summary.",
       metadata,
       languageInstruction,
       "",
-      "OUTPUT FORMAT (STRICT):",
-      "- Return JSON matching the required schema ONLY.",
-      "- Top-level fields:",
-      "  - overview (string)",
-      "  - chapters (array)",
-      "- Each chapter:",
-      "  - title (string)",
-      "  - description (string)",
+      "Return JSON only with overview + chapters.",
+      "- overview: string",
+      "- chapters: array of { title: string, description: string }",
       "",
-      "REQUIREMENTS:",
-      "- Every claim must be directly supported by the transcript",
-      "- Chapters must be chronological and non-overlapping; merge adjacent topics when needed",
-      "- Write in objective, article-like style (avoid 'This video...', 'The speaker...')",
-      "- No meta-descriptive language ('This summary explores', etc.)",
-      "- Remove promotional content (intros/outros/calls-to-action/sponsors)",
-      "- Keep only educational content",
+      "Rules:",
+      "- Every claim must be supported by the transcript",
+      "- Chapters must be chronological and non-overlapping",
+      "- Avoid meta-language",
+      "- Exclude sponsors/promos/CTAs",
     ].join("\n");
   }
 
@@ -119,16 +147,9 @@ export class PromptBuilder {
       "Evaluate the summary JSON.",
       "Rate each aspect as 'Fail', 'Refine', or 'Pass' and include a specific reason.",
       "",
-      "EXPECTED SUMMARY SCHEMA:",
+      "Expected shape:",
       "- overview: string",
       "- chapters: array of { title: string, description: string }",
-      "",
-      "ASPECT GUIDELINES:",
-      "- completeness: covers the full transcript end-to-end",
-      "- structure: schema is followed; chapters are chronological and substantive",
-      "- no_garbage: no sponsorships/promos/filler",
-      "- meta_language_avoidance: no 'this video...' style framing",
-      "- correct_language: matches requested target language",
     ].join("\n");
   }
 
@@ -150,19 +171,12 @@ export class PromptBuilder {
         : "";
 
     return [
-      "Improve the summary based on quality feedback while maintaining transcript accuracy.",
+      "Improve the summary based on quality feedback while staying transcript-grounded.",
       metadata,
       languageInstruction,
       "",
-      "OUTPUT FORMAT (STRICT):",
-      "- Keep the same schema: { overview, chapters[] } only.",
-      "",
-      "PRIORITIES:",
-      "- All content must be transcript-supported",
-      "- Remove promotional content",
-      "- Use objective, article-like tone",
-      "- No meta-descriptive language",
-      "- Improve structure by merging/splitting chapters (chronological, non-overlapping)",
+      "Return JSON only with overview + chapters.",
+      "Rules: remove promos, avoid meta-language, keep chronology.",
     ].join("\n");
   }
 
@@ -184,19 +198,12 @@ export class PromptBuilder {
         : "";
 
     return [
-      "Improve the summary based on quality feedback while maintaining transcript accuracy.",
+      "Improve the summary based on quality feedback while staying transcript-grounded.",
       metadata,
       languageInstruction,
       "",
-      "OUTPUT FORMAT (STRICT):",
-      "- Keep the same schema: { overview, chapters[] } only.",
-      "",
-      "PRIORITIES:",
-      "- All content must be transcript-supported",
-      "- Remove promotional content",
-      "- Use objective, article-like tone",
-      "- No meta-descriptive language",
-      "- Improve structure by merging/splitting chapters (chronological, non-overlapping)",
+      "Return JSON only with overview + chapters.",
+      "Rules: remove promos, avoid meta-language, keep chronology.",
     ].join("\n");
   }
 
