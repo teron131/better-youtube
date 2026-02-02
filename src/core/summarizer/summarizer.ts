@@ -3,25 +3,14 @@
  * Implements summary generation with quality verification and refinement loop
  */
 
-import { API_ENDPOINTS, DEFAULTS } from "@/core/constants";
-import {
-  createAgent,
-  createMiddleware,
-  toolStrategy,
-} from "@/core/langgraph-web-shim";
+import { API_ENDPOINTS } from "@/core/constants";
 import { createOpenRouterClient } from "@/core/llmClients";
 import { globalScrapeCreatorsKey } from "@/core/runtimeConfig";
-import {
-  filterContent,
-  GarbageIdentificationSchema,
-  tagContent,
-  untagContent,
-} from "@/core/transcript/lineTag";
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
+
 import { PromptBuilder } from "./promptBuilder";
 import {
   calculateScore,
@@ -30,12 +19,8 @@ import {
   SUMMARY_CONFIG,
 } from "./qualityUtils";
 import type { GraphState, SummarizerOutput, Summary } from "./schemas";
-import {
-  GraphStateSchema,
-  QualitySchema,
-  SummarySchema,
-  SummarySchemaNoTimestamps,
-} from "./schemas";
+import { GraphStateSchema, QualitySchema, SummarySchemaNoTimestamps } from "./schemas";
+import { summarizeFast } from "./fastSummarizer";
 
 // ============================================================================
 // Tools
@@ -96,64 +81,6 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
       }),
     },
   );
-}
-
-// ============================================================================
-// Middleware
-// ============================================================================
-
-const GARBAGE_FILTER_PROMPT =
-  "Identify and remove garbage sections such as promotional and meaningless content like cliche intros, outros, filler, sponsorships, and other irrelevant segments. The transcript has line tags like [L1], [L2], etc. Return the ranges of tags that should be removed.";
-
-function createGarbageFilterMiddleware(model: string) {
-  return createMiddleware({
-    name: "garbageFilterMiddleware",
-    wrapToolCall: async (request, handler) => {
-      if (
-        (request.tool?.name ?? request.toolCall.name) !== "scrape_youtube_tool"
-      )
-        return handler(request);
-
-      const result = await handler(request);
-      if (!ToolMessage.isInstance(result) || result.status === "error")
-        return result;
-
-      const transcript =
-        typeof result.content === "string" ? result.content : "";
-      if (!transcript.trim() || transcript.startsWith("Error")) return result;
-
-      try {
-        const taggedTranscript = tagContent(transcript);
-        const garbage = await createOpenRouterClient(
-          model,
-          "Better YouTube - Filter",
-        )
-          .withStructuredOutput(GarbageIdentificationSchema, {
-            method: "jsonMode",
-          })
-          .invoke([
-            ["system", GARBAGE_FILTER_PROMPT],
-            ["human", taggedTranscript],
-          ]);
-
-        if (garbage.garbage_ranges?.length) {
-          result.content = untagContent(
-            filterContent(taggedTranscript, garbage.garbage_ranges),
-          );
-          console.log(
-            `Middleware removed ${garbage.garbage_ranges.length} garbage sections.`,
-          );
-        }
-      } catch (error) {
-        console.warn(
-          "Garbage filter middleware failed, using raw transcript.",
-          error,
-        );
-      }
-
-      return result;
-    },
-  });
 }
 
 // ============================================================================
@@ -312,60 +239,6 @@ export interface SummarizationInput {
 const isYoutubeUrl = (input: string) =>
   input.includes("youtube.com/watch") || input.includes("youtu.be/");
 
-async function summarizeFast(
-  input: SummarizationInput,
-  onProgress?: (message: string) => void,
-): Promise<SummarizerOutput> {
-  const isUrl = isYoutubeUrl(input.transcript_or_url);
-  onProgress?.(
-    `Generating summary in Fast Mode (Agent) from ${isUrl ? "URL" : "Transcript"}.`,
-  );
-
-  const model = input.summaryModel ?? SUMMARY_CONFIG.MODEL;
-  const targetLanguage = input.targetLanguage ?? "auto";
-  const agent = createAgent({
-    model: createOpenRouterClient(model, "Better YouTube - Summarizer"),
-    tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
-    systemPrompt: PromptBuilder.getOpenRouterSummaryPrompt(
-      targetLanguage,
-      input.title,
-      input.description,
-    ),
-    responseFormat: toolStrategy(SummarySchemaNoTimestamps),
-    middleware: isUrl
-      ? [
-          createGarbageFilterMiddleware(
-            input.refinerModel ?? DEFAULTS.MODEL_REFINER,
-          ),
-        ]
-      : [],
-  });
-
-  const response = await agent.invoke({
-    messages: [
-      new HumanMessage(
-        isUrl
-          ? `Summarize the video at: ${input.transcript_or_url}`
-          : `Summarize this transcript:\n\n${input.transcript_or_url}`,
-      ),
-    ],
-  });
-
-  if (!response.structuredResponse)
-    throw new Error("Agent did not return structured response");
-
-  const summary = response.structuredResponse as Summary;
-  onProgress?.("Fast summary completed");
-
-  return {
-    summary,
-    quality: null,
-    iterations: 1,
-    qualityScore: 0,
-    summaryText: summaryToMarkdown(summary),
-  };
-}
-
 export async function summarizeWorkflow(
   input: SummarizationInput,
   onProgress?: (message: string) => void,
@@ -405,5 +278,3 @@ export async function summarizeWorkflow(
     summaryText: summaryToMarkdown(summary),
   };
 }
-
-export { PromptBuilder };
