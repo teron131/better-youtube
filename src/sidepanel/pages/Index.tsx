@@ -361,9 +361,9 @@ const Index = () => {
 
   return (
     <div className="app-shell pb-10">
-      <div className="absolute top-10 left-0 right-0 z-50">
+      <div className="absolute top-[var(--sidepanel-topbar-offset)] left-0 right-0 z-50">
         <div className="sidepanel-container">
-          <div className="px-6 flex items-center justify-between w-full">
+          <div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -384,9 +384,9 @@ const Index = () => {
               variant="ghost"
               size="icon"
               onClick={() => navigate("/settings")}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground transition-all"
+              className="text-muted-foreground hover:text-foreground transition-all"
             >
-              <SettingsIcon className="h-4 w-4" />
+              <SettingsIcon className="h-6 w-6" />
             </Button>
           </div>
         </div>

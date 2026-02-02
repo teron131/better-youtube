@@ -122,14 +122,14 @@ export const VideoUrlForm = ({
   };
 
   return (
-    <Card className="w-full rounded-[24px] p-0 border border-border/60 bg-background/60 hover:border-primary/15 transition-all duration-500">
+    <Card className="w-full rounded-[24px] p-0 border border-border/60 bg-muted/40 hover:border-primary/15 transition-all duration-500">
       <form
         onSubmit={(event) => handleSubmit(event, "summary")}
         className="space-y-3 p-4 sm:p-5"
       >
         <div className="space-y-2">
           <div
-            className={`rounded-2xl border bg-muted/25 px-4 py-2 shadow-sm transition-all duration-300 focus-within:ring-1 ${
+            className={`rounded-2xl border bg-muted/40 px-4 py-2 shadow-sm transition-all duration-300 focus-within:ring-1 ${
               validationError
                 ? "border-destructive focus-within:ring-destructive"
                 : "border-border/60 hover:border-primary/20 focus-within:border-primary/25 focus-within:ring-primary/20"
@@ -164,7 +164,7 @@ export const VideoUrlForm = ({
               value={preferences.summaryModel}
               onValueChange={(val) => updatePreferences({ summaryModel: val })}
             >
-              <SelectTrigger className="h-8 w-[200px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-muted/30 hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-muted/30 data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
+              <SelectTrigger className="h-8 w-[200px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <ProviderLogo provider={selectedModel?.provider} />
                   <span className="truncate">
@@ -190,7 +190,7 @@ export const VideoUrlForm = ({
                 updatePreferences({ targetLanguage: val })
               }
             >
-              <SelectTrigger className="h-8 w-[140px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-muted/30 hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-muted/30 data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
+              <SelectTrigger className="h-8 w-[140px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
                 <SelectValue placeholder="Language" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -210,9 +210,9 @@ export const VideoUrlForm = ({
               onClick={() =>
                 updatePreferences({ fastMode: !preferences.fastMode })
               }
-              className={`h-8 rounded-full px-3 text-xs font-medium border border-transparent hover:border-primary/25 bg-transparent hover:bg-muted/30 transition-all active:border-transparent ${
+              className={`h-8 rounded-full px-3 text-xs font-medium border border-transparent hover:border-primary/25 bg-transparent hover:bg-transparent transition-all active:border-transparent ${
                 preferences.fastMode
-                  ? "text-primary border-primary/40 bg-primary/10 hover:bg-primary/15"
+                  ? "text-primary border-primary/40"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               aria-pressed={preferences.fastMode}
@@ -232,7 +232,7 @@ export const VideoUrlForm = ({
                   size="icon"
                   disabled={isLoading || !isFormValid(url)}
                   onClick={(event) => handleSubmit(event, "caption")}
-                  className="h-9 w-9 rounded-full border border-transparent bg-transparent text-foreground hover:bg-muted/30 hover:border-primary/25 transition-all active:border-transparent"
+                  className="h-9 w-9 rounded-full border border-transparent bg-transparent text-foreground hover:bg-transparent hover:border-primary/25 transition-all active:border-transparent"
                   aria-label="Generate captions"
                 >
                   <Captions className="h-4 w-4" />

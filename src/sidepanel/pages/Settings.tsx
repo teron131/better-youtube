@@ -134,9 +134,9 @@ const Settings = () => {
 
   return (
     <div className="app-shell pb-10">
-      <div className="absolute top-10 left-0 right-0 z-50">
+      <div className="absolute top-[var(--sidepanel-topbar-offset)] left-0 right-0 z-50">
         <div className="sidepanel-container">
-          <div className="px-6 flex items-center justify-between w-full">
+          <div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
             <div className="fade-in-up">
               <h1 className="text-4xl font-black tracking-tight text-foreground">
                 Settings
