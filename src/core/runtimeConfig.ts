@@ -21,6 +21,10 @@ export let globalShowSubtitles: boolean = false;
 export let globalFastMode: boolean = false;
 export let globalCaptionFontSize: string = "";
 export let globalSummaryFontSize: string = "";
+export let globalSummarizerProvider: "auto" | "gemini" | "openrouter" = "auto";
+export let globalSummarizerMode: "native" | "react" | "fast" = "react";
+export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
+  "scrapeCreators";
 
 /**
  * Initialize all global config variables from storage
@@ -35,6 +39,10 @@ export async function initGlobalConfig(): Promise<void> {
   globalGeminiKey = cachedConfig.geminiApiKey;
   globalScrapeCreatorsKey = cachedConfig.scrapeCreatorsApiKey;
   globalSupadataKey = cachedConfig.supadataApiKey;
+  globalSummarizerProvider = cachedConfig.summarizerProvider;
+  globalSummarizerMode = cachedConfig.summarizerMode;
+  globalTranscriptProviderPreference =
+    cachedConfig.transcriptProviderPreference;
   globalSummarizerModel = cachedConfig.summarizerModel;
   globalRefinerModel = cachedConfig.refinerModel;
   globalQualityModel = cachedConfig.qualityModel;
@@ -65,6 +73,10 @@ export function clearConfigCache(): void {
   globalFastMode = false;
   globalCaptionFontSize = "";
   globalSummaryFontSize = "";
+
+  globalSummarizerProvider = "auto";
+  globalSummarizerMode = "react";
+  globalTranscriptProviderPreference = "scrapeCreators";
 }
 
 // ============================================================================

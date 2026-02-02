@@ -18,6 +18,11 @@ export interface AppConfig {
   scrapeCreatorsApiKey: string | null;
   supadataApiKey: string | null;
 
+  // Routing
+  summarizerProvider: "auto" | "gemini" | "openrouter";
+  summarizerMode: "native" | "react" | "fast";
+  transcriptProviderPreference: "scrapeCreators" | "supadata";
+
   // Model selections
   summarizerModel: string;
   refinerModel: string;
@@ -80,6 +85,9 @@ export async function loadConfig(): Promise<AppConfig> {
     STORAGE_KEYS.GEMINI_API_KEY,
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
     STORAGE_KEYS.SUPADATA_API_KEY,
+    STORAGE_KEYS.SUMMARIZER_PROVIDER,
+    STORAGE_KEYS.SUMMARIZER_MODE,
+    STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE,
     STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
     STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
     STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
@@ -95,6 +103,29 @@ export async function loadConfig(): Promise<AppConfig> {
   ];
 
   const result = await getStorageValues<Record<string, any>>(keys);
+
+  const providerRaw = String(
+    result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ?? DEFAULTS.SUMMARIZER_PROVIDER,
+  );
+  const summarizerProvider: "auto" | "gemini" | "openrouter" =
+    providerRaw === "gemini" || providerRaw === "openrouter"
+      ? providerRaw
+      : "auto";
+
+  const modeRaw = String(result[STORAGE_KEYS.SUMMARIZER_MODE] ?? "");
+  const summarizerMode: "native" | "react" | "fast" =
+    modeRaw === "native" || modeRaw === "react" || modeRaw === "fast"
+      ? modeRaw
+      : result[STORAGE_KEYS.FAST_MODE] === true
+        ? "fast"
+        : DEFAULTS.SUMMARIZER_MODE;
+
+  const transcriptPrefRaw = String(
+    result[STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE] ??
+      DEFAULTS.TRANSCRIPT_PROVIDER_PREFERENCE,
+  );
+  const transcriptProviderPreference: "scrapeCreators" | "supadata" =
+    transcriptPrefRaw === "supadata" ? "supadata" : "scrapeCreators";
 
   const summarizerModel = resolveModel(
     result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],
@@ -115,6 +146,10 @@ export async function loadConfig(): Promise<AppConfig> {
       result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY],
     ),
     supadataApiKey: normalizeKey(result[STORAGE_KEYS.SUPADATA_API_KEY]),
+
+    summarizerProvider,
+    summarizerMode,
+    transcriptProviderPreference,
 
     summarizerModel,
     refinerModel,

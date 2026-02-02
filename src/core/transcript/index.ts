@@ -1,6 +1,7 @@
 import {
   globalScrapeCreatorsKey,
   globalSupadataKey,
+  globalTranscriptProviderPreference,
 } from "@/core/runtimeConfig";
 import type { SubtitleSegment, VideoMetadata } from "@/core/storage";
 import type {
@@ -69,6 +70,7 @@ export async function fetchTranscript(
 
   const scrapeCreatorsKey = globalScrapeCreatorsKey;
   const supadataKey = globalSupadataKey;
+  const preference = globalTranscriptProviderPreference;
 
   if (!scrapeCreatorsKey && !supadataKey) {
     console.error("No transcript API keys configured");
@@ -76,26 +78,29 @@ export async function fetchTranscript(
   }
 
   const fetchPromise = (async () => {
-    if (scrapeCreatorsKey) {
+    const tryScrapeCreators = async () => {
+      if (!scrapeCreatorsKey) return null;
       const result = await fetchTranscriptFromScrapeCreators(
         videoId,
         scrapeCreatorsKey,
         retries,
       );
-      if (result) {
-        setCachedTranscript(videoId, result);
-        return result;
-      }
-    }
+      if (result) setCachedTranscript(videoId, result);
+      return result;
+    };
 
-    if (supadataKey) {
-      console.log("Falling back to Supadata API...");
+    const trySupadata = async () => {
+      if (!supadataKey) return null;
       const result = await fetchTranscriptFromSupadata(videoId, supadataKey);
-      if (result) {
-        setCachedTranscript(videoId, result);
-        return result;
-      }
-    }
+      if (result) setCachedTranscript(videoId, result);
+      return result;
+    };
+
+    const first = preference === "supadata" ? trySupadata : tryScrapeCreators;
+    const second = preference === "supadata" ? tryScrapeCreators : trySupadata;
+
+    const result = (await first()) ?? (await second());
+    if (result) return result;
 
     return createEmptyScrapeCreatorsResponse(videoId);
   })();

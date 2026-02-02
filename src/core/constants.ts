@@ -9,6 +9,9 @@ export const STORAGE_KEYS = {
   SUPADATA_API_KEY: "supadataApiKey",
   OPENROUTER_API_KEY: "openRouterApiKey",
   GEMINI_API_KEY: "geminiApiKey",
+  SUMMARIZER_PROVIDER: "summarizerProvider",
+  SUMMARIZER_MODE: "summarizerMode",
+  TRANSCRIPT_PROVIDER_PREFERENCE: "transcriptProviderPreference",
   SUMMARIZER_RECOMMENDED_MODEL: "summarizerRecommendedModel",
   SUMMARIZER_CUSTOM_MODEL: "summarizerCustomModel",
   REFINER_RECOMMENDED_MODEL: "refinerRecommendedModel",
@@ -142,6 +145,9 @@ export const DEFAULTS = {
   SUMMARY_FONT_SIZE: "M" as const,
   TARGET_LANGUAGE_RECOMMENDED: "auto",
   TARGET_LANGUAGE_CUSTOM: "",
+  SUMMARIZER_PROVIDER: "auto" as const,
+  SUMMARIZER_MODE: "react" as const,
+  TRANSCRIPT_PROVIDER_PREFERENCE: "scrapeCreators" as const,
 } as const;
 
 // ============================================================================

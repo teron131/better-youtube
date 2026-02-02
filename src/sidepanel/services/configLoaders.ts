@@ -13,6 +13,10 @@ export async function getModelSettings(): Promise<{
   refinerModel: string;
   targetLanguage: string;
   showSubtitles: boolean;
+  summarizerProvider: "auto" | "gemini" | "openrouter";
+  summarizerMode: "native" | "react" | "fast";
+  transcriptProviderPreference: "scrapeCreators" | "supadata";
+  fastMode: boolean;
 }> {
   const config = await loadConfig();
   return {
@@ -20,6 +24,10 @@ export async function getModelSettings(): Promise<{
     refinerModel: config.refinerModel,
     targetLanguage: config.targetLanguage,
     showSubtitles: config.showSubtitles,
+    summarizerProvider: config.summarizerProvider,
+    summarizerMode: config.summarizerMode,
+    transcriptProviderPreference: config.transcriptProviderPreference,
+    fastMode: config.fastMode,
   };
 }
 
@@ -31,6 +39,10 @@ export async function getProcessingConfig(): Promise<{
   refinerModel: string;
   targetLanguage: string;
   showSubtitles: boolean;
+  summarizerProvider: "auto" | "gemini" | "openrouter";
+  summarizerMode: "native" | "react" | "fast";
+  transcriptProviderPreference: "scrapeCreators" | "supadata";
+  fastMode: boolean;
 }> {
   return await getModelSettings();
 }
