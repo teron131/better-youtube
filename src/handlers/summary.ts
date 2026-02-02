@@ -18,10 +18,10 @@ import {
 import {
   parseOpenRouterSummary,
   summarizeGemini,
+  summarizeWorkflow,
   summaryToMarkdown,
   type Summary,
 } from "@/core/summarizer";
-import { summarizeWorkflow } from "@/core/summarizer/captionSummarizer";
 import {
   extractVideoInfo,
   fetchTranscript,

@@ -110,14 +110,17 @@ function createGarbageFilterMiddleware(model: string) {
   return createMiddleware({
     name: "garbageFilterMiddleware",
     wrapToolCall: async (request, handler) => {
-      if ((request.tool?.name ?? request.toolCall.name) !== "scrape_youtube_tool")
+      if (
+        (request.tool?.name ?? request.toolCall.name) !== "scrape_youtube_tool"
+      )
         return handler(request);
 
       const result = await handler(request);
       if (!ToolMessage.isInstance(result) || result.status === "error")
         return result;
 
-      const transcript = typeof result.content === "string" ? result.content : "";
+      const transcript =
+        typeof result.content === "string" ? result.content : "";
       if (!transcript.trim() || transcript.startsWith("Error")) return result;
 
       try {
