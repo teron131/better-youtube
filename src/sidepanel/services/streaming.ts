@@ -196,7 +196,6 @@ export async function streamSummary(
     summaryModel?: string;
     qualityModel?: string;
     targetLanguage?: string | null;
-    fastMode?: boolean;
     transcript?: string;
     forceRegenerate?: boolean;
   },
@@ -216,7 +215,6 @@ export async function streamSummary(
       showSubtitles,
       summarizerProvider,
       summarizerMode,
-      fastMode: storedFastMode,
     } = await getProcessingConfig();
 
     let videoInfo: any = null;
@@ -254,13 +252,12 @@ export async function streamSummary(
       videoId,
       requestId,
       transcript: options.transcript,
-      modelSelection: options.summaryModel || summarizerModel,
+      modelSelection: options.summaryModel ?? summarizerModel,
       qualityModel: options.qualityModel,
       refinerModel,
-      targetLanguage: options.targetLanguage || targetLanguage,
+      targetLanguage: options.targetLanguage ?? targetLanguage,
       summarizerProvider,
       summarizerMode,
-      fastMode: options.fastMode ?? storedFastMode,
       forceRegenerate: options.forceRegenerate,
     });
 

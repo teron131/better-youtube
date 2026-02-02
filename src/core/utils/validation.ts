@@ -39,12 +39,10 @@ export function prepareProcessingOptions(
   targetLanguage: string,
   summaryModel: string,
   qualityModel: string,
-  fastMode: boolean,
 ) {
   return {
     summaryModel,
     qualityModel,
     ...(targetLanguage !== "auto" && { targetLanguage }),
-    fastMode,
   };
 }

@@ -102,8 +102,8 @@ function handleGenerateSummary(
     requestId,
     modelSelection: message.modelSelection,
     targetLanguage: message.targetLanguage,
-    fastMode: message.fastMode,
     qualityModel: message.qualityModel,
+    summarizerMode: message.summarizerMode,
   }).catch((error) => {
     console.error("Error sending generate summary message:", error.message);
   });

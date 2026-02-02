@@ -14,9 +14,8 @@ export async function getModelSettings(): Promise<{
   targetLanguage: string;
   showSubtitles: boolean;
   summarizerProvider: "auto" | "gemini" | "openrouter";
-  summarizerMode: "native" | "react" | "fast";
+  summarizerMode: "native" | "validation" | "fast";
   transcriptProviderPreference: "scrapeCreators" | "supadata";
-  fastMode: boolean;
 }> {
   const config = await loadConfig();
   return {
@@ -27,7 +26,6 @@ export async function getModelSettings(): Promise<{
     summarizerProvider: config.summarizerProvider,
     summarizerMode: config.summarizerMode,
     transcriptProviderPreference: config.transcriptProviderPreference,
-    fastMode: config.fastMode,
   };
 }
 
@@ -40,9 +38,8 @@ export async function getProcessingConfig(): Promise<{
   targetLanguage: string;
   showSubtitles: boolean;
   summarizerProvider: "auto" | "gemini" | "openrouter";
-  summarizerMode: "native" | "react" | "fast";
+  summarizerMode: "native" | "validation" | "fast";
   transcriptProviderPreference: "scrapeCreators" | "supadata";
-  fastMode: boolean;
 }> {
   return await getModelSettings();
 }

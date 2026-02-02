@@ -133,14 +133,14 @@ interface UserPreferences {
   summaryModel: string;
   qualityModel: string;
   targetLanguage: string;
-  fastMode: boolean;
+  summarizerMode: "native" | "validation" | "fast";
 }
 
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   summaryModel: DEFAULT_SUMMARY_MODEL,
   qualityModel: DEFAULT_QUALITY_MODEL,
   targetLanguage: DEFAULT_TARGET_LANGUAGE || "auto",
-  fastMode: false,
+  summarizerMode: "validation",
 };
 
 function validatePreferences(
@@ -160,7 +160,12 @@ function validatePreferences(
       prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
         ? prefs.targetLanguage
         : defaults.targetLanguage,
-    fastMode: prefs.fastMode ?? defaults.fastMode,
+    summarizerMode:
+      prefs.summarizerMode === "native" ||
+      prefs.summarizerMode === "validation" ||
+      prefs.summarizerMode === "fast"
+        ? prefs.summarizerMode
+        : defaults.summarizerMode,
   };
 }
 
@@ -177,7 +182,7 @@ export function useUserPreferences() {
       STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
       STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-      STORAGE_KEYS.FAST_MODE,
+      STORAGE_KEYS.SUMMARIZER_MODE,
       STORAGE_KEYS.QUALITY_MODEL,
     ];
 
@@ -189,7 +194,7 @@ export function useUserPreferences() {
         targetLanguage:
           result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
           result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
-        fastMode: result[STORAGE_KEYS.FAST_MODE],
+        summarizerMode: result[STORAGE_KEYS.SUMMARIZER_MODE],
         qualityModel: result[STORAGE_KEYS.QUALITY_MODEL],
       };
 
@@ -222,8 +227,8 @@ export function useUserPreferences() {
           changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
         ).newValue;
       }
-      if (changes[STORAGE_KEYS.FAST_MODE])
-        updates.fastMode = changes[STORAGE_KEYS.FAST_MODE].newValue;
+      if (changes[STORAGE_KEYS.SUMMARIZER_MODE])
+        updates.summarizerMode = changes[STORAGE_KEYS.SUMMARIZER_MODE].newValue;
       if (changes[STORAGE_KEYS.QUALITY_MODEL])
         updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
 
@@ -253,8 +258,8 @@ export function useUserPreferences() {
     if (updates.targetLanguage)
       storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] =
         updates.targetLanguage;
-    if (updates.fastMode !== undefined)
-      storageUpdates[STORAGE_KEYS.FAST_MODE] = updates.fastMode;
+    if (updates.summarizerMode)
+      storageUpdates[STORAGE_KEYS.SUMMARIZER_MODE] = updates.summarizerMode;
     if (updates.qualityModel)
       storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
 
@@ -266,7 +271,7 @@ export function useUserPreferences() {
     chrome.storage.local.remove([
       STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-      STORAGE_KEYS.FAST_MODE,
+      STORAGE_KEYS.SUMMARIZER_MODE,
       STORAGE_KEYS.QUALITY_MODEL,
     ]);
   };
