@@ -2,14 +2,15 @@
  * Fast summary path (agent-based) for OpenRouter.
  */
 
-import { API_ENDPOINTS, DEFAULTS } from "@/core/constants";
+import { DEFAULTS } from "@/core/constants";
 import {
   createAgent,
   createMiddleware,
   toolStrategy,
 } from "@/core/langgraph-web-shim";
 import { createOpenRouterClient } from "@/core/llmClients";
-import { globalScrapeCreatorsKey } from "@/core/runtimeConfig";
+import { fetchTranscript, getTranscriptText } from "@/core/transcript";
+import { extractVideoId } from "@/core/utils/url";
 import {
   filterContent,
   GarbageIdentificationSchema,
@@ -61,37 +62,20 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
         return transcript_or_url;
       }
 
-      if (!globalScrapeCreatorsKey) {
-        return "Error: Scrape Creators API key not configured.";
-      }
+      const resolvedVideoId = videoId ?? extractVideoId(youtube_url);
+      if (!resolvedVideoId) return "Error: Could not extract video id.";
 
-      try {
-        const url = new URL(API_ENDPOINTS.SCRAPE_CREATORS);
-        url.searchParams.set("url", youtube_url);
-        url.searchParams.set("get_transcript", "true");
+      const data = await fetchTranscript(resolvedVideoId);
+      if (!data) return "Error: No transcript API keys configured.";
 
-        const response = await fetch(url.toString(), {
-          headers: {
-            "x-api-key": globalScrapeCreatorsKey,
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        });
+      const transcriptOnlyText =
+        typeof (data as any).transcript_only_text === "string"
+          ? String((data as any).transcript_only_text)
+          : "";
+      const transcript =
+        transcriptOnlyText || getTranscriptText(data.transcript ?? []);
 
-        if (!response.ok)
-          return `Error fetching transcript: ${response.status} ${response.statusText}`;
-
-        const data = await response.json();
-        const transcript =
-          data.transcript_only_text ??
-          (Array.isArray(data.transcript)
-            ? data.transcript.map((s: any) => s.text).join(" ")
-            : "");
-
-        return transcript || "Error: No transcript found for this video.";
-      } catch (error) {
-        return `Error calling scrap API: ${String(error)}`;
-      }
+      return transcript.trim() || "Error: No transcript found for this video.";
     },
     {
       name: "scrape_youtube_tool",

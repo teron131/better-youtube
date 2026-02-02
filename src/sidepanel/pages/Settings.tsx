@@ -39,6 +39,9 @@ const SETTINGS_KEYS = [
   "supadataApiKey",
   "openRouterApiKey",
   "geminiApiKey",
+  "summarizerProvider",
+  "summarizerMode",
+  "transcriptProviderPreference",
   "summarizerModel",
   "refinerModel",
   "targetLanguage",
@@ -53,6 +56,9 @@ const DEFAULT_SETTINGS = {
   supadataApiKey: "",
   openRouterApiKey: "",
   geminiApiKey: "",
+  summarizerProvider: "auto",
+  summarizerMode: "react",
+  transcriptProviderPreference: "scrapeCreators",
   summarizerModel: "google/gemini-3-flash-preview",
   refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
   targetLanguage: "auto",
@@ -369,6 +375,99 @@ const Settings = () => {
                 </Select>
               </div>
 
+              {/* Routing */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Cpu className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-foreground text-xs">
+                        Provider
+                      </h4>
+                    </div>
+                  </div>
+                  <Select
+                    value={settings.summarizerProvider}
+                    onValueChange={(val) =>
+                      handleChange("summarizerProvider", val)
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                      <SelectValue placeholder="Auto" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="auto">Auto</SelectItem>
+                      <SelectItem value="gemini">Gemini</SelectItem>
+                      <SelectItem value="openrouter">OpenRouter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-foreground text-xs">
+                        Mode
+                      </h4>
+                    </div>
+                  </div>
+                  <Select
+                    value={settings.summarizerMode}
+                    onValueChange={async (val) => {
+                      await handleChange("summarizerMode", val);
+                      if (val === "fast") await handleChange("fastMode", true);
+                      else if (val === "react")
+                        await handleChange("fastMode", false);
+                      else if (val === "native")
+                        await handleChange("fastMode", false);
+                    }}
+                  >
+                    <SelectTrigger className="w-[160px] h-9 rounded-xl text-xs">
+                      <SelectValue placeholder="ReAct" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="native">Gemini Native</SelectItem>
+                      <SelectItem value="react">LangGraph ReAct</SelectItem>
+                      <SelectItem value="fast">LangChain Fast</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Key className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-foreground text-xs">
+                        Transcript
+                      </h4>
+                    </div>
+                  </div>
+                  <Select
+                    value={settings.transcriptProviderPreference}
+                    onValueChange={(val) =>
+                      handleChange("transcriptProviderPreference", val)
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                      <SelectValue placeholder="Scrape Creators" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="scrapeCreators">
+                        Scrape Creators
+                      </SelectItem>
+                      <SelectItem value="supadata">Supadata</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex items-center justify-between p-2 rounded-2xl bg-muted/30 border border-border/60">
@@ -404,9 +503,15 @@ const Settings = () => {
                   </div>
                   <Switch
                     checked={!settings.fastMode}
-                    onCheckedChange={(checked) =>
-                      handleChange("fastMode", !checked)
-                    }
+                    onCheckedChange={async (checked) => {
+                      await handleChange("fastMode", !checked);
+                      if (settings.summarizerMode !== "native") {
+                        await handleChange(
+                          "summarizerMode",
+                          checked ? "react" : "fast",
+                        );
+                      }
+                    }}
                     className="data-[state=checked]:bg-primary scale-75"
                   />
                 </div>

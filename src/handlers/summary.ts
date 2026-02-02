@@ -4,8 +4,12 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { globalGeminiKey, globalOpenRouterKey } from "@/core/runtimeConfig";
-import { createYouTubeWatchUrl } from "@/core/utils/url";
+import {
+  globalGeminiKey,
+  globalOpenRouterKey,
+  globalSummarizerMode,
+  globalSummarizerProvider,
+} from "@/core/runtimeConfig";
 import {
   StoredSummary,
   VideoMetadata,
@@ -26,8 +30,14 @@ import {
   extractVideoInfo,
   fetchTranscript,
   getCachedTranscript,
+  getTranscriptText,
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
+import { createYouTubeWatchUrl } from "@/core/utils/url";
+import {
+  isGeminiModelSelection,
+  resolveSummarizationRoute,
+} from "@/core/workRouter";
 
 // ============================================================================
 // Types
@@ -42,6 +52,7 @@ type SummaryResult = {
 };
 
 type SummaryProvider = "openrouter" | "gemini" | "auto";
+type SummarizerMode = "native" | "react" | "fast";
 
 /**
  * Resolve which provider to use based on requested provider and available API keys
@@ -71,14 +82,14 @@ function resolveProvider(
  */
 async function checkCachedSummary(
   videoId: string,
-  modelSelection: string,
+  modelUsed: string,
   targetLanguage: string,
   forceRegenerate: boolean,
 ): Promise<StoredSummary | null> {
   if (forceRegenerate) return null;
   const storedSummary = await getSummary(videoId);
   if (!storedSummary) return null;
-  if (storedSummary.modelUsed !== modelSelection) return null;
+  if (storedSummary.modelUsed !== modelUsed) return null;
   if (storedSummary.targetLanguage !== targetLanguage) return null;
   return storedSummary;
 }
@@ -270,6 +281,8 @@ export async function handleGenerateSummary(
     fastMode,
     forceRegenerate,
     summaryProvider,
+    summarizerMode,
+    summarizerProvider,
   } = message as any;
 
   if (requestId) {
@@ -282,10 +295,28 @@ export async function handleGenerateSummary(
   const requestedProvider: SummaryProvider =
     summaryProvider === "gemini" || summaryProvider === "auto"
       ? summaryProvider
-      : "openrouter";
+      : "auto";
 
-  const providerForKey = requestedProvider;
-  const jobKey = `${videoId}:${effectiveRequestId}:${providerForKey}:${modelSelection}:${targetLanguage}:${fastMode ? "fast" : "full"}`;
+  const providerPref: "auto" | "gemini" | "openrouter" =
+    summarizerProvider === "gemini" || summarizerProvider === "openrouter"
+      ? summarizerProvider
+      : requestedProvider === "gemini"
+        ? "gemini"
+        : requestedProvider === "openrouter"
+          ? "openrouter"
+          : globalSummarizerProvider;
+
+  const modePref: SummarizerMode =
+    summarizerMode === "native" ||
+    summarizerMode === "react" ||
+    summarizerMode === "fast"
+      ? summarizerMode
+      : fastMode === true
+        ? "fast"
+        : globalSummarizerMode;
+
+  const providerForKey = `${providerPref}:${modePref}`;
+  const jobKey = `${videoId}:${effectiveRequestId}:${providerForKey}:${modelSelection}:${targetLanguage}`;
 
   if (pendingSummaryJobs.has(jobKey)) {
     await pendingSummaryJobs.get(jobKey);
@@ -302,16 +333,13 @@ export async function handleGenerateSummary(
       const geminiKey = globalGeminiKey;
       const openRouterKey = globalOpenRouterKey;
 
-      const requestedProviderEnum: SummaryProvider =
-        summaryProvider === "gemini" || summaryProvider === "auto"
-          ? summaryProvider
-          : "openrouter";
-
-      const provider = resolveProvider(
-        requestedProviderEnum,
-        geminiKey,
-        openRouterKey,
-      );
+      const { provider, openRouterMode } = resolveSummarizationRoute({
+        providerPreference: providerPref,
+        modePreference: modePref,
+        modelSelection: String(modelSelection),
+        hasGeminiKey: Boolean(geminiKey),
+        hasOpenRouterKey: Boolean(openRouterKey),
+      });
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
 
@@ -331,21 +359,38 @@ export async function handleGenerateSummary(
         return;
       }
 
-      const transcript_or_url = await getTranscriptSource(
-        videoId,
-        msgTranscript,
-      );
-      const videoInfo = await getVideoInfo(videoId);
+      // Lazy resolution: Gemini can use URL directly; OpenRouter needs transcript_or_url.
+      const getVideoInfoLazy = async () => getVideoInfo(videoId);
+      const getOpenRouterSourceLazy = async () => {
+        const transcript_or_url = await getTranscriptSource(
+          videoId,
+          msgTranscript,
+        );
+        if (!transcript_or_url.startsWith("http")) return transcript_or_url;
+
+        const fetched = await fetchTranscript(videoId);
+        if (!fetched) return transcript_or_url;
+
+        const transcriptOnlyText =
+          typeof (fetched as any).transcript_only_text === "string"
+            ? String((fetched as any).transcript_only_text)
+            : "";
+        const text =
+          transcriptOnlyText || getTranscriptText(fetched.transcript ?? []);
+        return text.trim() ? text : transcript_or_url;
+      };
 
       let result: SummaryResult;
-      if (provider === "gemini") {
+      const tryGemini = async () => {
+        if (!geminiKey) throw new Error("Gemini API key missing");
+        const videoInfo = await getVideoInfoLazy();
         const geminiModel = normalizeGeminiModel(String(modelSelection));
-        const useTranscript = !transcript_or_url.startsWith("http");
-        const gemini = useTranscript
+
+        const gemini = msgTranscript
           ? await summarizeGemini(
               {
                 kind: "transcript",
-                transcript: transcript_or_url,
+                transcript: String(msgTranscript),
                 targetLanguage: targetLanguage,
               },
               { model: geminiModel },
@@ -353,22 +398,26 @@ export async function handleGenerateSummary(
           : await summarizeGemini(
               {
                 kind: "youtube_url",
-                videoUrl: transcript_or_url,
+                videoUrl: createYouTubeWatchUrl(videoId),
                 targetLanguage: targetLanguage,
               },
               { model: geminiModel },
             );
 
         const summary = gemini.summary;
-        result = {
+        return {
           summary,
           quality: null,
           iterations: 1,
           qualityScore: 0,
           summaryText: summaryToMarkdown(summary, videoInfo),
         };
-      } else {
+      };
+
+      const tryOpenRouter = async () => {
         if (!openRouterKey) throw new Error("OpenRouter API key missing");
+        const transcript_or_url = await getOpenRouterSourceLazy();
+        const videoInfo = await getVideoInfoLazy();
         const workflow = await summarizeWorkflow({
           transcript_or_url,
           videoId,
@@ -378,29 +427,62 @@ export async function handleGenerateSummary(
           qualityModel: qualityModel || modelSelection,
           refinerModel: refinerModel,
           targetLanguage: targetLanguage,
-          fastMode: fastMode,
+          fastMode: openRouterMode === "fast",
         });
 
         const summary = parseOpenRouterSummary(workflow.summary);
-        result = {
+        return {
           summary,
           quality: workflow.quality,
           iterations: workflow.iterations,
           qualityScore: workflow.qualityScore,
           summaryText: summaryToMarkdown(summary, videoInfo),
         };
+      };
+
+      let finalProvider = provider;
+      try {
+        if (provider === "gemini") {
+          if (
+            modePref !== "native" &&
+            !isGeminiModelSelection(String(modelSelection))
+          ) {
+            throw new Error(
+              "Selected model is not a Gemini model; cannot use Gemini provider",
+            );
+          }
+          result = await tryGemini();
+        } else {
+          result = await tryOpenRouter();
+        }
+      } catch (error) {
+        console.warn(`${provider} failed, trying fallback...`, error);
+        if (provider === "gemini" && openRouterKey) {
+          result = await tryOpenRouter();
+          finalProvider = "openrouter";
+        } else if (provider === "openrouter" && geminiKey) {
+          result = await tryGemini();
+          finalProvider = "gemini";
+        } else {
+          throw error;
+        }
       }
 
       if (!isLatest()) return;
 
+      const videoInfo = await getVideoInfoLazy();
+      const transcript_or_url =
+        finalProvider === "gemini" && !msgTranscript
+          ? createYouTubeWatchUrl(videoId)
+          : await getOpenRouterSourceLazy();
       await broadcastSummaryResult(
         videoId,
         result,
         videoInfo,
         transcript_or_url,
-        modelUsedKey,
+        `${finalProvider}::${String(modelSelection)}`,
         targetLanguage,
-        provider,
+        finalProvider,
         effectiveRequestId || undefined,
       );
     } catch (error) {

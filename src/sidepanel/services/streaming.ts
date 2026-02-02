@@ -209,8 +209,15 @@ export async function streamSummary(
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error("Invalid YouTube URL");
 
-    const { summarizerModel, refinerModel, targetLanguage, showSubtitles } =
-      await getProcessingConfig();
+    const {
+      summarizerModel,
+      refinerModel,
+      targetLanguage,
+      showSubtitles,
+      summarizerProvider,
+      summarizerMode,
+      fastMode: storedFastMode,
+    } = await getProcessingConfig();
 
     let videoInfo: any = null;
     if (!options.transcript) {
@@ -251,7 +258,9 @@ export async function streamSummary(
       qualityModel: options.qualityModel,
       refinerModel,
       targetLanguage: options.targetLanguage || targetLanguage,
-      fastMode: options.fastMode,
+      summarizerProvider,
+      summarizerMode,
+      fastMode: options.fastMode ?? storedFastMode,
       forceRegenerate: options.forceRegenerate,
     });
 
