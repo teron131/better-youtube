@@ -41,6 +41,12 @@ import {
   isGeminiModelSelection,
   resolveSummarizationRoute,
 } from "@/core/workRouter";
+import {
+  getCurrentRequestId,
+  isCurrentWorkload,
+  runPendingJob,
+  setLatestWorkload,
+} from "./workflow";
 
 // ============================================================================
 // Types
@@ -382,12 +388,12 @@ export async function handleGenerateSummary(
   const workloadKey =
     `${videoId}:${providerForKey}:${String(modelSelection)}:${String(targetLanguage)}:` +
     `${qualityModelKey}:${refinerModelKey}:${forceRegenerate === true ? "force" : "normal"}:${transcriptFingerprint}`;
-  latestSummaryWorkloads.set(videoId, workloadKey);
+  setLatestWorkload(latestSummaryWorkloads, videoId, workloadKey);
 
-  const isCurrentWorkload = () =>
-    latestSummaryWorkloads.get(videoId) === workloadKey;
-  const getCurrentRequestId = () =>
-    summaryRequests.get(videoId) || effectiveRequestId || undefined;
+  const isCurrent = () =>
+    isCurrentWorkload(latestSummaryWorkloads, videoId, workloadKey);
+  const resolveRequestId = () =>
+    getCurrentRequestId(summaryRequests, videoId, effectiveRequestId);
 
   if (pendingSummaryJobs.has(workloadKey)) {
     await pendingSummaryJobs.get(workloadKey);
@@ -431,12 +437,8 @@ export async function handleGenerateSummary(
         forceRegenerate,
       );
       if (storedSummary) {
-        if (!isCurrentWorkload()) return;
-        await broadcastStoredSummary(
-          videoId,
-          storedSummary,
-          getCurrentRequestId(),
-        );
+        if (!isCurrent()) return;
+        await broadcastStoredSummary(videoId, storedSummary, resolveRequestId());
         return;
       }
 
@@ -554,7 +556,7 @@ export async function handleGenerateSummary(
         }
       }
 
-      if (!isCurrentWorkload()) return;
+      if (!isCurrent()) return;
 
       const videoInfo = await getVideoInfoLazy();
       const transcript_or_url =
@@ -569,28 +571,23 @@ export async function handleGenerateSummary(
         `${finalProvider}::${String(modelSelection)}`,
         targetLanguage,
         finalProvider,
-        getCurrentRequestId(),
+        resolveRequestId(),
       );
     } catch (error) {
-      if (!isCurrentWorkload()) return;
+      if (!isCurrent()) return;
       console.error("Summary error:", error);
       chrome.runtime
         .sendMessage({
           action: MESSAGE_ACTIONS.SHOW_ERROR,
           error: String(error),
-          requestId: getCurrentRequestId(),
+          requestId: resolveRequestId(),
           videoId,
         })
         .catch(() => {});
     }
   })();
 
-  pendingSummaryJobs.set(workloadKey, job);
-  try {
-    await job;
-  } finally {
-    pendingSummaryJobs.delete(workloadKey);
-  }
+  await runPendingJob(pendingSummaryJobs, workloadKey, job);
 }
 
 function normalizeGeminiModel(modelSelection: string): string {

@@ -6,6 +6,12 @@ import {
   toSubtitleSegments,
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
+import {
+  getCurrentRequestId,
+  isCurrentWorkload,
+  runPendingJob,
+  setLatestWorkload,
+} from "./workflow";
 
 export async function handleFetchSubtitles(
   message: ChromeMessage,
@@ -27,7 +33,7 @@ export async function handleFetchSubtitles(
     message as any;
 
   const workloadKey = `${videoId}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
-  latestCaptionWorkloads.set(videoId, workloadKey);
+  setLatestWorkload(latestCaptionWorkloads, videoId, workloadKey);
 
   if (requestId) {
     captionRequests.set(videoId, String(requestId));
@@ -36,10 +42,10 @@ export async function handleFetchSubtitles(
   sendResponse({ status: "processing" });
 
   const effectiveRequestId = requestId ? String(requestId) : "";
-  const getCurrentRequestId = () =>
-    captionRequests.get(videoId) || effectiveRequestId || undefined;
-  const isCurrentWorkload = () =>
-    latestCaptionWorkloads.get(videoId) === workloadKey;
+  const resolveRequestId = () =>
+    getCurrentRequestId(captionRequests, videoId, effectiveRequestId);
+  const isCurrent = () =>
+    isCurrentWorkload(latestCaptionWorkloads, videoId, workloadKey);
 
   if (pendingCaptionJobs.has(workloadKey)) {
     await pendingCaptionJobs.get(workloadKey);
@@ -52,12 +58,12 @@ export async function handleFetchSubtitles(
 
       const data = await fetchTranscript(videoId);
       if (!data?.transcript?.length) {
-        if (tabId && isCurrentWorkload()) {
+        if (tabId && isCurrent()) {
           chrome.tabs
             .sendMessage(tabId, {
               action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
               videoId,
-              requestId: getCurrentRequestId(),
+              requestId: resolveRequestId(),
               subtitles: [],
               noTranscript: true,
             })
@@ -75,13 +81,13 @@ export async function handleFetchSubtitles(
         undefined, // onProgress
         modelSelection,
         (prioritySegments) => {
-          if (!isCurrentWorkload()) return;
+          if (!isCurrent()) return;
           if (tabId) {
             chrome.tabs
               .sendMessage(tabId, {
                 action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
                 videoId,
-                requestId: getCurrentRequestId(),
+                requestId: resolveRequestId(),
                 subtitles: prioritySegments,
                 isPartial: true,
               })
@@ -90,14 +96,14 @@ export async function handleFetchSubtitles(
         },
       );
 
-      if (!isCurrentWorkload()) return;
+      if (!isCurrent()) return;
 
       if (tabId) {
         chrome.tabs
           .sendMessage(tabId, {
             action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
             videoId,
-            requestId: getCurrentRequestId(),
+            requestId: resolveRequestId(),
             subtitles: refinedSegments,
           })
           .catch(() => {});
@@ -107,10 +113,5 @@ export async function handleFetchSubtitles(
     }
   })();
 
-  pendingCaptionJobs.set(workloadKey, job);
-  try {
-    await job;
-  } finally {
-    pendingCaptionJobs.delete(workloadKey);
-  }
+  await runPendingJob(pendingCaptionJobs, workloadKey, job);
 }
