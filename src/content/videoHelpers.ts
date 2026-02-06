@@ -26,13 +26,16 @@ export async function executeScrapeForAutoGen(
   videoId: string,
 ): Promise<boolean> {
   console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
-  const result = await sendChromeMessage<{ status: string }>({
+  const result = await sendChromeMessage<{ status: string; message?: string }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
     requestId: createRequestId("scrape"),
-  }).catch(() => ({ status: "error" }));
+  }).catch(() => ({ status: "error", message: "Request failed" }));
   if (result.status !== "success") {
-    console.error(`[Auto-gen] Scrape failed for ${videoId}`);
+    console.warn(
+      `[Auto-gen] Scrape did not return transcript data for ${videoId}; stopping auto-caption generation.`,
+      result.message,
+    );
     return false;
   }
   console.log(
