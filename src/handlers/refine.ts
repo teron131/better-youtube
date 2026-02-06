@@ -12,13 +12,22 @@ export async function handleFetchSubtitles(
   ctx: {
     tabId: number | undefined;
     captionRequests: Map<string, string>;
+    latestCaptionWorkloads: Map<string, string>;
     pendingCaptionJobs: Map<string, Promise<void>>;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { tabId, captionRequests, pendingCaptionJobs } = ctx;
+  const {
+    tabId,
+    captionRequests,
+    latestCaptionWorkloads,
+    pendingCaptionJobs,
+  } = ctx;
   const { videoId, requestId, modelSelection, forceRegenerate } =
     message as any;
+
+  const workloadKey = `${videoId}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
+  latestCaptionWorkloads.set(videoId, workloadKey);
 
   if (requestId) {
     captionRequests.set(videoId, String(requestId));
@@ -27,10 +36,13 @@ export async function handleFetchSubtitles(
   sendResponse({ status: "processing" });
 
   const effectiveRequestId = requestId ? String(requestId) : "";
-  const jobKey = `${videoId}:${effectiveRequestId}:${modelSelection}`;
+  const getCurrentRequestId = () =>
+    captionRequests.get(videoId) || effectiveRequestId || undefined;
+  const isCurrentWorkload = () =>
+    latestCaptionWorkloads.get(videoId) === workloadKey;
 
-  if (pendingCaptionJobs.has(jobKey)) {
-    await pendingCaptionJobs.get(jobKey);
+  if (pendingCaptionJobs.has(workloadKey)) {
+    await pendingCaptionJobs.get(workloadKey);
     return;
   }
 
@@ -40,12 +52,12 @@ export async function handleFetchSubtitles(
 
       const data = await fetchTranscript(videoId);
       if (!data?.transcript?.length) {
-        if (tabId) {
+        if (tabId && isCurrentWorkload()) {
           chrome.tabs
             .sendMessage(tabId, {
               action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
               videoId,
-              requestId: effectiveRequestId || undefined,
+              requestId: getCurrentRequestId(),
               subtitles: [],
               noTranscript: true,
             })
@@ -56,11 +68,6 @@ export async function handleFetchSubtitles(
 
       const segments = toSubtitleSegments(data.transcript);
 
-      const isLatest = () => {
-        if (!effectiveRequestId) return true;
-        return captionRequests.get(videoId) === effectiveRequestId;
-      };
-
       const refinedSegments = await refineTranscriptWithLLM(
         segments,
         data.title,
@@ -68,13 +75,13 @@ export async function handleFetchSubtitles(
         undefined, // onProgress
         modelSelection,
         (prioritySegments) => {
-          if (!isLatest()) return;
+          if (!isCurrentWorkload()) return;
           if (tabId) {
             chrome.tabs
               .sendMessage(tabId, {
                 action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
                 videoId,
-                requestId: effectiveRequestId || undefined,
+                requestId: getCurrentRequestId(),
                 subtitles: prioritySegments,
                 isPartial: true,
               })
@@ -83,14 +90,14 @@ export async function handleFetchSubtitles(
         },
       );
 
-      if (!isLatest()) return;
+      if (!isCurrentWorkload()) return;
 
       if (tabId) {
         chrome.tabs
           .sendMessage(tabId, {
             action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
             videoId,
-            requestId: effectiveRequestId || undefined,
+            requestId: getCurrentRequestId(),
             subtitles: refinedSegments,
           })
           .catch(() => {});
@@ -100,10 +107,10 @@ export async function handleFetchSubtitles(
     }
   })();
 
-  pendingCaptionJobs.set(jobKey, job);
+  pendingCaptionJobs.set(workloadKey, job);
   try {
     await job;
   } finally {
-    pendingCaptionJobs.delete(jobKey);
+    pendingCaptionJobs.delete(workloadKey);
   }
 }

@@ -261,17 +261,18 @@ export async function streamSummary(
       forceRegenerate: options.forceRegenerate,
     });
 
-    sendResult
-      .then((r) => {
-        if (r?.status === "error") {
-          cancel();
-          throw new Error(r.message || "Processing failed");
-        }
-      })
-      .catch((err) => {
+    try {
+      const startResponse = await sendResult;
+      if (startResponse?.status === "error") {
         cancel();
-        throw new Error(err.message || "Failed to start summarization");
-      });
+        throw new Error(startResponse.message || "Processing failed");
+      }
+    } catch (err) {
+      cancel();
+      throw new Error(
+        err instanceof Error ? err.message : "Failed to start summarization",
+      );
+    }
 
     const {
       summary,
