@@ -317,6 +317,14 @@ function sendRuntimeMessage(payload: Record<string, unknown>): void {
   });
 }
 
+function hashString(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -325,11 +333,12 @@ export async function handleGenerateSummary(
   message: ChromeMessage,
   ctx: {
     summaryRequests: Map<string, string>;
+    latestSummaryWorkloads: Map<string, string>;
     pendingSummaryJobs: Map<string, Promise<void>>;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { summaryRequests, pendingSummaryJobs } = ctx;
+  const { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs } = ctx;
   const {
     videoId,
     requestId,
@@ -366,17 +375,24 @@ export async function handleGenerateSummary(
   const desiredOpenRouterMode = modePref === "fast" ? "fast" : "react";
 
   const providerForKey = `${providerPref}:${modePref}`;
-  const jobKey = `${videoId}:${effectiveRequestId}:${providerForKey}:${modelSelection}:${targetLanguage}`;
+  const transcriptFingerprint =
+    typeof msgTranscript === "string" ? hashString(msgTranscript) : "none";
+  const qualityModelKey = String(qualityModel || modelSelection || "");
+  const refinerModelKey = String(refinerModel || "");
+  const workloadKey =
+    `${videoId}:${providerForKey}:${String(modelSelection)}:${String(targetLanguage)}:` +
+    `${qualityModelKey}:${refinerModelKey}:${forceRegenerate === true ? "force" : "normal"}:${transcriptFingerprint}`;
+  latestSummaryWorkloads.set(videoId, workloadKey);
 
-  if (pendingSummaryJobs.has(jobKey)) {
-    await pendingSummaryJobs.get(jobKey);
+  const isCurrentWorkload = () =>
+    latestSummaryWorkloads.get(videoId) === workloadKey;
+  const getCurrentRequestId = () =>
+    summaryRequests.get(videoId) || effectiveRequestId || undefined;
+
+  if (pendingSummaryJobs.has(workloadKey)) {
+    await pendingSummaryJobs.get(workloadKey);
     return;
   }
-
-  const isLatest = () => {
-    if (!effectiveRequestId) return true;
-    return summaryRequests.get(videoId) === effectiveRequestId;
-  };
 
   const job = (async () => {
     try {
@@ -415,11 +431,11 @@ export async function handleGenerateSummary(
         forceRegenerate,
       );
       if (storedSummary) {
-        if (!isLatest()) return;
+        if (!isCurrentWorkload()) return;
         await broadcastStoredSummary(
           videoId,
           storedSummary,
-          effectiveRequestId || undefined,
+          getCurrentRequestId(),
         );
         return;
       }
@@ -538,7 +554,7 @@ export async function handleGenerateSummary(
         }
       }
 
-      if (!isLatest()) return;
+      if (!isCurrentWorkload()) return;
 
       const videoInfo = await getVideoInfoLazy();
       const transcript_or_url =
@@ -553,26 +569,27 @@ export async function handleGenerateSummary(
         `${finalProvider}::${String(modelSelection)}`,
         targetLanguage,
         finalProvider,
-        effectiveRequestId || undefined,
+        getCurrentRequestId(),
       );
     } catch (error) {
+      if (!isCurrentWorkload()) return;
       console.error("Summary error:", error);
       chrome.runtime
         .sendMessage({
           action: MESSAGE_ACTIONS.SHOW_ERROR,
           error: String(error),
-          requestId: effectiveRequestId || undefined,
+          requestId: getCurrentRequestId(),
           videoId,
         })
         .catch(() => {});
     }
   })();
 
-  pendingSummaryJobs.set(jobKey, job);
+  pendingSummaryJobs.set(workloadKey, job);
   try {
     await job;
   } finally {
-    pendingSummaryJobs.delete(jobKey);
+    pendingSummaryJobs.delete(workloadKey);
   }
 }
 

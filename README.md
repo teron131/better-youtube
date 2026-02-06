@@ -48,6 +48,14 @@ graph TD
   class P,T,M option;
 ```
 
+## Workflow Management
+
+- Every long-running summary/caption request carries a `requestId` and responses are matched by `{ action, videoId, requestId }`.
+- Service worker orchestration uses per-video workload keys and in-flight job maps to dedupe identical concurrent work.
+- Latest workload wins per video: stale results/errors from older workloads are suppressed.
+- Content script applies a stale guard for captions and ignores subtitle updates that do not match the current caption request ID.
+- Summary UI listener resolves only the matching request ID and ignores broadcasts from other runs.
+
 ## Development
 
 ```bash

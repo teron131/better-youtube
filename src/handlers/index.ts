@@ -12,6 +12,8 @@ import { handleScrapeVideo } from "./transcript";
 
 const captionRequests = new Map<string, string>();
 const summaryRequests = new Map<string, string>();
+const latestCaptionWorkloads = new Map<string, string>();
+const latestSummaryWorkloads = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
 
@@ -48,14 +50,19 @@ createMessageListener((message, sender, sendResponse) => {
             case MESSAGE_ACTIONS.FETCH_SUBTITLES:
               await handleFetchSubtitles(
                 message,
-                { tabId, captionRequests, pendingCaptionJobs },
+                {
+                  tabId,
+                  captionRequests,
+                  latestCaptionWorkloads,
+                  pendingCaptionJobs,
+                },
                 sendResponse,
               );
               break;
             case MESSAGE_ACTIONS.GENERATE_SUMMARY:
               await handleGenerateSummary(
                 message,
-                { summaryRequests, pendingSummaryJobs },
+                { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs },
                 sendResponse,
               );
               break;
