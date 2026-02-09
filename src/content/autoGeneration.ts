@@ -127,7 +127,7 @@ function areCaptionsEnabled(videoId: string): Promise<boolean> {
  */
 async function executeAutoGen(
   videoId: string,
-  triggerFn: () => void,
+  triggerFn: () => void | Promise<void>,
   checkCaptionsEnabled: boolean,
 ): Promise<void> {
   if (!isVideoIdSame(videoId)) {
@@ -145,7 +145,12 @@ async function executeAutoGen(
     }
   }
 
-  triggerFn();
+  try {
+    await triggerFn();
+  } catch (error) {
+    console.error("Auto-gen execution failed:", error);
+    clearAutoGenTrigger(videoId);
+  }
 }
 
 /**
@@ -153,7 +158,7 @@ async function executeAutoGen(
  */
 export function scheduleAutoGen(
   videoId: string,
-  triggerFn: () => void,
+  triggerFn: () => void | Promise<void>,
   checkCaptionsEnabled: boolean,
   withDelay: boolean,
 ): void {
@@ -167,7 +172,7 @@ export function scheduleAutoGen(
   );
 
   const executeTrigger = () => {
-    executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
+    void executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
   };
 
   if (withDelay) {

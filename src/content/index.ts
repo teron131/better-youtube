@@ -44,6 +44,7 @@ class ContentManager {
 
   private currentUrl: string = window.location.href;
   private urlObserver: MutationObserver | null = null;
+  private isUrlMonitoringStarted = false;
 
   constructor() {
     this.checkAndTriggerAutoGeneration =
@@ -55,6 +56,11 @@ class ContentManager {
    * Initialize the content script
    */
   public initialize(attempts = 0): void {
+    if (!this.isUrlMonitoringStarted) {
+      this.monitorUrlChanges();
+      this.isUrlMonitoringStarted = true;
+    }
+
     if (!window.location.href.includes("youtube.com/watch")) return;
 
     if (!findVideoElements()) {
@@ -70,7 +76,6 @@ class ContentManager {
     createSubtitleElements();
     this.loadStoredSubtitles();
     this.loadCaptionFontSize();
-    this.monitorUrlChanges();
   }
 
   /**
@@ -103,9 +108,7 @@ class ContentManager {
   private onUrlChange(): void {
     this.clearSubtitles();
     this.state.userInteractedWithToggle = false;
-    // Re-initialize for the new video
-    // We don't need to find elements again usually, but we need to load subtitles
-    this.loadStoredSubtitles();
+    this.initialize();
   }
 
   /**
