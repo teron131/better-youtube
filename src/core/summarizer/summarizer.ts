@@ -4,7 +4,6 @@
  */
 
 import { createOpenRouterClient } from "@/core/llmClients";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
@@ -103,25 +102,24 @@ function createSummaryNode() {
 
     let result;
     if (quality && summary) {
-      const prompt = ChatPromptTemplate.fromMessages([
+      result = await llm.invoke([
         [
           "system",
           PromptBuilder.getOpenRouterRefinePrompt(lang, title, description),
         ],
-        ["human", "{improvement_prompt}"],
+        [
+          "human",
+          `Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
+        ],
       ]);
-      result = await prompt.pipe(llm).invoke({
-        improvement_prompt: `Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
-      });
     } else {
-      const prompt = ChatPromptTemplate.fromMessages([
+      result = await llm.invoke([
         [
           "system",
           PromptBuilder.getOpenRouterSummaryPrompt(lang, title, description),
         ],
-        ["human", "{content}"],
+        ["human", transcript],
       ]);
-      result = await prompt.pipe(llm).invoke({ content: transcript });
     }
 
     progress?.(

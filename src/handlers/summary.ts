@@ -438,7 +438,11 @@ export async function handleGenerateSummary(
       );
       if (storedSummary) {
         if (!isCurrent()) return;
-        await broadcastStoredSummary(videoId, storedSummary, resolveRequestId());
+        await broadcastStoredSummary(
+          videoId,
+          storedSummary,
+          resolveRequestId(),
+        );
         return;
       }
 
