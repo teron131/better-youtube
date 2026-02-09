@@ -23,12 +23,8 @@ export async function handleFetchSubtitles(
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const {
-    tabId,
-    captionRequests,
-    latestCaptionWorkloads,
-    pendingCaptionJobs,
-  } = ctx;
+  const { tabId, captionRequests, latestCaptionWorkloads, pendingCaptionJobs } =
+    ctx;
   const { videoId, requestId, modelSelection, forceRegenerate } =
     message as any;
 
