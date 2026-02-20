@@ -160,6 +160,7 @@ function handleSubtitlesGenerated(
   const subtitles = message.subtitles || [];
   const messageVideoId = message.videoId;
   const messageRequestId = message.requestId as RequestId | undefined;
+  const isPartial = message.isPartial === true;
 
   // Stale guard: ignore any caption results not matching the latest request for this video.
   if (
@@ -187,6 +188,7 @@ function handleSubtitlesGenerated(
     convertedSubtitles,
     messageVideoId,
     messageRequestId,
+    isPartial,
     state,
     sendResponse,
   );
@@ -196,11 +198,13 @@ function handleConvertedSubtitles(
   convertedSubtitles: SubtitleSegment[],
   messageVideoId: string | undefined,
   messageRequestId: RequestId | undefined,
+  isPartial: boolean,
   state: ContentScriptState,
   sendResponse: (response: any) => void,
 ): void {
-  // Save converted subtitles only for the latest request for this video.
+  // Keep partial chunks in-memory only; persist once for the final response.
   if (
+    !isPartial &&
     messageVideoId &&
     convertedSubtitles.length > 0 &&
     (!messageRequestId ||
@@ -226,8 +230,8 @@ function handleConvertedSubtitles(
   if (state.currentSubtitles.length > 0) {
     startDisplayIfReady(state, messageVideoId);
 
-    // Fallback save using current URL ID if message ID was missing
-    if (!messageVideoId) {
+    // Fallback save using current URL ID if message ID was missing (final only)
+    if (!isPartial && !messageVideoId) {
       const currentVideoId = extractVideoId(window.location.href);
       if (currentVideoId) {
         saveSubtitles(currentVideoId, convertedSubtitles).catch(console.error);

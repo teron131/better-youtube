@@ -57,6 +57,16 @@ const StorageKeys = {
 
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
 
+function isQuotaError(error: unknown): error is Error {
+  return error instanceof Error && error.message.includes("QUOTA");
+}
+
+function isWriteRateQuotaError(error: unknown): error is Error {
+  return (
+    error instanceof Error && error.message.includes("MAX_WRITE_OPERATIONS")
+  );
+}
+
 /**
  * Low-level storage setter
  */
@@ -184,7 +194,10 @@ export async function saveSubtitles(
   try {
     await storageSet({ [key]: subtitles });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("QUOTA")) {
+    if (isWriteRateQuotaError(error)) {
+      throw error;
+    }
+    if (isQuotaError(error)) {
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: subtitles });
     } else {
@@ -231,7 +244,10 @@ export async function saveSummary(
   try {
     await storageSet({ [key]: storedSummary });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("QUOTA")) {
+    if (isWriteRateQuotaError(error)) {
+      throw error;
+    }
+    if (isQuotaError(error)) {
       await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
       await storageSet({ [key]: storedSummary });
     } else {
