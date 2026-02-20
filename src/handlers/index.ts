@@ -4,7 +4,10 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { initGlobalConfig, clearConfigCache } from "@/core/runtimeConfig";
+import {
+  loadRuntimeConfigSnapshot,
+  type RuntimeConfigSnapshot,
+} from "@/core/runtimeConfig";
 import { createMessageListener } from "@/core/utils/chrome";
 import { handleFetchSubtitles } from "./refine";
 import { handleGenerateSummary } from "./summary";
@@ -16,7 +19,7 @@ const latestCaptionWorkloads = new Map<string, string>();
 const latestSummaryWorkloads = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
-type AsyncActionHandler = () => Promise<void>;
+type AsyncActionHandler = (config: RuntimeConfigSnapshot) => Promise<void>;
 
 // Allow side panel to open on action click
 chrome.sidePanel
@@ -29,9 +32,9 @@ chrome.sidePanel
 createMessageListener((message, sender, sendResponse) => {
   const tabId = sender.tab?.id;
   const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
-    [MESSAGE_ACTIONS.SCRAPE_VIDEO]: () =>
-      handleScrapeVideo(message, sendResponse),
-    [MESSAGE_ACTIONS.FETCH_SUBTITLES]: () =>
+    [MESSAGE_ACTIONS.SCRAPE_VIDEO]: (config) =>
+      handleScrapeVideo(message, { config }, sendResponse),
+    [MESSAGE_ACTIONS.FETCH_SUBTITLES]: (config) =>
       handleFetchSubtitles(
         message,
         {
@@ -39,13 +42,19 @@ createMessageListener((message, sender, sendResponse) => {
           captionRequests,
           latestCaptionWorkloads,
           pendingCaptionJobs,
+          config,
         },
         sendResponse,
       ),
-    [MESSAGE_ACTIONS.GENERATE_SUMMARY]: () =>
+    [MESSAGE_ACTIONS.GENERATE_SUMMARY]: (config) =>
       handleGenerateSummary(
         message,
-        { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs },
+        {
+          summaryRequests,
+          latestSummaryWorkloads,
+          pendingSummaryJobs,
+          config,
+        },
         sendResponse,
       ),
   };
@@ -66,11 +75,22 @@ createMessageListener((message, sender, sendResponse) => {
         return false;
       }
       (async () => {
+        let config: RuntimeConfigSnapshot;
         try {
-          await initGlobalConfig();
-          await runAction();
-        } finally {
-          clearConfigCache();
+          config = await loadRuntimeConfigSnapshot();
+        } catch (error) {
+          console.error("[handlers] failed to load runtime config", error);
+          sendResponse({
+            status: "error",
+            message: "Failed to load configuration",
+          });
+          return;
+        }
+
+        try {
+          await runAction(config);
+        } catch (error) {
+          console.error(`[handlers] ${message.action} failed`, error);
         }
       })();
 

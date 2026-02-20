@@ -1,4 +1,5 @@
 import { MESSAGE_ACTIONS } from "@/core/constants";
+import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { refineTranscriptWithLLM } from "@/core/refiner";
 import {
   clearTranscriptCache,
@@ -7,8 +8,10 @@ import {
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import {
+  cleanupRequestEntry,
   getCurrentRequestId,
   isCurrentWorkload,
+  pruneMapEntries,
   runPendingJob,
   setLatestWorkload,
 } from "./workflow";
@@ -20,11 +23,17 @@ export async function handleFetchSubtitles(
     captionRequests: Map<string, string>;
     latestCaptionWorkloads: Map<string, string>;
     pendingCaptionJobs: Map<string, Promise<void>>;
+    config: RuntimeConfigSnapshot;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { tabId, captionRequests, latestCaptionWorkloads, pendingCaptionJobs } =
-    ctx;
+  const {
+    tabId,
+    captionRequests,
+    latestCaptionWorkloads,
+    pendingCaptionJobs,
+    config,
+  } = ctx;
   const { videoId, requestId, modelSelection, forceRegenerate } =
     message as any;
 
@@ -42,9 +51,24 @@ export async function handleFetchSubtitles(
     getCurrentRequestId(captionRequests, videoId, effectiveRequestId);
   const isCurrent = () =>
     isCurrentWorkload(latestCaptionWorkloads, videoId, workloadKey);
+  const finalizeRequestState = () => {
+    cleanupRequestEntry(captionRequests, videoId, effectiveRequestId);
+    pruneMapEntries(captionRequests, 300);
+    pruneMapEntries(
+      latestCaptionWorkloads,
+      300,
+      (_videoId, latestWorkload) => !pendingCaptionJobs.has(latestWorkload),
+    );
+  };
 
   if (pendingCaptionJobs.has(workloadKey)) {
+    console.log("[refine] dedupe join existing workload", {
+      videoId,
+      requestId: effectiveRequestId,
+      workloadKey,
+    });
     await pendingCaptionJobs.get(workloadKey);
+    finalizeRequestState();
     return;
   }
 
@@ -70,7 +94,11 @@ export async function handleFetchSubtitles(
     try {
       if (forceRegenerate) clearTranscriptCache(videoId);
 
-      const data = await fetchTranscript(videoId);
+      const data = await fetchTranscript(videoId, 2, {
+        scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
+        supadataApiKey: config.supadataApiKey,
+        transcriptProviderPreference: config.transcriptProviderPreference,
+      });
       if (!data?.transcript?.length) {
         sendSubtitlesToTab([], { noTranscript: true });
         return;
@@ -97,4 +125,5 @@ export async function handleFetchSubtitles(
   })();
 
   await runPendingJob(pendingCaptionJobs, workloadKey, job);
+  finalizeRequestState();
 }

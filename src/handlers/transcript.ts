@@ -1,4 +1,5 @@
 import { MESSAGE_ACTIONS } from "@/core/constants";
+import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { saveVideoMetadata } from "@/core/storage";
 import { extractVideoInfo, fetchTranscript } from "@/core/transcript";
 
@@ -9,11 +10,17 @@ import type { ChromeMessage } from "@/core/utils/chrome";
  */
 export async function handleScrapeVideo(
   message: ChromeMessage,
+  ctx: { config: RuntimeConfigSnapshot },
   sendResponse: (response: any) => void,
 ): Promise<void> {
   const { videoId } = message as any;
+  const { config } = ctx;
 
-  const data = await fetchTranscript(videoId);
+  const data = await fetchTranscript(videoId, 2, {
+    scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
+    supadataApiKey: config.supadataApiKey,
+    transcriptProviderPreference: config.transcriptProviderPreference,
+  });
   if (!data) {
     sendResponse({
       status: "error",

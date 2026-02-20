@@ -25,6 +25,34 @@ import {
 import { fetchTranscriptFromSupadata } from "./supadata";
 
 export { clearTranscriptCache, getCachedTranscript } from "./cache";
+export type TranscriptFetchContext = {
+  scrapeCreatorsApiKey: string | null;
+  supadataApiKey: string | null;
+  transcriptProviderPreference: "scrapeCreators" | "supadata";
+};
+export { getPendingTranscript } from "./cache";
+
+const transcriptFetchContexts = new Map<
+  string,
+  { ownerId: string; context: TranscriptFetchContext }
+>();
+
+export function setTranscriptFetchContext(
+  videoId: string,
+  ownerId: string,
+  context: TranscriptFetchContext,
+): void {
+  transcriptFetchContexts.set(videoId, { ownerId, context });
+}
+
+export function clearTranscriptFetchContext(
+  videoId: string,
+  ownerId: string,
+): void {
+  const current = transcriptFetchContexts.get(videoId);
+  if (current?.ownerId !== ownerId) return;
+  transcriptFetchContexts.delete(videoId);
+}
 
 export function toSubtitleSegments(
   transcript: ApiTranscriptSegment[],
@@ -61,6 +89,7 @@ export function getTranscriptText(transcript: ApiTranscriptSegment[]): string {
 export async function fetchTranscript(
   videoId: string,
   retries = 2,
+  context?: TranscriptFetchContext,
 ): Promise<ScrapeCreatorsResponse | null> {
   const cached = getCachedTranscript(videoId);
   if (cached) return cached;
@@ -68,9 +97,14 @@ export async function fetchTranscript(
   const pending = getPendingTranscript(videoId);
   if (pending) return pending;
 
-  const scrapeCreatorsKey = globalScrapeCreatorsKey;
-  const supadataKey = globalSupadataKey;
-  const preference = globalTranscriptProviderPreference;
+  const scopedContext =
+    context ?? transcriptFetchContexts.get(videoId)?.context;
+  const scrapeCreatorsKey =
+    scopedContext?.scrapeCreatorsApiKey ?? globalScrapeCreatorsKey;
+  const supadataKey = scopedContext?.supadataApiKey ?? globalSupadataKey;
+  const preference =
+    scopedContext?.transcriptProviderPreference ??
+    globalTranscriptProviderPreference;
 
   if (!scrapeCreatorsKey && !supadataKey) {
     console.error("No transcript API keys configured");

@@ -4,15 +4,7 @@
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import {
-  globalGeminiKey,
-  globalOpenRouterKey,
-  globalScrapeCreatorsKey,
-  globalSummarizerMode,
-  globalSummarizerProvider,
-  globalSupadataKey,
-  globalTranscriptProviderPreference,
-} from "@/core/runtimeConfig";
+import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import {
   StoredSummary,
   VideoMetadata,
@@ -30,10 +22,14 @@ import {
   type Summary,
 } from "@/core/summarizer";
 import {
+  clearTranscriptFetchContext,
   extractVideoInfo,
   fetchTranscript,
   getCachedTranscript,
+  getPendingTranscript,
+  setTranscriptFetchContext,
   getTranscriptText,
+  type TranscriptFetchContext,
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { createYouTubeWatchUrl } from "@/core/utils/url";
@@ -42,8 +38,10 @@ import {
   resolveSummarizationRoute,
 } from "@/core/workRouter";
 import {
+  cleanupRequestEntry,
   getCurrentRequestId,
   isCurrentWorkload,
+  pruneMapEntries,
   runPendingJob,
   setLatestWorkload,
 } from "./workflow";
@@ -111,6 +109,12 @@ function logSummaryConfig(payload: {
   resolvedProvider: string;
   desiredOpenRouterMode: "react" | "fast";
   msgHasTranscript: boolean;
+  hasKeys: {
+    gemini: boolean;
+    openrouter: boolean;
+    scrapeCreators: boolean;
+    supadata: boolean;
+  };
 }) {
   console.log(
     "[summary] config",
@@ -126,12 +130,7 @@ function logSummaryConfig(payload: {
         desiredOpenRouterMode: payload.desiredOpenRouterMode,
         resolvedProvider: payload.resolvedProvider,
         msgHasTranscript: payload.msgHasTranscript,
-        hasKeys: {
-          gemini: Boolean(globalGeminiKey),
-          openrouter: Boolean(globalOpenRouterKey),
-          scrapeCreators: Boolean(globalScrapeCreatorsKey),
-          supadata: Boolean(globalSupadataKey),
-        },
+        hasKeys: payload.hasKeys,
       },
       null,
       0,
@@ -166,10 +165,21 @@ async function checkCachedSummary(
 async function getTranscriptSource(
   videoId: string,
   messageTranscript: string | undefined,
+  fetchContext: TranscriptFetchContext,
 ): Promise<string> {
   if (messageTranscript) {
     console.log(`Using provided transcript for summary of ${videoId}`);
     return messageTranscript;
+  }
+
+  const pending = getPendingTranscript(videoId);
+  if (pending) {
+    console.log(`Waiting for pending transcript fetch for ${videoId}`);
+    const fetched = await pending;
+    const pendingText = toTranscriptText(fetched);
+    if (pendingText) {
+      return pendingText;
+    }
   }
 
   const cached = getCachedTranscript(videoId);
@@ -188,14 +198,24 @@ async function getTranscriptSource(
     return segmentsToText(storedSubtitles);
   }
 
-  console.log(`No cached transcript for ${videoId}, will use URL.`);
+  const fetched = await fetchTranscript(videoId, 2, fetchContext);
+  const text = toTranscriptText(fetched);
+  if (text) {
+    console.log(`Using fetched transcript for summary of ${videoId}`);
+    return text;
+  }
+
+  console.log(`No transcript text available for ${videoId}, will use URL.`);
   return createYouTubeWatchUrl(videoId);
 }
 
 /**
  * Resolve video info (stored → cache → fetch)
  */
-async function getVideoInfo(videoId: string): Promise<VideoMetadata> {
+async function getVideoInfo(
+  videoId: string,
+  fetchContext: TranscriptFetchContext,
+): Promise<VideoMetadata> {
   const stored = await getVideoMetadata(videoId);
   if (stored) {
     console.log(`Using stored video info for ${videoId}`);
@@ -210,7 +230,7 @@ async function getVideoInfo(videoId: string): Promise<VideoMetadata> {
   }
 
   console.log(`No stored/cached video info for ${videoId}, fetching...`);
-  const data = await fetchTranscript(videoId);
+  const data = await fetchTranscript(videoId, 2, fetchContext);
   if (data) {
     const videoInfo = extractVideoInfo(data, videoId);
     await saveVideoMetadata(videoId, videoInfo);
@@ -227,6 +247,16 @@ async function getVideoInfo(videoId: string): Promise<VideoMetadata> {
     viewCount: null,
     likeCount: null,
   };
+}
+
+function toTranscriptText(data: any): string | null {
+  if (!data) return null;
+  const transcriptOnlyText =
+    typeof data.transcript_only_text === "string"
+      ? String(data.transcript_only_text)
+      : "";
+  const text = transcriptOnlyText || getTranscriptText(data.transcript ?? []);
+  return text.trim() ? text : null;
 }
 
 // ============================================================================
@@ -368,10 +398,16 @@ export async function handleGenerateSummary(
     summaryRequests: Map<string, string>;
     latestSummaryWorkloads: Map<string, string>;
     pendingSummaryJobs: Map<string, Promise<void>>;
+    config: RuntimeConfigSnapshot;
   },
   sendResponse: (response: any) => void,
 ): Promise<void> {
-  const { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs } = ctx;
+  const {
+    summaryRequests,
+    latestSummaryWorkloads,
+    pendingSummaryJobs,
+    config,
+  } = ctx;
   const {
     videoId,
     requestId,
@@ -384,8 +420,12 @@ export async function handleGenerateSummary(
     summaryProvider,
     summarizerMode,
     summarizerProvider,
-    transcriptProviderPreference,
   } = message as any;
+  const transcriptFetchContext: TranscriptFetchContext = {
+    scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
+    supadataApiKey: config.supadataApiKey,
+    transcriptProviderPreference: config.transcriptProviderPreference,
+  };
 
   if (requestId) {
     summaryRequests.set(videoId, String(requestId));
@@ -397,12 +437,12 @@ export async function handleGenerateSummary(
   const providerPref = normalizeProviderPreference({
     summarizerProvider,
     summaryProvider,
-    globalProvider: globalSummarizerProvider,
+    globalProvider: config.summarizerProvider,
   });
 
   const modePref = normalizeModePreference({
     summarizerMode,
-    globalMode: globalSummarizerMode,
+    globalMode: config.summarizerMode,
   });
 
   const desiredOpenRouterMode = modePref === "fast" ? "fast" : "react";
@@ -424,16 +464,37 @@ export async function handleGenerateSummary(
     isCurrentWorkload(latestSummaryWorkloads, videoId, workloadKey);
   const resolveRequestId = () =>
     getCurrentRequestId(summaryRequests, videoId, effectiveRequestId);
+  const transcriptContextOwnerId = `${workloadKey}:${effectiveRequestId}`;
+  const finalizeRequestState = () => {
+    cleanupRequestEntry(summaryRequests, videoId, effectiveRequestId);
+    pruneMapEntries(summaryRequests, 300);
+    pruneMapEntries(
+      latestSummaryWorkloads,
+      300,
+      (_videoId, latestWorkload) => !pendingSummaryJobs.has(latestWorkload),
+    );
+  };
 
   if (pendingSummaryJobs.has(workloadKey)) {
+    console.log("[summary] dedupe join existing workload", {
+      videoId,
+      requestId: effectiveRequestId,
+      workloadKey,
+    });
     await pendingSummaryJobs.get(workloadKey);
+    finalizeRequestState();
     return;
   }
 
   const job = (async () => {
+    setTranscriptFetchContext(
+      videoId,
+      transcriptContextOwnerId,
+      transcriptFetchContext,
+    );
     try {
-      const geminiKey = globalGeminiKey;
-      const openRouterKey = globalOpenRouterKey;
+      const geminiKey = config.geminiApiKey;
+      const openRouterKey = config.openRouterApiKey;
 
       const { provider } = resolveSummarizationRoute({
         requestedProvider: providerPref,
@@ -451,11 +512,17 @@ export async function handleGenerateSummary(
         providerPref,
         modePref,
         transcriptProviderPreference: String(
-          globalTranscriptProviderPreference,
+          config.transcriptProviderPreference,
         ),
         resolvedProvider: provider,
         desiredOpenRouterMode,
         msgHasTranscript: Boolean(msgTranscript),
+        hasKeys: {
+          gemini: Boolean(geminiKey),
+          openrouter: Boolean(openRouterKey),
+          scrapeCreators: Boolean(config.scrapeCreatorsApiKey),
+          supadata: Boolean(config.supadataApiKey),
+        },
       });
 
       const modelUsedKey = `${provider}::${String(modelSelection)}`;
@@ -477,25 +544,10 @@ export async function handleGenerateSummary(
       }
 
       // Lazy resolution: Gemini can use URL directly; OpenRouter needs transcript_or_url.
-      const getVideoInfoLazy = async () => getVideoInfo(videoId);
-      const getOpenRouterSourceLazy = async () => {
-        const transcript_or_url = await getTranscriptSource(
-          videoId,
-          msgTranscript,
-        );
-        if (!transcript_or_url.startsWith("http")) return transcript_or_url;
-
-        const fetched = await fetchTranscript(videoId);
-        if (!fetched) return transcript_or_url;
-
-        const transcriptOnlyText =
-          typeof (fetched as any).transcript_only_text === "string"
-            ? String((fetched as any).transcript_only_text)
-            : "";
-        const text =
-          transcriptOnlyText || getTranscriptText(fetched.transcript ?? []);
-        return text.trim() ? text : transcript_or_url;
-      };
+      const getVideoInfoLazy = async () =>
+        getVideoInfo(videoId, transcriptFetchContext);
+      const getOpenRouterSourceLazy = async () =>
+        getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
 
       type ConcreteProvider = "gemini" | "openrouter";
 
@@ -629,10 +681,13 @@ export async function handleGenerateSummary(
           videoId,
         })
         .catch(() => {});
+    } finally {
+      clearTranscriptFetchContext(videoId, transcriptContextOwnerId);
     }
   })();
 
   await runPendingJob(pendingSummaryJobs, workloadKey, job);
+  finalizeRequestState();
 }
 
 function normalizeGeminiModel(modelSelection: string): string {

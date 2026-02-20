@@ -1,11 +1,27 @@
-import { loadConfig, type AppConfig } from "./config";
+import { loadConfig } from "./config";
 import { DEFAULTS } from "@/core/constants";
 
 // ============================================================================
 // Global Config Cache & Variables
 // ============================================================================
 
-let cachedConfig: AppConfig | null = null;
+export interface RuntimeConfigSnapshot {
+  openRouterApiKey: string | null;
+  geminiApiKey: string | null;
+  scrapeCreatorsApiKey: string | null;
+  supadataApiKey: string | null;
+  summarizerProvider: "auto" | "gemini" | "openrouter";
+  summarizerMode: "native" | "validation" | "fast";
+  transcriptProviderPreference: "scrapeCreators" | "supadata";
+  summarizerModel: string;
+  refinerModel: string;
+  qualityModel: string;
+  targetLanguage: string;
+  autoGenerate: boolean;
+  showSubtitles: boolean;
+  captionFontSize: string;
+  summaryFontSize: string;
+}
 
 // Global variables (exported, request-scoped)
 export let globalOpenRouterKey: string | null = null;
@@ -27,11 +43,35 @@ export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
   "scrapeCreators";
 
 /**
+ * Load immutable config snapshot for a single request lifecycle.
+ */
+export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot> {
+  const config = await loadConfig();
+  return {
+    openRouterApiKey: config.openRouterApiKey,
+    geminiApiKey: config.geminiApiKey,
+    scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
+    supadataApiKey: config.supadataApiKey,
+    summarizerProvider: config.summarizerProvider,
+    summarizerMode: config.summarizerMode,
+    transcriptProviderPreference: config.transcriptProviderPreference,
+    summarizerModel: config.summarizerModel,
+    refinerModel: config.refinerModel,
+    qualityModel: config.qualityModel,
+    targetLanguage: config.targetLanguage,
+    autoGenerate: config.autoGenerate,
+    showSubtitles: config.showSubtitles,
+    captionFontSize: config.captionFontSize,
+    summaryFontSize: config.summaryFontSize,
+  };
+}
+
+/**
  * Initialize all global config variables from storage
  * Should be called once at the start of each request
  */
 export async function initGlobalConfig(): Promise<void> {
-  const config = await loadConfig();
+  const config = await loadRuntimeConfigSnapshot();
 
   globalOpenRouterKey = config.openRouterApiKey;
   globalGeminiKey = config.geminiApiKey;
@@ -55,7 +95,6 @@ export async function initGlobalConfig(): Promise<void> {
  * Should be called after each request completes
  */
 export function clearConfigCache(): void {
-  cachedConfig = null;
   globalOpenRouterKey = null;
   globalGeminiKey = null;
   globalScrapeCreatorsKey = null;

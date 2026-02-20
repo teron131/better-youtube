@@ -2,7 +2,7 @@
  * Core video processing state management hook with streaming support.
  */
 
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 
 import {
   findStepIndex,
@@ -129,19 +129,54 @@ function reducer(
 
 export function useVideoProcessing() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const runTokenRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
+
+  const cancelCurrentRun = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  };
 
   const processVideo = async (
     url: string,
     options?: VideoProcessingOptions,
     onProgress?: (state: StreamingProgressState) => void,
   ): Promise<StreamingProcessingResult> => {
+    const runToken = runTokenRef.current + 1;
+    runTokenRef.current = runToken;
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     dispatch({ type: "START" });
 
     try {
-      const result = await streamSummary(url, options || {}, (progress) => {
-        dispatch({ type: "PROGRESS", payload: progress });
-        onProgress?.(progress);
-      });
+      const result = await streamSummary(
+        url,
+        options || {},
+        (progress) => {
+          if (runToken !== runTokenRef.current) {
+            return;
+          }
+          dispatch({ type: "PROGRESS", payload: progress });
+          onProgress?.(progress);
+        },
+        { signal: controller.signal, runId: String(runToken) },
+      );
+
+      if (runToken !== runTokenRef.current) {
+        throw {
+          message: "Processing cancelled",
+          type: "processing",
+        } as ApiError;
+      }
 
       if (!result.success) {
         throw result.error || new Error("Processing failed");
@@ -150,15 +185,26 @@ export function useVideoProcessing() {
       dispatch({ type: "COMPLETE", payload: result });
       return result;
     } catch (e) {
+      if (runToken !== runTokenRef.current) {
+        throw e as ApiError;
+      }
       const error = e as ApiError;
       dispatch({ type: "ERROR", payload: error });
       throw error;
+    } finally {
+      if (
+        runToken === runTokenRef.current &&
+        abortControllerRef.current === controller
+      ) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
   return {
     ...state,
     processVideo,
+    cancelCurrentRun,
     updateState: (updates: Partial<VideoProcessingState>) =>
       dispatch({ type: "UPDATE", payload: updates }),
     resetState: () => dispatch({ type: "RESET" }),
