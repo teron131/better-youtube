@@ -74,6 +74,61 @@ interface SummaryListenerResult {
   provider?: "gemini" | "openrouter";
 }
 
+interface StreamControl {
+  signal?: AbortSignal;
+  runId?: string;
+}
+
+function createCancellationError(runId?: string): ApiError {
+  return {
+    message: runId
+      ? `Processing cancelled (run: ${runId})`
+      : "Processing cancelled",
+    type: "processing",
+  };
+}
+
+function isApiError(error: unknown): error is ApiError {
+  return typeof error === "object" && error !== null && "message" in error;
+}
+
+function toApiError(error: unknown, fallback = "Unknown error"): ApiError {
+  if (isApiError(error)) {
+    return {
+      message: String(error.message || fallback),
+      type: error.type || "processing",
+    };
+  }
+  if (error instanceof Error)
+    return { message: error.message, type: "processing" };
+  return { message: fallback, type: "processing" };
+}
+
+function throwIfAborted(signal?: AbortSignal, runId?: string): void {
+  if (signal?.aborted) throw createCancellationError(runId);
+}
+
+async function withAbort<T>(
+  promise: Promise<T>,
+  signal?: AbortSignal,
+  runId?: string,
+): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) throw createCancellationError(runId);
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(createCancellationError(runId));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    promise
+      .then((value) => resolve(value))
+      .catch((error) => reject(error))
+      .finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
 /**
  * Create a promise-based listener for summary generation
  */
@@ -82,12 +137,20 @@ function createSummaryListener(
   requestId: RequestId,
   videoInfo: any,
   onProgress?: (state: StreamingProgressState) => void,
+  control?: StreamControl,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
   let cleanup = () => {};
 
   const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
+    let settled = false;
     let timeoutId: NodeJS.Timeout;
+    const signal = control?.signal;
+    const runId = control?.runId;
+    let removeAbortListener = () => {};
+
     const settle = (handler: () => void) => {
+      if (settled) return;
+      settled = true;
       cleanup();
       handler();
     };
@@ -144,6 +207,11 @@ function createSummaryListener(
     chrome.runtime.onMessage.addListener(listener);
 
     timeoutId = setTimeout(() => {
+      console.warn("[stream] summary timeout", {
+        videoId,
+        requestId,
+        runId,
+      });
       settle(() =>
         reject({
           message: "Processing timeout after 2 minutes",
@@ -155,7 +223,24 @@ function createSummaryListener(
     cleanup = () => {
       chrome.runtime.onMessage.removeListener(listener);
       clearTimeout(timeoutId);
+      removeAbortListener();
     };
+
+    if (signal) {
+      const onAbort = () => {
+        console.log("[stream] summary listener aborted", {
+          videoId,
+          requestId,
+          runId,
+        });
+        settle(() => reject(createCancellationError(runId)));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      removeAbortListener = () => signal.removeEventListener("abort", onAbort);
+      if (signal.aborted) {
+        onAbort();
+      }
+    }
   });
 
   return {
@@ -215,11 +300,21 @@ export async function streamSummary(
     forceRegenerate?: boolean;
   },
   onProgress?: (state: StreamingProgressState) => void,
+  control?: StreamControl,
 ): Promise<StreamingProcessingResult> {
   const startTime = Date.now();
   const formatTime = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
+  const signal = control?.signal;
+  const runId = control?.runId;
+  const emitProgress = (state: StreamingProgressState) => {
+    if (signal?.aborted) return;
+    onProgress?.(state);
+  };
+  if (runId) console.log("[stream] start summary run", { runId, url });
 
   try {
+    throwIfAborted(signal, runId);
+
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error("Invalid YouTube URL");
 
@@ -230,15 +325,20 @@ export async function streamSummary(
       showSubtitles,
       summarizerProvider,
       summarizerMode,
-    } = await getProcessingConfig();
+    } = await withAbort(getProcessingConfig(), signal, runId);
+    throwIfAborted(signal, runId);
 
     let videoInfo: any = null;
     if (!options.transcript) {
-      videoInfo = await performScrape(videoId, url, onProgress);
+      videoInfo = await withAbort(
+        performScrape(videoId, url, emitProgress),
+        signal,
+        runId,
+      );
       if (showSubtitles)
         triggerRefinement(videoId, createRequestId("caption"), refinerModel);
     } else {
-      onProgress?.({
+      emitProgress({
         step: "scraping",
         stepName: "Fetching Transcript",
         status: "completed",
@@ -246,7 +346,8 @@ export async function streamSummary(
       });
     }
 
-    onProgress?.({
+    throwIfAborted(signal, runId);
+    emitProgress({
       step: "summarizing",
       stepName: "Summarizing",
       status: "processing",
@@ -258,7 +359,8 @@ export async function streamSummary(
       videoId,
       requestId,
       videoInfo,
-      onProgress,
+      emitProgress,
+      control,
     );
 
     const sendResult = sendChromeMessage({
@@ -276,16 +378,15 @@ export async function streamSummary(
     });
 
     try {
-      const startResponse = await sendResult;
+      const startResponse = await withAbort(sendResult, signal, runId);
       if (startResponse?.status === "error") {
         cancel();
         throw new Error(startResponse.message || "Processing failed");
       }
     } catch (err) {
       cancel();
-      throw new Error(
-        err instanceof Error ? err.message : "Failed to start summarization",
-      );
+      if (isApiError(err)) throw err;
+      throw new Error(toApiError(err, "Failed to start summarization").message);
     }
 
     const {
@@ -293,7 +394,7 @@ export async function streamSummary(
       videoInfo: resultVideoInfo,
       transcript,
       provider,
-    } = await listenerPromise;
+    } = await withAbort(listenerPromise, signal, runId);
 
     return {
       success: true,
@@ -309,13 +410,12 @@ export async function streamSummary(
       chunksProcessed: 0,
     };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    const apiError: ApiError = { message: msg, type: "processing" };
-    onProgress?.({
+    const apiError = toApiError(error);
+    emitProgress({
       step: "summarizing",
       stepName: "Processing",
       status: "error",
-      message: msg,
+      message: apiError.message,
       error: apiError,
     });
     return {

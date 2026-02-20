@@ -56,6 +56,10 @@ const StorageKeys = {
 // ============================================================================
 
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
+const WRITE_RATE_RETRY_LIMIT = 3;
+const WRITE_RATE_BACKOFF_BASE_MS = 250;
+const METADATA_KEY_PREFIX = "video_info_";
+const SUMMARY_KEY_PREFIX = "summary_";
 
 function isQuotaError(error: unknown): error is Error {
   return error instanceof Error && error.message.includes("QUOTA");
@@ -70,17 +74,30 @@ function isWriteRateQuotaError(error: unknown): error is Error {
 async function setWithQuotaRetry(
   items: Record<string, unknown>,
 ): Promise<void> {
-  try {
-    await storageSet(items);
-  } catch (error) {
-    if (isWriteRateQuotaError(error)) {
+  let cleanedUp = false;
+
+  for (let attempt = 0; attempt <= WRITE_RATE_RETRY_LIMIT; attempt++) {
+    try {
+      await storageSet(items);
+      return;
+    } catch (error) {
+      if (isWriteRateQuotaError(error)) {
+        if (attempt >= WRITE_RATE_RETRY_LIMIT) {
+          throw error;
+        }
+        const backoffMs = WRITE_RATE_BACKOFF_BASE_MS * (attempt + 1);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      if (isQuotaError(error) && !cleanedUp) {
+        cleanedUp = true;
+        await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
+        continue;
+      }
+
       throw error;
     }
-    if (!isQuotaError(error)) {
-      throw error;
-    }
-    await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
-    await storageSet(items);
   }
 }
 
@@ -208,6 +225,7 @@ export async function saveSubtitles(
   subtitles: SubtitleSegment[],
 ): Promise<void> {
   const key = StorageKeys.subtitles(videoId);
+  await ensureStorageSpace();
   await setWithQuotaRetry({ [key]: subtitles });
 }
 
@@ -245,6 +263,7 @@ export async function saveSummary(
     modelUsed,
     targetLanguage,
   };
+  await ensureStorageSpace();
   await setWithQuotaRetry({ [key]: storedSummary });
 }
 
@@ -291,28 +310,83 @@ export async function getStorageUsage(): Promise<StorageUsage> {
   });
 }
 
-function getVideoRelatedKeys(allItems: Record<string, unknown>): string[] {
-  return Object.keys(allItems).filter(
-    (key) =>
-      (key.length === YOUTUBE.VIDEO_ID_LENGTH &&
-        Array.isArray(allItems[key])) ||
-      key.startsWith("video_info_") ||
-      key.startsWith("summary_"),
-  );
+type VideoStorageGroup = {
+  videoId: string;
+  keys: string[];
+  summaryTimestamp: number | null;
+};
+
+function resolveVideoIdFromStorageKey(
+  key: string,
+  value: unknown,
+): string | null {
+  if (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(value)) {
+    return key;
+  }
+  if (key.startsWith(METADATA_KEY_PREFIX)) {
+    return key.slice(METADATA_KEY_PREFIX.length);
+  }
+  if (key.startsWith(SUMMARY_KEY_PREFIX)) {
+    return key.slice(SUMMARY_KEY_PREFIX.length);
+  }
+  return null;
+}
+
+function getVideoStorageGroups(
+  allItems: Record<string, unknown>,
+): VideoStorageGroup[] {
+  const groups = new Map<string, VideoStorageGroup>();
+
+  Object.entries(allItems).forEach(([key, value]) => {
+    const videoId = resolveVideoIdFromStorageKey(key, value);
+    if (!videoId) return;
+
+    if (!groups.has(videoId)) {
+      groups.set(videoId, { videoId, keys: [], summaryTimestamp: null });
+    }
+
+    const group = groups.get(videoId)!;
+    group.keys.push(key);
+    if (
+      key.startsWith(SUMMARY_KEY_PREFIX) &&
+      value &&
+      typeof value === "object" &&
+      "timestamp" in value
+    ) {
+      const timestamp = Number((value as any).timestamp);
+      if (Number.isFinite(timestamp)) {
+        group.summaryTimestamp = timestamp;
+      }
+    }
+  });
+
+  return Array.from(groups.values());
 }
 
 async function cleanupOldVideos(countToRemove: number): Promise<void> {
   const allItems = await storageGetAll();
-  const videoKeys = getVideoRelatedKeys(allItems);
+  const groups = getVideoStorageGroups(allItems);
 
-  if (videoKeys.length === 0) return;
+  if (groups.length === 0) return;
 
   const removeCount =
-    videoKeys.length <= countToRemove
-      ? Math.max(1, videoKeys.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
+    groups.length <= countToRemove
+      ? Math.max(1, groups.length - STORAGE_CLEANUP.MIN_VIDEOS_TO_KEEP)
       : countToRemove;
 
-  await storageRemove(videoKeys.slice(0, removeCount));
+  const groupsToRemove = groups
+    .slice()
+    .sort((a, b) => {
+      const timeA = a.summaryTimestamp ?? Number.POSITIVE_INFINITY;
+      const timeB = b.summaryTimestamp ?? Number.POSITIVE_INFINITY;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.videoId.localeCompare(b.videoId);
+    })
+    .slice(0, removeCount);
+
+  const keysToRemove = groupsToRemove.flatMap((group) => group.keys);
+  if (keysToRemove.length === 0) return;
+  await storageRemove(keysToRemove);
 }
 
 export async function ensureStorageSpace(): Promise<void> {
