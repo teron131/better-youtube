@@ -331,6 +331,33 @@ function hashString(input: string): string {
   return hash.toString(16);
 }
 
+function buildSummaryWorkloadKey(input: {
+  videoId: string;
+  providerPref: ProviderPref;
+  modePref: SummarizerMode;
+  modelSelection: unknown;
+  targetLanguage: unknown;
+  qualityModel: unknown;
+  refinerModel: unknown;
+  forceRegenerate: unknown;
+  transcript: unknown;
+}): string {
+  const providerForKey = `${input.providerPref}:${input.modePref}`;
+  const transcriptFingerprint =
+    typeof input.transcript === "string"
+      ? hashString(input.transcript)
+      : "none";
+  const qualityModelKey = String(
+    input.qualityModel || input.modelSelection || "",
+  );
+  const refinerModelKey = String(input.refinerModel || "");
+
+  return (
+    `${input.videoId}:${providerForKey}:${String(input.modelSelection)}:${String(input.targetLanguage)}:` +
+    `${qualityModelKey}:${refinerModelKey}:${input.forceRegenerate === true ? "force" : "normal"}:${transcriptFingerprint}`
+  );
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -380,14 +407,17 @@ export async function handleGenerateSummary(
 
   const desiredOpenRouterMode = modePref === "fast" ? "fast" : "react";
 
-  const providerForKey = `${providerPref}:${modePref}`;
-  const transcriptFingerprint =
-    typeof msgTranscript === "string" ? hashString(msgTranscript) : "none";
-  const qualityModelKey = String(qualityModel || modelSelection || "");
-  const refinerModelKey = String(refinerModel || "");
-  const workloadKey =
-    `${videoId}:${providerForKey}:${String(modelSelection)}:${String(targetLanguage)}:` +
-    `${qualityModelKey}:${refinerModelKey}:${forceRegenerate === true ? "force" : "normal"}:${transcriptFingerprint}`;
+  const workloadKey = buildSummaryWorkloadKey({
+    videoId,
+    providerPref,
+    modePref,
+    modelSelection,
+    targetLanguage,
+    qualityModel,
+    refinerModel,
+    forceRegenerate,
+    transcript: msgTranscript,
+  });
   setLatestWorkload(latestSummaryWorkloads, videoId, workloadKey);
 
   const isCurrent = () =>
@@ -467,7 +497,8 @@ export async function handleGenerateSummary(
         return text.trim() ? text : transcript_or_url;
       };
 
-      let result: SummaryResult;
+      type ConcreteProvider = "gemini" | "openrouter";
+
       const tryGemini = async () => {
         if (!geminiKey) throw new Error("Gemini API key missing");
         const videoInfo = await getVideoInfoLazy();
@@ -527,21 +558,31 @@ export async function handleGenerateSummary(
         };
       };
 
-      let finalProvider = provider;
-      try {
-        if (provider === "gemini") {
-          if (
-            modePref !== "native" &&
-            !isGeminiModelSelection(String(modelSelection))
-          ) {
-            throw new Error(
-              "Selected model is not a Gemini model; cannot use Gemini provider",
-            );
-          }
-          result = await tryGemini();
-        } else {
-          result = await tryOpenRouter();
+      const providerRunners: Record<
+        ConcreteProvider,
+        () => Promise<SummaryResult>
+      > = {
+        gemini: tryGemini,
+        openrouter: tryOpenRouter,
+      };
+
+      const runProvider = async (selectedProvider: ConcreteProvider) => {
+        if (
+          selectedProvider === "gemini" &&
+          modePref !== "native" &&
+          !isGeminiModelSelection(String(modelSelection))
+        ) {
+          throw new Error(
+            "Selected model is not a Gemini model; cannot use Gemini provider",
+          );
         }
+        return providerRunners[selectedProvider]();
+      };
+
+      let finalProvider = provider as ConcreteProvider;
+      let result: SummaryResult;
+      try {
+        result = await runProvider(finalProvider);
       } catch (error) {
         console.warn("[summary] primary failed, trying fallback", {
           provider,
@@ -550,11 +591,11 @@ export async function handleGenerateSummary(
           error: String(error),
         });
         if (provider === "gemini" && openRouterKey) {
-          result = await tryOpenRouter();
           finalProvider = "openrouter";
+          result = await runProvider(finalProvider);
         } else if (provider === "openrouter" && geminiKey) {
-          result = await tryGemini();
           finalProvider = "gemini";
+          result = await runProvider(finalProvider);
         } else {
           throw error;
         }

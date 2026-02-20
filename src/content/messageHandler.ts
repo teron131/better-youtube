@@ -79,18 +79,29 @@ function handleGetVideoTitle(sendResponse: (response: any) => void): void {
   sendResponse({ title: titleElement?.textContent ?? null });
 }
 
+function resolveVideoIdOrRespond(
+  message: any,
+  sendResponse: (response: any) => void,
+): string | null {
+  const videoId = message.videoId || extractVideoId(window.location.href);
+  if (videoId) return videoId;
+  sendResponse({
+    status: "error",
+    message: "Could not extract video ID from URL.",
+  });
+  return null;
+}
+
+function sendStarted(sendResponse: (response: any) => void): void {
+  sendResponse({ status: "started" });
+}
+
 function handleGenerateSummary(
   message: any,
   sendResponse: (response: any) => void,
 ): void {
-  const videoId = message.videoId || extractVideoId(window.location.href);
-  if (!videoId) {
-    sendResponse({
-      status: "error",
-      message: "Could not extract video ID from URL.",
-    });
-    return;
-  }
+  const videoId = resolveVideoIdOrRespond(message, sendResponse);
+  if (!videoId) return;
 
   const requestId: RequestId | undefined = message.requestId as
     | RequestId
@@ -108,7 +119,7 @@ function handleGenerateSummary(
     console.error("Error sending generate summary message:", error.message);
   });
 
-  sendResponse({ status: "started" });
+  sendStarted(sendResponse);
 }
 
 function handleGenerateSubtitles(
@@ -117,14 +128,8 @@ function handleGenerateSubtitles(
   clearSubtitles: () => void,
   sendResponse: (response: any) => void,
 ): void {
-  const videoId = message.videoId || extractVideoId(window.location.href);
-  if (!videoId) {
-    sendResponse({
-      status: "error",
-      message: "Could not extract video ID from URL.",
-    });
-    return;
-  }
+  const videoId = resolveVideoIdOrRespond(message, sendResponse);
+  if (!videoId) return;
 
   clearSubtitles();
   markAutoGenTriggered(videoId);
@@ -149,7 +154,7 @@ function handleGenerateSubtitles(
       console.error("Error communicating with background:", error.message);
     });
 
-  sendResponse({ status: "started" });
+  sendStarted(sendResponse);
 }
 
 function handleSubtitlesGenerated(
@@ -202,17 +207,16 @@ function handleConvertedSubtitles(
   state: ContentScriptState,
   sendResponse: (response: any) => void,
 ): void {
-  // Keep partial chunks in-memory only; persist once for the final response.
-  if (
+  const isCurrentRequest =
+    !messageRequestId ||
+    !state.currentCaptionRequestId ||
+    messageRequestId === state.currentCaptionRequestId;
+  const shouldPersistForMessageVideo =
     !isPartial &&
     messageVideoId &&
     convertedSubtitles.length > 0 &&
-    (!messageRequestId ||
-      !state.currentCaptionRequestId ||
-      messageRequestId === state.currentCaptionRequestId)
-  ) {
-    // Note: background only sends to the tab that initiated the request, but YouTube is SPA,
-    // so we still defensively gate to avoid stale writes.
+    isCurrentRequest;
+  if (shouldPersistForMessageVideo) {
     saveSubtitles(messageVideoId, convertedSubtitles).catch(console.error);
   }
 
@@ -226,24 +230,23 @@ function handleConvertedSubtitles(
   }
 
   state.currentSubtitles = convertedSubtitles;
-
-  if (state.currentSubtitles.length > 0) {
-    startDisplayIfReady(state, messageVideoId);
-
-    // Fallback save using current URL ID if message ID was missing (final only)
-    if (!isPartial && !messageVideoId) {
-      const currentVideoId = extractVideoId(window.location.href);
-      if (currentVideoId) {
-        saveSubtitles(currentVideoId, convertedSubtitles).catch(console.error);
-      }
-    }
-
-    sendResponse({ status: "success" });
-  } else {
+  if (state.currentSubtitles.length === 0) {
     state.currentSubtitles = [];
     clearRenderer();
     sendResponse({ status: "no_subtitles_found" });
+    return;
   }
+
+  startDisplayIfReady(state, messageVideoId);
+
+  // Fallback save using current URL ID if message ID was missing (final only)
+  if (!isPartial && !messageVideoId) {
+    const currentVideoId = extractVideoId(window.location.href);
+    if (currentVideoId) {
+      saveSubtitles(currentVideoId, convertedSubtitles).catch(console.error);
+    }
+  }
+  sendResponse({ status: "success" });
 }
 
 function handleToggleSubtitles(

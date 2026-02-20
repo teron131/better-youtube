@@ -80,27 +80,33 @@ interface SummaryListenerResult {
 function createSummaryListener(
   videoId: string,
   requestId: RequestId,
-  url: string,
   videoInfo: any,
   onProgress?: (state: StreamingProgressState) => void,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
-  let cleanup: () => void;
-  let timeoutId: NodeJS.Timeout;
+  let cleanup = () => {};
 
   const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
+    let timeoutId: NodeJS.Timeout;
+    const settle = (handler: () => void) => {
+      cleanup();
+      handler();
+    };
+
     const listener = (msg: ChromeMessage) => {
       if (
         msg.action === MESSAGE_ACTIONS.SUMMARY_GENERATED &&
         msg.videoId === videoId &&
         msg.requestId === requestId
       ) {
-        cleanup();
         const { summary, videoInfo: msgVideoInfo, transcript } = msg;
         if (!summary) {
-          return reject({
-            message: "No summary data received",
-            type: "processing",
-          } as ApiError);
+          settle(() =>
+            reject({
+              message: "No summary data received",
+              type: "processing",
+            } as ApiError),
+          );
+          return;
         }
 
         onProgress?.({
@@ -109,32 +115,41 @@ function createSummaryListener(
           status: "completed",
           message: "Summary generated successfully",
         });
-        resolve({
-          summary,
-          videoInfo: msgVideoInfo || videoInfo,
-          transcript: transcript || null,
-          provider: (msg as any).provider,
-        });
-      } else if (
-        msg.action === MESSAGE_ACTIONS.SHOW_ERROR &&
-        (msg as any).requestId === requestId
+        settle(() =>
+          resolve({
+            summary,
+            videoInfo: msgVideoInfo || videoInfo,
+            transcript: transcript || null,
+            provider: (msg as any).provider,
+          }),
+        );
+        return;
+      }
+
+      if (
+        msg.action !== MESSAGE_ACTIONS.SHOW_ERROR ||
+        (msg as any).requestId !== requestId
       ) {
-        cleanup();
+        return;
+      }
+
+      settle(() =>
         reject({
           message: (msg as any).error || "Processing failed",
           type: "processing",
-        } as ApiError);
-      }
+        } as ApiError),
+      );
     };
 
     chrome.runtime.onMessage.addListener(listener);
 
     timeoutId = setTimeout(() => {
-      cleanup();
-      reject({
-        message: "Processing timeout after 2 minutes",
-        type: "processing",
-      } as ApiError);
+      settle(() =>
+        reject({
+          message: "Processing timeout after 2 minutes",
+          type: "processing",
+        } as ApiError),
+      );
     }, TIMING.PROCESSING_TIMEOUT_MS);
 
     cleanup = () => {
@@ -242,7 +257,6 @@ export async function streamSummary(
     const { promise: listenerPromise, cancel } = createSummaryListener(
       videoId,
       requestId,
-      url,
       videoInfo,
       onProgress,
     );

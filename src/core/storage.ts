@@ -67,6 +67,23 @@ function isWriteRateQuotaError(error: unknown): error is Error {
   );
 }
 
+async function setWithQuotaRetry(
+  items: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await storageSet(items);
+  } catch (error) {
+    if (isWriteRateQuotaError(error)) {
+      throw error;
+    }
+    if (!isQuotaError(error)) {
+      throw error;
+    }
+    await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
+    await storageSet(items);
+  }
+}
+
 /**
  * Low-level storage setter
  */
@@ -191,19 +208,7 @@ export async function saveSubtitles(
   subtitles: SubtitleSegment[],
 ): Promise<void> {
   const key = StorageKeys.subtitles(videoId);
-  try {
-    await storageSet({ [key]: subtitles });
-  } catch (error) {
-    if (isWriteRateQuotaError(error)) {
-      throw error;
-    }
-    if (isQuotaError(error)) {
-      await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
-      await storageSet({ [key]: subtitles });
-    } else {
-      throw error;
-    }
-  }
+  await setWithQuotaRetry({ [key]: subtitles });
 }
 
 export async function getVideoMetadata(
@@ -240,20 +245,7 @@ export async function saveSummary(
     modelUsed,
     targetLanguage,
   };
-
-  try {
-    await storageSet({ [key]: storedSummary });
-  } catch (error) {
-    if (isWriteRateQuotaError(error)) {
-      throw error;
-    }
-    if (isQuotaError(error)) {
-      await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
-      await storageSet({ [key]: storedSummary });
-    } else {
-      throw error;
-    }
-  }
+  await setWithQuotaRetry({ [key]: storedSummary });
 }
 
 // ============================================================================
@@ -299,9 +291,7 @@ export async function getStorageUsage(): Promise<StorageUsage> {
   });
 }
 
-async function getVideoRelatedKeys(
-  allItems: Record<string, unknown>,
-): Promise<string[]> {
+function getVideoRelatedKeys(allItems: Record<string, unknown>): string[] {
   return Object.keys(allItems).filter(
     (key) =>
       (key.length === YOUTUBE.VIDEO_ID_LENGTH &&
@@ -313,7 +303,7 @@ async function getVideoRelatedKeys(
 
 async function cleanupOldVideos(countToRemove: number): Promise<void> {
   const allItems = await storageGetAll();
-  const videoKeys = await getVideoRelatedKeys(allItems);
+  const videoKeys = getVideoRelatedKeys(allItems);
 
   if (videoKeys.length === 0) return;
 

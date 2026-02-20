@@ -193,26 +193,7 @@ const Index = () => {
       return;
     }
 
-    if (typeof chrome !== "undefined" && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        tabs.forEach((tab) => {
-          if (!tab.id) return;
-          chrome.tabs.sendMessage(
-            tab.id,
-            {
-              action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES,
-              showSubtitles: nextState,
-            },
-            () => {
-              if (chrome.runtime.lastError) {
-                // Ignore when the content script isn't present (non-YouTube pages).
-                return;
-              }
-            },
-          );
-        });
-      });
-    }
+    broadcastToggleSubtitles(nextState);
   };
 
   const loadExample = () => {
@@ -254,23 +235,51 @@ const Index = () => {
     return currentTabUrl;
   };
 
+  const broadcastToggleSubtitles = (nextState: boolean) => {
+    if (typeof chrome === "undefined" || !chrome.tabs) return;
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      tabs.forEach((tab) => {
+        if (!tab.id) return;
+        chrome.tabs.sendMessage(
+          tab.id,
+          {
+            action: MESSAGE_ACTIONS.TOGGLE_SUBTITLES,
+            showSubtitles: nextState,
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              // Ignore when the content script isn't present (non-YouTube pages).
+            }
+          },
+        );
+      });
+    });
+  };
+
+  const resolveUrlOrLoadExample = async (
+    url: string,
+  ): Promise<string | null> => {
+    const videoUrl = await resolveVideoUrl(url);
+    if (videoUrl) return videoUrl;
+
+    toast({
+      title: "Loading example",
+      description:
+        "Not on a YouTube video page and no URL provided. Loading example data.",
+    });
+    loadExample();
+    return null;
+  };
+
   const handleVideoSubmit = async (
     url: string,
     options?: VideoProcessingOptions,
   ) => {
     setIsExampleMode(false);
 
-    const videoUrl = await resolveVideoUrl(url);
-    if (!videoUrl) {
-      toast({
-        title: "Loading example",
-        description:
-          "Not on a YouTube video page and no URL provided. Loading example data.",
-      });
-
-      loadExample();
-      return;
-    }
+    const videoUrl = await resolveUrlOrLoadExample(url);
+    if (!videoUrl) return;
 
     setLastProcessedUrl(videoUrl);
 
@@ -307,17 +316,8 @@ const Index = () => {
   const handleCaptionSubmit = async (url: string) => {
     setIsExampleMode(false);
 
-    const videoUrl = await resolveVideoUrl(url);
-    if (!videoUrl) {
-      toast({
-        title: "Loading example",
-        description:
-          "Not on a YouTube video page and no URL provided. Loading example data.",
-      });
-
-      loadExample();
-      return;
-    }
+    const videoUrl = await resolveUrlOrLoadExample(url);
+    if (!videoUrl) return;
 
     try {
       await triggerCaptionGeneration(videoUrl);
