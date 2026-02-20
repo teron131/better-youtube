@@ -67,6 +67,33 @@ const DEFAULT_SETTINGS = {
 };
 
 const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
+const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
+const API_KEY_FIELDS = [
+  {
+    key: "scrapeCreatorsApiKey",
+    label: "Scrape Creators API Key",
+    href: "https://scrapecreators.com",
+    placeholder: "...",
+  },
+  {
+    key: "supadataApiKey",
+    label: "Supadata API Key",
+    href: "https://supadata.ai",
+    placeholder: "...",
+  },
+  {
+    key: "openRouterApiKey",
+    label: "OpenRouter API Key",
+    href: "https://openrouter.ai",
+    placeholder: "sk-or-v1-...",
+  },
+  {
+    key: "geminiApiKey",
+    label: "Gemini API Key",
+    href: "https://aistudio.google.com/api-keys",
+    placeholder: "...",
+  },
+] as const;
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -127,6 +154,26 @@ const Settings = () => {
     }
   };
 
+  const renderFontSizeSelector = (
+    key: "captionFontSize" | "summaryFontSize",
+  ) => (
+    <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
+      {FONT_SIZE_OPTIONS.map((size) => (
+        <button
+          key={size}
+          onClick={() => handleChange(key, size)}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+            settings[key] === size
+              ? "bg-primary text-white shadow-lg"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {size}
+        </button>
+      ))}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="app-shell flex items-center justify-center">
@@ -177,116 +224,34 @@ const Settings = () => {
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-1 space-y-2.5">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="scrapeCreatorsApiKey"
-                    className="text-sm font-semibold"
-                  >
-                    Scrape Creators API Key
-                  </Label>
-                  <a
-                    href="https://scrapecreators.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-primary hover:underline"
-                  >
-                    Get Key
-                  </a>
+              {API_KEY_FIELDS.map((field) => (
+                <div className="space-y-1" key={field.key}>
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor={field.key}
+                      className="text-sm font-semibold"
+                    >
+                      {field.label}
+                    </Label>
+                    <a
+                      href={field.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-primary hover:underline"
+                    >
+                      Get Key
+                    </a>
+                  </div>
+                  <Input
+                    id={field.key}
+                    type="password"
+                    value={settings[field.key]}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    className="h-10 rounded-xl"
+                    placeholder={field.placeholder}
+                  />
                 </div>
-                <Input
-                  id="scrapeCreatorsApiKey"
-                  type="password"
-                  value={settings.scrapeCreatorsApiKey}
-                  onChange={(e) =>
-                    handleChange("scrapeCreatorsApiKey", e.target.value)
-                  }
-                  className="h-10 rounded-xl"
-                  placeholder="..."
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="supadataApiKey"
-                    className="text-sm font-semibold"
-                  >
-                    Supadata API Key
-                  </Label>
-                  <a
-                    href="https://supadata.ai"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-primary hover:underline"
-                  >
-                    Get Key
-                  </a>
-                </div>
-                <Input
-                  id="supadataApiKey"
-                  type="password"
-                  value={settings.supadataApiKey}
-                  onChange={(e) =>
-                    handleChange("supadataApiKey", e.target.value)
-                  }
-                  className="h-10 rounded-xl"
-                  placeholder="..."
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="openRouterApiKey"
-                    className="text-sm font-semibold"
-                  >
-                    OpenRouter API Key
-                  </Label>
-                  <a
-                    href="https://openrouter.ai"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-primary hover:underline"
-                  >
-                    Get Key
-                  </a>
-                </div>
-                <Input
-                  id="openRouterApiKey"
-                  type="password"
-                  value={settings.openRouterApiKey}
-                  onChange={(e) =>
-                    handleChange("openRouterApiKey", e.target.value)
-                  }
-                  className="h-10 rounded-xl"
-                  placeholder="sk-or-v1-..."
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="geminiApiKey"
-                    className="text-sm font-semibold"
-                  >
-                    Gemini API Key
-                  </Label>
-                  <a
-                    href="https://aistudio.google.com/api-keys"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-primary hover:underline"
-                  >
-                    Get Key
-                  </a>
-                </div>
-                <Input
-                  id="geminiApiKey"
-                  type="password"
-                  value={settings.geminiApiKey}
-                  onChange={(e) => handleChange("geminiApiKey", e.target.value)}
-                  className="h-10 rounded-xl"
-                  placeholder="..."
-                />
-              </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -510,41 +475,13 @@ const Settings = () => {
                   <Label className="text-[11px] text-muted-foreground uppercase ml-1">
                     Caption Overlay
                   </Label>
-                  <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                    {["S", "M", "L"].map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => handleChange("captionFontSize", size)}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          settings.captionFontSize === size
-                            ? "bg-primary text-white shadow-lg"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
+                  {renderFontSizeSelector("captionFontSize")}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[11px] text-muted-foreground uppercase ml-1">
                     Summary Panel
                   </Label>
-                  <div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
-                    {["S", "M", "L"].map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => handleChange("summaryFontSize", size)}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          settings.summaryFontSize === size
-                            ? "bg-primary text-white shadow-lg"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
+                  {renderFontSizeSelector("summaryFontSize")}
                 </div>
               </div>
             </CardContent>

@@ -12,6 +12,44 @@ export interface ChromeMessage<T = any> {
   [key: string]: any;
 }
 
+function sendMessageInternal<T>(
+  send: (callback: (response: T) => void) => void,
+  timeout?: number,
+  actionName?: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId =
+      timeout == null
+        ? null
+        : setTimeout(() => {
+            reject(
+              new Error(
+                `Message timeout after ${timeout}ms${actionName ? `: ${actionName}` : ""}`,
+              ),
+            );
+          }, timeout);
+
+    const finish = (fn: () => void) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      fn();
+    };
+
+    try {
+      send((response) => {
+        if (chrome.runtime.lastError) {
+          finish(() => reject(new Error(chrome.runtime.lastError.message)));
+          return;
+        }
+        finish(() => resolve(response));
+      });
+    } catch (error) {
+      finish(() => reject(error));
+    }
+  });
+}
+
 /**
  * Send a message to the Chrome runtime and wait for response
  */
@@ -19,32 +57,11 @@ export async function sendChromeMessage<T = any>(
   message: ChromeMessage,
   timeout?: number,
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let timeoutId: any;
-
-    if (timeout) {
-      timeoutId = setTimeout(() => {
-        reject(
-          new Error(`Message timeout after ${timeout}ms: ${message.action}`),
-        );
-      }, timeout);
-    }
-
-    try {
-      chrome.runtime.sendMessage(message, (response) => {
-        if (timeoutId) clearTimeout(timeoutId);
-
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(response);
-        }
-      });
-    } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
-      reject(error);
-    }
-  });
+  return sendMessageInternal<T>(
+    (callback) => chrome.runtime.sendMessage(message, callback),
+    timeout,
+    message.action,
+  );
 }
 
 /**
@@ -54,19 +71,9 @@ export async function sendTabMessage<T = any>(
   tabId: number,
   message: ChromeMessage,
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
-    try {
-      chrome.tabs.sendMessage(tabId, message, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(response);
-        }
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
+  return sendMessageInternal<T>((callback) =>
+    chrome.tabs.sendMessage(tabId, message, callback),
+  );
 }
 
 /**

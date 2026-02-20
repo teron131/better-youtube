@@ -130,19 +130,13 @@ async function executeAutoGen(
   triggerFn: () => void | Promise<void>,
   checkCaptionsEnabled: boolean,
 ): Promise<void> {
-  if (!isVideoIdSame(videoId)) {
-    return;
-  }
+  if (!isVideoIdSame(videoId)) return;
 
   if (checkCaptionsEnabled) {
     const captionsEnabled = await areCaptionsEnabled(videoId);
-    if (!captionsEnabled) {
-      return;
-    }
+    if (!captionsEnabled) return;
     // Re-verify video ID after async operation
-    if (!isVideoIdSame(videoId)) {
-      return;
-    }
+    if (!isVideoIdSame(videoId)) return;
   }
 
   try {
@@ -164,16 +158,14 @@ export function scheduleAutoGen(
 ): void {
   markAutoGenTriggered(videoId);
 
-  console.log(
-    "Auto-gen enabled,",
-    withDelay ? "waiting for page to load..." : "triggering immediately...",
-    "videoId:",
-    videoId,
-  );
-
   const executeTrigger = () => {
     void executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
   };
+
+  const triggerMode = withDelay
+    ? "waiting for page to load..."
+    : "triggering immediately...";
+  console.log("Auto-gen enabled,", triggerMode, "videoId:", videoId);
 
   if (withDelay) {
     setTimeout(() => {

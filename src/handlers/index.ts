@@ -16,6 +16,7 @@ const latestCaptionWorkloads = new Map<string, string>();
 const latestSummaryWorkloads = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
+type AsyncActionHandler = () => Promise<void>;
 
 // Allow side panel to open on action click
 chrome.sidePanel
@@ -27,6 +28,27 @@ chrome.sidePanel
  */
 createMessageListener((message, sender, sendResponse) => {
   const tabId = sender.tab?.id;
+  const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
+    [MESSAGE_ACTIONS.SCRAPE_VIDEO]: () =>
+      handleScrapeVideo(message, sendResponse),
+    [MESSAGE_ACTIONS.FETCH_SUBTITLES]: () =>
+      handleFetchSubtitles(
+        message,
+        {
+          tabId,
+          captionRequests,
+          latestCaptionWorkloads,
+          pendingCaptionJobs,
+        },
+        sendResponse,
+      ),
+    [MESSAGE_ACTIONS.GENERATE_SUMMARY]: () =>
+      handleGenerateSummary(
+        message,
+        { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs },
+        sendResponse,
+      ),
+  };
 
   switch (message.action) {
     case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
@@ -39,34 +61,14 @@ createMessageListener((message, sender, sendResponse) => {
     case MESSAGE_ACTIONS.SCRAPE_VIDEO:
     case MESSAGE_ACTIONS.FETCH_SUBTITLES:
     case MESSAGE_ACTIONS.GENERATE_SUMMARY: {
+      const runAction = actionHandlers[message.action];
+      if (!runAction) {
+        return false;
+      }
       (async () => {
         try {
           await initGlobalConfig();
-
-          switch (message.action) {
-            case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-              await handleScrapeVideo(message, sendResponse);
-              break;
-            case MESSAGE_ACTIONS.FETCH_SUBTITLES:
-              await handleFetchSubtitles(
-                message,
-                {
-                  tabId,
-                  captionRequests,
-                  latestCaptionWorkloads,
-                  pendingCaptionJobs,
-                },
-                sendResponse,
-              );
-              break;
-            case MESSAGE_ACTIONS.GENERATE_SUMMARY:
-              await handleGenerateSummary(
-                message,
-                { summaryRequests, latestSummaryWorkloads, pendingSummaryJobs },
-                sendResponse,
-              );
-              break;
-          }
+          await runAction();
         } finally {
           clearConfigCache();
         }

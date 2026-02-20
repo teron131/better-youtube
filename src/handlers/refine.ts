@@ -49,22 +49,30 @@ export async function handleFetchSubtitles(
   }
 
   const job = (async () => {
+    const sendSubtitlesToTab = (
+      subtitles: unknown[],
+      extraPayload: Record<string, unknown> = {},
+    ) => {
+      if (!tabId || !isCurrent()) {
+        return;
+      }
+      chrome.tabs
+        .sendMessage(tabId, {
+          action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
+          videoId,
+          requestId: resolveRequestId(),
+          subtitles,
+          ...extraPayload,
+        })
+        .catch(() => {});
+    };
+
     try {
       if (forceRegenerate) clearTranscriptCache(videoId);
 
       const data = await fetchTranscript(videoId);
       if (!data?.transcript?.length) {
-        if (tabId && isCurrent()) {
-          chrome.tabs
-            .sendMessage(tabId, {
-              action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
-              videoId,
-              requestId: resolveRequestId(),
-              subtitles: [],
-              noTranscript: true,
-            })
-            .catch(() => {});
-        }
+        sendSubtitlesToTab([], { noTranscript: true });
         return;
       }
 
@@ -77,33 +85,12 @@ export async function handleFetchSubtitles(
         undefined, // onProgress
         modelSelection,
         (prioritySegments) => {
-          if (!isCurrent()) return;
-          if (tabId) {
-            chrome.tabs
-              .sendMessage(tabId, {
-                action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
-                videoId,
-                requestId: resolveRequestId(),
-                subtitles: prioritySegments,
-                isPartial: true,
-              })
-              .catch(() => {});
-          }
+          sendSubtitlesToTab(prioritySegments, { isPartial: true });
         },
       );
 
       if (!isCurrent()) return;
-
-      if (tabId) {
-        chrome.tabs
-          .sendMessage(tabId, {
-            action: MESSAGE_ACTIONS.SUBTITLES_GENERATED,
-            videoId,
-            requestId: resolveRequestId(),
-            subtitles: refinedSegments,
-          })
-          .catch(() => {});
-      }
+      sendSubtitlesToTab(refinedSegments);
     } catch (error) {
       console.error("Refinement error:", error);
     }
