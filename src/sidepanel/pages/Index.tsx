@@ -292,9 +292,12 @@ const Index = () => {
 
     setLastOptions(processingOptions);
 
-    try {
-      await processVideo(videoUrl, processingOptions);
-    } catch (error) {
+    const result = await processVideo(videoUrl, processingOptions);
+    if (!result.success) {
+      const error = result.error || {
+        message: "Processing failed",
+        type: "processing",
+      };
       const apiError = handleApiError(error);
       updateState({ error: apiError, currentStage: "❌ Processing failed" });
 

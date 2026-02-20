@@ -143,6 +143,13 @@ export function useVideoProcessing() {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
   };
+  const buildFailedResult = (error: ApiError): StreamingProcessingResult => ({
+    success: false,
+    totalTime: "0.0s",
+    iterations: 0,
+    chunksProcessed: 0,
+    error,
+  });
 
   const processVideo = async (
     url: string,
@@ -172,25 +179,39 @@ export function useVideoProcessing() {
       );
 
       if (runToken !== runTokenRef.current) {
-        throw {
+        return buildFailedResult({
           message: "Processing cancelled",
           type: "processing",
-        } as ApiError;
+        });
       }
 
       if (!result.success) {
-        throw result.error || new Error("Processing failed");
+        const error = result.error || {
+          message: "Processing failed",
+          type: "processing",
+        };
+        dispatch({ type: "ERROR", payload: error });
+        return result;
       }
 
       dispatch({ type: "COMPLETE", payload: result });
       return result;
     } catch (e) {
       if (runToken !== runTokenRef.current) {
-        throw e as ApiError;
+        return buildFailedResult({
+          message: "Processing cancelled",
+          type: "processing",
+        });
       }
-      const error = e as ApiError;
+      const error =
+        typeof e === "object" && e !== null && "message" in e
+          ? ({
+              message: String((e as any).message),
+              type: (e as any).type || "processing",
+            } as ApiError)
+          : ({ message: "Processing failed", type: "processing" } as ApiError);
       dispatch({ type: "ERROR", payload: error });
-      throw error;
+      return buildFailedResult(error);
     } finally {
       if (
         runToken === runTokenRef.current &&
