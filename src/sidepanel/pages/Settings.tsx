@@ -1,5 +1,6 @@
 import type { FontSize } from "@/core/constants";
 import {
+  STORAGE_KEYS,
   MESSAGE_ACTIONS,
   RECOMMENDED_REFINER_MODELS,
   RECOMMENDED_SUMMARIZER_MODELS,
@@ -35,10 +36,10 @@ import { useNavigate } from "react-router-dom";
 import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
-  "scrapeCreatorsApiKey",
-  "supadataApiKey",
-  "openRouterApiKey",
-  "geminiApiKey",
+  STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
+  STORAGE_KEYS.SUPADATA_API_KEY,
+  STORAGE_KEYS.OPENROUTER_API_KEY,
+  STORAGE_KEYS.GEMINI_API_KEY,
   "summarizerProvider",
   "summarizerMode",
   "transcriptProviderPreference",
@@ -70,25 +71,25 @@ const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
 const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
 const API_KEY_FIELDS = [
   {
-    key: "scrapeCreatorsApiKey",
+    key: STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
     label: "Scrape Creators API Key",
     href: "https://scrapecreators.com",
     placeholder: "...",
   },
   {
-    key: "supadataApiKey",
+    key: STORAGE_KEYS.SUPADATA_API_KEY,
     label: "Supadata API Key",
     href: "https://supadata.ai",
     placeholder: "...",
   },
   {
-    key: "openRouterApiKey",
+    key: STORAGE_KEYS.OPENROUTER_API_KEY,
     label: "OpenRouter API Key",
     href: "https://openrouter.ai",
     placeholder: "sk-or-v1-...",
   },
   {
-    key: "geminiApiKey",
+    key: STORAGE_KEYS.GEMINI_API_KEY,
     label: "Gemini API Key",
     href: "https://aistudio.google.com/api-keys",
     placeholder: "...",

@@ -75,8 +75,11 @@ export function validateAutoGen(
   const hasOpenRouterKey = !!String(
     storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "",
   ).trim();
-  if (!hasOpenRouterKey) {
-    console.log("Auto-gen skipped: missing OpenRouter key");
+  const hasGeminiKey = !!String(
+    storageResult[STORAGE_KEYS.GEMINI_API_KEY] || "",
+  ).trim();
+  if (!hasOpenRouterKey && !hasGeminiKey) {
+    console.log("Auto-gen skipped: missing summarizer API key");
     return { isValid: false, reason: "missing api key" };
   }
 

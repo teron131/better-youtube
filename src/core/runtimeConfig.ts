@@ -23,6 +23,24 @@ export interface RuntimeConfigSnapshot {
   summaryFontSize: string;
 }
 
+function applySnapshot(config: RuntimeConfigSnapshot): void {
+  globalOpenRouterKey = config.openRouterApiKey;
+  globalGeminiKey = config.geminiApiKey;
+  globalScrapeCreatorsKey = config.scrapeCreatorsApiKey;
+  globalSupadataKey = config.supadataApiKey;
+  globalSummarizerProvider = config.summarizerProvider;
+  globalSummarizerMode = config.summarizerMode;
+  globalTranscriptProviderPreference = config.transcriptProviderPreference;
+  globalSummarizerModel = config.summarizerModel;
+  globalRefinerModel = config.refinerModel;
+  globalQualityModel = config.qualityModel;
+  globalTargetLanguage = config.targetLanguage;
+  globalAutoGenerate = config.autoGenerate;
+  globalShowSubtitles = config.showSubtitles;
+  globalCaptionFontSize = config.captionFontSize;
+  globalSummaryFontSize = config.summaryFontSize;
+}
+
 // Global variables (exported, request-scoped)
 export let globalOpenRouterKey: string | null = null;
 export let globalGeminiKey: string | null = null;
@@ -72,22 +90,7 @@ export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot
  */
 export async function initGlobalConfig(): Promise<void> {
   const config = await loadRuntimeConfigSnapshot();
-
-  globalOpenRouterKey = config.openRouterApiKey;
-  globalGeminiKey = config.geminiApiKey;
-  globalScrapeCreatorsKey = config.scrapeCreatorsApiKey;
-  globalSupadataKey = config.supadataApiKey;
-  globalSummarizerProvider = config.summarizerProvider;
-  globalSummarizerMode = config.summarizerMode;
-  globalTranscriptProviderPreference = config.transcriptProviderPreference;
-  globalSummarizerModel = config.summarizerModel;
-  globalRefinerModel = config.refinerModel;
-  globalQualityModel = config.qualityModel;
-  globalTargetLanguage = config.targetLanguage;
-  globalAutoGenerate = config.autoGenerate;
-  globalShowSubtitles = config.showSubtitles;
-  globalCaptionFontSize = config.captionFontSize;
-  globalSummaryFontSize = config.summaryFontSize;
+  applySnapshot(config);
 }
 
 /**

@@ -94,9 +94,8 @@ function createSummaryNode() {
         : `Generating initial summary. Transcript length: ${transcript.length} characters`,
     );
 
-    const llm = createOpenRouterClient(
-      summaryModel!,
-      "Better YouTube - Summarizer",
+    const llm = (
+      await createOpenRouterClient(summaryModel!, "Better YouTube - Summarizer")
     ).withStructuredOutput(SummarySchemaNoTimestamps);
     const lang = targetLanguage || "auto";
 
@@ -136,9 +135,8 @@ function createQualityNode() {
 
     progress?.(`Performing quality check using model: ${qualityModel}...`);
 
-    const quality = await createOpenRouterClient(
-      qualityModel!,
-      "Better YouTube - Quality",
+    const quality = await (
+      await createOpenRouterClient(qualityModel!, "Better YouTube - Quality")
     )
       .withStructuredOutput(QualitySchema, { method: "jsonMode" })
       .invoke([

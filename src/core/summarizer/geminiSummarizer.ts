@@ -1,7 +1,7 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-import { globalGeminiKey } from "@/core/runtimeConfig";
+import { getGeminiApiKey } from "@/core/runtimeConfig";
 import type { Summary } from "@/core/types";
 
 import { PromptBuilder } from "./promptBuilder";
@@ -27,9 +27,10 @@ export async function summarizeGemini(
     timeoutMs?: number;
   },
 ): Promise<{ summary: Summary; usage?: unknown }> {
-  if (!globalGeminiKey) throw new Error("Gemini API key missing");
+  const geminiApiKey = await getGeminiApiKey();
+  if (!geminiApiKey) throw new Error("Gemini API key missing");
 
-  const client = new GoogleGenAI({ apiKey: globalGeminiKey });
+  const client = new GoogleGenAI({ apiKey: geminiApiKey });
   const model = options?.model ?? "gemini-3-flash-preview";
   const thinkingLevel = options?.thinkingLevel ?? ThinkingLevel.MEDIUM;
   const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
