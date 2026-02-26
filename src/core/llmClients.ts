@@ -2,13 +2,14 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS } from "./constants";
-import { globalOpenRouterKey } from "./runtimeConfig";
+import { getOpenRouterApiKey } from "./runtimeConfig";
 
-export function createOpenRouterClient(
+export async function createOpenRouterClient(
   model: string,
   title: string = "Better YouTube",
-): ChatOpenAI {
-  if (!globalOpenRouterKey) throw new Error("OpenRouter API key missing");
+): Promise<ChatOpenAI> {
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) throw new Error("OpenRouter API key missing");
 
   const httpReferer =
     typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -17,7 +18,7 @@ export function createOpenRouterClient(
 
   return new ChatOpenAI({
     model,
-    apiKey: globalOpenRouterKey,
+    apiKey,
     configuration: {
       baseURL: API_ENDPOINTS.OPENROUTER_BASE,
       defaultHeaders: {

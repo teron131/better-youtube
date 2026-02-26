@@ -109,9 +109,8 @@ function createGarbageFilterMiddleware(model: string) {
 
       try {
         const taggedTranscript = tagContent(transcript);
-        const garbage = await createOpenRouterClient(
-          model,
-          "Better YouTube - Filter",
+        const garbage = await (
+          await createOpenRouterClient(model, "Better YouTube - Filter")
         )
           .withStructuredOutput(GarbageIdentificationSchema, {
             method: "jsonMode",
@@ -154,7 +153,7 @@ export async function summarizeFast(
   const targetLanguage = input.targetLanguage ?? "auto";
 
   const agent = createAgent({
-    model: createOpenRouterClient(model, "Better YouTube - Summarizer"),
+    model: await createOpenRouterClient(model, "Better YouTube - Summarizer"),
     tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
     systemPrompt: PromptBuilder.getOpenRouterSummaryPrompt(
       targetLanguage,

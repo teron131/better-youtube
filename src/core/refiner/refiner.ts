@@ -212,7 +212,7 @@ export async function refineTranscriptWithLLM(
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
-  const llm = createOpenRouterClient(model, "Better YouTube - Refiner");
+  const llm = await createOpenRouterClient(model, "Better YouTube - Refiner");
   const preambleText = buildUserPreamble(title, description);
   const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
     segments,
