@@ -1,44 +1,80 @@
 # Content Script — Agent Guide
 
-## Overview
+## Scope
 
-- This directory is the **MV3 content script** injected into `https://*.youtube.com/*` via `public/manifest.json` → `content_scripts`.
-- Build pipeline: `vite.content.config.ts` bundles `src/content/index.ts` as an **IIFE** to `dist/content.js` (manifest loads `content.js`) with `emptyOutDir: false`.
-- Runtime behavior: watches YouTube **watch pages** and renders a subtitle overlay, plus triggers/coordinates auto-generation via messaging + storage.
-- Overlay styling is loaded from `public/assets/subtitles.css` (listed under `content_scripts.css`).
+`src/content` is the YouTube page runtime: it observes SPA navigation, renders subtitle overlay DOM, and coordinates background requests while preventing stale cross-video updates.
 
-## Where To Look
+## What Module Is For
 
-| File                              | Purpose                                                                                                                          |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `src/content/index.ts`            | Lifecycle entry; `ContentManager` + `MutationObserver` for YouTube SPA navigation; initializes overlay + loads cached subtitles. |
-| `src/content/messageHandler.ts`   | `chrome.runtime.onMessage` router; `switch (message.action)` over `MESSAGE_ACTIONS`.                                             |
-| `src/content/subtitleRenderer.ts` | DOM overlay + playback sync (`requestAnimationFrame` loop) and font-size CSS var updates.                                        |
-| `src/content/autoGeneration.ts`   | Auto-gen gating (settings checks, "already triggered" set), context validity, and delay scheduling.                              |
-| `src/content/videoHelpers.ts`     | Video ID + staleness guards (`isCurrentVideo`), validation, scraping helpers.                                                    |
-| `src/content/storageHelpers.ts`   | Storage key builders and model resolution helpers.                                                                               |
-| `src/content/contentHelpers.ts`   | Messaging functions (`triggerCaptionRefinement`, `triggerSummaryGeneration`).                                                    |
-| `public/assets/subtitles.css`     | Overlay CSS (IDs: `youtube-gemini-subtitles-container`, `youtube-gemini-subtitles-text`).                                        |
+- `src/content/index.ts` manages lifecycle and re-initialization on URL/video changes.
+- `src/content/messageHandler.ts` handles inbound runtime actions and applies subtitle/summary updates.
+- `src/content/subtitleRenderer.ts` controls overlay DOM creation, playback sync loop, and font-size application.
+- `src/content/autoGeneration.ts` decides if/when auto-trigger should fire per video/context.
+- `src/content/videoHelpers.ts` validates watch context and resolves current video metadata.
+- `src/content/storageHelpers.ts` maps video/model values to stable storage lookups.
+- `src/content/contentHelpers.ts` sends action requests to the background worker.
 
-## Conventions
+## High-signal locations
 
-- Treat YouTube as a SPA: **always** gate work by video ID (`extractVideoId()` + `isCurrentVideo(videoId)`) before rendering or writing storage.
-- Only do heavy work on watch pages (see `validateLoadContext()` and `ContentManager.initialize()` guard on `youtube.com/watch`).
-- Messaging contract is centralized: use `MESSAGE_ACTIONS` from `src/core/constants.ts` (no string literals).
-- Guard against stale caption updates: track `currentCaptionRequestId` and ignore `SUBTITLES_GENERATED` for older `requestId`s.
-- Prefer `chrome.storage.local` with `STORAGE_KEYS`/`DEFAULTS` rather than ad-hoc keys.
-- Keep observers/timeouts self-cleaning when the extension context is invalidated (`isExtensionContextValid()`).
+- `src/content/index.ts`
+- `src/content/messageHandler.ts`
+- `src/content/subtitleRenderer.ts`
+- `src/content/autoGeneration.ts`
+- Related boundaries:
+  - `src/core/constants.ts`
+  - `src/core/storage.ts`
+  - `public/assets/subtitles.css`
+  - `public/manifest.json`
 
-## Anti-Patterns
+## Script Evidence
 
-- Adding new message actions only in content code; update `src/core/constants.ts` and the matching handlers/sidepanel handlers.
-- Updating overlay DOM without ensuring the player/container exists (`findVideoElements()` + `createSubtitleElements()`).
-- Writing subtitles to storage without verifying the current video/request (SPA staleness leads to "wrong video" cache writes).
-- Introducing extra DOM polling loops when the code already has init retry timing (`TIMING.*`) and a URL `MutationObserver`.
+Codemap preflight (`module_stats.sh` on `src/content`):
 
-## Gotchas
+- Files: `8` (`7 ts`, `1 md`)
+- TS/JS classes: `3` (`ContentManager`, `SubtitleController`, `SubtitleView`)
+- TS/JS import edges: `36` (`8` relative)
+- Entrypoint-like files: `1`
+- Top local targets: `./videoHelpers`, `./subtitleRenderer`, `./storageHelpers`, `./contentHelpers`, `./autoGeneration`
+- Top external targets: `@/core/constants`, `@/core/utils/url`, `@/core/utils/chrome`, `@/core/storage`, `@/core/requestId`
 
-- `content_scripts.matches` injects on all `https://*.youtube.com/*` pages; `initialize()` intentionally no-ops outside `/watch`.
-- YouTube navigation can change `window.location.href` without a reload; `ContentManager.monitorUrlChanges()` is the canonical hook.
-- `subtitles.css` is included by the manifest, but the elements are created at runtime; keep IDs aligned with `ELEMENT_IDS`.
-- Font size is applied via CSS variables on `document.documentElement` (`SubtitleView.applyFontSize()`), not by editing `subtitles.css` directly.
+## Symbol Inventory
+
+Key symbols:
+
+- Classes: `ContentManager`, `SubtitleController`, `SubtitleView`
+- State fields around staleness: `currentCaptionRequestId`, `currentVideoId`, `autoGenTriggered`
+- Trigger/runtime helpers: `executeTrigger`, `run`, `tick`
+- Message boundary symbols: `requestId`, `messageVideoId`, `isCurrentRequest`
+
+## Syntax Relationships
+
+- Inbound runtime path:
+  `chrome.runtime.onMessage` (`messageHandler.ts`) -> switch on `MESSAGE_ACTIONS`.
+- Outbound request path:
+  `contentHelpers.ts` -> `chrome.runtime.sendMessage` with action + `videoId` + `requestId`.
+- Staleness control path:
+  generated subtitles -> request-id/video-id checks -> overlay update + optional persistence.
+- DOM/CSS coupling:
+  renderer element IDs must stay aligned with `ELEMENT_IDS` and `public/assets/subtitles.css`.
+
+## Key takeaways per location
+
+- `index.ts`: SPA-safe coordinator; always re-check URL/video before long work.
+- `messageHandler.ts`: freshness gate for incoming generated payloads; stale responses are intentionally ignored.
+- `subtitleRenderer.ts`: owns sync loop and rendering; do not duplicate playback loops elsewhere.
+- `autoGeneration.ts`: guard-heavy trigger logic to avoid duplicate background jobs.
+- `videoHelpers.ts` and `storageHelpers.ts`: thin utility boundaries that keep page/runtime logic out of handlers/UI.
+
+## Project-specific conventions and rationale
+
+- Treat YouTube as SPA-first; URL change without reload is the default.
+- Never introduce ad-hoc action names; reuse `MESSAGE_ACTIONS` constants.
+- Cache/persistence writes must be video-scoped and request-scoped to avoid wrong-video bleed.
+- Clean up observers/timeouts/listeners aggressively because content context can invalidate at runtime.
+
+## Validation commands
+
+```bash
+npm run build
+/Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
+```
