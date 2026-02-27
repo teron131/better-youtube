@@ -1,88 +1,71 @@
 # Better YouTube — Project Knowledge Base
 
-**Generated:** 2026-01-19 15:42:18 +0800 **Commit:** bfae95a **Branch:** main
+## Project Summary
 
-## Overview
+Chrome MV3 extension for YouTube caption refinement plus AI summarization.
+Primary stack: Vite + React + TypeScript + Tailwind/shadcn/ui, with shared AI workflows in `src/core/*`.
 
-Chrome MV3 extension for YouTube caption refinement + AI summarization. Stack: Vite + React + TypeScript + Tailwind/shadcn/ui; LangChain/LangGraph via OpenRouter.
+Codemap preflight evidence (`module_stats.sh` on repo root):
 
-## Structure
+- Filesystem: `22` dirs, `167` files
+- File types: `66 tsx`, `63 ts`, `7 md`
+- TS/JS exports: `122`
+- TS/JS import edges: `435`
+- Entrypoint-like files: `6`
 
-```
-./
-├── public/manifest.json        # MV3 manifest (service worker + content scripts + side panel)
-├── index.html                  # Web demo entry
-├── sidepanel.html              # Extension side panel entry
-├── src/handlers/               # Service worker (routing + orchestration)
-├── src/content/                # Content script (YouTube integration + subtitle overlay)
-├── src/sidepanel/              # React UI (side panel + settings)
-└── src/core/                   # Shared libs (storage, constants, summarizer, refiner)
-```
+## Structure and entrypoints
 
-## Nested AGENTS.md (precedence)
+- `public/manifest.json`
+  Declares MV3 wiring (service worker, content scripts, side panel).
+- `src/handlers/index.ts`
+  Service worker entrypoint; routes `MESSAGE_ACTIONS` and orchestrates background tasks.
+- `src/content/index.ts`
+  Content script entrypoint; manages YouTube SPA lifecycle and subtitle overlay.
+- `src/sidepanel/main.tsx`
+  Side panel/web UI entrypoint used by both `sidepanel.html` and `index.html`.
+- `src/core/*`
+  Shared contracts and runtime-safe utilities consumed by all three contexts.
+- Build configs:
+  - `vite.config.ts` for UI + service worker.
+  - `vite.content.config.ts` for content script IIFE bundle.
 
-The closest `AGENTS.md` to the file you are editing takes precedence.
+## Core flows and rationale
 
-- Service worker: `src/handlers/AGENTS.md`
-- Content script (YouTube DOM + overlays): `src/content/AGENTS.md`
-- Shared libs (constants/storage/messaging): `src/core/AGENTS.md`
-- LLM summarizer internals: `src/core/summarizer/AGENTS.md`
-- Side panel UI (React): `src/sidepanel/AGENTS.md`
+- Message contract flow:
+  `src/core/constants.ts` (`MESSAGE_ACTIONS`) -> `src/handlers/index.ts` router -> content/sidepanel listeners.
+- Caption flow:
+  sidepanel/content request -> `src/handlers/refine.ts` -> `src/core/refiner/*` -> `SUBTITLES_GENERATED` broadcast + storage cache.
+- Summary flow:
+  request with `requestId` -> `src/handlers/summary.ts` -> `src/core/summarizer/*` graph -> `SUMMARY_GENERATED` or `SHOW_ERROR`.
+- Transcript flow:
+  `src/handlers/transcript.ts` + `src/core/transcript/index.ts` with cache/dedupe to reduce external calls.
 
-## Where to look
+## Always-on rules
 
-| Task                            | Location                              | Notes                                                   |
-| ------------------------------- | ------------------------------------- | ------------------------------------------------------- |
-| Add/rename message actions      | `src/core/constants.ts`               | `MESSAGE_ACTIONS` is the cross-context contract.        |
-| Handler routing / orchestration | `src/handlers/index.ts`               | MV3 service worker entrypoint.                          |
-| Handler summary logic           | `src/handlers/summary.ts`             | Sends `SUMMARY_GENERATED` / error broadcasts.           |
-| Handler refine logic            | `src/handlers/refine.ts`              | Handles caption refinement requests.                    |
-| Handler transcript logic        | `src/handlers/transcript.ts`          | Manages transcript fetching requests.                   |
-| Content script lifecycle        | `src/content/index.ts`                | `ContentManager` + SPA navigation handling.             |
-| Content message handling        | `src/content/messageHandler.ts`       | `chrome.runtime.onMessage` switch on `MESSAGE_ACTIONS`. |
-| Content auto-generation         | `src/content/autoGeneration.ts`       | Logic for auto-triggering summary/refinement.           |
-| Content video helpers           | `src/content/videoHelpers.ts`         | Video validation and scraping helpers.                  |
-| Content storage helpers         | `src/content/storageHelpers.ts`       | Storage key builders and model resolution.              |
-| Subtitle overlay rendering      | `src/content/subtitleRenderer.ts`     | CSS lives in `public/assets/subtitles.css`.             |
-| Side panel main page            | `src/sidepanel/pages/Index.tsx`       | Main UI orchestrator.                                   |
-| Side panel settings             | `src/sidepanel/pages/Settings.tsx`    | API keys/models/preferences + `chrome.tabs` messaging.  |
-| Streaming / long task handling  | `src/sidepanel/services/streaming.ts` | Uses `requestId` to match broadcasts to requests.       |
-| Storage layer                   | `src/core/storage.ts`                 | `chrome.storage.local` with `localStorage` fallback.    |
-| Transcript fetching             | `src/core/transcript/index.ts`        | ScrapeCreators client + caching/deduplication.          |
-| LLM summarization               | `src/core/summarizer/*`               | LangGraph/LangChain + zod schemas.                      |
-| LLM refinement                  | `src/core/refiner/*`                  | Caption refinement logic.                               |
+- Closest-file precedence for module guides:
+  - `src/handlers/AGENTS.md`
+  - `src/content/AGENTS.md`
+  - `src/core/AGENTS.md`
+  - `src/core/summarizer/AGENTS.md`
+  - `src/sidepanel/AGENTS.md`
+- Keep `MESSAGE_ACTIONS` and `STORAGE_KEYS` centralized in `src/core/constants.ts`.
+- Treat cross-context message payloads and persisted storage keys as compatibility surface.
+- Keep content script constraints isolated to `vite.content.config.ts` (IIFE output `dist/content.js`).
+- Preserve alias expectations:
+  - `@/*` -> `src/*`
+  - `@ui/*` -> `src/sidepanel/*`
+- LangGraph imports must remain compatible with `src/core/langgraph-web-shim.ts` aliasing.
+- TypeScript is permissive (`strict: false`), so rely on runtime guards, not compiler assumptions.
 
-## Conventions (project-specific)
-
-- Build is split across two Vite configs:
-  - `vite.config.ts`: multi-entry build for `index.html`, `sidepanel.html`, and `src/handlers/index.ts`.
-  - `vite.content.config.ts`: builds `src/content/index.ts` as an IIFE into `dist/content.js` (`emptyOutDir: false`).
-- Path aliases:
-  - `@/*` → `src/*`
-  - `@ui/*` → `src/sidepanel/*`
-- LangGraph is shimmed for the extension/web environment:
-  - `@langchain/langgraph` is aliased to `src/core/langgraph-web-shim.ts` in both Vite configs.
-- TypeScript strictness:
-  - `tsconfig.json` is permissive (`strict: false`). Don’t assume TS will catch edge cases.
-  - `tsconfig.node.json` is strict (Vite config typing).
-
-## Anti-patterns (this project)
-
-- Adding ad-hoc message action strings outside `src/core/constants.ts`.
-- Changing `MESSAGE_ACTIONS` or `STORAGE_KEYS` key strings without updating all contexts (handlers/content/sidepanel) and considering persisted data.
-- Treating content script bundling like normal React bundling; keep content constraints isolated to `vite.content.config.ts`.
-
-## Commands
+## Validation commands
 
 ```bash
-npm run dev      # Vite dev server (side panel / web demo)
-npm run build    # tsc + Vite build (UI+background) + content script build
-npm run preview  # Preview built web demo
-npm run lint     # ESLint (note: repo may not include an eslint config)
+npm run build
+/Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
 ```
 
 ## Notes
 
 - Build output lives in `dist/` and is loaded unpacked via `chrome://extensions`.
-- `sidepanel-mock.js` exists to run the UI without `chrome.*` in a normal browser.
-- `.tmp/better-youtube-caption/` is an ignored, separate git repo used as historical reference/prototyping (not part of the build).
+- `sidepanel-mock.js` supports browser preview without real `chrome.*`.
+- `.tmp/better-youtube-caption/` is an ignored separate reference repo and not part of extension build output.

@@ -1,48 +1,78 @@
 # Handlers (MV3 service worker)
 
-## OVERVIEW
+## Scope
 
-Event-driven MV3 service worker that routes `MESSAGE_ACTIONS` and orchestrates transcript refinement + summarization jobs.
+`src/handlers` is the background orchestration layer that receives runtime actions, executes transcript/refine/summary workflows, and broadcasts completion/error events back to UI/content contexts.
 
-## WHERE TO LOOK
+## What Module Is For
 
-- `src/handlers/index.ts`: Service worker entry; main `createMessageListener` switch on `message.action`.
-- `src/handlers/summary.ts`: Summary workflow with storage/cache resolution + runtime broadcasts (helpers merged inline).
-- `src/handlers/refine.ts`: Caption refinement handler.
-- `src/handlers/transcript.ts`: Transcript scraping handler.
-- `src/core/constants.ts`: Source of truth for `MESSAGE_ACTIONS` strings (keep action names centralized).
-- `src/core/utils/chrome.ts`: Message listener wrapper (`createMessageListener`) and shared message types.
-- `vite.config.ts`: Builds service worker from `src/handlers/index.ts` and outputs `dist/background.js`.
-- `public/manifest.json`: Declares MV3 service worker as `background.js` (`type: "module"`).
+- `src/handlers/index.ts` routes `MESSAGE_ACTIONS` to workflow handlers via `createMessageListener`.
+- `src/handlers/summary.ts` coordinates summary generation, request dedupe, and result/error broadcasting.
+- `src/handlers/refine.ts` coordinates subtitle refinement with request freshness guards.
+- `src/handlers/transcript.ts` fetches transcripts and emits completion notifications.
+- `src/handlers/workflow.ts` centralizes request-id freshness and pending workload bookkeeping helpers.
 
-## CONVENTIONS
+## High-signal locations
 
-- Route all runtime messages via `message.action` using `MESSAGE_ACTIONS` from `src/core/constants.ts` (no ad-hoc strings).
-- Handlers that respond asynchronously must `return true` from the listener case (see `SCRAPE_VIDEO`, `FETCH_SUBTITLES`, `GENERATE_SUMMARY`).
-- Use request-scoped dedupe + "latest request wins":
-  - `latestCaptionRequestByVideo` / `latestSummaryRequestByVideo` gate outgoing updates via `isLatest()`.
-  - `pendingCaptionJobs` / `pendingSummaryJobs` store in-flight `Promise`s keyed by `jobKey` to prevent duplicate concurrent work.
-- Prefer broadcasting results with `chrome.runtime.sendMessage({ action: ... })` using `MESSAGE_ACTIONS.*_GENERATED` / `*_COMPLETED`.
-- For tab-specific updates, use `chrome.tabs.sendMessage(tabId, ...)` and tolerate missing listeners (`.catch(() => {})`).
+- `src/handlers/index.ts`
+- `src/handlers/summary.ts`
+- `src/handlers/refine.ts`
+- `src/handlers/transcript.ts`
+- Related contracts:
+  - `src/core/constants.ts`
+  - `src/core/utils/chrome.ts`
+  - `public/manifest.json`
+  - `vite.config.ts`
 
-## ANTI-PATTERNS
+## Script Evidence
 
-- Assuming in-memory state survives: MV3 service workers suspend frequently; Maps like `pending*` and `latest*` are best-effort during the current wake period only.
-- Starting "background loops" (e.g., `setInterval`) to keep the worker alive; design for event-driven execution.
-- Adding new message actions outside `src/core/constants.ts` or bypassing the `createMessageListener` routing.
-- Doing heavy synchronous CPU work in the message handler before calling `sendResponse({ status: "processing" })`.
+Codemap preflight (`module_stats.sh` on `src/handlers`):
 
-## GOTCHAS
+- Files: `6` (`5 ts`, `1 md`)
+- TS/JS functions: `1` decl, `3` arrow const, `3` async arrow
+- TS/JS import edges: `18` (`3` relative)
+- Entrypoint-like files: `1`
+- Top local targets: `./workflow`, `./summary`, `./refine`, `./transcript`
+- Top external targets: `@/core/constants`, `@/core/runtimeConfig`, `@/core/utils/chrome`, `@/core/transcript`
 
-- MV3 service worker constraints: no DOM, no `window`, and the worker may be terminated mid-await; always make workflows restartable and persist anything that must survive (use `src/core/storage`).
-- Runtime messaging failure modes:
-  - `chrome.runtime.sendMessage` can fail when no listeners exist; this code intentionally ignores those errors.
-  - Callback-style APIs may require checking `chrome.runtime.lastError` (see `sendRuntimeMessage` in `src/handlers/summary.ts`).
-- Service worker is bundled by Vite:
-  - Input: `src/handlers/index.ts`
-  - Output: `dist/background.js` (forced to root via `entryFileNames` in `vite.config.ts`)
-  - Manifest wiring: `public/manifest.json` → `background.service_worker: "background.js"`
+## Symbol Inventory
 
-## COMMANDS
+Key functions and variables:
 
-- `npm run build`: Runs `tsc`, then builds the extension bundles; verify `dist/background.js` exists and matches the manifest.
+- `logSummaryConfig` (`summary.ts`)
+- `runProvider`, `tryOpenRouter`, `tryGemini`, `finalizeRequestState` (`summary.ts`)
+- `sendSubtitlesToTab`, `resolveRequestId`, `pendingCaptionJobs`, `latestCaptionWorkloads` (`refine.ts`)
+- `pendingSummaryJobs`, `latestSummaryWorkloads` (`summary.ts`)
+
+## Syntax Relationships
+
+- Inbound action path:
+  `createMessageListener` -> switch on `message.action` -> handler map in `index.ts`.
+- Action constants:
+  all route keys are imported from `MESSAGE_ACTIONS` (`src/core/constants.ts`).
+- Outbound events:
+  `chrome.runtime.sendMessage` for global broadcasts, `chrome.tabs.sendMessage` for tab-scoped subtitle pushes.
+- Request freshness boundary:
+  `requestId` propagation + latest-request maps prevent stale writes and stale emissions.
+
+## Key takeaways per location
+
+- `index.ts`: canonical runtime ingress; async handlers must keep `sendResponse` contract intact (`return true` where needed).
+- `summary.ts`: highest complexity; contains provider fallback, caching/storage decisions, and dedupe maps.
+- `refine.ts`: mirrors summary freshness logic for caption generation and tab updates.
+- `transcript.ts`: simpler fetch-and-broadcast handler, but still relies on shared action constants.
+- `workflow.ts`: reusable guardrails used by multi-step handlers.
+
+## Project-specific conventions and rationale
+
+- Do not add action strings inline; update `MESSAGE_ACTIONS` once in `src/core/constants.ts` and route everywhere from that contract.
+- Keep flows event-driven and restartable; service worker in-memory maps are wake-cycle best effort only.
+- Broadcast failures are expected when listeners are absent; handlers intentionally tolerate these non-fatal runtime errors.
+- Avoid heavy synchronous work before acknowledgement on long-running actions.
+
+## Validation commands
+
+```bash
+npm run build
+/Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
+```

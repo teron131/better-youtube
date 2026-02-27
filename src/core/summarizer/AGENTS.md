@@ -1,53 +1,83 @@
 # src/core/summarizer
 
-## OVERVIEW
+## Scope
 
-Summarization internals built on **LangChain + LangGraph** with **schema-first** structured outputs. The workflow is primarily executed from the MV3 service worker (see `src/handlers/index.ts`) and must stay **deterministic-ish** (temperature `0.0`) to avoid regressions in perceived output quality.
+`src/core/summarizer` implements schema-driven summary generation and quality refinement for transcript/video inputs, exposed to handlers as a deterministic, runtime-safe API surface.
 
-This module talks to OpenRouter via the `OPENROUTER` endpoint (`API_ENDPOINTS.OPENROUTER_BASE`) using LangChain’s `ChatOpenAI` client configured with `baseURL` (do not hard-code URLs).
+## What Module Is For
 
-## WHERE TO LOOK
+- `summarizer.ts` runs the main graph/agent summarization workflow.
+- `fastSummarizer.ts` provides fast-path behavior for reduced-latency summary generation.
+- `schemas.ts` defines Zod contracts for summary, quality, and graph state payloads.
+- `promptBuilder.ts` centralizes prompt composition and language constraints.
+- `qualityUtils.ts` computes scoring and refinement thresholds.
+- `summaryParser.ts` normalizes/parses model output into typed summary structures.
+- `geminiSummarizer.ts` contains provider-specific Gemini summary path.
+- `index.ts` re-exports stable public symbols.
 
-- `src/core/summarizer/captionSummarizer.ts`
-  - LangGraph state machine (`StateGraph`) for summarize → quality-check → refine loop.
-  - Fast path “agent mode” (`fast_mode`) that skips the quality/refinement graph.
-  - OpenRouter client construction (`createOpenRouterLLM`) and tool/middleware wiring.
+## High-signal locations
+
+- `src/core/summarizer/summarizer.ts`
 - `src/core/summarizer/schemas.ts`
-  - Zod schemas for `SummarySchema`, `QualitySchema`, and `GraphStateSchema`.
-  - This is the contract for `.withStructuredOutput(...)` and quality scoring.
 - `src/core/summarizer/promptBuilder.ts`
-  - Centralized prompt text + language rules.
 - `src/core/summarizer/qualityUtils.ts`
-  - Thresholds/iteration limits and quality score calculation.
-- `src/core/summarizer/index.ts`
-  - Public re-exports (treat as the external API surface).
+- `src/core/summarizer/summaryParser.ts`
+- Related callers:
+  - `src/handlers/summary.ts`
+  - `src/core/llmClients.ts`
+  - `src/core/constants.ts`
 
-## CONVENTIONS
+## Script Evidence
 
-- **Schema-first**: update `schemas.ts` first, then adjust prompts and callers.
-  - All LLM responses are expected to parse into Zod-backed structured output.
-- **Prompt rules are product constraints** (do not casually relax them):
-  - No hallucinations: every claim must be transcript-supported.
-  - Avoid meta phrasing (e.g., “This video explains…”, “This summary explores…”).
-  - Remove promos/filler (intros/outros/calls-to-action/sponsors).
-- **Keep summarizer logic UI-free**: this folder should not depend on side panel React.
-  - Progress updates flow via callbacks (`onProgress`) and background message broadcasts.
-- Prefer using `API_ENDPOINTS.*` / `DEFAULTS.*` from `src/core/constants.ts`.
+Codemap preflight (`module_stats.sh` on `src/core/summarizer`):
 
-## ANTI-PATTERNS
+- Files: `9` (`8 ts`, `1 md`)
+- TS/JS explicit exports: `17` (`8` exported vars)
+- TS/JS import edges: `32` (`11` relative), re-export edges: `8`
+- Entrypoint-like files: `1`
+- Top local targets: `./schemas`, `./promptBuilder`, `./summarizer`, `./qualityUtils`, `./geminiSummarizer`
+- Top external targets: `@/core/types`, `zod`, `@langchain/core/tools`, `@/core/transcript`, `@/core/llmClients`
 
-- Adding “helpful” creative variance:
-  - raising model temperature, changing output format, or weakening transcript grounding.
-- Returning ad-hoc JSON or free-form text instead of `SummarySchema` / `QualitySchema`.
-- Mixing orchestration concerns into the UI layer (side panel) instead of background + `src/core/summarizer/*`.
-- Expanding the LangGraph state machine without understanding the refinement/termination logic (see `shouldContinue` and `SUMMARY_CONFIG.MAX_ITERATIONS`).
+## Symbol Inventory
 
-## GOTCHAS
+High-signal symbols from script evidence:
 
-- `fast_mode` uses a LangChain agent with `responseFormat: toolStrategy(SummarySchema)` and **does not** run quality checks.
-- URL inputs may route through `scrap_youtube_tool` to fetch a transcript; missing Scrape Creators API key returns an error string (caller must handle).
-- Garbage removal is best-effort middleware on tool calls; failures intentionally fall back to raw transcript.
-- Language handling:
-  - `target_language: "auto"` means “match transcript language (or English if unclear)”.
-  - Non-`auto` targets are strict (“Write ALL output in …”).
-- Bundling: `@langchain/langgraph` is aliased to `src/core/langgraph-web-shim.ts` for web builds; avoid imports that bypass the shim.
+- Workflow builders: `createSummaryGraph`, `createSummaryNode`, `createQualityNode`
+- Tool/middleware: `createScrapeYoutubeTool`, `createGarbageFilterMiddleware`
+- Prompt class: `PromptBuilder`
+- Schema/state symbols: `SummarySchema`, `QualitySchema`, `GraphStateSchema`
+- Quality constants: `MAX_SCORE_PER_ASPECT`, `SCORE_MAP`, `SUMMARY_CONFIG`
+
+## Syntax Relationships
+
+- External boundary:
+  handlers invoke summarizer exports; sidepanel/content do not call internals directly.
+- Schema boundary:
+  `schemas.ts` contracts are shared across parser, quality checks, and generated output validation.
+- Prompt boundary:
+  `promptBuilder.ts` plus constants drive generation behavior independent from UI.
+- Provider boundary:
+  model clients/config from `src/core/llmClients.ts` + runtime config determine provider execution path.
+
+## Key takeaways per location
+
+- `summarizer.ts`: orchestration center and highest behavioral risk for regressions.
+- `schemas.ts`: source of truth for generated structure; update first when output shape changes.
+- `qualityUtils.ts`: termination/iteration policy for refinement loops.
+- `promptBuilder.ts`: business-language rules and anti-hallucination guardrails.
+- `summaryParser.ts`: resilience layer for converting raw model output into typed summaries.
+
+## Project-specific conventions and rationale
+
+- Keep summarizer logic UI-agnostic and callable from service worker context.
+- Preserve schema-first behavior; avoid free-form or weakly typed returns.
+- Keep output grounded in transcript input; avoid creative drift in prompts/settings.
+- Use constants for endpoint/model defaults; avoid hard-coded provider strings where shared constants exist.
+- Maintain compatibility with LangGraph web shim aliasing in extension build pipeline.
+
+## Validation commands
+
+```bash
+npm run build
+/Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
+```
