@@ -26,9 +26,7 @@
   - `src/core/requestId.ts`
   - `src/core/utils/chrome.ts`
 
-## Script Evidence
-
-Codemap preflight (`module_stats.sh` on `src/sidepanel`):
+## Repository Snapshot
 
 - Files: `91` (`66 tsx`, `16 ts`, `2 css`, `1 md`, assets)
 - TS/JS explicit exports: `25` (`12` exported vars)
@@ -72,7 +70,7 @@ High-signal symbols:
 - Preserve compatibility with browser preview mode (`sidepanel-mock.js`) when touching startup/runtime checks.
 - Treat `components/ui/*` as reusable primitives; app-specific logic belongs in pages/hooks/services/components outside `ui`.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build

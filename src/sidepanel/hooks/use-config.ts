@@ -128,6 +128,7 @@ export function useLanguageSelection() {
 }
 
 import { STORAGE_KEYS } from "@/core/constants";
+import { setStorageValue } from "@/core/storage";
 
 interface UserPreferences {
   summaryModel: string;
@@ -263,7 +264,14 @@ export function useUserPreferences() {
     if (updates.qualityModel)
       storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
 
-    chrome.storage.local.set(storageUpdates);
+    const writeEntries = Object.entries(storageUpdates);
+    if (writeEntries.length === 0) return;
+
+    void Promise.all(
+      writeEntries.map(([key, value]) => setStorageValue(key, value)),
+    ).catch((error) => {
+      console.error("Failed to sync user preferences:", error);
+    });
   };
 
   const resetPreferences = () => {

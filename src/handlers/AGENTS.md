@@ -24,9 +24,7 @@
   - `public/manifest.json`
   - `vite.config.ts`
 
-## Script Evidence
-
-Codemap preflight (`module_stats.sh` on `src/handlers`):
+## Repository Snapshot
 
 - Files: `6` (`5 ts`, `1 md`)
 - TS/JS functions: `1` decl, `3` arrow const, `3` async arrow
@@ -70,7 +68,7 @@ Key functions and variables:
 - Broadcast failures are expected when listeners are absent; handlers intentionally tolerate these non-fatal runtime errors.
 - Avoid heavy synchronous work before acknowledgement on long-running actions.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build

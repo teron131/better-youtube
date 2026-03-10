@@ -26,9 +26,7 @@
   - `public/assets/subtitles.css`
   - `public/manifest.json`
 
-## Script Evidence
-
-Codemap preflight (`module_stats.sh` on `src/content`):
+## Repository Snapshot
 
 - Files: `8` (`7 ts`, `1 md`)
 - TS/JS classes: `3` (`ContentManager`, `SubtitleController`, `SubtitleView`)
@@ -72,7 +70,7 @@ Key symbols:
 - Cache/persistence writes must be video-scoped and request-scoped to avoid wrong-video bleed.
 - Clean up observers/timeouts/listeners aggressively because content context can invalidate at runtime.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build

@@ -5,7 +5,7 @@
 Chrome MV3 extension for YouTube caption refinement plus AI summarization.
 Primary stack: Vite + React + TypeScript + Tailwind/shadcn/ui, with shared AI workflows in `src/core/*`.
 
-Codemap preflight evidence (`module_stats.sh` on repo root):
+## Repository Snapshot
 
 - Filesystem: `22` dirs, `167` files
 - File types: `66 tsx`, `63 ts`, `7 md`
@@ -57,7 +57,7 @@ Codemap preflight evidence (`module_stats.sh` on repo root):
 - LangGraph imports must remain compatible with `src/core/langgraph-web-shim.ts` aliasing.
 - TypeScript is permissive (`strict: false`), so rely on runtime guards, not compiler assumptions.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build
