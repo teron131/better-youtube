@@ -152,6 +152,12 @@ const Settings = () => {
       }
     } catch (error) {
       console.error(`Failed to auto-save setting ${key}:`, error);
+      toast({
+        title: "Couldn't save setting",
+        description:
+          error instanceof Error ? error.message : "The setting was not saved.",
+        variant: "destructive",
+      });
     }
   };
 

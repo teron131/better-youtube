@@ -24,9 +24,7 @@
 - `src/core/summarizer/index.ts`
 - Nested module guide: `src/core/summarizer/AGENTS.md`
 
-## Script Evidence
-
-Codemap preflight (`module_stats.sh` on `src/core`):
+## Repository Snapshot
 
 - Files: `34` (`32 ts`, `2 md`)
 - TS/JS explicit exports: `91` (`36` exported vars)
@@ -72,7 +70,7 @@ Key symbols surfaced by stats and module boundaries:
 - Because TS is not strict, maintain runtime guards and explicit null/error handling.
 - Keep summarizer internals isolated under `src/core/summarizer/*`; use public exports from `index.ts` in callers.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build

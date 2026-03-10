@@ -10,7 +10,11 @@ import {
   YOUTUBE,
 } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
-import { saveSubtitles, type SubtitleSegment } from "@/core/storage";
+import {
+  saveSubtitles,
+  setStorageValue,
+  type SubtitleSegment,
+} from "@/core/storage";
 import { sendChromeMessage } from "@/core/utils/chrome";
 import { toTraditionalChinese } from "@/core/utils/text";
 import { extractVideoId } from "@/core/utils/url";
@@ -264,8 +268,11 @@ function handleToggleSubtitles(
   const wasEnabled = state.showSubtitlesEnabled;
   state.showSubtitlesEnabled = nextState;
   state.userInteractedWithToggle = true;
-  chrome.storage.local.set({
-    [STORAGE_KEYS.SHOW_SUBTITLES]: state.showSubtitlesEnabled,
+  void setStorageValue(
+    STORAGE_KEYS.SHOW_SUBTITLES,
+    state.showSubtitlesEnabled,
+  ).catch((error) => {
+    console.error("Failed to persist subtitle toggle:", error);
   });
 
   // Update subtitle display based on new state

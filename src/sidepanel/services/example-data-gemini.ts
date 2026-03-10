@@ -59,7 +59,7 @@ export const exampleSummaryGemini = {
     {
       startTime: "41:01",
       endTime: "45:59",
-      title: "ASML’s Global Impact and the Future",
+      title: "ASML's Global Impact and the Future",
       description:
         "ASML has become the sole provider of EUV machines, which cost approximately $400 million each and are essential for the world's most advanced chip fabs. The success of the machine is a testament to 'unreasonable' persistence against physical limits. Future advancements will continue to scale from the micro to the nano and pico levels, driven by the ongoing demand for greater computing power.",
     },

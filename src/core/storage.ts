@@ -2,7 +2,7 @@
  * Chrome storage management
  */
 
-import { STORAGE, STORAGE_CLEANUP, YOUTUBE } from "./constants";
+import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants";
 
 // ============================================================================
 // Types
@@ -58,11 +58,22 @@ const StorageKeys = {
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
 const WRITE_RATE_RETRY_LIMIT = 3;
 const WRITE_RATE_BACKOFF_BASE_MS = 250;
+const QUOTA_CLEANUP_RETRY_LIMIT = 3;
+const PROTECTED_STORAGE_HEADROOM_BYTES = 256 * 1024;
 const METADATA_KEY_PREFIX = "video_info_";
 const SUMMARY_KEY_PREFIX = "summary_";
+const PROTECTED_STORAGE_KEYS = new Set(Object.values(STORAGE_KEYS));
+
+function isProtectedStorageKey(key: string): boolean {
+  return PROTECTED_STORAGE_KEYS.has(
+    key as (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS],
+  );
+}
 
 function isQuotaError(error: unknown): error is Error {
-  return error instanceof Error && error.message.includes("QUOTA");
+  return (
+    error instanceof Error && error.message.toLowerCase().includes("quota")
+  );
 }
 
 function isWriteRateQuotaError(error: unknown): error is Error {
@@ -74,7 +85,7 @@ function isWriteRateQuotaError(error: unknown): error is Error {
 async function setWithQuotaRetry(
   items: Record<string, unknown>,
 ): Promise<void> {
-  let cleanedUp = false;
+  let quotaCleanupAttempts = 0;
 
   for (let attempt = 0; attempt <= WRITE_RATE_RETRY_LIMIT; attempt++) {
     try {
@@ -90,10 +101,21 @@ async function setWithQuotaRetry(
         continue;
       }
 
-      if (isQuotaError(error) && !cleanedUp) {
-        cleanedUp = true;
-        await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE);
+      if (
+        isQuotaError(error) &&
+        quotaCleanupAttempts < QUOTA_CLEANUP_RETRY_LIMIT
+      ) {
+        quotaCleanupAttempts += 1;
+        await cleanupOldVideos(
+          STORAGE.CLEANUP_BATCH_SIZE * quotaCleanupAttempts,
+        );
         continue;
+      }
+
+      if (isQuotaError(error)) {
+        throw new Error(
+          "Storage is still full after clearing cached videos. Please remove some saved extension data and try again.",
+        );
       }
 
       throw error;
@@ -239,7 +261,7 @@ export async function saveVideoMetadata(
   videoId: string,
   metadata: VideoMetadata,
 ): Promise<void> {
-  return storageSet({ [StorageKeys.metadata(videoId)]: metadata });
+  return setWithQuotaRetry({ [StorageKeys.metadata(videoId)]: metadata });
 }
 
 export async function getSummary(
@@ -276,7 +298,10 @@ export async function getStorageValue<T>(key: string): Promise<T | null> {
 }
 
 export async function setStorageValue<T>(key: string, value: T): Promise<void> {
-  return storageSet({ [key]: value });
+  if (isProtectedStorageKey(key)) {
+    await ensureStorageHeadroom(PROTECTED_STORAGE_HEADROOM_BYTES);
+  }
+  return setWithQuotaRetry({ [key]: value });
 }
 
 export async function getStorageValues<T extends Record<string, unknown>>(
@@ -320,6 +345,9 @@ function resolveVideoIdFromStorageKey(
   key: string,
   value: unknown,
 ): string | null {
+  if (isProtectedStorageKey(key)) {
+    return null;
+  }
   if (key.length === YOUTUBE.VIDEO_ID_LENGTH && Array.isArray(value)) {
     return key;
   }
@@ -387,6 +415,20 @@ async function cleanupOldVideos(countToRemove: number): Promise<void> {
   const keysToRemove = groupsToRemove.flatMap((group) => group.keys);
   if (keysToRemove.length === 0) return;
   await storageRemove(keysToRemove);
+}
+
+async function ensureStorageHeadroom(
+  bytesToKeepAvailable: number,
+): Promise<void> {
+  const usage = await getStorageUsage();
+  if (usage.bytesAvailable >= bytesToKeepAvailable) return;
+
+  const bytesToFree = bytesToKeepAvailable - usage.bytesAvailable;
+  const videosToRemove = Math.max(
+    STORAGE.CLEANUP_BATCH_SIZE,
+    Math.ceil(bytesToFree / STORAGE.ESTIMATED_VIDEO_SIZE_BYTES),
+  );
+  await cleanupOldVideos(videosToRemove);
 }
 
 export async function ensureStorageSpace(): Promise<void> {

@@ -27,9 +27,7 @@
   - `src/core/llmClients.ts`
   - `src/core/constants.ts`
 
-## Script Evidence
-
-Codemap preflight (`module_stats.sh` on `src/core/summarizer`):
+## Repository Snapshot
 
 - Files: `9` (`8 ts`, `1 md`)
 - TS/JS explicit exports: `17` (`8` exported vars)
@@ -75,7 +73,7 @@ High-signal symbols from script evidence:
 - Use constants for endpoint/model defaults; avoid hard-coded provider strings where shared constants exist.
 - Maintain compatibility with LangGraph web shim aliasing in extension build pipeline.
 
-## Validation commands
+## Verification commands
 
 ```bash
 npm run build
