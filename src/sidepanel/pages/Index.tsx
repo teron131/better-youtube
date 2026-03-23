@@ -38,9 +38,82 @@ function segmentsToTranscript(
   return segments.map((segment) => segment.text).join(" ");
 }
 
+function resolveSummaryProvider(
+  modelUsed?: string,
+): "gemini" | "openrouter" | undefined {
+  if (modelUsed?.startsWith("gemini::")) return "gemini";
+  if (modelUsed?.startsWith("openrouter::")) return "openrouter";
+  return undefined;
+}
+
+async function loadCachedVideoState(videoId: string) {
+  const [storedSummary, storedVideoInfo, storedSubtitles] = await Promise.all([
+    getSummary(videoId),
+    getVideoMetadata(videoId),
+    getSubtitles(videoId),
+  ]);
+
+  const transcript = segmentsToTranscript(storedSubtitles);
+  if (!storedSummary && !storedVideoInfo && !transcript) {
+    return null;
+  }
+
+  if (!storedSummary) {
+    return {
+      summaryResult: null,
+      scrapedVideoInfo: storedVideoInfo ?? null,
+      scrapedTranscript: transcript,
+      currentStage: transcript
+        ? "Loaded cached transcript"
+        : storedVideoInfo
+          ? "Loaded cached video info"
+          : "",
+      currentStep: 0,
+      progressStates: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  return {
+    summaryResult: {
+      success: true,
+      summary: storedSummary.summary,
+      quality: storedSummary.quality,
+      videoInfo: storedVideoInfo ?? undefined,
+      transcript: transcript ?? undefined,
+      provider: resolveSummaryProvider(storedSummary.modelUsed),
+      totalTime: "cached",
+      iterations: 0,
+      chunksProcessed: 0,
+    },
+    scrapedVideoInfo: storedVideoInfo ?? null,
+    scrapedTranscript: transcript ?? null,
+    currentStage: "Loaded cached summary",
+    currentStep: 4,
+    progressStates: [],
+    isLoading: false,
+    error: null,
+  };
+}
+
+function createEmptyVideoState() {
+  return {
+    summaryResult: null,
+    scrapedVideoInfo: null,
+    scrapedTranscript: null,
+    currentStage: "",
+    currentStep: 0,
+    progressStates: [],
+    isLoading: false,
+    error: null,
+  };
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const currentUrlVideoIdRef = useRef<string | null>(null);
   const [initialUrl, setInitialUrl] = useState<string>("");
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
@@ -59,6 +132,7 @@ const Index = () => {
     summaryResult,
     scrapedVideoInfo,
     scrapedTranscript,
+    cancelCurrentRun,
     updateState,
     processVideo,
   } = useVideoProcessing();
@@ -121,87 +195,38 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    if (!initialUrl || isLoading || isExampleMode) return;
+    if (!initialUrl || isExampleMode) return;
 
-    const videoId = extractVideoId(initialUrl);
-    if (!videoId) return;
+    const nextVideoId = extractVideoId(initialUrl);
+    if (!nextVideoId) return;
+
+    if (currentUrlVideoIdRef.current === nextVideoId) {
+      return;
+    }
 
     let cancelled = false;
 
-    const loadCachedSummary = async () => {
+    const syncStateForVideoChange = async () => {
       try {
-        const [storedSummary, storedVideoInfo, storedSubtitles] =
-          await Promise.all([
-            getSummary(videoId),
-            getVideoMetadata(videoId),
-            getSubtitles(videoId),
-          ]);
-
+        currentUrlVideoIdRef.current = nextVideoId;
+        cancelCurrentRun();
+        const cachedState = await loadCachedVideoState(nextVideoId);
         if (cancelled) return;
 
-        const transcript = segmentsToTranscript(storedSubtitles);
-        if (!storedSummary && !storedVideoInfo && !transcript) {
-          return;
-        }
-
-        if (!storedSummary) {
-          updateState({
-            summaryResult: null,
-            scrapedVideoInfo: storedVideoInfo ?? null,
-            scrapedTranscript: transcript,
-            currentStage: transcript
-              ? "Loaded cached transcript"
-              : storedVideoInfo
-                ? "Loaded cached video info"
-                : "",
-            currentStep: 0,
-            progressStates: [],
-            isLoading: false,
-            error: null,
-          });
-          return;
-        }
-
-        const provider = storedSummary.modelUsed?.startsWith("gemini::")
-          ? "gemini"
-          : storedSummary.modelUsed?.startsWith("openrouter::")
-            ? "openrouter"
-            : undefined;
-
-        setIsExampleMode(false);
         setLastProcessedUrl(initialUrl);
-
-        updateState({
-          summaryResult: {
-            success: true,
-            summary: storedSummary.summary,
-            quality: storedSummary.quality,
-            videoInfo: storedVideoInfo ?? undefined,
-            transcript: transcript ?? undefined,
-            provider,
-            totalTime: "cached",
-            iterations: 0,
-            chunksProcessed: 0,
-          },
-          scrapedVideoInfo: storedVideoInfo ?? null,
-          scrapedTranscript: transcript ?? null,
-          currentStage: "Loaded cached summary",
-          currentStep: 4,
-          progressStates: [],
-          isLoading: false,
-          error: null,
-        });
+        setLastOptions(undefined);
+        updateState(cachedState ?? createEmptyVideoState());
       } catch (error) {
         console.error("Failed to load cached summary:", error);
       }
     };
 
-    loadCachedSummary();
+    syncStateForVideoChange();
 
     return () => {
       cancelled = true;
     };
-  }, [initialUrl, isLoading, isExampleMode, updateState]);
+  }, [cancelCurrentRun, initialUrl, isExampleMode, updateState]);
 
   useEffect(() => {
     const trackedUrl = lastProcessedUrl || initialUrl;
@@ -220,52 +245,12 @@ const Index = () => {
 
     const syncStoredState = async () => {
       try {
-        const [storedSummary, storedVideoInfo, storedSubtitles] =
-          await Promise.all([
-            getSummary(videoId),
-            getVideoMetadata(videoId),
-            getSubtitles(videoId),
-          ]);
-
+        const cachedState = await loadCachedVideoState(videoId);
         if (cancelled) return;
-
-        const transcript = segmentsToTranscript(storedSubtitles);
-        if (!storedSummary && !storedVideoInfo && !transcript) {
+        if (!cachedState) {
           return;
         }
-
-        if (!storedSummary) {
-          updateState({
-            summaryResult: null,
-            scrapedVideoInfo: storedVideoInfo ?? null,
-            scrapedTranscript: transcript,
-            error: null,
-          });
-          return;
-        }
-
-        const provider = storedSummary.modelUsed?.startsWith("gemini::")
-          ? "gemini"
-          : storedSummary.modelUsed?.startsWith("openrouter::")
-            ? "openrouter"
-            : undefined;
-
-        updateState({
-          summaryResult: {
-            success: true,
-            summary: storedSummary.summary,
-            quality: storedSummary.quality,
-            videoInfo: storedVideoInfo ?? undefined,
-            transcript: transcript ?? undefined,
-            provider,
-            totalTime: "cached",
-            iterations: 0,
-            chunksProcessed: 0,
-          },
-          scrapedVideoInfo: storedVideoInfo ?? null,
-          scrapedTranscript: transcript ?? null,
-          error: null,
-        });
+        updateState(cachedState);
       } catch (error) {
         console.error("Failed to sync stored video state:", error);
       }
@@ -510,10 +495,11 @@ const Index = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleToggleSubtitles(!showSubtitles)}
-                className={`gap-2 text-xs font-medium transition-colors ${showSubtitles
+                className={`gap-2 text-xs font-medium transition-colors ${
+                  showSubtitles
                     ? "text-primary bg-primary/10 hover:bg-primary/20"
                     : "text-muted-foreground hover:text-foreground"
-                  }`}
+                }`}
                 title="Toggle subtitles overlay"
               >
                 <Captions className="h-4 w-4" />
