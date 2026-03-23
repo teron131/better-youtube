@@ -503,8 +503,8 @@ const Index = () => {
                 size="sm"
                 onClick={() => handleToggleSubtitles(!showSubtitles)}
                 className={`gap-2 text-xs font-medium transition-colors ${showSubtitles
-                    ? "text-primary bg-primary/10 hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-primary bg-primary/10 hover:bg-primary/20"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
                 title="Toggle subtitles overlay"
               >

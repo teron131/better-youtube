@@ -1,4 +1,5 @@
 import { MESSAGE_ACTIONS } from "@/core/constants";
+import { saveSubtitles } from "@/core/storage";
 import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { refineTranscriptWithLLM } from "@/core/refiner";
 import {
@@ -88,7 +89,7 @@ export async function handleFetchSubtitles(
           subtitles,
           ...extraPayload,
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     try {
@@ -118,6 +119,7 @@ export async function handleFetchSubtitles(
       );
 
       if (!isCurrent()) return;
+      await saveSubtitles(videoId, refinedSegments);
       sendSubtitlesToTab(refinedSegments);
     } catch (error) {
       console.error("Refinement error:", error);

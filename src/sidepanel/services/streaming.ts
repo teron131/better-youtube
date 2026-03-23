@@ -3,7 +3,12 @@
  * Handles communication with background script for video processing
  */
 
-import { ChromeMessage, sendChromeMessage } from "@/core/utils/chrome";
+import {
+  ChromeMessage,
+  getCurrentTab,
+  sendChromeMessage,
+  sendTabMessage,
+} from "@/core/utils/chrome";
 import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
 import { extractVideoId } from "@/core/utils/url";
@@ -139,14 +144,14 @@ function createSummaryListener(
   onProgress?: (state: StreamingProgressState) => void,
   control?: StreamControl,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
-  let cleanup = () => {};
+  let cleanup = () => { };
 
   const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
     let settled = false;
     let timeoutId: NodeJS.Timeout;
     const signal = control?.signal;
     const runId = control?.runId;
-    let removeAbortListener = () => {};
+    let removeAbortListener = () => { };
 
     const settle = (handler: () => void) => {
       if (settled) return;
@@ -257,12 +262,47 @@ function triggerRefinement(
   requestId: RequestId,
   refinerModel: string,
 ): void {
-  sendChromeMessage({
+  void requestCaptionGeneration(videoId, requestId, refinerModel).catch(
+    (error) => console.error("Caption refinement error:", error),
+  );
+}
+
+async function requestCaptionGeneration(
+  videoId: string,
+  requestId: RequestId,
+  refinerModel: string,
+  options?: { forceRegenerate?: boolean },
+) {
+  const message = {
+    action: MESSAGE_ACTIONS.GENERATE_SUBTITLES,
+    videoId,
+    requestId,
+    modelSelection: refinerModel,
+    forceRegenerate: options?.forceRegenerate,
+  };
+  const activeTab = await getCurrentTab();
+  const activeTabId = activeTab?.id;
+  const activeTabVideoId =
+    typeof activeTab?.url === "string" ? extractVideoId(activeTab.url) : null;
+
+  if (activeTabId && activeTabVideoId === videoId) {
+    try {
+      return await sendTabMessage(activeTabId, message);
+    } catch (error) {
+      console.warn(
+        "[stream] active-tab caption request failed, falling back to runtime",
+        error,
+      );
+    }
+  }
+
+  return sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
     videoId,
     requestId,
     modelSelection: refinerModel,
-  }).catch((err) => console.error("Caption refinement error:", err));
+    forceRegenerate: options?.forceRegenerate,
+  });
 }
 
 export async function triggerCaptionGeneration(
@@ -273,14 +313,12 @@ export async function triggerCaptionGeneration(
   if (!videoId) throw new Error("Invalid YouTube URL");
 
   const { refinerModel } = await getProcessingConfig();
-
-  const response = await sendChromeMessage({
-    action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
+  const response = await requestCaptionGeneration(
     videoId,
-    requestId: createRequestId("caption"),
-    modelSelection: refinerModel,
-    forceRegenerate: options?.forceRegenerate,
-  });
+    createRequestId("caption"),
+    refinerModel,
+    options,
+  );
 
   if (response?.status === "error") {
     throw new Error(response.message || "Caption generation failed");
