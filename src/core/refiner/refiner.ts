@@ -80,6 +80,21 @@ function extractResponseText(response: any): string {
   return content != null ? String(content) : "";
 }
 
+function normalizeRefinedOutputLines(text: string): string[] {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("```"))
+    .filter(
+      (line) =>
+        !/^(?:here(?:'| i)?s(?: the)?|(?:corrected|refined)\s+)?transcript:?$/i.test(
+          line,
+        ),
+    );
+}
+
 /**
  * Custom concurrency handler for batch processing
  */
@@ -147,6 +162,7 @@ function createPriorityHandler(
   priorityRangeCount: number,
   splitIndex: number,
   segments: SubtitleSegment[],
+  ranges: [number, number][],
   onPriorityComplete?: (segments: SubtitleSegment[]) => void,
 ): (result: any, index: number, allResults: (any | null)[]) => void {
   let completedPriorityChunks = 0;
@@ -163,7 +179,14 @@ function createPriorityHandler(
       priorityReported = true;
       const priorityText = allResults
         .slice(0, priorityRangeCount)
-        .map((r) => (r ? extractResponseText(r).trim() : ""))
+        .map((r, idx) =>
+          validateAndExtractChunk(
+            r,
+            ranges[idx],
+            idx,
+            segments.slice(ranges[idx][0], ranges[idx][1]),
+          ),
+        )
         .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
       onPriorityComplete(
@@ -185,18 +208,21 @@ function validateAndExtractChunk(
   response: any,
   range: [number, number],
   chunkIndex: number,
+  originalChunk: SubtitleSegment[],
 ): string {
   const text = extractResponseText(response).trim();
   const expectedCount = range[1] - range[0];
-  const actualCount = text.split("\n").length;
+  const normalizedLines = normalizeRefinedOutputLines(text);
+  const actualCount = normalizedLines.length;
 
   if (actualCount !== expectedCount) {
     console.warn(
-      `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}`,
+      `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}. Falling back to original chunk.`,
     );
+    return formatTranscriptSegments(originalChunk);
   }
 
-  return text;
+  return normalizedLines.join("\n");
 }
 
 /**
@@ -244,12 +270,20 @@ export async function refineTranscriptWithLLM(
       priorityRangeCount,
       splitIndex,
       segments,
+      ranges,
       onPriorityComplete,
     ),
   );
 
   const refinedText = responses
-    .map((res, i) => validateAndExtractChunk(res, ranges[i], i))
+    .map((res, i) =>
+      validateAndExtractChunk(
+        res,
+        ranges[i],
+        i,
+        segments.slice(ranges[i][0], ranges[i][1]),
+      ),
+    )
     .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
   return parseRefinedSegments(
