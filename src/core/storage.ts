@@ -51,6 +51,18 @@ const StorageKeys = {
   summary: (videoId: string) => `summary_${videoId}`,
 } as const;
 
+export function getSubtitlesStorageKey(videoId: string): string {
+  return StorageKeys.subtitles(videoId);
+}
+
+export function getVideoMetadataStorageKey(videoId: string): string {
+  return StorageKeys.metadata(videoId);
+}
+
+export function getSummaryStorageKey(videoId: string): string {
+  return StorageKeys.summary(videoId);
+}
+
 // ============================================================================
 // Core Storage Operations
 // ============================================================================
@@ -437,7 +449,7 @@ export async function ensureStorageSpace(): Promise<void> {
   if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
     const videosToRemove = Math.ceil(
       (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) /
-        STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
+      STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
     );
     await cleanupOldVideos(videosToRemove);
   }

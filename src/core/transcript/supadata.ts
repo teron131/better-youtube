@@ -3,32 +3,16 @@ import { createYouTubeWatchUrl } from "@/core/utils/url";
 import type {
   ApiTranscriptSegment,
   ScrapeCreatorsResponse,
+  SupadataJobResponse,
+  SupadataTranscriptItem,
+  SupadataTranscriptResponse,
 } from "@/core/types";
 import { formatTimestamp } from "@/core/utils/date";
-
-interface SupadataTranscriptItem {
-  lang?: string;
-  text: string;
-  offset: number;
-  duration: number;
-}
-
-interface SupadataDirectResponse {
-  content?: string | SupadataTranscriptItem[];
-  lang?: string;
-  availableLangs?: string[];
-}
-
-interface SupadataJobResponse {
-  jobId?: string;
-  status?: "queued" | "active" | "completed" | "failed";
-  content?: string | SupadataTranscriptItem[];
-  lang?: string;
-  availableLangs?: string[];
-  error?: { message?: string; details?: string } | string;
-}
+import { createEmptyScrapeCreatorsResponse } from "./scrapeCreators";
 
 const SUPADATA_POLL_INTERVAL_MS = 1000;
+
+type SupadataResponse = SupadataTranscriptResponse | SupadataJobResponse;
 
 function isTranscriptItem(value: unknown): value is SupadataTranscriptItem {
   return (
@@ -46,6 +30,12 @@ function hasTranscriptArray(
   return Array.isArray(content) && content.every(isTranscriptItem);
 }
 
+function isSupadataJobResponse(
+  data: SupadataResponse,
+): data is SupadataJobResponse {
+  return "jobId" in data && typeof data.jobId === "string";
+}
+
 function buildSupadataHeaders(apiKey: string): HeadersInit {
   return {
     "x-api-key": apiKey,
@@ -53,69 +43,52 @@ function buildSupadataHeaders(apiKey: string): HeadersInit {
   };
 }
 
-function normalizeSupadataResponse(
-  data: SupadataDirectResponse,
+function createSupadataBaseResponse(
   videoId: string,
-): ScrapeCreatorsResponse | null {
-  if (!hasTranscriptArray(data.content)) {
-    if (typeof data.content === "string") {
-      return {
-        success: true,
-        credits_remaining: 0,
-        type: "video",
-        url: createYouTubeWatchUrl(videoId),
-        transcript: [],
-        transcript_only_text: data.content,
-        title: "",
-        description: "",
-        channel: {
-          id: "",
-          url: "",
-          handle: "",
-          title: "",
-        },
-        durationFormatted: "",
-        publishDate: "",
-        viewCountInt: 0,
-        likeCountInt: 0,
-        keywords: [],
-        videoId,
-        language: data.lang,
-      };
-    }
+  lang?: string,
+): Omit<ScrapeCreatorsResponse, "transcript"> {
+  const baseResponse = createEmptyScrapeCreatorsResponse(videoId);
 
-    console.warn("Supadata response missing transcript chunks");
-    return null;
-  }
+  return {
+    ...baseResponse,
+    videoId,
+    language: lang,
+  };
+}
 
-  const transcript: ApiTranscriptSegment[] = data.content.map((item) => ({
+function createTimestampedTranscript(
+  items: SupadataTranscriptItem[],
+): ApiTranscriptSegment[] {
+  return items.map((item) => ({
     text: item.text,
     startMs: item.offset,
     endMs: item.offset + item.duration,
     startTimeText: formatTimestamp(item.offset),
   }));
+}
+
+function normalizeSupadataResponse(
+  data: SupadataTranscriptResponse,
+  videoId: string,
+): ScrapeCreatorsResponse | null {
+  const baseResponse = createSupadataBaseResponse(videoId, data.lang);
+
+  if (typeof data.content === "string") {
+    return {
+      ...baseResponse,
+      transcript: [],
+      transcript_only_text: data.content,
+    };
+  }
+
+  if (!hasTranscriptArray(data.content)) {
+    console.warn("Supadata response missing transcript chunks");
+    return null;
+  }
 
   return {
-    success: true,
-    credits_remaining: 0,
-    type: "video",
-    url: createYouTubeWatchUrl(videoId),
-    transcript,
-    title: "", // Metadata not provided by this specific endpoint
-    description: "",
-    channel: {
-      id: "",
-      url: "",
-      handle: "",
-      title: "",
-    },
-    durationFormatted: "",
-    publishDate: "",
-    viewCountInt: 0,
-    likeCountInt: 0,
-    keywords: [],
-    videoId,
-    language: data.lang,
+    ...baseResponse,
+    transcript: createTimestampedTranscript(data.content),
   };
 }
 
@@ -126,7 +99,7 @@ function sleep(durationMs: number): Promise<void> {
 async function pollSupadataJob(
   jobId: string,
   apiKey: string,
-): Promise<SupadataDirectResponse | null> {
+): Promise<SupadataTranscriptResponse | null> {
   const deadline = Date.now() + TIMING.PROCESSING_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
@@ -165,6 +138,17 @@ async function pollSupadataJob(
   return null;
 }
 
+async function resolveSupadataResponse(
+  data: SupadataResponse,
+  apiKey: string,
+): Promise<SupadataTranscriptResponse | null> {
+  if (!isSupadataJobResponse(data)) {
+    return data;
+  }
+
+  return pollSupadataJob(data.jobId, apiKey);
+}
+
 export async function fetchTranscriptFromSupadata(
   videoId: string,
   apiKey: string,
@@ -192,12 +176,8 @@ export async function fetchTranscriptFromSupadata(
       return null;
     }
 
-    const data: SupadataDirectResponse | SupadataJobResponse =
-      await response.json();
-    const resolvedData =
-      "jobId" in data && typeof data.jobId === "string"
-        ? await pollSupadataJob(data.jobId, apiKey)
-        : data;
+    const data: SupadataResponse = await response.json();
+    const resolvedData = await resolveSupadataResponse(data, apiKey);
 
     if (!resolvedData) {
       return null;
