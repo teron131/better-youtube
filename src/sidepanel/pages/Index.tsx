@@ -31,6 +31,13 @@ import { Captions, Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+function segmentsToTranscript(
+  segments?: Array<{ text: string }> | null,
+): string | null {
+  if (!segments?.length) return null;
+  return segments.map((segment) => segment.text).join(" ");
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const resultsRef = useRef<HTMLDivElement | null>(null);
@@ -130,11 +137,30 @@ const Index = () => {
             getSubtitles(videoId),
           ]);
 
-        if (cancelled || !storedSummary) return;
+        if (cancelled) return;
 
-        const transcript = storedSubtitles?.length
-          ? storedSubtitles.map((segment) => segment.text).join(" ")
-          : null;
+        const transcript = segmentsToTranscript(storedSubtitles);
+        if (!storedSummary && !storedVideoInfo && !transcript) {
+          return;
+        }
+
+        if (!storedSummary) {
+          updateState({
+            summaryResult: null,
+            scrapedVideoInfo: storedVideoInfo ?? null,
+            scrapedTranscript: transcript,
+            currentStage: transcript
+              ? "Loaded cached transcript"
+              : storedVideoInfo
+                ? "Loaded cached video info"
+                : "",
+            currentStep: 0,
+            progressStates: [],
+            isLoading: false,
+            error: null,
+          });
+          return;
+        }
 
         const provider = storedSummary.modelUsed?.startsWith("gemini::")
           ? "gemini"
@@ -176,6 +202,90 @@ const Index = () => {
       cancelled = true;
     };
   }, [initialUrl, isLoading, isExampleMode, updateState]);
+
+  useEffect(() => {
+    const trackedUrl = lastProcessedUrl || initialUrl;
+    if (!trackedUrl || isLoading || isExampleMode) return;
+
+    const videoId = extractVideoId(trackedUrl);
+    if (!videoId || typeof chrome === "undefined" || !chrome.storage?.onChanged)
+      return;
+
+    let cancelled = false;
+    const relevantKeys = new Set([
+      videoId,
+      `video_info_${videoId}`,
+      `summary_${videoId}`,
+    ]);
+
+    const syncStoredState = async () => {
+      try {
+        const [storedSummary, storedVideoInfo, storedSubtitles] =
+          await Promise.all([
+            getSummary(videoId),
+            getVideoMetadata(videoId),
+            getSubtitles(videoId),
+          ]);
+
+        if (cancelled) return;
+
+        const transcript = segmentsToTranscript(storedSubtitles);
+        if (!storedSummary && !storedVideoInfo && !transcript) {
+          return;
+        }
+
+        if (!storedSummary) {
+          updateState({
+            summaryResult: null,
+            scrapedVideoInfo: storedVideoInfo ?? null,
+            scrapedTranscript: transcript,
+            error: null,
+          });
+          return;
+        }
+
+        const provider = storedSummary.modelUsed?.startsWith("gemini::")
+          ? "gemini"
+          : storedSummary.modelUsed?.startsWith("openrouter::")
+            ? "openrouter"
+            : undefined;
+
+        updateState({
+          summaryResult: {
+            success: true,
+            summary: storedSummary.summary,
+            quality: storedSummary.quality,
+            videoInfo: storedVideoInfo ?? undefined,
+            transcript: transcript ?? undefined,
+            provider,
+            totalTime: "cached",
+            iterations: 0,
+            chunksProcessed: 0,
+          },
+          scrapedVideoInfo: storedVideoInfo ?? null,
+          scrapedTranscript: transcript ?? null,
+          error: null,
+        });
+      } catch (error) {
+        console.error("Failed to sync stored video state:", error);
+      }
+    };
+
+    const handleStorageChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string,
+    ) => {
+      if (areaName !== "local") return;
+      if (!Object.keys(changes).some((key) => relevantKeys.has(key))) return;
+      void syncStoredState();
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => {
+      cancelled = true;
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
+  }, [initialUrl, isExampleMode, isLoading, lastProcessedUrl, updateState]);
 
   const handleToggleSubtitles = async (nextState: boolean) => {
     setShowSubtitles(nextState);
@@ -322,6 +432,27 @@ const Index = () => {
     const videoUrl = await resolveUrlOrLoadExample(url);
     if (!videoUrl) return;
 
+    setLastProcessedUrl(videoUrl);
+
+    const videoId = extractVideoId(videoUrl);
+    if (videoId) {
+      try {
+        const storedSubtitles = await getSubtitles(videoId);
+        updateState({
+          summaryResult: null,
+          scrapedVideoInfo: null,
+          scrapedTranscript: segmentsToTranscript(storedSubtitles),
+          error: null,
+          currentStage: "",
+          currentStep: 0,
+          progressStates: [],
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error("Failed to load cached transcript for captions:", error);
+      }
+    }
+
     try {
       await triggerCaptionGeneration(videoUrl);
       toast({
@@ -379,11 +510,10 @@ const Index = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleToggleSubtitles(!showSubtitles)}
-                className={`gap-2 text-xs font-medium transition-colors ${
-                  showSubtitles
+                className={`gap-2 text-xs font-medium transition-colors ${showSubtitles
                     ? "text-primary bg-primary/10 hover:bg-primary/20"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
                 title="Toggle subtitles overlay"
               >
                 <Captions className="h-4 w-4" />
