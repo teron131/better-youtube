@@ -45,15 +45,23 @@ export interface ScrapeCreatorsResponse {
   language?: string;
 }
 
-export interface SupadataResponse {
-  lang: string;
-  availableLangs: string[];
-  content: {
-    lang: string;
-    text: string;
-    offset: number;
-    duration: number;
-  }[];
+export interface SupadataTranscriptItem {
+  lang?: string;
+  text: string;
+  offset: number;
+  duration: number;
+}
+
+export interface SupadataTranscriptResponse {
+  lang?: string;
+  availableLangs?: string[];
+  content?: string | SupadataTranscriptItem[];
+}
+
+export interface SupadataJobResponse extends SupadataTranscriptResponse {
+  jobId?: string;
+  status?: "queued" | "active" | "completed" | "failed";
+  error?: { message?: string; details?: string } | string;
 }
 
 /**
@@ -184,12 +192,12 @@ export interface StreamingChunk {
 
 export interface StreamingProgressState {
   step:
-    | "scraping"
-    | "summarizing"
-    | "summary_generation"
-    | "quality_check"
-    | "refinement"
-    | "complete";
+  | "scraping"
+  | "summarizing"
+  | "summary_generation"
+  | "quality_check"
+  | "refinement"
+  | "complete";
   stepName: string;
   status: "pending" | "processing" | "completed" | "error";
   message: string;

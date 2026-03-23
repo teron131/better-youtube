@@ -136,6 +136,10 @@ interface PriorityWindow {
   priorityRangeCount: number;
 }
 
+interface SegmentChunk {
+  segments: SubtitleSegment[];
+}
+
 /**
  * Calculate the priority window for early subtitle delivery
  * Returns the index where priority ends and how many chunks it spans
@@ -162,7 +166,7 @@ function createPriorityHandler(
   priorityRangeCount: number,
   splitIndex: number,
   segments: SubtitleSegment[],
-  ranges: [number, number][],
+  chunks: SegmentChunk[],
   onPriorityComplete?: (segments: SubtitleSegment[]) => void,
 ): (result: any, index: number, allResults: (any | null)[]) => void {
   let completedPriorityChunks = 0;
@@ -179,12 +183,11 @@ function createPriorityHandler(
       priorityReported = true;
       const priorityText = allResults
         .slice(0, priorityRangeCount)
-        .map((r, idx) =>
+        .map((response, chunkIdx) =>
           validateAndExtractChunk(
-            r,
-            ranges[idx],
-            idx,
-            segments.slice(ranges[idx][0], ranges[idx][1]),
+            response,
+            chunkIdx,
+            chunks[chunkIdx].segments,
           ),
         )
         .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
@@ -206,12 +209,11 @@ function createPriorityHandler(
  */
 function validateAndExtractChunk(
   response: any,
-  range: [number, number],
   chunkIndex: number,
   originalChunk: SubtitleSegment[],
 ): string {
   const text = extractResponseText(response).trim();
-  const expectedCount = range[1] - range[0];
+  const expectedCount = originalChunk.length;
   const normalizedLines = normalizeRefinedOutputLines(text);
   const actualCount = normalizedLines.length;
 
@@ -245,14 +247,16 @@ export async function refineTranscriptWithLLM(
     REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
   );
 
-  const ranges = chunkSegmentsByCount(
+  const chunks = chunkSegmentsByCount(
     segments,
     REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-  );
-  const batchMessages = ranges.map(([start, end]) => [
+  ).map((range) => ({
+    segments: segments.slice(range[0], range[1]),
+  }));
+  const batchMessages = chunks.map((chunk) => [
     new SystemMessage({ content: SYSTEM_PROMPT }),
     new HumanMessage({
-      content: `${preambleText}\n${formatTranscriptSegments(segments.slice(start, end))}`,
+      content: `${preambleText}\n${formatTranscriptSegments(chunk.segments)}`,
     }),
   ]);
 
@@ -270,19 +274,14 @@ export async function refineTranscriptWithLLM(
       priorityRangeCount,
       splitIndex,
       segments,
-      ranges,
+      chunks,
       onPriorityComplete,
     ),
   );
 
   const refinedText = responses
-    .map((res, i) =>
-      validateAndExtractChunk(
-        res,
-        ranges[i],
-        i,
-        segments.slice(ranges[i][0], ranges[i][1]),
-      ),
+    .map((response, chunkIdx) =>
+      validateAndExtractChunk(response, chunkIdx, chunks[chunkIdx].segments),
     )
     .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 

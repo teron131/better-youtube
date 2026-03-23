@@ -7,8 +7,11 @@ import {
   getStorageValue,
   getSubtitles,
   getSummary,
+  getSummaryStorageKey,
   getVideoMetadata,
+  getVideoMetadataStorageKey,
   setStorageValue,
+  getSubtitlesStorageKey,
 } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
@@ -22,6 +25,7 @@ import { useToast } from "@ui/hooks/use-toast";
 import {
   useVideoProcessing,
   VideoProcessingOptions,
+  type VideoProcessingState,
 } from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
@@ -38,6 +42,8 @@ function segmentsToTranscript(
   return segments.map((segment) => segment.text).join(" ");
 }
 
+type CachedVideoState = Partial<VideoProcessingState>;
+
 function resolveSummaryProvider(
   modelUsed?: string,
 ): "gemini" | "openrouter" | undefined {
@@ -46,7 +52,36 @@ function resolveSummaryProvider(
   return undefined;
 }
 
-async function loadCachedVideoState(videoId: string) {
+const EMPTY_VIDEO_STATE: CachedVideoState = {
+  summaryResult: null,
+  scrapedVideoInfo: null,
+  scrapedTranscript: null,
+  currentStage: "",
+  currentStep: 0,
+  progressStates: [],
+  isLoading: false,
+  error: null,
+};
+
+function createTranscriptOnlyState(
+  transcript: string | null,
+  videoInfo: VideoProcessingState["scrapedVideoInfo"] = null,
+): CachedVideoState {
+  return {
+    ...EMPTY_VIDEO_STATE,
+    scrapedVideoInfo: videoInfo,
+    scrapedTranscript: transcript,
+    currentStage: transcript
+      ? "Loaded cached transcript"
+      : videoInfo
+        ? "Loaded cached video info"
+        : "",
+  };
+}
+
+async function loadCachedVideoState(
+  videoId: string,
+): Promise<CachedVideoState | null> {
   const [storedSummary, storedVideoInfo, storedSubtitles] = await Promise.all([
     getSummary(videoId),
     getVideoMetadata(videoId),
@@ -59,20 +94,7 @@ async function loadCachedVideoState(videoId: string) {
   }
 
   if (!storedSummary) {
-    return {
-      summaryResult: null,
-      scrapedVideoInfo: storedVideoInfo ?? null,
-      scrapedTranscript: transcript,
-      currentStage: transcript
-        ? "Loaded cached transcript"
-        : storedVideoInfo
-          ? "Loaded cached video info"
-          : "",
-      currentStep: 0,
-      progressStates: [],
-      isLoading: false,
-      error: null,
-    };
+    return createTranscriptOnlyState(transcript, storedVideoInfo ?? null);
   }
 
   return {
@@ -97,17 +119,12 @@ async function loadCachedVideoState(videoId: string) {
   };
 }
 
-function createEmptyVideoState() {
-  return {
-    summaryResult: null,
-    scrapedVideoInfo: null,
-    scrapedTranscript: null,
-    currentStage: "",
-    currentStep: 0,
-    progressStates: [],
-    isLoading: false,
-    error: null,
-  };
+function getTrackedStorageKeys(videoId: string): Set<string> {
+  return new Set([
+    getSubtitlesStorageKey(videoId),
+    getVideoMetadataStorageKey(videoId),
+    getSummaryStorageKey(videoId),
+  ]);
 }
 
 const Index = () => {
@@ -215,7 +232,7 @@ const Index = () => {
 
         setLastProcessedUrl(initialUrl);
         setLastOptions(undefined);
-        updateState(cachedState ?? createEmptyVideoState());
+        updateState(cachedState ?? EMPTY_VIDEO_STATE);
       } catch (error) {
         console.error("Failed to load cached summary:", error);
       }
@@ -237,11 +254,7 @@ const Index = () => {
       return;
 
     let cancelled = false;
-    const relevantKeys = new Set([
-      videoId,
-      `video_info_${videoId}`,
-      `summary_${videoId}`,
-    ]);
+    const relevantKeys = getTrackedStorageKeys(videoId);
 
     const syncStoredState = async () => {
       try {
@@ -424,14 +437,8 @@ const Index = () => {
       try {
         const storedSubtitles = await getSubtitles(videoId);
         updateState({
-          summaryResult: null,
-          scrapedVideoInfo: null,
-          scrapedTranscript: segmentsToTranscript(storedSubtitles),
-          error: null,
+          ...createTranscriptOnlyState(segmentsToTranscript(storedSubtitles)),
           currentStage: "",
-          currentStep: 0,
-          progressStates: [],
-          isLoading: false,
         });
       } catch (error) {
         console.error("Failed to load cached transcript for captions:", error);
@@ -495,11 +502,10 @@ const Index = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleToggleSubtitles(!showSubtitles)}
-                className={`gap-2 text-xs font-medium transition-colors ${
-                  showSubtitles
+                className={`gap-2 text-xs font-medium transition-colors ${showSubtitles
                     ? "text-primary bg-primary/10 hover:bg-primary/20"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
                 title="Toggle subtitles overlay"
               >
                 <Captions className="h-4 w-4" />
