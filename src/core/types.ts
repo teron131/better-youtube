@@ -192,12 +192,12 @@ export interface StreamingChunk {
 
 export interface StreamingProgressState {
   step:
-  | "scraping"
-  | "summarizing"
-  | "summary_generation"
-  | "quality_check"
-  | "refinement"
-  | "complete";
+    | "scraping"
+    | "summarizing"
+    | "summary_generation"
+    | "quality_check"
+    | "refinement"
+    | "complete";
   stepName: string;
   status: "pending" | "processing" | "completed" | "error";
   message: string;

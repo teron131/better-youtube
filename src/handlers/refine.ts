@@ -89,7 +89,7 @@ export async function handleFetchSubtitles(
           subtitles,
           ...extraPayload,
         })
-        .catch(() => { });
+        .catch(() => {});
     };
 
     try {

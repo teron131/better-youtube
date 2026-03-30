@@ -144,14 +144,14 @@ function createSummaryListener(
   onProgress?: (state: StreamingProgressState) => void,
   control?: StreamControl,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
-  let cleanup = () => { };
+  let cleanup = () => {};
 
   const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
     let settled = false;
     let timeoutId: NodeJS.Timeout;
     const signal = control?.signal;
     const runId = control?.runId;
-    let removeAbortListener = () => { };
+    let removeAbortListener = () => {};
 
     const settle = (handler: () => void) => {
       if (settled) return;
