@@ -449,7 +449,7 @@ export async function ensureStorageSpace(): Promise<void> {
   if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
     const videosToRemove = Math.ceil(
       (usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) /
-      STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
+        STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
     );
     await cleanupOldVideos(videosToRemove);
   }
