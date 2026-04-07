@@ -8,8 +8,8 @@ import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
 import { createOpenRouterClient } from "@/core/llmClients";
 import type { SubtitleSegment } from "@/core/storage";
 import {
-	chunkSegmentsByCount,
-	parseRefinedSegments,
+    chunkSegmentsByCount,
+    parseRefinedSegments,
 } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
 
@@ -47,84 +47,89 @@ had been had, you missed out big time. I`;
 // ============================================================================
 
 function normalizeSegmentText(text: string): string {
-	return (text || "").split(/\s+/).join(" ");
+    return (text || "").split(/\s+/).join(" ");
 }
 
 function formatTranscriptSegments(segments: SubtitleSegment[]): string {
-	return segments
-		.map((seg) => {
-			const normalizedText = normalizeSegmentText(seg.text);
-			const timestamp = seg.startTimeText || formatTimestamp(seg.startTime);
-			return `[${timestamp}] ${normalizedText}`;
-		})
-		.join("\n");
+    return segments
+        .map((seg) => {
+            const normalizedText = normalizeSegmentText(seg.text);
+            const timestamp =
+                seg.startTimeText || formatTimestamp(seg.startTime);
+            return `[${timestamp}] ${normalizedText}`;
+        })
+        .join("\n");
 }
 
 function buildUserPreamble(title: string, description: string): string {
-	return [
-		`Video Title: ${title || ""}`,
-		`Video Description: ${description || ""}`,
-		"",
-		"Transcript Chunk:",
-	].join("\n");
+    return [
+        `Video Title: ${title || ""}`,
+        `Video Description: ${description || ""}`,
+        "",
+        "Transcript Chunk:",
+    ].join("\n");
 }
 
 function extractResponseText(response: any): string {
-	const content = response?.content;
-	if (typeof content === "string") return content;
-	if (Array.isArray(content)) {
-		return content
-			.map((part) => (typeof part === "string" ? part : part?.text || ""))
-			.join("");
-	}
-	return content != null ? String(content) : "";
+    const content = response?.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+        return content
+            .map((part) => (typeof part === "string" ? part : part?.text || ""))
+            .join("");
+    }
+    return content != null ? String(content) : "";
 }
 
 function normalizeRefinedOutputLines(text: string): string[] {
-	return text
-		.replace(/\r\n?/g, "\n")
-		.split("\n")
-		.map((line) => line.trim())
-		.filter(Boolean)
-		.filter((line) => !line.startsWith("```"))
-		.filter(
-			(line) =>
-				!/^(?:here(?:'| i)?s(?: the)?|(?:corrected|refined)\s+)?transcript:?$/i.test(
-					line,
-				),
-		);
+    return text
+        .replace(/\r\n?/g, "\n")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .filter((line) => !line.startsWith("```"))
+        .filter(
+            (line) =>
+                !/^(?:here(?:'| i)?s(?: the)?|(?:corrected|refined)\s+)?transcript:?$/i.test(
+                    line,
+                ),
+        );
 }
 
 /**
  * Custom concurrency handler for batch processing
  */
 async function runConcurrentBatch<T, R>(
-	items: T[],
-	concurrency: number,
-	fn: (item: T, index: number) => Promise<R>,
-	onEachComplete?: (result: R, index: number, allResults: (R | null)[]) => void,
+    items: T[],
+    concurrency: number,
+    fn: (item: T, index: number) => Promise<R>,
+    onEachComplete?: (
+        result: R,
+        index: number,
+        allResults: (R | null)[],
+    ) => void,
 ): Promise<R[]> {
-	const results = new Array(items.length);
-	const queue = items.map((item, index) => ({ item, index }));
+    const results = new Array(items.length);
+    const queue = items.map((item, index) => ({ item, index }));
 
-	const workers = Array.from({
-		length: Math.min(concurrency, items.length),
-	}).map(async () => {
-		while (queue.length > 0) {
-			const { item, index } = queue.shift()!;
-			try {
-				const result = await fn(item, index);
-				results[index] = result;
-				onEachComplete?.(result, index, results);
-			} catch (error) {
-				console.error(`Error processing batch item ${index}:`, error);
-				results[index] = null;
-			}
-		}
-	});
+    const workers = Array.from({
+        length: Math.min(concurrency, items.length),
+    }).map(async () => {
+        while (queue.length > 0) {
+            const { item, index } = queue.shift()!;
+            try {
+                const result = await fn(item, index);
+                results[index] = result;
+                onEachComplete?.(result, index, results);
+            } catch (error) {
+                console.error(`Error processing batch item ${index}:`, error);
+                results[index] = null;
+            }
+        }
+    });
 
-	await Promise.all(workers);
-	return results;
+    await Promise.all(workers);
+    return results;
 }
 
 // ============================================================================
@@ -132,12 +137,12 @@ async function runConcurrentBatch<T, R>(
 // ============================================================================
 
 interface PriorityWindow {
-	splitIndex: number;
-	priorityRangeCount: number;
+    splitIndex: number;
+    priorityRangeCount: number;
 }
 
 interface SegmentChunk {
-	segments: SubtitleSegment[];
+    segments: SubtitleSegment[];
 }
 
 /**
@@ -145,17 +150,19 @@ interface SegmentChunk {
  * Returns the index where priority ends and how many chunks it spans
  */
 function calculatePriorityWindow(
-	segments: SubtitleSegment[],
-	maxSegmentsPerChunk: number,
+    segments: SubtitleSegment[],
+    maxSegmentsPerChunk: number,
 ): PriorityWindow {
-	const durationMs = segments[segments.length - 1].endTime;
-	const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
+    const durationMs = segments[segments.length - 1].endTime;
+    const PRIORITY_DURATION_MS = Math.min(5 * 60 * 1000, 0.5 * durationMs);
 
-	let splitIndex = segments.findIndex((s) => s.endTime > PRIORITY_DURATION_MS);
-	if (splitIndex === -1) splitIndex = segments.length;
+    let splitIndex = segments.findIndex(
+        (s) => s.endTime > PRIORITY_DURATION_MS,
+    );
+    if (splitIndex === -1) splitIndex = segments.length;
 
-	const priorityRangeCount = Math.ceil(splitIndex / maxSegmentsPerChunk);
-	return { splitIndex, priorityRangeCount };
+    const priorityRangeCount = Math.ceil(splitIndex / maxSegmentsPerChunk);
+    return { splitIndex, priorityRangeCount };
 }
 
 /**
@@ -163,132 +170,136 @@ function calculatePriorityWindow(
  * Calls the callback once all priority chunks are processed
  */
 function createPriorityHandler(
-	priorityRangeCount: number,
-	splitIndex: number,
-	segments: SubtitleSegment[],
-	chunks: SegmentChunk[],
-	onPriorityComplete?: (segments: SubtitleSegment[]) => void,
+    priorityRangeCount: number,
+    splitIndex: number,
+    segments: SubtitleSegment[],
+    chunks: SegmentChunk[],
+    onPriorityComplete?: (segments: SubtitleSegment[]) => void,
 ): (result: any, index: number, allResults: (any | null)[]) => void {
-	let completedPriorityChunks = 0;
-	let priorityReported = false;
+    let completedPriorityChunks = 0;
+    let priorityReported = false;
 
-	return (result, index, allResults) => {
-		if (index < priorityRangeCount) completedPriorityChunks++;
+    return (result, index, allResults) => {
+        if (index < priorityRangeCount) completedPriorityChunks++;
 
-		if (
-			onPriorityComplete &&
-			!priorityReported &&
-			completedPriorityChunks === priorityRangeCount
-		) {
-			priorityReported = true;
-			const priorityText = allResults
-				.slice(0, priorityRangeCount)
-				.map((response, chunkIdx) =>
-					validateAndExtractChunk(
-						response,
-						chunkIdx,
-						chunks[chunkIdx].segments,
-					),
-				)
-				.join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
+        if (
+            onPriorityComplete &&
+            !priorityReported &&
+            completedPriorityChunks === priorityRangeCount
+        ) {
+            priorityReported = true;
+            const priorityText = allResults
+                .slice(0, priorityRangeCount)
+                .map((response, chunkIdx) =>
+                    validateAndExtractChunk(
+                        response,
+                        chunkIdx,
+                        chunks[chunkIdx].segments,
+                    ),
+                )
+                .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
-			onPriorityComplete(
-				parseRefinedSegments(
-					priorityText,
-					segments.slice(0, splitIndex),
-					REFINER_CONFIG.CHUNK_SENTINEL,
-					REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-				),
-			);
-		}
-	};
+            onPriorityComplete(
+                parseRefinedSegments(
+                    priorityText,
+                    segments.slice(0, splitIndex),
+                    REFINER_CONFIG.CHUNK_SENTINEL,
+                    REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+                ),
+            );
+        }
+    };
 }
 
 /**
  * Validate and extract refined text from response with line count checking
  */
 function validateAndExtractChunk(
-	response: any,
-	chunkIndex: number,
-	originalChunk: SubtitleSegment[],
+    response: any,
+    chunkIndex: number,
+    originalChunk: SubtitleSegment[],
 ): string {
-	const text = extractResponseText(response).trim();
-	const expectedCount = originalChunk.length;
-	const normalizedLines = normalizeRefinedOutputLines(text);
-	const actualCount = normalizedLines.length;
+    const text = extractResponseText(response).trim();
+    const expectedCount = originalChunk.length;
+    const normalizedLines = normalizeRefinedOutputLines(text);
+    const actualCount = normalizedLines.length;
 
-	if (actualCount !== expectedCount) {
-		console.warn(
-			`Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}. Falling back to original chunk.`,
-		);
-		return formatTranscriptSegments(originalChunk);
-	}
+    if (actualCount !== expectedCount) {
+        console.warn(
+            `Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}. Falling back to original chunk.`,
+        );
+        return formatTranscriptSegments(originalChunk);
+    }
 
-	return normalizedLines.join("\n");
+    return normalizedLines.join("\n");
 }
 
 /**
  * Refine video transcript using LLM inference
  */
 export async function refineTranscriptWithLLM(
-	segments: SubtitleSegment[],
-	title: string,
-	description: string,
-	onProgress?: (chunkIdx: number, totalChunks: number) => void,
-	model: string = DEFAULTS.MODEL_REFINER,
-	onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
+    segments: SubtitleSegment[],
+    title: string,
+    description: string,
+    onProgress?: (chunkIdx: number, totalChunks: number) => void,
+    model: string = DEFAULTS.MODEL_REFINER,
+    onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
 ): Promise<SubtitleSegment[]> {
-	if (!segments.length) return [];
+    if (!segments.length) return [];
 
-	const llm = await createOpenRouterClient(model, "Better YouTube - Refiner");
-	const preambleText = buildUserPreamble(title, description);
-	const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
-		segments,
-		REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-	);
+    const llm = await createOpenRouterClient(model, "Better YouTube - Refiner");
+    const preambleText = buildUserPreamble(title, description);
+    const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
+        segments,
+        REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+    );
 
-	const chunks = chunkSegmentsByCount(
-		segments,
-		REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-	).map((range) => ({
-		segments: segments.slice(range[0], range[1]),
-	}));
-	const batchMessages = chunks.map((chunk) => [
-		new SystemMessage({ content: SYSTEM_PROMPT }),
-		new HumanMessage({
-			content: `${preambleText}\n${formatTranscriptSegments(chunk.segments)}`,
-		}),
-	]);
+    const chunks = chunkSegmentsByCount(
+        segments,
+        REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+    ).map((range) => ({
+        segments: segments.slice(range[0], range[1]),
+    }));
+    const batchMessages = chunks.map((chunk) => [
+        new SystemMessage({ content: SYSTEM_PROMPT }),
+        new HumanMessage({
+            content: `${preambleText}\n${formatTranscriptSegments(chunk.segments)}`,
+        }),
+    ]);
 
-	onProgress?.(0, batchMessages.length);
+    onProgress?.(0, batchMessages.length);
 
-	const responses = await runConcurrentBatch(
-		batchMessages,
-		REFINER_CONFIG.CONCURRENCY_LIMIT,
-		async (messages, idx) => {
-			const res = await llm.invoke(messages);
-			onProgress?.(idx + 1, batchMessages.length);
-			return res;
-		},
-		createPriorityHandler(
-			priorityRangeCount,
-			splitIndex,
-			segments,
-			chunks,
-			onPriorityComplete,
-		),
-	);
+    const responses = await runConcurrentBatch(
+        batchMessages,
+        REFINER_CONFIG.CONCURRENCY_LIMIT,
+        async (messages, idx) => {
+            const res = await llm.invoke(messages);
+            onProgress?.(idx + 1, batchMessages.length);
+            return res;
+        },
+        createPriorityHandler(
+            priorityRangeCount,
+            splitIndex,
+            segments,
+            chunks,
+            onPriorityComplete,
+        ),
+    );
 
-	const refinedText = responses
-		.map((response, chunkIdx) =>
-			validateAndExtractChunk(response, chunkIdx, chunks[chunkIdx].segments),
-		)
-		.join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
+    const refinedText = responses
+        .map((response, chunkIdx) =>
+            validateAndExtractChunk(
+                response,
+                chunkIdx,
+                chunks[chunkIdx].segments,
+            ),
+        )
+        .join(`\n${REFINER_CONFIG.CHUNK_SENTINEL}\n`);
 
-	return parseRefinedSegments(
-		refinedText,
-		segments,
-		REFINER_CONFIG.CHUNK_SENTINEL,
-		REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-	);
+    return parseRefinedSegments(
+        refinedText,
+        segments,
+        REFINER_CONFIG.CHUNK_SENTINEL,
+        REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
+    );
 }
