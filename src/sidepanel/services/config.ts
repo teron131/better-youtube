@@ -7,12 +7,12 @@
  */
 
 import {
-	DEFAULTS,
-	FILE_LIMITS,
-	RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
-	RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
-	TIMING,
-	UI_BEHAVIOR,
+    DEFAULTS,
+    FILE_LIMITS,
+    RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
+    RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
+    TIMING,
+    UI_BEHAVIOR,
 } from "@/core/constants";
 
 // ================================
@@ -23,14 +23,14 @@ export const RECOMMENDED_SUMMARIZER_MODELS = SUMMARIZER_MODELS;
 export const RECOMMENDED_REFINER_MODELS = REFINER_MODELS;
 
 export const AVAILABLE_MODELS = [
-	...RECOMMENDED_SUMMARIZER_MODELS,
-	...RECOMMENDED_REFINER_MODELS,
+    ...RECOMMENDED_SUMMARIZER_MODELS,
+    ...RECOMMENDED_REFINER_MODELS,
 ].reduce(
-	(acc, model) => {
-		acc[model.value] = model.label;
-		return acc;
-	},
-	{} as Record<string, string>,
+    (acc, model) => {
+        acc[model.value] = model.label;
+        return acc;
+    },
+    {} as Record<string, string>,
 );
 
 export const DEFAULT_SUMMARY_MODEL = DEFAULTS.MODEL_SUMMARIZER;
@@ -41,13 +41,13 @@ export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 // ================================
 
 export const SUPPORTED_LANGUAGES = {
-	auto: "🌐 Auto",
-	en: "🇺🇸 English",
-	"zh-TW": "🇭🇰 Chinese",
+    auto: "🌐 Auto",
+    en: "🇺🇸 English",
+    "zh-TW": "🇭🇰 Chinese",
 } as const;
 
 export const DEFAULT_TARGET_LANGUAGE =
-	DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
+    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
 
 // ================================
 // TRANSLATION CONFIGURATION
@@ -61,23 +61,23 @@ export const ENABLE_TRANSLATION_DEFAULT = false;
 
 // Re-export from centralized constants
 export const UI_CONFIG = {
-	// Streaming configuration
-	STREAM_CHUNK_THROTTLE_MS: TIMING.STREAM_CHUNK_THROTTLE_MS,
-	MAX_LOG_ENTRIES: UI_BEHAVIOR.MAX_LOG_ENTRIES,
+    // Streaming configuration
+    STREAM_CHUNK_THROTTLE_MS: TIMING.STREAM_CHUNK_THROTTLE_MS,
+    MAX_LOG_ENTRIES: UI_BEHAVIOR.MAX_LOG_ENTRIES,
 
-	// Progress configuration
-	PROGRESS_UPDATE_INTERVAL: TIMING.PROGRESS_UPDATE_INTERVAL,
+    // Progress configuration
+    PROGRESS_UPDATE_INTERVAL: TIMING.PROGRESS_UPDATE_INTERVAL,
 
-	// File size limits (in MB)
-	MAX_FILE_SIZE_MB: FILE_LIMITS.MAX_FILE_SIZE_MB,
+    // File size limits (in MB)
+    MAX_FILE_SIZE_MB: FILE_LIMITS.MAX_FILE_SIZE_MB,
 
-	// Timeout configurations
-	API_TIMEOUT_MS: TIMING.API_TIMEOUT_MS,
-	SCRAPING_TIMEOUT_MS: TIMING.SCRAPING_TIMEOUT_MS,
+    // Timeout configurations
+    API_TIMEOUT_MS: TIMING.API_TIMEOUT_MS,
+    SCRAPING_TIMEOUT_MS: TIMING.SCRAPING_TIMEOUT_MS,
 
-	// Retry configuration
-	MAX_RETRIES: 3,
-	RETRY_DELAY_MS: 1000,
+    // Retry configuration
+    MAX_RETRIES: 3,
+    RETRY_DELAY_MS: 1000,
 } as const;
 
 // ================================
@@ -88,16 +88,16 @@ export type ModelKey = string; // Relaxed type to allow custom models
 export type LanguageKey = keyof typeof SUPPORTED_LANGUAGES;
 
 export type AvailableModel = {
-	key: string;
-	label: string;
-	provider?: string;
-	recommended?: boolean;
+    key: string;
+    label: string;
+    provider?: string;
+    recommended?: boolean;
 };
 
 export type SupportedLanguage = {
-	key: LanguageKey;
-	label: string;
-	flag?: string;
+    key: LanguageKey;
+    label: string;
+    flag?: string;
 };
 
 // ================================
@@ -105,48 +105,49 @@ export type SupportedLanguage = {
 // ================================
 
 const convertToAvailableModel = (model: {
-	value: string;
-	label: string;
+    value: string;
+    label: string;
 }): AvailableModel => ({
-	key: model.value,
-	label: model.label,
-	provider: inferProviderFromModelKey(model.value),
-	recommended: true,
+    key: model.value,
+    label: model.label,
+    provider: inferProviderFromModelKey(model.value),
+    recommended: true,
 });
 
 const KNOWN_PROVIDERS = new Set(["google", "anthropic", "openai", "x-ai"]);
 
 function inferProviderFromModelKey(modelKey: string): string | undefined {
-	const provider = modelKey.split("/")[0];
-	if (!provider) return undefined;
-	return KNOWN_PROVIDERS.has(provider) ? provider : undefined;
+    const provider = modelKey.split("/")[0];
+    if (!provider) return undefined;
+    return KNOWN_PROVIDERS.has(provider) ? provider : undefined;
 }
 
 export const AVAILABLE_SUMMARIZER_MODELS_LIST: AvailableModel[] =
-	RECOMMENDED_SUMMARIZER_MODELS.map(convertToAvailableModel);
+    RECOMMENDED_SUMMARIZER_MODELS.map(convertToAvailableModel);
 export const AVAILABLE_REFINER_MODELS_LIST: AvailableModel[] =
-	RECOMMENDED_REFINER_MODELS.map(convertToAvailableModel);
+    RECOMMENDED_REFINER_MODELS.map(convertToAvailableModel);
 
 export const AVAILABLE_MODELS_LIST: AvailableModel[] = [
-	...AVAILABLE_SUMMARIZER_MODELS_LIST,
-	...AVAILABLE_REFINER_MODELS_LIST,
+    ...AVAILABLE_SUMMARIZER_MODELS_LIST,
+    ...AVAILABLE_REFINER_MODELS_LIST,
 ].filter(
-	(model, index, self) => index === self.findIndex((m) => m.key === model.key),
+    (model, index, self) =>
+        index === self.findIndex((m) => m.key === model.key),
 );
 
 export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
-	SUPPORTED_LANGUAGES,
+    SUPPORTED_LANGUAGES,
 ).map(([key, label]) => {
-	const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
-	const flagMatch = label.match(flagRegex);
-	const flag = flagMatch ? flagMatch[1] : "";
-	const cleanLabel = label.replace(flag, "").trim();
+    const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
+    const flagMatch = label.match(flagRegex);
+    const flag = flagMatch ? flagMatch[1] : "";
+    const cleanLabel = label.replace(flag, "").trim();
 
-	return {
-		key: key as LanguageKey,
-		label: cleanLabel,
-		flag,
-	};
+    return {
+        key: key as LanguageKey,
+        label: cleanLabel,
+        flag,
+    };
 });
 
 // ================================
@@ -154,21 +155,21 @@ export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
 // ================================
 
 export function getModelByKey(key: ModelKey): AvailableModel | undefined {
-	return AVAILABLE_MODELS_LIST.find((model) => model.key === key);
+    return AVAILABLE_MODELS_LIST.find((model) => model.key === key);
 }
 
 export function getLanguageByKey(
-	key: LanguageKey,
+    key: LanguageKey,
 ): SupportedLanguage | undefined {
-	return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
+    return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
 }
 
 export function isValidModel(model: string): boolean {
-	return true;
+    return true;
 }
 
 export function isValidLanguage(language: string): language is LanguageKey {
-	return language in SUPPORTED_LANGUAGES;
+    return language in SUPPORTED_LANGUAGES;
 }
 
 // ================================
@@ -176,40 +177,40 @@ export function isValidLanguage(language: string): language is LanguageKey {
 // ================================
 
 export function validateModelSelection(
-	summaryModel: string,
-	qualityModel: string,
+    summaryModel: string,
+    qualityModel: string,
 ): {
-	isValid: boolean;
-	errors: string[];
+    isValid: boolean;
+    errors: string[];
 } {
-	const errors: string[] = [];
+    const errors: string[] = [];
 
-	if (!summaryModel) {
-		errors.push(`Summary model is required`);
-	}
+    if (!summaryModel) {
+        errors.push(`Summary model is required`);
+    }
 
-	if (!qualityModel) {
-		errors.push(`Quality model is required`);
-	}
+    if (!qualityModel) {
+        errors.push(`Quality model is required`);
+    }
 
-	return {
-		isValid: errors.length === 0,
-		errors,
-	};
+    return {
+        isValid: errors.length === 0,
+        errors,
+    };
 }
 
 export function validateLanguageSelection(language: string): {
-	isValid: boolean;
-	error?: string;
+    isValid: boolean;
+    error?: string;
 } {
-	if (!isValidLanguage(language)) {
-		return {
-			isValid: false,
-			error: `Invalid language: ${language}`,
-		};
-	}
+    if (!isValidLanguage(language)) {
+        return {
+            isValid: false,
+            error: `Invalid language: ${language}`,
+        };
+    }
 
-	return { isValid: true };
+    return { isValid: true };
 }
 
 // ================================
@@ -217,23 +218,23 @@ export function validateLanguageSelection(language: string): {
 // ================================
 
 export default {
-	AVAILABLE_MODELS,
-	RECOMMENDED_SUMMARIZER_MODELS,
-	RECOMMENDED_REFINER_MODELS,
-	DEFAULT_SUMMARY_MODEL,
-	DEFAULT_QUALITY_MODEL,
-	SUPPORTED_LANGUAGES,
-	DEFAULT_TARGET_LANGUAGE,
-	ENABLE_TRANSLATION_DEFAULT,
-	UI_CONFIG,
-	AVAILABLE_MODELS_LIST,
-	AVAILABLE_SUMMARIZER_MODELS_LIST,
-	AVAILABLE_REFINER_MODELS_LIST,
-	SUPPORTED_LANGUAGES_LIST,
-	getModelByKey,
-	getLanguageByKey,
-	isValidModel,
-	isValidLanguage,
-	validateModelSelection,
-	validateLanguageSelection,
+    AVAILABLE_MODELS,
+    RECOMMENDED_SUMMARIZER_MODELS,
+    RECOMMENDED_REFINER_MODELS,
+    DEFAULT_SUMMARY_MODEL,
+    DEFAULT_QUALITY_MODEL,
+    SUPPORTED_LANGUAGES,
+    DEFAULT_TARGET_LANGUAGE,
+    ENABLE_TRANSLATION_DEFAULT,
+    UI_CONFIG,
+    AVAILABLE_MODELS_LIST,
+    AVAILABLE_SUMMARIZER_MODELS_LIST,
+    AVAILABLE_REFINER_MODELS_LIST,
+    SUPPORTED_LANGUAGES_LIST,
+    getModelByKey,
+    getLanguageByKey,
+    isValidModel,
+    isValidLanguage,
+    validateModelSelection,
+    validateLanguageSelection,
 };

@@ -2,51 +2,51 @@ import { TIMING } from "@/core/constants";
 import type { ScrapeCreatorsResponse } from "@/core/types";
 
 const transcriptCache = new Map<
-	string,
-	{ data: ScrapeCreatorsResponse; timestamp: number }
+    string,
+    { data: ScrapeCreatorsResponse; timestamp: number }
 >();
 const pendingTranscriptFetches = new Map<
-	string,
-	Promise<ScrapeCreatorsResponse | null>
+    string,
+    Promise<ScrapeCreatorsResponse | null>
 >();
 
 export function getCachedTranscript(
-	videoId: string,
+    videoId: string,
 ): ScrapeCreatorsResponse | undefined {
-	const cached = transcriptCache.get(videoId);
-	if (
-		cached &&
-		Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS
-	) {
-		return cached.data;
-	}
-	return undefined;
+    const cached = transcriptCache.get(videoId);
+    if (
+        cached &&
+        Date.now() - cached.timestamp < TIMING.TRANSCRIPT_CACHE_TTL_MS
+    ) {
+        return cached.data;
+    }
+    return undefined;
 }
 
 export function setCachedTranscript(
-	videoId: string,
-	data: ScrapeCreatorsResponse,
+    videoId: string,
+    data: ScrapeCreatorsResponse,
 ): void {
-	transcriptCache.set(videoId, { data, timestamp: Date.now() });
+    transcriptCache.set(videoId, { data, timestamp: Date.now() });
 }
 
 export function clearTranscriptCache(videoId: string): void {
-	transcriptCache.delete(videoId);
+    transcriptCache.delete(videoId);
 }
 
 export function getPendingTranscript(
-	videoId: string,
+    videoId: string,
 ): Promise<ScrapeCreatorsResponse | null> | undefined {
-	return pendingTranscriptFetches.get(videoId);
+    return pendingTranscriptFetches.get(videoId);
 }
 
 export function setPendingTranscript(
-	videoId: string,
-	promise: Promise<ScrapeCreatorsResponse | null>,
+    videoId: string,
+    promise: Promise<ScrapeCreatorsResponse | null>,
 ): void {
-	pendingTranscriptFetches.set(videoId, promise);
+    pendingTranscriptFetches.set(videoId, promise);
 }
 
 export function clearPendingTranscript(videoId: string): void {
-	pendingTranscriptFetches.delete(videoId);
+    pendingTranscriptFetches.delete(videoId);
 }
