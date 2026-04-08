@@ -2,6 +2,7 @@
  * Component for configuring summary model, quality model, and target language options.
  */
 
+import { ModelIcon } from "@ui/components/ModelIcon";
 import { ModelSelector } from "@ui/components/ModelSelector";
 import type { ComboboxOption } from "@ui/components/ui/editable-combobox";
 import {
@@ -9,7 +10,6 @@ import {
     useModelSelection,
     useUserPreferences,
 } from "@ui/hooks/use-config";
-import { getProviderLogo } from "@ui/lib/provider-logos";
 import { Bot, Languages, Sparkles } from "lucide-react";
 
 export function VideoProcessingOptions() {
@@ -22,15 +22,19 @@ export function VideoProcessingOptions() {
         label: string;
         provider?: string;
         flag?: string;
+        logo?: string;
+        fallbackLogo?: string;
     }): ComboboxOption => {
-        const logo = m.provider ? getProviderLogo(m.provider) : null;
+        const hasIcon = m.logo || m.provider;
         return {
             value: m.key,
             label: m.label,
-            icon: logo ? (
-                <img
-                    src={logo}
-                    alt={m.provider}
+            icon: hasIcon ? (
+                <ModelIcon
+                    provider={m.provider}
+                    logo={m.logo}
+                    fallbackLogo={m.fallbackLogo}
+                    alt={m.provider || m.label}
                     className="w-full h-full object-contain"
                 />
             ) : m.flag ? (

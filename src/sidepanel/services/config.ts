@@ -92,6 +92,8 @@ export type AvailableModel = {
     label: string;
     provider?: string;
     recommended?: boolean;
+    logo?: string;
+    fallbackLogo?: string;
 };
 
 export type SupportedLanguage = {
@@ -114,7 +116,18 @@ const convertToAvailableModel = (model: {
     recommended: true,
 });
 
-const KNOWN_PROVIDERS = new Set(["google", "anthropic", "openai", "x-ai"]);
+const KNOWN_PROVIDERS = new Set([
+    "google",
+    "anthropic",
+    "openai",
+    "x-ai",
+    "mistral",
+    "meta",
+    "cohere",
+    "deepseek",
+    "perplexity",
+    "groq",
+]);
 
 function inferProviderFromModelKey(modelKey: string): string | undefined {
     const provider = modelKey.split("/")[0];

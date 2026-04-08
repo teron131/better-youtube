@@ -84,20 +84,25 @@ export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot
     };
 }
 
+let isConfigInitialized = false;
+
 /**
  * Initialize all global config variables from storage
  * Should be called once at the start of each request
+ * Uses a flag to prevent redundant re-initialization within the same request lifecycle
  */
-export async function initGlobalConfig(): Promise<void> {
+export async function initGlobalConfig(force = false): Promise<void> {
+    if (isConfigInitialized && !force) return;
     const config = await loadRuntimeConfigSnapshot();
     applySnapshot(config);
+    isConfigInitialized = true;
 }
 
 /**
  * Clear config cache and reset all global variables
- * Should be called after each request completes
  */
 export function clearConfigCache(): void {
+    isConfigInitialized = false;
     globalOpenRouterKey = null;
     globalGeminiKey = null;
     globalScrapeCreatorsKey = null;

@@ -8,7 +8,11 @@ export async function createOpenRouterClient(
     model: string,
     title: string = "Better YouTube",
 ): Promise<ChatOpenAI> {
-    const apiKey = await getOpenRouterApiKey();
+    const apiKey =
+        (await getOpenRouterApiKey()) ||
+        (typeof process !== "undefined"
+            ? process.env.OPENROUTER_API_KEY
+            : null);
     if (!apiKey) throw new Error("OpenRouter API key missing");
 
     const httpReferer =
