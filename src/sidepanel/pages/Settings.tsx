@@ -11,6 +11,7 @@ import {
     SelectValue,
 } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
+import { useModelSelection } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
 import {
     ArrowLeft,
@@ -24,16 +25,14 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { AppConfig } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import {
     MESSAGE_ACTIONS,
-    RECOMMENDED_REFINER_MODELS,
-    RECOMMENDED_SUMMARIZER_MODELS,
     STORAGE_KEYS,
     TARGET_LANGUAGES,
 } from "@/core/constants";
-import { setStorageValue, getStorageValues } from "@/core/storage";
-import type { AppConfig } from "@/core/config";
+import { getStorageValues, setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
@@ -104,6 +103,7 @@ const API_KEY_FIELDS = [
 const Settings = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { summarizerModels, refinerModels } = useModelSelection();
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -299,12 +299,10 @@ const Settings = () => {
                                     onChange={(val) =>
                                         handleChange("summarizerModel", val)
                                     }
-                                    options={RECOMMENDED_SUMMARIZER_MODELS.map(
-                                        (m) => ({
-                                            value: m.value,
-                                            label: m.label,
-                                        }),
-                                    )}
+                                    options={summarizerModels.map((m) => ({
+                                        value: m.key,
+                                        label: m.label,
+                                    }))}
                                     placeholder="Select or type model..."
                                     inputClassName="h-10 rounded-xl"
                                     contentClassName="rounded-xl"
@@ -322,12 +320,10 @@ const Settings = () => {
                                     onChange={(val) =>
                                         handleChange("refinerModel", val)
                                     }
-                                    options={RECOMMENDED_REFINER_MODELS.map(
-                                        (m) => ({
-                                            value: m.value,
-                                            label: m.label,
-                                        }),
-                                    )}
+                                    options={refinerModels.map((m) => ({
+                                        value: m.key,
+                                        label: m.label,
+                                    }))}
                                     placeholder="Select or type model..."
                                     inputClassName="h-10 rounded-xl"
                                     contentClassName="rounded-xl"
