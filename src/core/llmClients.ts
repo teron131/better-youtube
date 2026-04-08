@@ -1,19 +1,21 @@
+/// <reference types="chrome" />
+
 /** Shared LLM client helpers. */
 
 import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS } from "./constants";
-import { getOpenRouterApiKey } from "./runtimeConfig";
+import { getLlmApiKey, getLlmBaseUrl } from "./runtimeConfig";
 
-export async function createOpenRouterClient(
+export async function createLlmClient(
     model: string,
     title: string = "Better YouTube",
 ): Promise<ChatOpenAI> {
     const apiKey =
-        (await getOpenRouterApiKey()) ||
-        (typeof process !== "undefined"
-            ? process.env.OPENROUTER_API_KEY
-            : null);
-    if (!apiKey) throw new Error("OpenRouter API key missing");
+        (await getLlmApiKey()) ||
+        (typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
+    if (!apiKey) throw new Error("LLM API key missing");
+
+    const llmBaseUrl = await getLlmBaseUrl();
 
     const httpReferer =
         typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -24,7 +26,7 @@ export async function createOpenRouterClient(
         model,
         apiKey,
         configuration: {
-            baseURL: API_ENDPOINTS.OPENROUTER_BASE,
+            baseURL: llmBaseUrl || API_ENDPOINTS.LLM_DEFAULT_BASE_URL,
             defaultHeaders: {
                 "HTTP-Referer": httpReferer,
                 "X-Title": title,

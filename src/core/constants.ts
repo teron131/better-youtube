@@ -7,7 +7,8 @@
 export const STORAGE_KEYS = {
     SCRAPE_CREATORS_API_KEY: "scrapeCreatorsApiKey",
     SUPADATA_API_KEY: "supadataApiKey",
-    OPENROUTER_API_KEY: "openRouterApiKey",
+    LLM_API_KEY: "llmApiKey",
+    LLM_BASE_URL: "llmBaseUrl",
     GEMINI_API_KEY: "geminiApiKey",
     SUMMARIZER_PROVIDER: "summarizerProvider",
     SUMMARIZER_MODE: "summarizerMode",
@@ -33,8 +34,8 @@ export const API_ENDPOINTS = {
     SCRAPE_CREATORS:
         "https://api.scrapecreators.com/v1/youtube/video/transcript",
     SUPADATA: "https://api.supadata.ai/v1/transcript",
-    OPENROUTER: "https://openrouter.ai/api/v1/chat/completions",
-    OPENROUTER_BASE: "https://openrouter.ai/api/v1",
+    LLM: "https://api.openai.com/v1/chat/completions",
+    LLM_DEFAULT_BASE_URL: "https://api.openai.com/v1",
 } as const;
 
 // ============================================================================
@@ -253,7 +254,7 @@ export const ERROR_MESSAGES = {
     NO_TRANSCRIPT: "No transcript available for this video",
     SCRAPE_KEY_MISSING:
         "Scrape Creators API key not found. Please set it in settings.",
-    OPENROUTER_KEY_MISSING: "OpenRouter API key not found",
+    LLM_KEY_MISSING: "LLM API key not found",
     NOT_YOUTUBE_PAGE: "Not a YouTube video page",
     SUMMARY_IN_PROGRESS:
         "Summary generation is already in progress for this video.",

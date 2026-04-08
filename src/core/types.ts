@@ -220,7 +220,7 @@ export interface StreamingProcessingResult {
     quality?: QualityData;
     summaryText?: string;
     qualityScore?: number;
-    provider?: "gemini" | "openrouter";
+    provider?: "gemini" | "llm";
     error?: ApiError;
     totalTime: string;
     iterations: number;

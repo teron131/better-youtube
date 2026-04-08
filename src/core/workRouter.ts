@@ -1,9 +1,9 @@
-export type SummarizerProviderPreference = "auto" | "gemini" | "openrouter";
+export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 export type SummarizerModePreference = "native" | "validation" | "fast";
 export type TranscriptProviderPreference = "scrapeCreators" | "supadata";
 
-export type EffectiveSummarizerProvider = "gemini" | "openrouter";
-export type EffectiveOpenRouterMode = "react" | "fast";
+export type EffectiveSummarizerProvider = "gemini" | "llm";
+export type EffectiveLlmMode = "react" | "fast";
 
 export function isGeminiModelSelection(modelSelection: string): boolean {
     const s = String(modelSelection || "");
@@ -14,31 +14,31 @@ function resolveProvider(
     requestedProvider: SummarizerProviderPreference | undefined,
     summarizerModel: string | undefined,
     hasGeminiKey: boolean,
-    hasOpenRouterKey: boolean,
+    hasLlmKey: boolean,
 ): EffectiveSummarizerProvider {
     const canUseGemini =
         hasGeminiKey && isGeminiModelSelection(summarizerModel || "");
-    const canUseOpenRouter = hasOpenRouterKey;
+    const canUseLlm = hasLlmKey;
 
     if (requestedProvider === "gemini") {
         if (canUseGemini) return "gemini";
-        if (canUseOpenRouter) return "openrouter";
+        if (canUseLlm) return "llm";
         throw new Error(
             "No valid summarizer provider available (missing API keys)",
         );
     }
 
-    if (requestedProvider === "openrouter") {
-        if (canUseOpenRouter) return "openrouter";
+    if (requestedProvider === "llm") {
+        if (canUseLlm) return "llm";
         if (canUseGemini) return "gemini";
         throw new Error(
             "No valid summarizer provider available (missing API keys)",
         );
     }
 
-    // Auto: prefer Gemini when the selected model is a Gemini model; otherwise use OpenRouter if available.
+    // Auto: prefer Gemini when the selected model is a Gemini model; otherwise use LLM if available.
     if (canUseGemini) return "gemini";
-    if (canUseOpenRouter) return "openrouter";
+    if (canUseLlm) return "llm";
 
     // Last chance: if Gemini key exists but model isn't a Gemini model, we can't call Gemini.
     throw new Error(
@@ -51,13 +51,13 @@ export interface ResolveSummarizationRouteInput {
     requestedMode?: SummarizerModePreference;
     summarizerModel?: string;
     hasGeminiKey: boolean;
-    hasOpenRouterKey: boolean;
+    hasLlmKey: boolean;
 }
 
 export interface ResolvedSummarizationRoute {
-    provider: "gemini" | "openrouter";
-    // OpenRouter internal mode.
-    openRouterMode?: "react" | "fast";
+    provider: "gemini" | "llm";
+    // LLM internal mode.
+    llmMode?: "react" | "fast";
     // External mode preference.
     modePreference: SummarizerModePreference;
 }
@@ -83,18 +83,18 @@ export function resolveSummarizationRoute(
         input.requestedProvider,
         input.summarizerModel,
         input.hasGeminiKey,
-        input.hasOpenRouterKey,
+        input.hasLlmKey,
     );
 
     // Mode preference (non-native): default to validation unless explicitly fast.
     const modePreference: SummarizerModePreference =
         requestedMode === "fast" ? "fast" : "validation";
 
-    if (provider === "openrouter") {
+    if (provider === "llm") {
         return {
             provider,
             modePreference,
-            openRouterMode: modePreference === "fast" ? "fast" : "react",
+            llmMode: modePreference === "fast" ? "fast" : "react",
         };
     }
 

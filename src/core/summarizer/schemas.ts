@@ -29,7 +29,7 @@ export const ChapterSchema = z.object({
 
 export type Chapter = CoreChapter;
 
-// OpenRouter: explicitly omit timestamps to avoid hallucinated time ranges.
+// LLM: explicitly omit timestamps to avoid hallucinated time ranges.
 export const ChapterSchemaNoTimestamps = z.object({
     title: z.string().describe("A concise chapter heading."),
     description: z
@@ -123,7 +123,7 @@ export const GraphStateSchema = z.object({
     quality: QualitySchema.nullable().default(null),
     iterations: z.number().default(0),
     isComplete: z.boolean().default(false),
-    onProgress: z.any().optional(),
+    onProgress: z.function().args(z.string()).returns(z.void()).optional(),
 });
 
 export type GraphState = z.infer<typeof GraphStateSchema>;

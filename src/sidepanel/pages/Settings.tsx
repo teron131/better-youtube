@@ -32,13 +32,14 @@ import {
     STORAGE_KEYS,
     TARGET_LANGUAGES,
 } from "@/core/constants";
-import { getStorageValues, setStorageValue } from "@/core/storage";
+import { setStorageValue, getStorageValues } from "@/core/storage";
+import type { AppConfig } from "@/core/config";
 import { applySummaryFontSize } from "../lib/font-size";
 
 const SETTINGS_KEYS = [
     STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
     STORAGE_KEYS.SUPADATA_API_KEY,
-    STORAGE_KEYS.OPENROUTER_API_KEY,
+    STORAGE_KEYS.LLM_API_KEY,
     STORAGE_KEYS.GEMINI_API_KEY,
     "summarizerProvider",
     "summarizerMode",
@@ -54,7 +55,7 @@ const SETTINGS_KEYS = [
 const DEFAULT_SETTINGS = {
     scrapeCreatorsApiKey: "",
     supadataApiKey: "",
-    openRouterApiKey: "",
+    llmApiKey: "",
     geminiApiKey: "",
     summarizerProvider: "auto",
     summarizerMode: "validation",
@@ -83,10 +84,14 @@ const API_KEY_FIELDS = [
         placeholder: "...",
     },
     {
-        key: STORAGE_KEYS.OPENROUTER_API_KEY,
-        label: "OpenRouter API Key",
-        href: "https://openrouter.ai",
-        placeholder: "sk-or-v1-...",
+        key: STORAGE_KEYS.LLM_API_KEY,
+        label: "LLM API Key",
+        placeholder: "sk-...",
+    },
+    {
+        key: STORAGE_KEYS.LLM_BASE_URL,
+        label: "LLM Base URL",
+        placeholder: "https://api.openai.com/v1",
     },
     {
         key: STORAGE_KEYS.GEMINI_API_KEY,
@@ -107,7 +112,7 @@ const Settings = () => {
             try {
                 const stored = await getStorageValues(SETTINGS_KEYS);
                 setSettings((prev) => {
-                    const next: any = { ...prev, ...stored };
+                    const next = { ...prev, ...stored } as AppConfig;
 
                     return next;
                 });
@@ -242,14 +247,16 @@ const Settings = () => {
                                         >
                                             {field.label}
                                         </Label>
-                                        <a
-                                            href={field.href}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-[10px] text-primary hover:underline"
-                                        >
-                                            Get Key
-                                        </a>
+                                        {"href" in field && field.href && (
+                                            <a
+                                                href={field.href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[10px] text-primary/80 hover:text-primary hover:underline"
+                                            >
+                                                Get key ↗
+                                            </a>
+                                        )}
                                     </div>
                                     <Input
                                         id={field.key}
@@ -410,8 +417,8 @@ const Settings = () => {
                                             <SelectItem value="gemini">
                                                 Gemini
                                             </SelectItem>
-                                            <SelectItem value="openrouter">
-                                                OpenRouter
+                                            <SelectItem value="llm">
+                                                LLM
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

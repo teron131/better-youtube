@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 /**
  * Chrome Extension API Utilities
  * Standardized wrappers for Chrome API operations with consistent error handling

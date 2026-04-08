@@ -72,13 +72,13 @@ export function validateAutoGen(
         return { isValid: false, reason: "missing api key" };
     }
 
-    const hasOpenRouterKey = !!String(
-        storageResult[STORAGE_KEYS.OPENROUTER_API_KEY] || "",
+    const hasLlmKey = !!String(
+        storageResult[STORAGE_KEYS.LLM_API_KEY] || "",
     ).trim();
     const hasGeminiKey = !!String(
         storageResult[STORAGE_KEYS.GEMINI_API_KEY] || "",
     ).trim();
-    if (!hasOpenRouterKey && !hasGeminiKey) {
+    if (!hasLlmKey && !hasGeminiKey) {
         console.log("Auto-gen skipped: missing summarizer API key");
         return { isValid: false, reason: "missing api key" };
     }

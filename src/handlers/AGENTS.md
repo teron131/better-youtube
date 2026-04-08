@@ -38,7 +38,7 @@
 Key functions and variables:
 
 - `logSummaryConfig` (`summary.ts`)
-- `runProvider`, `tryOpenRouter`, `tryGemini`, `finalizeRequestState` (`summary.ts`)
+- `runProvider`, `tryLlm`, `tryGemini`, `finalizeRequestState` (`summary.ts`)
 - `sendSubtitlesToTab`, `resolveRequestId`, `pendingCaptionJobs`, `latestCaptionWorkloads` (`refine.ts`)
 - `pendingSummaryJobs`, `latestSummaryWorkloads` (`summary.ts`)
 

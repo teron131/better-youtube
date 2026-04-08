@@ -108,9 +108,9 @@ export class PromptBuilder {
     }
 
     /**
-     * Build OpenRouter prompt for initial summary generation (no timestamps)
+     * Build LLM prompt for initial summary generation (no timestamps)
      */
-    static getOpenRouterSummaryPrompt(
+    static getLlmSummaryPrompt(
         targetLanguage = "auto",
         title?: string,
         description?: string,
@@ -188,9 +188,9 @@ export class PromptBuilder {
     }
 
     /**
-     * Build OpenRouter prompt for summary improvement (no timestamps)
+     * Build LLM prompt for summary improvement (no timestamps)
      */
-    static getOpenRouterRefinePrompt(
+    static getLlmRefinePrompt(
         targetLanguage = "auto",
         title?: string,
         description?: string,

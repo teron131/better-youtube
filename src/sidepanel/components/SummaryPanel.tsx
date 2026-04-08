@@ -32,7 +32,7 @@ interface SummaryPanelProps {
     summary: Summary;
     quality?: QualityData;
     videoInfo?: VideoInfoResponse;
-    provider?: "gemini" | "openrouter";
+    provider?: "gemini" | "llm";
     onRegenerate?: () => void;
     isRegenerating?: boolean;
 }
