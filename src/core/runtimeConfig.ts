@@ -6,11 +6,12 @@ import { loadConfig } from "./config";
 // ============================================================================
 
 export interface RuntimeConfigSnapshot {
-    openRouterApiKey: string | null;
+    llmApiKey: string | null;
+    llmBaseUrl: string | null;
     geminiApiKey: string | null;
     scrapeCreatorsApiKey: string | null;
     supadataApiKey: string | null;
-    summarizerProvider: "auto" | "gemini" | "openrouter";
+    summarizerProvider: "auto" | "gemini" | "llm";
     summarizerMode: "native" | "validation" | "fast";
     transcriptProviderPreference: "scrapeCreators" | "supadata";
     summarizerModel: string;
@@ -24,7 +25,8 @@ export interface RuntimeConfigSnapshot {
 }
 
 function applySnapshot(config: RuntimeConfigSnapshot): void {
-    globalOpenRouterKey = config.openRouterApiKey;
+    globalLlmApiKey = config.llmApiKey;
+    globalLlmBaseUrl = config.llmBaseUrl;
     globalGeminiKey = config.geminiApiKey;
     globalScrapeCreatorsKey = config.scrapeCreatorsApiKey;
     globalSupadataKey = config.supadataApiKey;
@@ -42,7 +44,8 @@ function applySnapshot(config: RuntimeConfigSnapshot): void {
 }
 
 // Global variables (exported, request-scoped)
-export let globalOpenRouterKey: string | null = null;
+export let globalLlmApiKey: string | null = null;
+export let globalLlmBaseUrl: string | null = null;
 export let globalGeminiKey: string | null = null;
 export let globalScrapeCreatorsKey: string | null = null;
 export let globalSupadataKey: string | null = null;
@@ -54,7 +57,7 @@ export let globalAutoGenerate: boolean = false;
 export let globalShowSubtitles: boolean = false;
 export let globalCaptionFontSize: string = "";
 export let globalSummaryFontSize: string = "";
-export let globalSummarizerProvider: "auto" | "gemini" | "openrouter" = "auto";
+export let globalSummarizerProvider: "auto" | "gemini" | "llm" = "auto";
 export let globalSummarizerMode: "native" | "validation" | "fast" =
     DEFAULTS.SUMMARIZER_MODE;
 export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
@@ -66,7 +69,8 @@ export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
 export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot> {
     const config = await loadConfig();
     return {
-        openRouterApiKey: config.openRouterApiKey,
+        llmApiKey: config.llmApiKey,
+        llmBaseUrl: config.llmBaseUrl,
         geminiApiKey: config.geminiApiKey,
         scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
         supadataApiKey: config.supadataApiKey,
@@ -103,7 +107,7 @@ export async function initGlobalConfig(force = false): Promise<void> {
  */
 export function clearConfigCache(): void {
     isConfigInitialized = false;
-    globalOpenRouterKey = null;
+    globalLlmApiKey = null;
     globalGeminiKey = null;
     globalScrapeCreatorsKey = null;
     globalSupadataKey = null;
@@ -125,9 +129,14 @@ export function clearConfigCache(): void {
 // Individual Getters (Backward Compatibility)
 // ============================================================================
 
-export async function getOpenRouterApiKey(): Promise<string | null> {
+export async function getLlmApiKey(): Promise<string | null> {
     await initGlobalConfig();
-    return globalOpenRouterKey;
+    return globalLlmApiKey;
+}
+
+export async function getLlmBaseUrl(): Promise<string | null> {
+    await initGlobalConfig();
+    return globalLlmBaseUrl;
 }
 
 export async function getGeminiApiKey(): Promise<string | null> {

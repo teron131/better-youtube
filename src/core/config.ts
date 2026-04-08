@@ -11,19 +11,20 @@ import { getStorageValues } from "./storage";
 // Types
 // ============================================================================
 
-export type SummarizerProviderPreference = "auto" | "gemini" | "openrouter";
+export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 export type SummarizerModePreference = "native" | "validation" | "fast";
 export type TranscriptProviderPreference = "scrapeCreators" | "supadata";
 
 export interface AppConfig {
     // API Keys (nullable)
-    openRouterApiKey: string | null;
+    llmApiKey: string | null;
+    llmBaseUrl: string | null;
     geminiApiKey: string | null;
     scrapeCreatorsApiKey: string | null;
     supadataApiKey: string | null;
 
     // Routing
-    summarizerProvider: "auto" | "gemini" | "openrouter";
+    summarizerProvider: "auto" | "gemini" | "llm";
     summarizerMode: "native" | "validation" | "fast";
     transcriptProviderPreference: "scrapeCreators" | "supadata";
 
@@ -41,7 +42,8 @@ export interface AppConfig {
 }
 
 export interface ApiKeys {
-    openRouterApiKey: string | null;
+    llmApiKey: string | null;
+    llmBaseUrl: string | null;
     geminiApiKey: string | null;
     scrapeCreatorsApiKey: string | null;
     supadataApiKey: string | null;
@@ -84,7 +86,7 @@ export function resolveModel(
  */
 export async function loadConfig(): Promise<AppConfig> {
     const keys = [
-        STORAGE_KEYS.OPENROUTER_API_KEY,
+        STORAGE_KEYS.LLM_API_KEY,
         STORAGE_KEYS.GEMINI_API_KEY,
         STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
         STORAGE_KEYS.SUPADATA_API_KEY,
@@ -110,8 +112,8 @@ export async function loadConfig(): Promise<AppConfig> {
         result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ??
             DEFAULTS.SUMMARIZER_PROVIDER,
     );
-    const summarizerProvider: "auto" | "gemini" | "openrouter" =
-        providerRaw === "gemini" || providerRaw === "openrouter"
+    const summarizerProvider: "auto" | "gemini" | "llm" =
+        providerRaw === "gemini" || providerRaw === "llm"
             ? providerRaw
             : "auto";
 
@@ -141,7 +143,8 @@ export async function loadConfig(): Promise<AppConfig> {
     );
 
     return {
-        openRouterApiKey: normalizeKey(result[STORAGE_KEYS.OPENROUTER_API_KEY]),
+        llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
+        llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
         geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
         scrapeCreatorsApiKey: normalizeKey(
             result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY],
@@ -179,7 +182,8 @@ export async function loadConfig(): Promise<AppConfig> {
  */
 export async function getApiKeys(): Promise<ApiKeys> {
     const keys = [
-        STORAGE_KEYS.OPENROUTER_API_KEY,
+        STORAGE_KEYS.LLM_API_KEY,
+        STORAGE_KEYS.LLM_BASE_URL,
         STORAGE_KEYS.GEMINI_API_KEY,
         STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
         STORAGE_KEYS.SUPADATA_API_KEY,
@@ -188,7 +192,8 @@ export async function getApiKeys(): Promise<ApiKeys> {
     const result = await getStorageValues<Record<string, any>>(keys);
 
     return {
-        openRouterApiKey: normalizeKey(result[STORAGE_KEYS.OPENROUTER_API_KEY]),
+        llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
+        llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
         geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
         scrapeCreatorsApiKey: normalizeKey(
             result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY],

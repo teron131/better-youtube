@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 /**
  * Content Script for Better YouTube Chrome Extension
  * Handles subtitle display, auto-generation, and communication with background script

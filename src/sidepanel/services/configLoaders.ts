@@ -13,7 +13,7 @@ export async function getModelSettings(): Promise<{
     refinerModel: string;
     targetLanguage: string;
     showSubtitles: boolean;
-    summarizerProvider: "auto" | "gemini" | "openrouter";
+    summarizerProvider: "auto" | "gemini" | "llm";
     summarizerMode: "native" | "validation" | "fast";
     transcriptProviderPreference: "scrapeCreators" | "supadata";
 }> {
@@ -37,7 +37,7 @@ export async function getProcessingConfig(): Promise<{
     refinerModel: string;
     targetLanguage: string;
     showSubtitles: boolean;
-    summarizerProvider: "auto" | "gemini" | "openrouter";
+    summarizerProvider: "auto" | "gemini" | "llm";
     summarizerMode: "native" | "validation" | "fast";
     transcriptProviderPreference: "scrapeCreators" | "supadata";
 }> {

@@ -20,7 +20,7 @@ import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
 import { Captions, Settings as SettingsIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
@@ -33,6 +33,7 @@ import {
     getVideoMetadataStorageKey,
     setStorageValue,
 } from "@/core/storage";
+import type { QualityData } from "@/core/types";
 import { extractVideoId } from "@/core/utils/url";
 
 function segmentsToTranscript(
@@ -46,9 +47,9 @@ type CachedVideoState = Partial<VideoProcessingState>;
 
 function resolveSummaryProvider(
     modelUsed?: string,
-): "gemini" | "openrouter" | undefined {
+): "gemini" | "llm" | undefined {
     if (modelUsed?.startsWith("gemini::")) return "gemini";
-    if (modelUsed?.startsWith("openrouter::")) return "openrouter";
+    if (modelUsed?.startsWith("llm::")) return "llm";
     return undefined;
 }
 
@@ -99,7 +100,8 @@ async function loadCachedVideoState(
         summaryResult: {
             success: true,
             summary: storedSummary.summary,
-            quality: storedSummary.quality,
+            quality:
+                (storedSummary.quality as unknown as QualityData) ?? undefined,
             videoInfo: storedVideoInfo ?? undefined,
             transcript: transcript ?? undefined,
             provider: resolveSummaryProvider(storedSummary.modelUsed),
@@ -165,7 +167,7 @@ const Index = () => {
 
         // Listen for tab updates
         const handleTabUpdate = (
-            tabId: number,
+            _tabId: number,
             changeInfo: chrome.tabs.TabChangeInfo,
             tab: chrome.tabs.Tab,
         ) => {
@@ -310,7 +312,7 @@ const Index = () => {
         broadcastToggleSubtitles(nextState);
     };
 
-    const loadExample = () => {
+    const loadExample = useCallback(() => {
         setIsExampleMode(true);
         const example = loadExampleData();
 
@@ -331,12 +333,12 @@ const Index = () => {
                 block: "start",
             });
         });
-    };
+    }, [updateState]);
 
     useEffect(() => {
         if (!isDemoMode) return;
         loadExample();
-    }, [isDemoMode]);
+    }, [loadExample]);
 
     const resolveVideoUrl = async (url: string): Promise<string | null> => {
         const trimmed = url.trim();

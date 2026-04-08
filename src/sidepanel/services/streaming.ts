@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 /**
  * Chrome Extension Messaging Service
  * Handles communication with background script for video processing
@@ -78,7 +80,7 @@ interface SummaryListenerResult {
     summary: any;
     videoInfo: any;
     transcript: string | null;
-    provider?: "gemini" | "openrouter";
+    provider?: "gemini" | "llm";
 }
 
 interface StreamControl {

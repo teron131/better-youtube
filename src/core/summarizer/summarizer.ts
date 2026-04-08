@@ -6,7 +6,7 @@
 import { tool } from "@langchain/core/tools";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
-import { createOpenRouterClient } from "@/core/llmClients";
+import { createLlmClient } from "@/core/llmClients";
 import { fetchTranscript, getTranscriptText } from "@/core/transcript";
 import { extractVideoId } from "@/core/utils/url";
 import { summarizeFast } from "./fastSummarizer";
@@ -50,8 +50,8 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
             if (!data) return "Error: No transcript API keys configured.";
 
             const transcriptOnlyText =
-                typeof (data as any).transcript_only_text === "string"
-                    ? String((data as any).transcript_only_text)
+                typeof data.transcript_only_text === "string"
+                    ? data.transcript_only_text
                     : "";
             const transcript =
                 transcriptOnlyText || getTranscriptText(data.transcript ?? []);
@@ -99,10 +99,7 @@ function createSummaryNode() {
         );
 
         const llm = (
-            await createOpenRouterClient(
-                summaryModel!,
-                "Better YouTube - Summarizer",
-            )
+            await createLlmClient(summaryModel!, "Better YouTube - Summarizer")
         ).withStructuredOutput(SummarySchemaNoTimestamps);
         const lang = targetLanguage || "auto";
 
@@ -111,11 +108,7 @@ function createSummaryNode() {
             result = await llm.invoke([
                 [
                     "system",
-                    PromptBuilder.getOpenRouterRefinePrompt(
-                        lang,
-                        title,
-                        description,
-                    ),
+                    PromptBuilder.getLlmRefinePrompt(lang, title, description),
                 ],
                 [
                     "human",
@@ -126,11 +119,7 @@ function createSummaryNode() {
             result = await llm.invoke([
                 [
                     "system",
-                    PromptBuilder.getOpenRouterSummaryPrompt(
-                        lang,
-                        title,
-                        description,
-                    ),
+                    PromptBuilder.getLlmSummaryPrompt(lang, title, description),
                 ],
                 ["human", transcript],
             ]);
@@ -153,10 +142,7 @@ function createQualityNode() {
         progress?.(`Performing quality check using model: ${qualityModel}...`);
 
         const quality = await (
-            await createOpenRouterClient(
-                qualityModel!,
-                "Better YouTube - Quality",
-            )
+            await createLlmClient(qualityModel!, "Better YouTube - Quality")
         )
             .withStructuredOutput(QualitySchema, { method: "jsonMode" })
             .invoke([

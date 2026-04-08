@@ -1,5 +1,5 @@
 /**
- * Fast summary path (agent-based) for OpenRouter.
+ * Fast summary path (agent-based) for LLM.
  */
 
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -11,7 +11,7 @@ import {
     createMiddleware,
     toolStrategy,
 } from "@/core/langgraph-web-shim";
-import { createOpenRouterClient } from "@/core/llmClients";
+import { createLlmClient } from "@/core/llmClients";
 import { fetchTranscript, getTranscriptText } from "@/core/transcript";
 import {
     filterContent,
@@ -68,8 +68,8 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
             if (!data) return "Error: No transcript API keys configured.";
 
             const transcriptOnlyText =
-                typeof (data as any).transcript_only_text === "string"
-                    ? String((data as any).transcript_only_text)
+                typeof data.transcript_only_text === "string"
+                    ? data.transcript_only_text
                     : "";
             const transcript =
                 transcriptOnlyText || getTranscriptText(data.transcript ?? []);
@@ -116,10 +116,7 @@ function createGarbageFilterMiddleware(model: string) {
             try {
                 const taggedTranscript = tagContent(transcript);
                 const garbage = await (
-                    await createOpenRouterClient(
-                        model,
-                        "Better YouTube - Filter",
-                    )
+                    await createLlmClient(model, "Better YouTube - Filter")
                 )
                     .withStructuredOutput(GarbageIdentificationSchema, {
                         method: "jsonMode",
@@ -162,12 +159,9 @@ export async function summarizeFast(
     const targetLanguage = input.targetLanguage ?? "auto";
 
     const agent = createAgent({
-        model: await createOpenRouterClient(
-            model,
-            "Better YouTube - Summarizer",
-        ),
+        model: await createLlmClient(model, "Better YouTube - Summarizer"),
         tools: isUrl ? [createScrapeYoutubeTool(input)] : [],
-        systemPrompt: PromptBuilder.getOpenRouterSummaryPrompt(
+        systemPrompt: PromptBuilder.getLlmSummaryPrompt(
             targetLanguage,
             input.title,
             input.description,

@@ -3,7 +3,7 @@ import type { Summary } from "@/core/types";
 
 function coerceSummary(value: unknown): Summary | null {
     if (!value || typeof value !== "object") return null;
-    const v = value as any;
+    const v = value as Record<string, unknown>;
 
     const chapters = Array.isArray(v.chapters) ? v.chapters : null;
     if (!chapters) return null;
@@ -21,10 +21,10 @@ export function toSummaryFromGemini(summary: unknown): Summary {
     throw new Error("Invalid summary shape from Gemini");
 }
 
-export function toSummaryFromOpenRouter(summary: unknown): Summary {
+export function toSummaryFromLlm(summary: unknown): Summary {
     const coerced = coerceSummary(summary);
     if (coerced) return coerced;
-    throw new Error("Invalid summary shape from OpenRouter");
+    throw new Error("Invalid summary shape from LLM");
 }
 
 export function parseGeminiSummary(summary: unknown): Summary {
@@ -33,10 +33,10 @@ export function parseGeminiSummary(summary: unknown): Summary {
     throw new Error("Invalid summary shape from Gemini");
 }
 
-export function parseOpenRouterSummary(summary: unknown): Summary {
+export function parseLlmSummary(summary: unknown): Summary {
     const coerced = coerceSummary(summary);
     if (coerced) return coerced;
-    throw new Error("Invalid summary shape from OpenRouter");
+    throw new Error("Invalid summary shape from LLM");
 }
 
 export function isSummary(value: unknown): value is Summary {

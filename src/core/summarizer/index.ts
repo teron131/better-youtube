@@ -16,6 +16,6 @@ export { summarizeWorkflow } from "./summarizer";
 export {
     isSummary,
     parseGeminiSummary,
-    parseOpenRouterSummary,
+    parseLlmSummary,
     summaryToMarkdown,
 } from "./summaryParser";

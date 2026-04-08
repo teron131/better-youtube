@@ -5,7 +5,7 @@
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
-import { createOpenRouterClient } from "@/core/llmClients";
+import { createLlmClient } from "@/core/llmClients";
 import type { SubtitleSegment } from "@/core/storage";
 import {
     chunkSegmentsByCount,
@@ -70,8 +70,8 @@ function buildUserPreamble(title: string, description: string): string {
     ].join("\n");
 }
 
-function extractResponseText(response: any): string {
-    const content = response?.content;
+function extractResponseText(response: unknown): string {
+    const content = (response as any)?.content;
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
         return content
@@ -271,7 +271,7 @@ export async function refineTranscriptWithLLM(
 ): Promise<SubtitleSegment[]> {
     if (!segments.length) return [];
 
-    const llm = await createOpenRouterClient(model, "Better YouTube - Refiner");
+    const llm = await createLlmClient(model, "Better YouTube - Refiner");
     const preambleText = buildUserPreamble(title, description);
     const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
         segments,

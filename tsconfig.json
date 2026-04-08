@@ -17,7 +17,7 @@
         "noUnusedParameters": false,
         "noFallthroughCasesInSwitch": true,
         "allowJs": true,
-        "baseUrl": ".",
+        "types": ["chrome", "node"],
         "paths": {
             "@/*": ["./src/*"],
             "@ui/*": ["./src/sidepanel/*"]

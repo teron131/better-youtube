@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 /**
  * Summary Handler
  * Handles summary generation requests with caching and workflow orchestration
@@ -15,7 +17,8 @@ import {
     type VideoMetadata,
 } from "@/core/storage";
 import {
-    parseOpenRouterSummary,
+    parseLlmSummary,
+    type Quality,
     type Summary,
     summarizeGemini,
     summarizeWorkflow,
@@ -31,6 +34,7 @@ import {
     setTranscriptFetchContext,
     type TranscriptFetchContext,
 } from "@/core/transcript";
+import type { ScrapeCreatorsResponse } from "@/core/types";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { createYouTubeWatchUrl } from "@/core/utils/url";
 import {
@@ -52,16 +56,15 @@ import {
 
 type SummaryResult = {
     summary: Summary;
-    quality?: any;
+    quality?: Quality | null;
     summaryText?: string;
     iterations?: number;
     qualityScore?: number;
 };
 
-type SummaryProvider = "openrouter" | "gemini" | "auto";
 type SummarizerMode = "native" | "validation" | "fast";
 
-type ProviderPref = "auto" | "gemini" | "openrouter";
+type ProviderPref = "auto" | "gemini" | "llm";
 
 function normalizeProviderPreference(input: {
     summaryProvider?: unknown;
@@ -70,15 +73,12 @@ function normalizeProviderPreference(input: {
 }): ProviderPref {
     const { summaryProvider, summarizerProvider, globalProvider } = input;
 
-    if (
-        summarizerProvider === "gemini" ||
-        summarizerProvider === "openrouter"
-    ) {
+    if (summarizerProvider === "gemini" || summarizerProvider === "llm") {
         return summarizerProvider;
     }
 
     if (summaryProvider === "gemini") return "gemini";
-    if (summaryProvider === "openrouter") return "openrouter";
+    if (summaryProvider === "llm") return "llm";
     if (summaryProvider === "auto") return "auto";
 
     return globalProvider;
@@ -110,11 +110,11 @@ function logSummaryConfig(payload: {
     modePref: SummarizerMode;
     transcriptProviderPreference: string;
     resolvedProvider: string;
-    desiredOpenRouterMode: "react" | "fast";
+    desiredLlmMode: "react" | "fast";
     msgHasTranscript: boolean;
     hasKeys: {
         gemini: boolean;
-        openrouter: boolean;
+        llm: boolean;
         scrapeCreators: boolean;
         supadata: boolean;
     };
@@ -131,7 +131,7 @@ function logSummaryConfig(payload: {
                 modePref: payload.modePref,
                 transcriptProviderPreference:
                     payload.transcriptProviderPreference,
-                desiredOpenRouterMode: payload.desiredOpenRouterMode,
+                desiredLlmMode: payload.desiredLlmMode,
                 resolvedProvider: payload.resolvedProvider,
                 msgHasTranscript: payload.msgHasTranscript,
                 hasKeys: payload.hasKeys,
@@ -255,11 +255,11 @@ async function getVideoInfo(
     };
 }
 
-function toTranscriptText(data: any): string | null {
+function toTranscriptText(data: ScrapeCreatorsResponse | null): string | null {
     if (!data) return null;
     const transcriptOnlyText =
         typeof data.transcript_only_text === "string"
-            ? String(data.transcript_only_text)
+            ? data.transcript_only_text
             : "";
     const text = transcriptOnlyText || getTranscriptText(data.transcript ?? []);
     return text.trim() ? text : null;
@@ -279,13 +279,13 @@ async function broadcastStoredSummary(
 ): Promise<void> {
     const videoInfo = await getVideoMetadata(videoId);
 
-    const summary = storedSummary.summary as any;
+    const summary = storedSummary.summary;
     const summaryText = videoInfo ? summaryToMarkdown(summary, videoInfo) : "";
 
     const provider = storedSummary.modelUsed?.startsWith("gemini::")
         ? "gemini"
-        : storedSummary.modelUsed?.startsWith("openrouter::")
-          ? "openrouter"
+        : storedSummary.modelUsed?.startsWith("llm::")
+          ? "llm"
           : undefined;
 
     sendRuntimeMessage({
@@ -317,7 +317,7 @@ async function broadcastSummaryResult(
     transcript_or_url: string,
     modelSelection: string,
     targetLanguage: string,
-    provider: "openrouter" | "gemini",
+    provider: "llm" | "gemini",
     requestId?: string,
 ): Promise<void> {
     // Save summary to storage
@@ -400,6 +400,20 @@ function buildSummaryWorkloadKey(input: {
 // Main Handler
 // ============================================================================
 
+interface SummaryMessage extends ChromeMessage {
+    videoId: string;
+    requestId?: string;
+    transcript?: string;
+    modelSelection?: string;
+    qualityModel?: string;
+    refinerModel?: string;
+    targetLanguage?: string;
+    forceRegenerate?: boolean;
+    summaryProvider?: string;
+    summarizerMode?: string;
+    summarizerProvider?: string;
+}
+
 export async function handleGenerateSummary(
     message: ChromeMessage,
     ctx: {
@@ -408,7 +422,7 @@ export async function handleGenerateSummary(
         pendingSummaryJobs: Map<string, Promise<void>>;
         config: RuntimeConfigSnapshot;
     },
-    sendResponse: (response: any) => void,
+    sendResponse: (response: unknown) => void,
 ): Promise<void> {
     const {
         summaryRequests,
@@ -428,7 +442,7 @@ export async function handleGenerateSummary(
         summaryProvider,
         summarizerMode,
         summarizerProvider,
-    } = message as any;
+    } = message as unknown as SummaryMessage;
     const transcriptFetchContext: TranscriptFetchContext = {
         scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
         supadataApiKey: config.supadataApiKey,
@@ -453,7 +467,7 @@ export async function handleGenerateSummary(
         globalMode: config.summarizerMode,
     });
 
-    const desiredOpenRouterMode = modePref === "fast" ? "fast" : "react";
+    const desiredLlmMode = modePref === "fast" ? "fast" : "react";
 
     const workloadKey = buildSummaryWorkloadKey({
         videoId,
@@ -503,14 +517,14 @@ export async function handleGenerateSummary(
         );
         try {
             const geminiKey = config.geminiApiKey;
-            const openRouterKey = config.openRouterApiKey;
+            const llmKey = config.llmApiKey;
 
             const { provider } = resolveSummarizationRoute({
                 requestedProvider: providerPref,
                 requestedMode: modePref,
                 summarizerModel: String(modelSelection),
                 hasGeminiKey: !!geminiKey,
-                hasOpenRouterKey: !!openRouterKey,
+                hasLlmKey: !!llmKey,
             });
 
             logSummaryConfig({
@@ -524,11 +538,11 @@ export async function handleGenerateSummary(
                     config.transcriptProviderPreference,
                 ),
                 resolvedProvider: provider,
-                desiredOpenRouterMode,
+                desiredLlmMode,
                 msgHasTranscript: Boolean(msgTranscript),
                 hasKeys: {
                     gemini: Boolean(geminiKey),
-                    openrouter: Boolean(openRouterKey),
+                    llm: Boolean(llmKey),
                     scrapeCreators: Boolean(config.scrapeCreatorsApiKey),
                     supadata: Boolean(config.supadataApiKey),
                 },
@@ -552,17 +566,17 @@ export async function handleGenerateSummary(
                 return;
             }
 
-            // Lazy resolution: Gemini can use URL directly; OpenRouter needs transcript_or_url.
+            // Lazy resolution: Gemini can use URL directly; LLM needs transcript_or_url.
             const getVideoInfoLazy = async () =>
                 getVideoInfo(videoId, transcriptFetchContext);
-            const getOpenRouterSourceLazy = async () =>
+            const getLlmSourceLazy = async () =>
                 getTranscriptSource(
                     videoId,
                     msgTranscript,
                     transcriptFetchContext,
                 );
 
-            type ConcreteProvider = "gemini" | "openrouter";
+            type ConcreteProvider = "gemini" | "llm";
 
             const tryGemini = async () => {
                 if (!geminiKey) throw new Error("Gemini API key missing");
@@ -599,10 +613,9 @@ export async function handleGenerateSummary(
                 };
             };
 
-            const tryOpenRouter = async () => {
-                if (!openRouterKey)
-                    throw new Error("OpenRouter API key missing");
-                const transcript_or_url = await getOpenRouterSourceLazy();
+            const tryLlm = async () => {
+                if (!llmKey) throw new Error("LLM API key missing");
+                const transcript_or_url = await getLlmSourceLazy();
                 const videoInfo = await getVideoInfoLazy();
                 const workflow = await summarizeWorkflow({
                     transcript_or_url,
@@ -613,10 +626,10 @@ export async function handleGenerateSummary(
                     qualityModel: qualityModel || modelSelection,
                     refinerModel: refinerModel,
                     targetLanguage: targetLanguage,
-                    fastMode: desiredOpenRouterMode === "fast",
+                    fastMode: desiredLlmMode === "fast",
                 });
 
-                const summary = parseOpenRouterSummary(workflow.summary);
+                const summary = parseLlmSummary(workflow.summary);
                 return {
                     summary,
                     quality: workflow.quality,
@@ -631,7 +644,7 @@ export async function handleGenerateSummary(
                 () => Promise<SummaryResult>
             > = {
                 gemini: tryGemini,
-                openrouter: tryOpenRouter,
+                llm: tryLlm,
             };
 
             const runProvider = async (selectedProvider: ConcreteProvider) => {
@@ -658,10 +671,10 @@ export async function handleGenerateSummary(
                     requestId: effectiveRequestId,
                     error: String(error),
                 });
-                if (provider === "gemini" && openRouterKey) {
-                    finalProvider = "openrouter";
+                if (provider === "gemini" && llmKey) {
+                    finalProvider = "llm";
                     result = await runProvider(finalProvider);
-                } else if (provider === "openrouter" && geminiKey) {
+                } else if (provider === "llm" && geminiKey) {
                     finalProvider = "gemini";
                     result = await runProvider(finalProvider);
                 } else {
@@ -675,7 +688,7 @@ export async function handleGenerateSummary(
             const transcript_or_url =
                 finalProvider === "gemini" && !msgTranscript
                     ? createYouTubeWatchUrl(videoId)
-                    : await getOpenRouterSourceLazy();
+                    : await getLlmSourceLazy();
             await broadcastSummaryResult(
                 videoId,
                 result,

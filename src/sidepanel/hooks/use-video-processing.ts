@@ -2,7 +2,7 @@
  * Core video processing state management hook with streaming support.
  */
 
-import { useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
     ApiError,
     StreamingProcessingResult,
@@ -210,8 +210,8 @@ export function useVideoProcessing() {
             const error =
                 typeof e === "object" && e !== null && "message" in e
                     ? ({
-                          message: String((e as any).message),
-                          type: (e as any).type || "processing",
+                          message: String((e as Record<string, unknown>).message),
+                          type: (e as Record<string, unknown>).type || "processing",
                       } as ApiError)
                     : ({
                           message: "Processing failed",
@@ -233,8 +233,11 @@ export function useVideoProcessing() {
         ...state,
         processVideo,
         cancelCurrentRun,
-        updateState: (updates: Partial<VideoProcessingState>) =>
-            dispatch({ type: "UPDATE", payload: updates }),
-        resetState: () => dispatch({ type: "RESET" }),
+        updateState: useCallback(
+            (updates: Partial<VideoProcessingState>) =>
+                dispatch({ type: "UPDATE", payload: updates }),
+            [],
+        ),
+        resetState: useCallback(() => dispatch({ type: "RESET" }), []),
     };
 }

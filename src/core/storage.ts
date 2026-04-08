@@ -1,8 +1,11 @@
+/// <reference types="chrome" />
+
 /**
  * Chrome storage management
  */
 
 import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants";
+import type { Quality, Summary } from "./summarizer/schemas";
 
 // ============================================================================
 // Types
@@ -28,8 +31,8 @@ export interface VideoMetadata {
 }
 
 export interface StoredSummary {
-    summary: any;
-    quality?: any;
+    summary: Summary;
+    quality?: Quality | null;
     timestamp: number;
     modelUsed: string;
     targetLanguage?: string | null;
@@ -284,10 +287,10 @@ export async function getSummary(
 
 export async function saveSummary(
     videoId: string,
-    summary: any,
+    summary: Summary,
     modelUsed: string,
     targetLanguage?: string | null,
-    quality?: any,
+    quality?: Quality | null,
 ): Promise<void> {
     const key = StorageKeys.summary(videoId);
     const storedSummary: StoredSummary = {
