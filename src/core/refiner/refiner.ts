@@ -97,33 +97,57 @@ function normalizeRefinedOutputLines(text: string): string[] {
 }
 
 /**
- * Custom concurrency handler for batch processing
+ * Custom concurrency handler for batch processing with retries
  */
 async function runConcurrentBatch<T, R>(
     items: T[],
     concurrency: number,
     fn: (item: T, index: number) => Promise<R>,
     onEachComplete?: (
-        result: R,
+        result: R | null,
         index: number,
         allResults: (R | null)[],
     ) => void,
 ): Promise<R[]> {
-    const results = new Array(items.length);
+    const results = new Array(items.length).fill(null);
     const queue = items.map((item, index) => ({ item, index }));
+    const MAX_RETRIES = 3;
 
     const workers = Array.from({
         length: Math.min(concurrency, items.length),
     }).map(async () => {
         while (queue.length > 0) {
             const { item, index } = queue.shift()!;
-            try {
-                const result = await fn(item, index);
-                results[index] = result;
-                onEachComplete?.(result, index, results);
-            } catch (error) {
-                console.error(`Error processing batch item ${index}:`, error);
-                results[index] = null;
+            let lastError: any = null;
+            let success = false;
+
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                try {
+                    const result = await fn(item, index);
+                    results[index] = result;
+                    onEachComplete?.(result, index, results);
+                    success = true;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                    // If it's a 401 or 429, wait a bit longer before retrying
+                    const isTransient =
+                        String(error).includes("401") ||
+                        String(error).includes("429");
+                    if (isTransient && attempt < MAX_RETRIES - 1) {
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, 1000 * (attempt + 1)),
+                        );
+                    }
+                }
+            }
+
+            if (!success) {
+                console.error(
+                    `Failed to process batch item ${index} after ${MAX_RETRIES} attempts:`,
+                    lastError,
+                );
+                onEachComplete?.(null, index, results);
             }
         }
     });
@@ -269,21 +293,24 @@ export async function refineTranscriptWithLLM(
 
     onProgress?.(0, batchMessages.length);
 
+    const priorityHandler = createPriorityHandler(
+        priorityRangeCount,
+        splitIndex,
+        segments,
+        chunks,
+        onPriorityComplete,
+    );
+
     const responses = await runConcurrentBatch(
         batchMessages,
         REFINER_CONFIG.CONCURRENCY_LIMIT,
-        async (messages, idx) => {
-            const res = await llm.invoke(messages);
-            onProgress?.(idx + 1, batchMessages.length);
-            return res;
+        async (messages) => {
+            return await llm.invoke(messages);
         },
-        createPriorityHandler(
-            priorityRangeCount,
-            splitIndex,
-            segments,
-            chunks,
-            onPriorityComplete,
-        ),
+        (result, idx, allResults) => {
+            onProgress?.(idx + 1, batchMessages.length);
+            priorityHandler(result, idx, allResults);
+        },
     );
 
     const refinedText = responses

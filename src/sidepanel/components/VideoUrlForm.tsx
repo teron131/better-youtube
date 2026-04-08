@@ -1,4 +1,5 @@
 import { ExampleUrls } from "@ui/components/ExampleUrls";
+import { ModelIcon } from "@ui/components/ModelIcon";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
@@ -20,7 +21,6 @@ import {
     useModelSelection,
     useUserPreferences,
 } from "@ui/hooks/use-config";
-import { getProviderLogo } from "@ui/lib/provider-logos";
 import { AlertCircle, ArrowUp, Captions, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -28,20 +28,6 @@ import {
     prepareProcessingOptions,
     validateYouTubeUrl,
 } from "@/core/utils/validation";
-
-function ProviderLogo({ provider }: { provider?: string }) {
-    const src = provider ? getProviderLogo(provider) : null;
-    if (!src) return null;
-    return (
-        <img
-            src={src}
-            alt={provider || ""}
-            className="h-4 w-4 opacity-80"
-            loading="lazy"
-            decoding="async"
-        />
-    );
-}
 
 interface VideoUrlFormProps {
     onSubmit: (
@@ -168,8 +154,17 @@ export const VideoUrlForm = ({
                         >
                             <SelectTrigger className="h-8 w-[200px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
                                 <div className="flex items-center gap-2 overflow-hidden">
-                                    <ProviderLogo
+                                    <ModelIcon
                                         provider={selectedModel?.provider}
+                                        logo={selectedModel?.logo}
+                                        fallbackLogo={
+                                            selectedModel?.fallbackLogo
+                                        }
+                                        alt={
+                                            selectedModel?.provider ||
+                                            selectedModel?.label
+                                        }
+                                        className="h-4 w-4 opacity-80"
                                     />
                                     <span className="truncate">
                                         {selectedModel?.label || "Model"}
@@ -180,8 +175,12 @@ export const VideoUrlForm = ({
                                 {summarizerModels.map((m) => (
                                     <SelectItem key={m.key} value={m.key}>
                                         <div className="flex items-center gap-2">
-                                            <ProviderLogo
+                                            <ModelIcon
                                                 provider={m.provider}
+                                                logo={m.logo}
+                                                fallbackLogo={m.fallbackLogo}
+                                                alt={m.provider || m.label}
+                                                className="h-4 w-4 opacity-80"
                                             />
                                             <span>{m.label}</span>
                                         </div>

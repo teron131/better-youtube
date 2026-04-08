@@ -15,14 +15,13 @@ import {
     DEFAULT_QUALITY_MODEL,
     DEFAULT_SUMMARY_MODEL,
     DEFAULT_TARGET_LANGUAGE,
-    isValidLanguage,
-    isValidModel,
     SUPPORTED_LANGUAGES,
     SUPPORTED_LANGUAGES_LIST,
     type SupportedLanguage,
 } from "@ui/services/config";
+import { fetchModelStats, type ModelStat } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface UseConfigReturn {
     config: ConfigurationResponse | null;
@@ -41,6 +40,7 @@ interface UseConfigReturn {
 
 export function useConfig(): UseConfigReturn {
     const [config, setConfig] = useState<ConfigurationResponse | null>(null);
+    const [stats, setStats] = useState<Record<string, ModelStat>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -48,23 +48,36 @@ export function useConfig(): UseConfigReturn {
         try {
             setIsLoading(true);
             setError(null);
-            const configuration = await api.getConfiguration();
-            setConfig(configuration);
+
+            // Load config and stats in parallel
+            const [configuration, modelStats] = await Promise.all([
+                api.getConfiguration().catch(() => null),
+                fetchModelStats().catch(
+                    () => ({}) as Record<string, ModelStat>,
+                ),
+            ]);
+
+            if (configuration) {
+                setConfig(configuration);
+            } else {
+                setConfig({
+                    status: "success",
+                    message: "Using local configuration fallback",
+                    available_models: AVAILABLE_MODELS,
+                    supported_languages: SUPPORTED_LANGUAGES,
+                    default_summary_model: DEFAULT_SUMMARY_MODEL,
+                    default_quality_model: DEFAULT_QUALITY_MODEL,
+                    default_target_language: DEFAULT_TARGET_LANGUAGE,
+                });
+            }
+
+            setStats(modelStats);
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
                     : "Failed to load configuration",
             );
-            setConfig({
-                status: "success",
-                message: "Using local configuration fallback",
-                available_models: AVAILABLE_MODELS,
-                supported_languages: SUPPORTED_LANGUAGES,
-                default_summary_model: DEFAULT_SUMMARY_MODEL,
-                default_quality_model: DEFAULT_QUALITY_MODEL,
-                default_target_language: DEFAULT_TARGET_LANGUAGE,
-            });
         } finally {
             setIsLoading(false);
         }
@@ -74,26 +87,72 @@ export function useConfig(): UseConfigReturn {
         loadConfig();
     }, []);
 
+    const enrichedModels = useMemo(() => {
+        return AVAILABLE_MODELS_LIST.map((model) => {
+            const stat = stats[model.key];
+            if (stat) {
+                return {
+                    ...model,
+                    logo: stat.logo,
+                    fallbackLogo: stat.fallbackLogo,
+                };
+            }
+
+            // Fallback for models not in stats API but with a known provider
+            if (model.provider) {
+                const cleanId = model.provider.toLowerCase();
+                const aaId = cleanId.replace(/[^a-z0-9]/g, "");
+                return {
+                    ...model,
+                    logo: `https://artificialanalysis.ai/img/logos/${aaId}_small.svg`,
+                    fallbackLogo: `https://models.dev/logos/${cleanId}.svg`,
+                };
+            }
+
+            return model;
+        });
+    }, [stats]);
+
+    const summarizerModels = useMemo(
+        () =>
+            enrichedModels.filter((m) =>
+                AVAILABLE_SUMMARIZER_MODELS_LIST.some((sm) => sm.key === m.key),
+            ),
+        [enrichedModels],
+    );
+
+    const refinerModels = useMemo(
+        () =>
+            enrichedModels.filter((m) =>
+                AVAILABLE_REFINER_MODELS_LIST.some((rm) => rm.key === m.key),
+            ),
+        [enrichedModels],
+    );
+
+    const isValidModel = (model: string) =>
+        config?.available_models
+            ? model in config.available_models
+            : model in AVAILABLE_MODELS;
+
+    const isValidLanguage = (language: string) =>
+        config?.supported_languages
+            ? language in config.supported_languages
+            : language in SUPPORTED_LANGUAGES;
+
     return {
         config,
-        models: AVAILABLE_MODELS_LIST,
-        summarizerModels: AVAILABLE_SUMMARIZER_MODELS_LIST,
-        refinerModels: AVAILABLE_REFINER_MODELS_LIST,
+        models: enrichedModels,
+        summarizerModels,
+        refinerModels,
         languages: SUPPORTED_LANGUAGES_LIST,
         isLoading,
         error,
         getModelByKey: (key: string) =>
-            AVAILABLE_MODELS_LIST.find((m) => m.key === key),
+            enrichedModels.find((m) => m.key === key),
         getLanguageByKey: (key: string) =>
             SUPPORTED_LANGUAGES_LIST.find((l) => l.key === key),
-        isValidModel: (model: string) =>
-            config?.available_models
-                ? model in config.available_models
-                : model in AVAILABLE_MODELS,
-        isValidLanguage: (language: string) =>
-            config?.supported_languages
-                ? language in config.supported_languages
-                : language in SUPPORTED_LANGUAGES,
+        isValidModel,
+        isValidLanguage,
         refresh: loadConfig,
     };
 }
@@ -145,37 +204,38 @@ const DEFAULT_USER_PREFERENCES: UserPreferences = {
     summarizerMode: "validation",
 };
 
-function validatePreferences(
-    prefs: Partial<UserPreferences>,
-    defaults: UserPreferences,
-): UserPreferences {
-    return {
-        summaryModel:
-            prefs.summaryModel && isValidModel(prefs.summaryModel)
-                ? prefs.summaryModel
-                : defaults.summaryModel,
-        qualityModel:
-            prefs.qualityModel && isValidModel(prefs.qualityModel)
-                ? prefs.qualityModel
-                : defaults.qualityModel,
-        targetLanguage:
-            prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
-                ? prefs.targetLanguage
-                : defaults.targetLanguage,
-        summarizerMode:
-            prefs.summarizerMode === "native" ||
-            prefs.summarizerMode === "validation" ||
-            prefs.summarizerMode === "fast"
-                ? prefs.summarizerMode
-                : defaults.summarizerMode,
-    };
-}
-
 export function useUserPreferences() {
     const [preferences, setPreferences] = useState<UserPreferences>(
         DEFAULT_USER_PREFERENCES,
     );
     const [isLoaded, setIsLoaded] = useState(false);
+    const { isValidModel, isValidLanguage } = useConfig();
+
+    const validatePreferences = (
+        prefs: Partial<UserPreferences>,
+        defaults: UserPreferences,
+    ): UserPreferences => {
+        return {
+            summaryModel:
+                prefs.summaryModel && isValidModel(prefs.summaryModel)
+                    ? prefs.summaryModel
+                    : defaults.summaryModel,
+            qualityModel:
+                prefs.qualityModel && isValidModel(prefs.qualityModel)
+                    ? prefs.qualityModel
+                    : defaults.qualityModel,
+            targetLanguage:
+                prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
+                    ? prefs.targetLanguage
+                    : defaults.targetLanguage,
+            summarizerMode:
+                prefs.summarizerMode === "native" ||
+                prefs.summarizerMode === "validation" ||
+                prefs.summarizerMode === "fast"
+                    ? prefs.summarizerMode
+                    : defaults.summarizerMode,
+        };
+    };
 
     useEffect(() => {
         // Load preferences from chrome.storage.local
@@ -248,7 +308,7 @@ export function useUserPreferences() {
 
         chrome.storage.onChanged.addListener(listener);
         return () => chrome.storage.onChanged.removeListener(listener);
-    }, []);
+    }, [isValidModel, isValidLanguage]);
 
     const updatePreferences = (updates: Partial<UserPreferences>) => {
         const newPrefs = { ...preferences, ...updates };

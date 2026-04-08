@@ -7,7 +7,9 @@
     "host_permissions": [
         "https://*.youtube.com/*",
         "https://api.scrapecreators.com/*",
-        "https://openrouter.ai/*"
+        "https://openrouter.ai/*",
+        "https://models.dev/*",
+        "https://artificialanalysis.ai/*"
     ],
     "action": {
         "default_title": "Better YouTube",
