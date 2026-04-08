@@ -210,8 +210,12 @@ export function useVideoProcessing() {
             const error =
                 typeof e === "object" && e !== null && "message" in e
                     ? ({
-                          message: String((e as Record<string, unknown>).message),
-                          type: (e as Record<string, unknown>).type || "processing",
+                          message: String(
+                              (e as Record<string, unknown>).message,
+                          ),
+                          type:
+                              (e as Record<string, unknown>).type ||
+                              "processing",
                       } as ApiError)
                     : ({
                           message: "Processing failed",

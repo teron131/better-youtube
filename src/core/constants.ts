@@ -109,21 +109,11 @@ export const COOKIE_SETTINGS = {
 // Model Configuration
 // ============================================================================
 
-export const RECOMMENDED_SUMMARIZER_MODELS = [
-    { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
-    { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro" },
-    { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-    { value: "openai/gpt-5.2", label: "GPT-5.2" },
-    { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-] as const;
-
-export const RECOMMENDED_REFINER_MODELS = [
-    {
-        value: "google/gemini-2.5-flash-lite-preview-09-2025",
-        label: "Gemini 2.5 Flash Lite",
-    },
-    { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-] as const;
+// Default models - these are fallbacks when API is unavailable
+// The model list is now loaded dynamically from OpenRouter API
+export const DEFAULT_MODEL_SUMMARIZER = "google/gemini-3-flash";
+export const DEFAULT_MODEL_REFINER =
+    "google/gemini-2.5-flash-lite-preview-09-2025";
 
 export const QUALITY_THRESHOLDS = {
     MIN_QUALITY_SCORE: 80, // Percentage threshold for acceptable quality (aligned with Python backend)
@@ -138,8 +128,8 @@ export const PROCESSING_CONFIG = {
 } as const;
 
 export const DEFAULTS = {
-    MODEL_SUMMARIZER: RECOMMENDED_SUMMARIZER_MODELS[0].value,
-    MODEL_REFINER: RECOMMENDED_REFINER_MODELS[0].value,
+    MODEL_SUMMARIZER: DEFAULT_MODEL_SUMMARIZER,
+    MODEL_REFINER: DEFAULT_MODEL_REFINER,
     AUTO_GENERATE: false,
     SHOW_SUBTITLES: true,
     CAPTION_FONT_SIZE: "M" as const,

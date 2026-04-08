@@ -3,35 +3,14 @@
  * ===============================
  *
  * This file contains all configuration options used throughout the application.
- * These values should be kept in sync with the backend configuration.
+ * Model lists are loaded dynamically from the OpenRouter API via fetchDynamicModels().
  */
 
-import {
-    DEFAULTS,
-    FILE_LIMITS,
-    RECOMMENDED_REFINER_MODELS as REFINER_MODELS,
-    RECOMMENDED_SUMMARIZER_MODELS as SUMMARIZER_MODELS,
-    TIMING,
-    UI_BEHAVIOR,
-} from "@/core/constants";
+import { DEFAULTS, FILE_LIMITS, TIMING, UI_BEHAVIOR } from "@/core/constants";
 
 // ================================
-// MODEL CONFIGURATION
+// MODEL DEFAULTS
 // ================================
-
-export const RECOMMENDED_SUMMARIZER_MODELS = SUMMARIZER_MODELS;
-export const RECOMMENDED_REFINER_MODELS = REFINER_MODELS;
-
-export const AVAILABLE_MODELS = [
-    ...RECOMMENDED_SUMMARIZER_MODELS,
-    ...RECOMMENDED_REFINER_MODELS,
-].reduce(
-    (acc, model) => {
-        acc[model.value] = model.label;
-        return acc;
-    },
-    {} as Record<string, string>,
-);
 
 export const DEFAULT_SUMMARY_MODEL = DEFAULTS.MODEL_SUMMARIZER;
 export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
@@ -94,6 +73,8 @@ export type AvailableModel = {
     recommended?: boolean;
     logo?: string;
     fallbackLogo?: string;
+    intelligenceScore?: number | null;
+    speedScore?: number | null;
 };
 
 export type SupportedLanguage = {
@@ -103,18 +84,8 @@ export type SupportedLanguage = {
 };
 
 // ================================
-// DERIVED DATA
+// PROVIDER INFERENCE
 // ================================
-
-const convertToAvailableModel = (model: {
-    value: string;
-    label: string;
-}): AvailableModel => ({
-    key: model.value,
-    label: model.label,
-    provider: inferProviderFromModelKey(model.value),
-    recommended: true,
-});
 
 const KNOWN_PROVIDERS = new Set([
     "google",
@@ -129,24 +100,17 @@ const KNOWN_PROVIDERS = new Set([
     "groq",
 ]);
 
-function inferProviderFromModelKey(modelKey: string): string | undefined {
+export function inferProviderFromModelKey(
+    modelKey: string,
+): string | undefined {
     const provider = modelKey.split("/")[0];
     if (!provider) return undefined;
     return KNOWN_PROVIDERS.has(provider) ? provider : undefined;
 }
 
-export const AVAILABLE_SUMMARIZER_MODELS_LIST: AvailableModel[] =
-    RECOMMENDED_SUMMARIZER_MODELS.map(convertToAvailableModel);
-export const AVAILABLE_REFINER_MODELS_LIST: AvailableModel[] =
-    RECOMMENDED_REFINER_MODELS.map(convertToAvailableModel);
-
-export const AVAILABLE_MODELS_LIST: AvailableModel[] = [
-    ...AVAILABLE_SUMMARIZER_MODELS_LIST,
-    ...AVAILABLE_REFINER_MODELS_LIST,
-].filter(
-    (model, index, self) =>
-        index === self.findIndex((m) => m.key === model.key),
-);
+// ================================
+// LANGUAGE LIST
+// ================================
 
 export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
     SUPPORTED_LANGUAGES,
@@ -167,17 +131,14 @@ export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
 // UTILITY FUNCTIONS
 // ================================
 
-export function getModelByKey(key: ModelKey): AvailableModel | undefined {
-    return AVAILABLE_MODELS_LIST.find((model) => model.key === key);
-}
-
 export function getLanguageByKey(
     key: LanguageKey,
 ): SupportedLanguage | undefined {
     return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
 }
 
-export function isValidModel(model: string): boolean {
+export function isValidModel(_model: string): boolean {
+    // Models are now loaded dynamically, so any model key is potentially valid
     return true;
 }
 
@@ -231,20 +192,13 @@ export function validateLanguageSelection(language: string): {
 // ================================
 
 export default {
-    AVAILABLE_MODELS,
-    RECOMMENDED_SUMMARIZER_MODELS,
-    RECOMMENDED_REFINER_MODELS,
     DEFAULT_SUMMARY_MODEL,
     DEFAULT_QUALITY_MODEL,
     SUPPORTED_LANGUAGES,
     DEFAULT_TARGET_LANGUAGE,
     ENABLE_TRANSLATION_DEFAULT,
     UI_CONFIG,
-    AVAILABLE_MODELS_LIST,
-    AVAILABLE_SUMMARIZER_MODELS_LIST,
-    AVAILABLE_REFINER_MODELS_LIST,
     SUPPORTED_LANGUAGES_LIST,
-    getModelByKey,
     getLanguageByKey,
     isValidModel,
     isValidLanguage,

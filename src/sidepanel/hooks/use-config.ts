@@ -2,15 +2,11 @@
  * Configuration Hook for YouTube Summarizer
  *
  * Provides centralized access to application configuration
- * with backend synchronization and local fallback.
+ * with backend synchronization and dynamic model loading.
  */
 
 import { api } from "@ui/services/api";
 import {
-    AVAILABLE_MODELS,
-    AVAILABLE_MODELS_LIST,
-    AVAILABLE_REFINER_MODELS_LIST,
-    AVAILABLE_SUMMARIZER_MODELS_LIST,
     type AvailableModel,
     DEFAULT_QUALITY_MODEL,
     DEFAULT_SUMMARY_MODEL,
@@ -19,9 +15,18 @@ import {
     SUPPORTED_LANGUAGES_LIST,
     type SupportedLanguage,
 } from "@ui/services/config";
-import { fetchModelStats, type ModelStat } from "@ui/services/stats";
+import {
+    fetchDynamicModels,
+    fetchLeaderboardScores,
+    fetchModelStats,
+    type LeaderboardStat,
+    type ModelStat,
+    normalizeOpenRouterModelId,
+} from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useEffect, useMemo, useState } from "react";
+import { STORAGE_KEYS } from "@/core/constants";
+import { setStorageValue } from "@/core/storage";
 
 interface UseConfigReturn {
     config: ConfigurationResponse | null;
@@ -38,9 +43,87 @@ interface UseConfigReturn {
     refresh: () => Promise<void>;
 }
 
+const MODEL_LIMIT = 15;
+
+function applyModelMetadata(
+    models: AvailableModel[],
+    stats: Record<string, ModelStat>,
+    leaderboardScores: Record<string, LeaderboardStat>,
+): AvailableModel[] {
+    return models.map((model) => {
+        const stat = stats[model.key];
+        const scoreKey = normalizeOpenRouterModelId(model.key);
+        const score = leaderboardScores[scoreKey];
+
+        if (stat) {
+            return {
+                ...model,
+                logo: stat.logo,
+                fallbackLogo: stat.fallbackLogo,
+                intelligenceScore: score?.intelligenceScore ?? null,
+                speedScore: score?.speedScore ?? null,
+            };
+        }
+
+        if (model.provider) {
+            const cleanId = model.provider.toLowerCase();
+            const aaId = cleanId.replace(/[^a-z0-9]/g, "");
+            return {
+                ...model,
+                logo: `https://artificialanalysis.ai/img/logos/${aaId}_small.svg`,
+                fallbackLogo: `https://models.dev/logos/${cleanId}.svg`,
+                intelligenceScore: score?.intelligenceScore ?? null,
+                speedScore: score?.speedScore ?? null,
+            };
+        }
+
+        return {
+            ...model,
+            intelligenceScore: score?.intelligenceScore ?? null,
+            speedScore: score?.speedScore ?? null,
+        };
+    });
+}
+
+function scoreValue(
+    model: AvailableModel,
+    key: "intelligenceScore" | "speedScore",
+): number {
+    const value = model[key];
+    return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
+}
+
+function sortModelsByScore(
+    models: AvailableModel[],
+    key: "intelligenceScore" | "speedScore",
+): AvailableModel[] {
+    return [...models].sort((left, right) => {
+        const leftScore = scoreValue(left, key);
+        const rightScore = scoreValue(right, key);
+
+        if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+        }
+
+        return (left.label || left.key).localeCompare(right.label || right.key);
+    });
+}
+
+function topModelsByScore(
+    models: AvailableModel[],
+    key: "intelligenceScore" | "speedScore",
+    limit = MODEL_LIMIT,
+): AvailableModel[] {
+    return sortModelsByScore(models, key).slice(0, limit);
+}
+
 export function useConfig(): UseConfigReturn {
     const [config, setConfig] = useState<ConfigurationResponse | null>(null);
     const [stats, setStats] = useState<Record<string, ModelStat>>({});
+    const [leaderboardScores, setLeaderboardScores] = useState<
+        Record<string, LeaderboardStat>
+    >({});
+    const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -49,13 +132,17 @@ export function useConfig(): UseConfigReturn {
             setIsLoading(true);
             setError(null);
 
-            // Load config and stats in parallel
-            const [configuration, modelStats] = await Promise.all([
-                api.getConfiguration().catch(() => null),
-                fetchModelStats().catch(
-                    () => ({}) as Record<string, ModelStat>,
-                ),
-            ]);
+            const [configuration, modelStats, scores, fetchedDynamicModels] =
+                await Promise.all([
+                    api.getConfiguration().catch(() => null),
+                    fetchModelStats().catch(
+                        () => ({}) as Record<string, ModelStat>,
+                    ),
+                    fetchLeaderboardScores().catch(
+                        () => ({}) as Record<string, LeaderboardStat>,
+                    ),
+                    fetchDynamicModels().catch(() => [] as AvailableModel[]),
+                ]);
 
             if (configuration) {
                 setConfig(configuration);
@@ -63,7 +150,7 @@ export function useConfig(): UseConfigReturn {
                 setConfig({
                     status: "success",
                     message: "Using local configuration fallback",
-                    available_models: AVAILABLE_MODELS,
+                    available_models: {},
                     supported_languages: SUPPORTED_LANGUAGES,
                     default_summary_model: DEFAULT_SUMMARY_MODEL,
                     default_quality_model: DEFAULT_QUALITY_MODEL,
@@ -72,6 +159,8 @@ export function useConfig(): UseConfigReturn {
             }
 
             setStats(modelStats);
+            setLeaderboardScores(scores);
+            setDynamicModels(fetchedDynamicModels);
         } catch (err) {
             setError(
                 err instanceof Error
@@ -87,52 +176,34 @@ export function useConfig(): UseConfigReturn {
         loadConfig();
     }, []);
 
-    const enrichedModels = useMemo(() => {
-        return AVAILABLE_MODELS_LIST.map((model) => {
-            const stat = stats[model.key];
-            if (stat) {
-                return {
-                    ...model,
-                    logo: stat.logo,
-                    fallbackLogo: stat.fallbackLogo,
-                };
-            }
+    const enrichedModels = useMemo(
+        () => applyModelMetadata(dynamicModels, stats, leaderboardScores),
+        [dynamicModels, stats, leaderboardScores],
+    );
 
-            // Fallback for models not in stats API but with a known provider
-            if (model.provider) {
-                const cleanId = model.provider.toLowerCase();
-                const aaId = cleanId.replace(/[^a-z0-9]/g, "");
-                return {
-                    ...model,
-                    logo: `https://artificialanalysis.ai/img/logos/${aaId}_small.svg`,
-                    fallbackLogo: `https://models.dev/logos/${cleanId}.svg`,
-                };
-            }
-
-            return model;
-        });
-    }, [stats]);
+    const models = useMemo(
+        () => sortModelsByScore(enrichedModels, "intelligenceScore"),
+        [enrichedModels],
+    );
 
     const summarizerModels = useMemo(
-        () =>
-            enrichedModels.filter((m) =>
-                AVAILABLE_SUMMARIZER_MODELS_LIST.some((sm) => sm.key === m.key),
-            ),
+        () => topModelsByScore(enrichedModels, "intelligenceScore"),
         [enrichedModels],
     );
 
     const refinerModels = useMemo(
-        () =>
-            enrichedModels.filter((m) =>
-                AVAILABLE_REFINER_MODELS_LIST.some((rm) => rm.key === m.key),
-            ),
+        () => topModelsByScore(enrichedModels, "speedScore"),
         [enrichedModels],
     );
 
-    const isValidModel = (model: string) =>
-        config?.available_models
+    const isValidModel = (model: string) => {
+        if (dynamicModels.some((candidate) => candidate.key === model)) {
+            return true;
+        }
+        return config?.available_models
             ? model in config.available_models
-            : model in AVAILABLE_MODELS;
+            : model.length > 0;
+    };
 
     const isValidLanguage = (language: string) =>
         config?.supported_languages
@@ -141,16 +212,16 @@ export function useConfig(): UseConfigReturn {
 
     return {
         config,
-        models: enrichedModels,
+        models,
         summarizerModels,
         refinerModels,
         languages: SUPPORTED_LANGUAGES_LIST,
         isLoading,
         error,
         getModelByKey: (key: string) =>
-            enrichedModels.find((m) => m.key === key),
+            models.find((candidate) => candidate.key === key),
         getLanguageByKey: (key: string) =>
-            SUPPORTED_LANGUAGES_LIST.find((l) => l.key === key),
+            SUPPORTED_LANGUAGES_LIST.find((candidate) => candidate.key === key),
         isValidModel,
         isValidLanguage,
         refresh: loadConfig,
@@ -165,6 +236,7 @@ export function useModelSelection() {
         getModelByKey,
         isValidModel,
     } = useConfig();
+
     return {
         models,
         summarizerModels,
@@ -178,6 +250,7 @@ export function useModelSelection() {
 
 export function useLanguageSelection() {
     const { languages, getLanguageByKey, isValidLanguage } = useConfig();
+
     return {
         languages,
         getLanguageByKey,
@@ -186,9 +259,6 @@ export function useLanguageSelection() {
         supportsTranslation: languages.length > 0,
     };
 }
-
-import { STORAGE_KEYS } from "@/core/constants";
-import { setStorageValue } from "@/core/storage";
 
 interface UserPreferences {
     summaryModel: string;
@@ -238,7 +308,6 @@ export function useUserPreferences() {
     };
 
     useEffect(() => {
-        // Load preferences from chrome.storage.local
         const keys = [
             STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
             STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
@@ -266,7 +335,6 @@ export function useUserPreferences() {
             setIsLoaded(true);
         });
 
-        // Listen for changes from other parts of the extension
         const listener = (changes: {
             [key: string]: chrome.storage.StorageChange;
         }) => {
@@ -289,12 +357,14 @@ export function useUserPreferences() {
                     changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
                 ).newValue;
             }
-            if (changes[STORAGE_KEYS.SUMMARIZER_MODE])
+            if (changes[STORAGE_KEYS.SUMMARIZER_MODE]) {
                 updates.summarizerMode =
                     changes[STORAGE_KEYS.SUMMARIZER_MODE].newValue;
-            if (changes[STORAGE_KEYS.QUALITY_MODEL])
+            }
+            if (changes[STORAGE_KEYS.QUALITY_MODEL]) {
                 updates.qualityModel =
                     changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
+            }
 
             if (Object.keys(updates).length > 0) {
                 setPreferences((prev) =>
@@ -314,19 +384,22 @@ export function useUserPreferences() {
         const newPrefs = { ...preferences, ...updates };
         setPreferences(newPrefs);
 
-        // Sync to chrome.storage.local
-        const storageUpdates: Record<string, any> = {};
-        if (updates.summaryModel)
+        const storageUpdates: Record<string, unknown> = {};
+        if (updates.summaryModel) {
             storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] =
                 updates.summaryModel;
-        if (updates.targetLanguage)
+        }
+        if (updates.targetLanguage) {
             storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] =
                 updates.targetLanguage;
-        if (updates.summarizerMode)
+        }
+        if (updates.summarizerMode) {
             storageUpdates[STORAGE_KEYS.SUMMARIZER_MODE] =
                 updates.summarizerMode;
-        if (updates.qualityModel)
+        }
+        if (updates.qualityModel) {
             storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
+        }
 
         const writeEntries = Object.entries(storageUpdates);
         if (writeEntries.length === 0) return;

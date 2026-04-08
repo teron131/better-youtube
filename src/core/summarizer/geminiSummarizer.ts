@@ -52,7 +52,9 @@ export async function summarizeGemini(
 
     const response = await client.models.generateContent({
         model,
-        contents: contents as unknown as Parameters<typeof client.models.generateContent>[0]["contents"],
+        contents: contents as unknown as Parameters<
+            typeof client.models.generateContent
+        >[0]["contents"],
         config: {
             httpOptions: { timeout: timeoutMs },
             thinkingConfig: { thinkingLevel },
