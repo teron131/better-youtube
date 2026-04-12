@@ -5,8 +5,8 @@
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import {
-    loadRuntimeConfigSnapshot,
-    type RuntimeConfigSnapshot,
+	loadRuntimeConfigSnapshot,
+	type RuntimeConfigSnapshot,
 } from "@/core/runtimeConfig";
 import { createMessageListener } from "@/core/utils/chrome";
 import { handleFetchSubtitles } from "./refine";
@@ -23,84 +23,81 @@ type AsyncActionHandler = (config: RuntimeConfigSnapshot) => Promise<void>;
 
 // Allow side panel to open on action click
 chrome.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch(console.error);
+	.setPanelBehavior({ openPanelOnActionClick: true })
+	.catch(console.error);
 
 /**
  * Main message listener
  */
 createMessageListener((message, sender, sendResponse) => {
-    const tabId = sender.tab?.id;
-    const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
-        [MESSAGE_ACTIONS.SCRAPE_VIDEO]: (config) =>
-            handleScrapeVideo(message, { config }, sendResponse),
-        [MESSAGE_ACTIONS.FETCH_SUBTITLES]: (config) =>
-            handleFetchSubtitles(
-                message,
-                {
-                    tabId,
-                    captionRequests,
-                    latestCaptionWorkloads,
-                    pendingCaptionJobs,
-                    config,
-                },
-                sendResponse,
-            ),
-        [MESSAGE_ACTIONS.GENERATE_SUMMARY]: (config) =>
-            handleGenerateSummary(
-                message,
-                {
-                    summaryRequests,
-                    latestSummaryWorkloads,
-                    pendingSummaryJobs,
-                    config,
-                },
-                sendResponse,
-            ),
-    };
+	const tabId = sender.tab?.id;
+	const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
+		[MESSAGE_ACTIONS.SCRAPE_VIDEO]: (config) =>
+			handleScrapeVideo(message, { config }, sendResponse),
+		[MESSAGE_ACTIONS.FETCH_SUBTITLES]: (config) =>
+			handleFetchSubtitles(
+				message,
+				{
+					tabId,
+					captionRequests,
+					latestCaptionWorkloads,
+					pendingCaptionJobs,
+					config,
+				},
+				sendResponse,
+			),
+		[MESSAGE_ACTIONS.GENERATE_SUMMARY]: (config) =>
+			handleGenerateSummary(
+				message,
+				{
+					summaryRequests,
+					latestSummaryWorkloads,
+					pendingSummaryJobs,
+					config,
+				},
+				sendResponse,
+			),
+	};
 
-    switch (message.action) {
-        case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
-            sendResponse({
-                status: "error",
-                message: "Use content script for title",
-            });
-            return false;
+	switch (message.action) {
+		case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
+			sendResponse({
+				status: "error",
+				message: "Use content script for title",
+			});
+			return false;
 
-        case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-        case MESSAGE_ACTIONS.FETCH_SUBTITLES:
-        case MESSAGE_ACTIONS.GENERATE_SUMMARY: {
-            const runAction = actionHandlers[message.action];
-            if (!runAction) {
-                return false;
-            }
-            (async () => {
-                let config: RuntimeConfigSnapshot;
-                try {
-                    config = await loadRuntimeConfigSnapshot();
-                } catch (error) {
-                    console.error(
-                        "[handlers] failed to load runtime config",
-                        error,
-                    );
-                    sendResponse({
-                        status: "error",
-                        message: "Failed to load configuration",
-                    });
-                    return;
-                }
+		case MESSAGE_ACTIONS.SCRAPE_VIDEO:
+		case MESSAGE_ACTIONS.FETCH_SUBTITLES:
+		case MESSAGE_ACTIONS.GENERATE_SUMMARY: {
+			const runAction = actionHandlers[message.action];
+			if (!runAction) {
+				return false;
+			}
+			(async () => {
+				let config: RuntimeConfigSnapshot;
+				try {
+					config = await loadRuntimeConfigSnapshot();
+				} catch (error) {
+					console.error("[handlers] failed to load runtime config", error);
+					sendResponse({
+						status: "error",
+						message: "Failed to load configuration",
+					});
+					return;
+				}
 
-                try {
-                    await runAction(config);
-                } catch (error) {
-                    console.error(`[handlers] ${message.action} failed`, error);
-                }
-            })();
+				try {
+					await runAction(config);
+				} catch (error) {
+					console.error(`[handlers] ${message.action} failed`, error);
+				}
+			})();
 
-            return true;
-        }
+			return true;
+		}
 
-        default:
-            return false;
-    }
+		default:
+			return false;
+	}
 });
