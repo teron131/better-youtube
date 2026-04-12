@@ -8,125 +8,117 @@ import type { ApiError, StreamingProgressState } from "@ui/services/types";
 import { AlertCircle } from "lucide-react";
 
 interface ErrorDisplayProps {
-    error: ApiError;
-    progressStates: StreamingProgressState[];
-    onLoadExample: () => void;
+	error: ApiError;
+	progressStates: StreamingProgressState[];
+	onLoadExample: () => void;
 }
 
 const getErrorTypeStyle = (type: string) => {
-    if (type === "server")
-        return "border-destructive/40 bg-destructive/10 text-destructive";
-    if (type === "validation")
-        return "border-primary/30 bg-primary/10 text-primary";
-    if (type === "network")
-        return "border-border/60 bg-muted/40 text-foreground";
-    return "border-border/60 bg-muted/40 text-foreground";
+	if (type === "server")
+		return "border-destructive/40 bg-destructive/10 text-destructive";
+	if (type === "validation")
+		return "border-primary/30 bg-primary/10 text-primary";
+	if (type === "network") return "border-border/60 bg-muted/40 text-foreground";
+	return "border-border/60 bg-muted/40 text-foreground";
 };
 
 const getStatusColor = (status: string) => {
-    if (status === "completed") return "bg-green-500";
-    if (status === "error") return "bg-primary";
-    return "bg-yellow-500";
+	if (status === "completed") return "bg-green-500";
+	if (status === "error") return "bg-primary";
+	return "bg-yellow-500";
 };
 
 export function ErrorDisplay({
-    error,
-    progressStates,
-    onLoadExample,
+	error,
+	progressStates,
+	onLoadExample,
 }: ErrorDisplayProps) {
-    const hasScrapeCretorsIssue = error.message.includes(
-        "SCRAPECREATORS_API_KEY",
-    );
-    const hasGeminiIssue = error.message.includes("GEMINI_API_KEY");
+	const hasScrapeCretorsIssue = error.message.includes(
+		"SCRAPECREATORS_API_KEY",
+	);
+	const hasGeminiIssue = error.message.includes("GEMINI_API_KEY");
 
-    return (
-        <Card className="p-6 border-destructive/40 shadow-md">
-            <div className="flex items-start gap-3">
-                <AlertCircle className="w-6 h-6 text-destructive mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-destructive mb-2">
-                        {error.message}
-                    </h3>
+	return (
+		<Card className="p-6 border-destructive/40 shadow-md">
+			<div className="flex items-start gap-3">
+				<AlertCircle className="w-6 h-6 text-destructive mt-1 flex-shrink-0" />
+				<div className="flex-1">
+					<h3 className="text-lg font-semibold text-destructive mb-2">
+						{error.message}
+					</h3>
 
-                    <div className="flex items-center gap-4 mb-3 text-base">
-                        {error.type && (
-                            <span
-                                className={`px-2 py-1 rounded-full border text-xs font-medium ${getErrorTypeStyle(error.type)}`}
-                            >
-                                {error.type.toUpperCase()}
-                            </span>
-                        )}
-                        {error.status && (
-                            <span className="text-muted-foreground">
-                                Status: {error.status}
-                            </span>
-                        )}
-                    </div>
+					<div className="flex items-center gap-4 mb-3 text-base">
+						{error.type && (
+							<span
+								className={`px-2 py-1 rounded-full border text-xs font-medium ${getErrorTypeStyle(error.type)}`}
+							>
+								{error.type.toUpperCase()}
+							</span>
+						)}
+						{error.status && (
+							<span className="text-muted-foreground">
+								Status: {error.status}
+							</span>
+						)}
+					</div>
 
-                    {error.details && (
-                        <div className="bg-muted/30 rounded-lg p-3 mb-3">
-                            <p className="text-base text-muted-foreground mb-1">
-                                Technical Details:
-                            </p>
-                            <p className="text-xs font-mono text-foreground break-all">
-                                {error.details}
-                            </p>
-                        </div>
-                    )}
+					{error.details && (
+						<div className="bg-muted/30 rounded-lg p-3 mb-3">
+							<p className="text-base text-muted-foreground mb-1">
+								Technical Details:
+							</p>
+							<p className="text-xs font-mono text-foreground break-all">
+								{error.details}
+							</p>
+						</div>
+					)}
 
-                    {progressStates.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                            <h4 className="font-semibold text-base">
-                                Progress Details:
-                            </h4>
-                            <div className="bg-muted/30 rounded-lg p-4 max-h-48 overflow-y-auto">
-                                {progressStates.map((state, index) => (
-                                    <div
-                                        key={index}
-                                        className="text-base text-foreground font-mono mb-2"
-                                    >
-                                        <span
-                                            className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusColor(state.status)}`}
-                                        />
-                                        Step {state.step}: {state.message}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+					{progressStates.length > 0 && (
+						<div className="mt-4 space-y-2">
+							<h4 className="font-semibold text-base">Progress Details:</h4>
+							<div className="bg-muted/30 rounded-lg p-4 max-h-48 overflow-y-auto">
+								{progressStates.map((state, index) => (
+									<div
+										key={index}
+										className="text-base text-foreground font-mono mb-2"
+									>
+										<span
+											className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusColor(state.status)}`}
+										/>
+										Step {state.step}: {state.message}
+									</div>
+								))}
+							</div>
+						</div>
+					)}
 
-                    {hasScrapeCretorsIssue && (
-                        <div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
-                            <p className="text-base text-foreground">
-                                <strong>Configuration Issue:</strong> The Scrape
-                                Creators API key is not configured on the
-                                backend server. Please contact the administrator
-                                to configure the required API keys.
-                            </p>
-                        </div>
-                    )}
+					{hasScrapeCretorsIssue && (
+						<div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
+							<p className="text-base text-foreground">
+								<strong>Configuration Issue:</strong> The Scrape Creators API
+								key is not configured on the backend server. Please contact the
+								administrator to configure the required API keys.
+							</p>
+						</div>
+					)}
 
-                    {hasGeminiIssue && (
-                        <div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
-                            <p className="text-base text-foreground">
-                                <strong>Configuration Issue:</strong> The Gemini
-                                API key is not configured on the backend server.
-                                Please contact the administrator to configure
-                                the required API keys.
-                            </p>
-                        </div>
-                    )}
+					{hasGeminiIssue && (
+						<div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
+							<p className="text-base text-foreground">
+								<strong>Configuration Issue:</strong> The Gemini API key is not
+								configured on the backend server. Please contact the
+								administrator to configure the required API keys.
+							</p>
+						</div>
+					)}
 
-                    <div className="mt-4 flex gap-3">
-                        <Button
-                            onClick={onLoadExample}
-                            className="bg-primary text-white"
-                        >
-                            Load example data
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </Card>
-    );
+					<div className="mt-4 flex gap-3">
+						<Button onClick={onLoadExample} className="bg-primary text-white">
+							Load example data
+						</Button>
+					</div>
+				</div>
+			</div>
+		</Card>
+	);
 }

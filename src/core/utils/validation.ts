@@ -8,41 +8,41 @@ import { isValidYouTubeUrl } from "./url";
  * Validate YouTube URL input
  */
 export function validateYouTubeUrl(url: string): {
-    isValid: boolean;
-    error?: string;
+	isValid: boolean;
+	error?: string;
 } {
-    const trimmed = url.trim();
-    if (!trimmed) return { isValid: true };
+	const trimmed = url.trim();
+	if (!trimmed) return { isValid: true };
 
-    if (!isValidYouTubeUrl(trimmed)) {
-        return {
-            isValid: false,
-            error: "Please enter a valid YouTube URL (youtube.com or youtu.be).",
-        };
-    }
+	if (!isValidYouTubeUrl(trimmed)) {
+		return {
+			isValid: false,
+			error: "Please enter a valid YouTube URL (youtube.com or youtu.be).",
+		};
+	}
 
-    return { isValid: true };
+	return { isValid: true };
 }
 
 /**
  * Check if form input is valid (for button enabling)
  */
 export function isFormValid(url: string): boolean {
-    const trimmed = url.trim();
-    return !trimmed || isValidYouTubeUrl(trimmed);
+	const trimmed = url.trim();
+	return !trimmed || isValidYouTubeUrl(trimmed);
 }
 
 /**
  * Prepare processing options for API
  */
 export function prepareProcessingOptions(
-    targetLanguage: string,
-    summaryModel: string,
-    qualityModel: string,
+	targetLanguage: string,
+	summaryModel: string,
+	qualityModel: string,
 ) {
-    return {
-        summaryModel,
-        qualityModel,
-        ...(targetLanguage !== "auto" && { targetLanguage }),
-    };
+	return {
+		summaryModel,
+		qualityModel,
+		...(targetLanguage !== "auto" && { targetLanguage }),
+	};
 }

@@ -16,50 +16,50 @@ import Settings from "./pages/Settings";
 const queryClient = new QueryClient();
 
 function isExtensionRuntime() {
-    if (import.meta.env.MODE === "extension") return true;
-    if (import.meta.env.DEV) return true; // Use HashRouter in dev for easier previewing
-    return (
-        typeof window !== "undefined" &&
-        window.location.protocol === "chrome-extension:"
-    );
+	if (import.meta.env.MODE === "extension") return true;
+	if (import.meta.env.DEV) return true; // Use HashRouter in dev for easier previewing
+	return (
+		typeof window !== "undefined" &&
+		window.location.protocol === "chrome-extension:"
+	);
 }
 
 function AppRoutes() {
-    return (
-        <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/settings" element={<Settings />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-        </Routes>
-    );
+	return (
+		<Routes>
+			<Route path="/" element={<Index />} />
+			<Route path="/settings" element={<Settings />} />
+			{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+			<Route path="*" element={<NotFound />} />
+		</Routes>
+	);
 }
 
 const App = () => {
-    useEffect(() => {
-        loadSummaryFontSize();
-    }, []);
+	useEffect(() => {
+		loadSummaryFontSize();
+	}, []);
 
-    const useHashRouter =
-        isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
-    const Router = useHashRouter ? HashRouter : BrowserRouter;
+	const useHashRouter =
+		isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
+	const Router = useHashRouter ? HashRouter : BrowserRouter;
 
-    return (
-        <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <Router
-                    future={{
-                        v7_startTransition: true,
-                        v7_relativeSplatPath: true,
-                    }}
-                >
-                    <AppRoutes />
-                </Router>
-            </TooltipProvider>
-        </QueryClientProvider>
-    );
+	return (
+		<QueryClientProvider client={queryClient}>
+			<TooltipProvider>
+				<Toaster />
+				<Sonner />
+				<Router
+					future={{
+						v7_startTransition: true,
+						v7_relativeSplatPath: true,
+					}}
+				>
+					<AppRoutes />
+				</Router>
+			</TooltipProvider>
+		</QueryClientProvider>
+	);
 };
 
 export default App;

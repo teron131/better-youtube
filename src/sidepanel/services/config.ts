@@ -20,13 +20,13 @@ export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 // ================================
 
 export const SUPPORTED_LANGUAGES = {
-    auto: "🌐 Auto",
-    en: "🇺🇸 English",
-    "zh-TW": "🇭🇰 Chinese",
+	auto: "🌐 Auto",
+	en: "🇺🇸 English",
+	"zh-TW": "🇭🇰 Chinese",
 } as const;
 
 export const DEFAULT_TARGET_LANGUAGE =
-    DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
+	DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
 
 // ================================
 // TRANSLATION CONFIGURATION
@@ -40,23 +40,23 @@ export const ENABLE_TRANSLATION_DEFAULT = false;
 
 // Re-export from centralized constants
 export const UI_CONFIG = {
-    // Streaming configuration
-    STREAM_CHUNK_THROTTLE_MS: TIMING.STREAM_CHUNK_THROTTLE_MS,
-    MAX_LOG_ENTRIES: UI_BEHAVIOR.MAX_LOG_ENTRIES,
+	// Streaming configuration
+	STREAM_CHUNK_THROTTLE_MS: TIMING.STREAM_CHUNK_THROTTLE_MS,
+	MAX_LOG_ENTRIES: UI_BEHAVIOR.MAX_LOG_ENTRIES,
 
-    // Progress configuration
-    PROGRESS_UPDATE_INTERVAL: TIMING.PROGRESS_UPDATE_INTERVAL,
+	// Progress configuration
+	PROGRESS_UPDATE_INTERVAL: TIMING.PROGRESS_UPDATE_INTERVAL,
 
-    // File size limits (in MB)
-    MAX_FILE_SIZE_MB: FILE_LIMITS.MAX_FILE_SIZE_MB,
+	// File size limits (in MB)
+	MAX_FILE_SIZE_MB: FILE_LIMITS.MAX_FILE_SIZE_MB,
 
-    // Timeout configurations
-    API_TIMEOUT_MS: TIMING.API_TIMEOUT_MS,
-    SCRAPING_TIMEOUT_MS: TIMING.SCRAPING_TIMEOUT_MS,
+	// Timeout configurations
+	API_TIMEOUT_MS: TIMING.API_TIMEOUT_MS,
+	SCRAPING_TIMEOUT_MS: TIMING.SCRAPING_TIMEOUT_MS,
 
-    // Retry configuration
-    MAX_RETRIES: 3,
-    RETRY_DELAY_MS: 1000,
+	// Retry configuration
+	MAX_RETRIES: 3,
+	RETRY_DELAY_MS: 1000,
 } as const;
 
 // ================================
@@ -67,20 +67,20 @@ export type ModelKey = string; // Relaxed type to allow custom models
 export type LanguageKey = keyof typeof SUPPORTED_LANGUAGES;
 
 export type AvailableModel = {
-    key: string;
-    label: string;
-    provider?: string;
-    recommended?: boolean;
-    logo?: string;
-    fallbackLogo?: string;
-    intelligenceScore?: number | null;
-    speedScore?: number | null;
+	key: string;
+	label: string;
+	provider?: string;
+	recommended?: boolean;
+	logo?: string;
+	fallbackLogo?: string;
+	intelligenceScore?: number | null;
+	speedScore?: number | null;
 };
 
 export type SupportedLanguage = {
-    key: LanguageKey;
-    label: string;
-    flag?: string;
+	key: LanguageKey;
+	label: string;
+	flag?: string;
 };
 
 // ================================
@@ -88,24 +88,24 @@ export type SupportedLanguage = {
 // ================================
 
 const KNOWN_PROVIDERS = new Set([
-    "google",
-    "anthropic",
-    "openai",
-    "x-ai",
-    "mistral",
-    "meta",
-    "cohere",
-    "deepseek",
-    "perplexity",
-    "groq",
+	"google",
+	"anthropic",
+	"openai",
+	"x-ai",
+	"mistral",
+	"meta",
+	"cohere",
+	"deepseek",
+	"perplexity",
+	"groq",
 ]);
 
 export function inferProviderFromModelKey(
-    modelKey: string,
+	modelKey: string,
 ): string | undefined {
-    const provider = modelKey.split("/")[0];
-    if (!provider) return undefined;
-    return KNOWN_PROVIDERS.has(provider) ? provider : undefined;
+	const provider = modelKey.split("/")[0];
+	if (!provider) return undefined;
+	return KNOWN_PROVIDERS.has(provider) ? provider : undefined;
 }
 
 // ================================
@@ -113,18 +113,18 @@ export function inferProviderFromModelKey(
 // ================================
 
 export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
-    SUPPORTED_LANGUAGES,
+	SUPPORTED_LANGUAGES,
 ).map(([key, label]) => {
-    const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
-    const flagMatch = label.match(flagRegex);
-    const flag = flagMatch ? flagMatch[1] : "";
-    const cleanLabel = label.replace(flag, "").trim();
+	const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
+	const flagMatch = label.match(flagRegex);
+	const flag = flagMatch ? flagMatch[1] : "";
+	const cleanLabel = label.replace(flag, "").trim();
 
-    return {
-        key: key as LanguageKey,
-        label: cleanLabel,
-        flag,
-    };
+	return {
+		key: key as LanguageKey,
+		label: cleanLabel,
+		flag,
+	};
 });
 
 // ================================
@@ -132,18 +132,18 @@ export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
 // ================================
 
 export function getLanguageByKey(
-    key: LanguageKey,
+	key: LanguageKey,
 ): SupportedLanguage | undefined {
-    return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
+	return SUPPORTED_LANGUAGES_LIST.find((language) => language.key === key);
 }
 
 export function isValidModel(_model: string): boolean {
-    // Models are now loaded dynamically, so any model key is potentially valid
-    return true;
+	// Models are now loaded dynamically, so any model key is potentially valid
+	return true;
 }
 
 export function isValidLanguage(language: string): language is LanguageKey {
-    return language in SUPPORTED_LANGUAGES;
+	return language in SUPPORTED_LANGUAGES;
 }
 
 // ================================
@@ -151,40 +151,40 @@ export function isValidLanguage(language: string): language is LanguageKey {
 // ================================
 
 export function validateModelSelection(
-    summaryModel: string,
-    qualityModel: string,
+	summaryModel: string,
+	qualityModel: string,
 ): {
-    isValid: boolean;
-    errors: string[];
+	isValid: boolean;
+	errors: string[];
 } {
-    const errors: string[] = [];
+	const errors: string[] = [];
 
-    if (!summaryModel) {
-        errors.push(`Summary model is required`);
-    }
+	if (!summaryModel) {
+		errors.push(`Summary model is required`);
+	}
 
-    if (!qualityModel) {
-        errors.push(`Quality model is required`);
-    }
+	if (!qualityModel) {
+		errors.push(`Quality model is required`);
+	}
 
-    return {
-        isValid: errors.length === 0,
-        errors,
-    };
+	return {
+		isValid: errors.length === 0,
+		errors,
+	};
 }
 
 export function validateLanguageSelection(language: string): {
-    isValid: boolean;
-    error?: string;
+	isValid: boolean;
+	error?: string;
 } {
-    if (!isValidLanguage(language)) {
-        return {
-            isValid: false,
-            error: `Invalid language: ${language}`,
-        };
-    }
+	if (!isValidLanguage(language)) {
+		return {
+			isValid: false,
+			error: `Invalid language: ${language}`,
+		};
+	}
 
-    return { isValid: true };
+	return { isValid: true };
 }
 
 // ================================
@@ -192,16 +192,16 @@ export function validateLanguageSelection(language: string): {
 // ================================
 
 export default {
-    DEFAULT_SUMMARY_MODEL,
-    DEFAULT_QUALITY_MODEL,
-    SUPPORTED_LANGUAGES,
-    DEFAULT_TARGET_LANGUAGE,
-    ENABLE_TRANSLATION_DEFAULT,
-    UI_CONFIG,
-    SUPPORTED_LANGUAGES_LIST,
-    getLanguageByKey,
-    isValidModel,
-    isValidLanguage,
-    validateModelSelection,
-    validateLanguageSelection,
+	DEFAULT_SUMMARY_MODEL,
+	DEFAULT_QUALITY_MODEL,
+	SUPPORTED_LANGUAGES,
+	DEFAULT_TARGET_LANGUAGE,
+	ENABLE_TRANSLATION_DEFAULT,
+	UI_CONFIG,
+	SUPPORTED_LANGUAGES_LIST,
+	getLanguageByKey,
+	isValidModel,
+	isValidLanguage,
+	validateModelSelection,
+	validateLanguageSelection,
 };
