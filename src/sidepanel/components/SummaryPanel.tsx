@@ -23,7 +23,7 @@ import {
 	Sparkles,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { QualityData, Summary, VideoInfoResponse } from "@/core/types";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { toChineseSummary } from "@/core/utils/text";
@@ -39,7 +39,6 @@ interface SummaryPanelProps {
 
 export const SummaryPanel = ({
 	summary,
-	quality,
 	videoInfo,
 	provider,
 	onRegenerate,
@@ -50,9 +49,6 @@ export const SummaryPanel = ({
 	const [matchCount, setMatchCount] = useState(0);
 	const contentRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
-
-	if (!summary) return null;
-
 	const convertedSummary = toChineseSummary(summary);
 
 	const copyToClipboard = async () => {
@@ -63,7 +59,7 @@ export const SummaryPanel = ({
 				title: "Copied!",
 				description: "Video info and summary copied to clipboard",
 			});
-		} catch (error) {
+		} catch {
 			toast({
 				title: "Copy failed",
 				description: "Unable to copy summary",
@@ -92,24 +88,42 @@ export const SummaryPanel = ({
 		);
 		const parts = text.split(regex);
 
-		let matchIndex = -1;
-		return parts
-			.map((part) => {
-				if (regex.test(part)) {
-					matchIndex++;
-					const isCurrent = matchIndex === currentMatchIndex;
-					return `<mark class="${isCurrent ? "bg-primary text-primary-foreground" : "bg-yellow-500/30"}">${part}</mark>`;
-				}
-				return part;
-			})
-			.join("");
+		let matchIndex = 0;
+		let textOffset = 0;
+		return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
+			if (!part) return nodes;
+
+			const segmentOffset = textOffset;
+			textOffset += part.length;
+
+			if (partIndex % 2 === 1) {
+				const currentMatch = matchIndex;
+				matchIndex += 1;
+				const isCurrent = currentMatch === currentMatchIndex;
+				nodes.push(
+					<mark
+						key={`mark-${segmentOffset}-${part}-${currentMatch}`}
+						className={
+							isCurrent
+								? "bg-primary text-primary-foreground"
+								: "bg-yellow-500/30"
+						}
+					>
+						{part}
+					</mark>,
+				);
+			} else {
+				nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
+			}
+			return nodes;
+		}, []);
 	};
 
 	const getTextContent = () => {
 		let text = convertedSummary.overview || "";
 		if (convertedSummary.chapters) {
 			convertedSummary.chapters.forEach((chapter) => {
-				text += " " + (chapter.title || "") + " " + (chapter.description || "");
+				text += ` ${chapter.title || ""} ${chapter.description || ""}`;
 			});
 		}
 		return text;
@@ -166,6 +180,8 @@ export const SummaryPanel = ({
 			}
 		}
 	}, [currentMatchIndex, searchQuery]);
+
+	if (!summary) return null;
 
 	return (
 		<Card className="p-0 shadow-md">
@@ -287,12 +303,9 @@ export const SummaryPanel = ({
 								icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
 								title="Summary"
 							/>
-							<div
-								className="summary-text text-foreground"
-								dangerouslySetInnerHTML={{
-									__html: highlightText(convertedSummary.overview),
-								}}
-							/>
+							<div className="summary-text text-foreground">
+								{highlightText(convertedSummary.overview)}
+							</div>
 						</div>
 					)}
 
@@ -306,11 +319,14 @@ export const SummaryPanel = ({
 								/>
 
 								<div className="space-y-4">
-									{convertedSummary.chapters.map((chapter, index) => (
-										<div key={index} className="space-y-2">
+									{convertedSummary.chapters.map((chapter, chapterIndex) => (
+										<div
+											key={`${chapter.title}-${chapter.startTime ?? ""}-${chapter.endTime ?? ""}`}
+											className="space-y-2"
+										>
 											<h5 className="summary-subheading text-sm md:text-base font-semibold text-primary">
 												<span className="inline-flex items-center justify-center h-5 w-5 md:h-6 md:w-6 rounded-full bg-primary/10 text-primary text-xs md:text-sm mr-2">
-													{index + 1}
+													{chapterIndex + 1}
 												</span>
 												{provider === "gemini" &&
 													(chapter.startTime || chapter.endTime) && (
@@ -320,18 +336,11 @@ export const SummaryPanel = ({
 																.join("-")}
 														</span>
 													)}
-												<span
-													dangerouslySetInnerHTML={{
-														__html: highlightText(chapter.title),
-													}}
-												/>
+												<span>{highlightText(chapter.title)}</span>
 											</h5>
-											<div
-												className="summary-text text-foreground"
-												dangerouslySetInnerHTML={{
-													__html: highlightText(chapter.description),
-												}}
-											/>
+											<div className="summary-text text-foreground">
+												{highlightText(chapter.description)}
+											</div>
 										</div>
 									))}
 								</div>

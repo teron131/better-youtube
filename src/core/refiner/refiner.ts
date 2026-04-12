@@ -199,7 +199,7 @@ function createPriorityHandler(
 	let completedPriorityChunks = 0;
 	let priorityReported = false;
 
-	return (result, index, allResults) => {
+	return (_result, index, allResults) => {
 		if (index < priorityRangeCount) completedPriorityChunks++;
 
 		if (

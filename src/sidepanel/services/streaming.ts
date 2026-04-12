@@ -169,6 +169,8 @@ function createSummaryListener(
 				msg.requestId === requestId
 			) {
 				const { summary, videoInfo: msgVideoInfo, transcript } = msg;
+				const transcriptText =
+					typeof transcript === "string" ? transcript : null;
 				if (!summary) {
 					settle(() =>
 						reject({
@@ -189,7 +191,7 @@ function createSummaryListener(
 					resolve({
 						summary,
 						videoInfo: msgVideoInfo || videoInfo,
-						transcript: transcript || null,
+						transcript: transcriptText,
 						provider: (msg as any).provider,
 					}),
 				);

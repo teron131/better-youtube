@@ -173,6 +173,7 @@ const Settings = () => {
 			{FONT_SIZE_OPTIONS.map((size) => (
 				<button
 					key={size}
+					type="button"
 					onClick={() => handleChange(key, size)}
 					className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
 						settings[key] === size

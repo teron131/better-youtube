@@ -186,7 +186,8 @@ export function EditableCombobox({
 							) : (
 								<div className="grid gap-0.5">
 									{filteredOptions.map((option) => (
-										<div
+										<button
+											type="button"
 											key={option.value}
 											className={cn(
 												"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
@@ -215,7 +216,7 @@ export function EditableCombobox({
 													</>
 												)}
 											</div>
-										</div>
+										</button>
 									))}
 								</div>
 							)}

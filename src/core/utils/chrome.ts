@@ -8,10 +8,10 @@
 /**
  * Common message structure for internal communication
  */
-export interface ChromeMessage<T = any> {
+export interface ChromeMessage<T = unknown> {
 	action: string;
 	payload?: T;
-	[key: string]: any;
+	[key: string]: unknown;
 }
 
 function sendMessageInternal<T>(
@@ -85,8 +85,8 @@ export function createMessageListener(
 	handler: (
 		message: ChromeMessage,
 		sender: chrome.runtime.MessageSender,
-		sendResponse: (response: any) => void,
-	) => boolean | void,
+		sendResponse: (response: unknown) => void,
+	) => boolean | undefined,
 ): () => void {
 	chrome.runtime.onMessage.addListener(handler);
 	return () => chrome.runtime.onMessage.removeListener(handler);
