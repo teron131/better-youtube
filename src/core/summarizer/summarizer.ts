@@ -24,6 +24,18 @@ import {
 	SummarySchemaNoTimestamps,
 } from "./schemas";
 
+type SummaryShape = z.infer<typeof SummarySchemaNoTimestamps>;
+
+function normalizeSummary(result: SummaryShape): Summary {
+	return {
+		overview: result.overview,
+		chapters: result.chapters.map((chapter) => ({
+			title: chapter.title,
+			description: chapter.description,
+		})),
+	};
+}
+
 // ============================================================================
 // Tools
 // ============================================================================
@@ -97,27 +109,26 @@ function createSummaryNode() {
 			await createLlmClient(summaryModel!, "Better YouTube - Summarizer")
 		).withStructuredOutput(SummarySchemaNoTimestamps);
 		const lang = targetLanguage || "auto";
-
-		let result;
+		let result: SummaryShape;
 		if (quality && summary) {
-			result = await llm.invoke([
+			result = (await llm.invoke([
 				["system", PromptBuilder.getLlmRefinePrompt(lang, title, description)],
 				[
 					"human",
 					`Original Transcript:\n${transcript}\n\n# Improve this video summary based on the following feedback:\n\n## Summary:\n\n${JSON.stringify(summary, null, 2)}\n\n## Quality Assessment:\n\n${JSON.stringify(quality, null, 2)}\n\nPlease provide an improved version addressing the issues identified.`,
 				],
-			]);
+			])) as SummaryShape;
 		} else {
-			result = await llm.invoke([
+			result = (await llm.invoke([
 				["system", PromptBuilder.getLlmSummaryPrompt(lang, title, description)],
 				["human", transcript],
-			]);
+			])) as SummaryShape;
 		}
 
 		progress?.(
 			quality && summary ? "Summary refined successfully" : "Summary completed",
 		);
-		return { summary: result as Summary, iterations: iterations + 1 };
+		return { summary: normalizeSummary(result), iterations: iterations + 1 };
 	};
 }
 
@@ -193,7 +204,7 @@ function summaryToMarkdown(summary: Summary): string {
 		parts.push("## Chapters\n\n");
 		summary.chapters.forEach((chapter, index) => {
 			parts.push(`### ${index + 1}. ${chapter.title}\n\n`);
-			parts.push(chapter.description + "\n\n");
+			parts.push(`${chapter.description}\n\n`);
 		});
 	}
 

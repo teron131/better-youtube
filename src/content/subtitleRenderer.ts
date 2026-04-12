@@ -153,7 +153,7 @@ class SubtitleController {
 			return;
 		}
 
-		if (isNaN(this.videoPlayer.currentTime)) return;
+		if (Number.isNaN(this.videoPlayer.currentTime)) return;
 
 		const currentTime = this.videoPlayer.currentTime * 1000;
 		const foundSubtitle = this.findSubtitleAtTime(currentTime);

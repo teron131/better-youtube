@@ -24,7 +24,7 @@ import {
 	normalizeOpenRouterModelId,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { STORAGE_KEYS } from "@/core/constants";
 import { setStorageValue } from "@/core/storage";
 
@@ -127,7 +127,7 @@ export function useConfig(): UseConfigReturn {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const loadConfig = async () => {
+	const loadConfig = useCallback(async () => {
 		try {
 			setIsLoading(true);
 			setError(null);
@@ -166,11 +166,11 @@ export function useConfig(): UseConfigReturn {
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, []);
 
 	useEffect(() => {
 		loadConfig();
-	}, []);
+	}, [loadConfig]);
 
 	const enrichedModels = useMemo(
 		() => applyModelMetadata(dynamicModels, stats, leaderboardScores),
@@ -277,31 +277,31 @@ export function useUserPreferences() {
 	const [isLoaded, setIsLoaded] = useState(false);
 	const { isValidModel, isValidLanguage } = useConfig();
 
-	const validatePreferences = (
-		prefs: Partial<UserPreferences>,
-		defaults: UserPreferences,
-	): UserPreferences => {
-		return {
-			summaryModel:
-				prefs.summaryModel && isValidModel(prefs.summaryModel)
-					? prefs.summaryModel
-					: defaults.summaryModel,
-			qualityModel:
-				prefs.qualityModel && isValidModel(prefs.qualityModel)
-					? prefs.qualityModel
-					: defaults.qualityModel,
-			targetLanguage:
-				prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
-					? prefs.targetLanguage
-					: defaults.targetLanguage,
-			summarizerMode:
-				prefs.summarizerMode === "native" ||
-				prefs.summarizerMode === "validation" ||
-				prefs.summarizerMode === "fast"
-					? prefs.summarizerMode
-					: defaults.summarizerMode,
-		};
-	};
+	const validatePreferences = useCallback(
+		(prefs: Partial<UserPreferences>, defaults: UserPreferences) => {
+			return {
+				summaryModel:
+					prefs.summaryModel && isValidModel(prefs.summaryModel)
+						? prefs.summaryModel
+						: defaults.summaryModel,
+				qualityModel:
+					prefs.qualityModel && isValidModel(prefs.qualityModel)
+						? prefs.qualityModel
+						: defaults.qualityModel,
+				targetLanguage:
+					prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
+						? prefs.targetLanguage
+						: defaults.targetLanguage,
+				summarizerMode:
+					prefs.summarizerMode === "native" ||
+					prefs.summarizerMode === "validation" ||
+					prefs.summarizerMode === "fast"
+						? prefs.summarizerMode
+						: defaults.summarizerMode,
+			};
+		},
+		[isValidModel, isValidLanguage],
+	);
 
 	useEffect(() => {
 		const keys = [
@@ -372,7 +372,7 @@ export function useUserPreferences() {
 
 		chrome.storage.onChanged.addListener(listener);
 		return () => chrome.storage.onChanged.removeListener(listener);
-	}, [isValidModel, isValidLanguage]);
+	}, [validatePreferences]);
 
 	const updatePreferences = (updates: Partial<UserPreferences>) => {
 		const newPrefs = { ...preferences, ...updates };

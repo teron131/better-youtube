@@ -1,6 +1,6 @@
 /** Storage-related helper functions */
 
-import { loadConfig, resolveModel } from "@/core/config";
+import { loadConfig } from "@/core/config";
 import { STORAGE_KEYS } from "@/core/constants";
 
 export function getVideoStorageKeys(): string[] {

@@ -15,9 +15,9 @@ export function BadgeList({ items, className = "" }: BadgeListProps) {
 
 	return (
 		<div className={`flex flex-wrap gap-2 ${className}`}>
-			{items.map((item, index) => (
+			{items.map((item) => (
 				<span
-					key={index}
+					key={item}
 					className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20"
 				>
 					{item}
@@ -37,8 +37,8 @@ export function Checklist({ items, className = "" }: ChecklistProps) {
 
 	return (
 		<ul className={`space-y-2 md:space-y-2.5 ${className}`}>
-			{items.map((item, index) => (
-				<li key={index} className="flex items-start gap-2">
+			{items.map((item) => (
+				<li key={item} className="flex items-start gap-2">
 					<CheckCircle2 className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
 					<span className="text-foreground leading-7 md:leading-8 text-sm md:text-base">
 						{item}
@@ -59,9 +59,9 @@ export function BulletList({ items, className = "" }: BulletListProps) {
 
 	return (
 		<ul className={`pl-2 space-y-1 ${className}`}>
-			{items.map((item, index) => (
+			{items.map((item) => (
 				<li
-					key={index}
+					key={item}
 					className="flex items-start gap-2 text-sm md:text-base text-foreground leading-7"
 				>
 					<span className="text-primary font-bold mt-0.5">•</span>

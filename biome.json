@@ -1,0 +1,31 @@
+{
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"linter": {
+		"rules": {
+			"complexity": {
+				"noStaticOnlyClass": "off"
+			},
+			"suspicious": {
+				"noDocumentCookie": "off",
+				"noExplicitAny": "off",
+				"noUnknownAtRules": {
+					"options": {
+						"ignore": ["tailwind"]
+					}
+				}
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			}
+		}
+	}
+}

@@ -39,7 +39,7 @@ function summaryToMarkdown(summary: Summary): string {
 		parts.push("## Chapters\n\n");
 		summary.chapters.forEach((chapter, index) => {
 			parts.push(`### ${index + 1}. ${chapter.title}\n\n`);
-			parts.push(chapter.description + "\n\n");
+			parts.push(`${chapter.description}\n\n`);
 		});
 	}
 

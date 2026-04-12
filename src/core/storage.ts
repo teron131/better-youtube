@@ -205,7 +205,9 @@ async function storageGetMultiple<T extends Record<string, unknown>>(
  */
 async function storageRemove(keys: string[]): Promise<void> {
 	if (!isExtension) {
-		keys.forEach((key) => localStorage.removeItem(key));
+		keys.forEach((key) => {
+			localStorage.removeItem(key);
+		});
 		return;
 	}
 

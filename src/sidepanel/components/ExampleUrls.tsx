@@ -21,9 +21,9 @@ export function ExampleUrls({ onSelect }: ExampleUrlsProps) {
 			</Alert>
 
 			<div className="grid gap-2">
-				{EXAMPLE_YOUTUBE_URLS.map((exampleUrl, index) => (
+				{EXAMPLE_YOUTUBE_URLS.map((exampleUrl) => (
 					<button
-						key={index}
+						key={exampleUrl}
 						type="button"
 						onClick={() => onSelect(exampleUrl)}
 						className="text-left p-3 rounded-lg border border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"

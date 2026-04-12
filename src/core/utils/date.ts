@@ -29,7 +29,7 @@ export function formatDate(dateStr?: string | null): string | null {
 				month: "long",
 				day: "numeric",
 			});
-		} catch (e) {
+		} catch {
 			return dateStr;
 		}
 	}
@@ -41,7 +41,7 @@ export function formatDate(dateStr?: string | null): string | null {
 			month: "short",
 			day: "numeric",
 		});
-	} catch (e) {
+	} catch {
 		return dateStr;
 	}
 }

@@ -31,7 +31,7 @@ if (typeof chrome === "undefined" || !chrome.runtime) {
 					console.log("Mock storage.remove:", keys);
 					if (cb) cb();
 				},
-				getBytesInUse: (keys, cb) => cb(0),
+				getBytesInUse: (_keys, cb) => cb(0),
 			},
 			onChanged: {
 				addListener: () => console.log("Mock storage.onChanged.addListener"),

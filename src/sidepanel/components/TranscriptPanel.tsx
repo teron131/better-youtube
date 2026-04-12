@@ -24,7 +24,7 @@ import {
 	Search,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 interface TranscriptPanelProps {
 	transcript: string;
@@ -45,7 +45,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 				title: "Copied!",
 				description: "Transcript copied to clipboard",
 			});
-		} catch (error) {
+		} catch {
 			toast({
 				title: "Copy failed",
 				description: "Unable to copy transcript",
@@ -64,17 +64,35 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 		);
 		const parts = text.split(regex);
 
-		let matchIndex = -1;
-		return parts
-			.map((part, i) => {
-				if (regex.test(part)) {
-					matchIndex++;
-					const isCurrent = matchIndex === currentMatchIndex;
-					return `<mark class="${isCurrent ? "bg-primary text-primary-foreground" : "bg-yellow-500/30"}">${part}</mark>`;
-				}
-				return part;
-			})
-			.join("");
+		let matchIndex = 0;
+		let textOffset = 0;
+		return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
+			if (!part) return nodes;
+
+			const segmentOffset = textOffset;
+			textOffset += part.length;
+
+			if (partIndex % 2 === 1) {
+				const currentMatch = matchIndex;
+				matchIndex += 1;
+				const isCurrent = currentMatch === currentMatchIndex;
+				nodes.push(
+					<mark
+						key={`mark-${segmentOffset}-${part}-${currentMatch}`}
+						className={
+							isCurrent
+								? "bg-primary text-primary-foreground"
+								: "bg-yellow-500/30"
+						}
+					>
+						{part}
+					</mark>,
+				);
+			} else {
+				nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
+			}
+			return nodes;
+		}, []);
 	};
 
 	const handleSearch = (query: string) => {
@@ -231,12 +249,9 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 							ref={transcriptRef}
 							className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10"
 						>
-							<div
-								className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text"
-								dangerouslySetInnerHTML={{
-									__html: highlightText(transcript, searchQuery),
-								}}
-							/>
+							<div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
+								{highlightText(transcript, searchQuery)}
+							</div>
 						</div>
 					</div>
 				</CollapsibleContent>

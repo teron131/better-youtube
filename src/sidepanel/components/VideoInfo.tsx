@@ -48,6 +48,7 @@ export const VideoInfo = ({
 
 	const displayDuration = trimLeadingZeros(duration || undefined);
 	const hasMetrics = viewCount != null || likeCount != null;
+	const formattedUploadDate = formatDate(uploadDate);
 
 	const convertedInfo = {
 		title: title ? s2tw(title) : title,
@@ -98,10 +99,10 @@ export const VideoInfo = ({
 							/>
 						)}
 
-						{uploadDate && (
+						{formattedUploadDate && (
 							<InfoItem
 								icon={<CalendarDays className="w-4 h-4 text-primary" />}
-								value={formatDate(uploadDate)!}
+								value={formattedUploadDate}
 							/>
 						)}
 

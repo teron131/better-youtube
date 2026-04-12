@@ -77,9 +77,9 @@ export function ErrorDisplay({
 						<div className="mt-4 space-y-2">
 							<h4 className="font-semibold text-base">Progress Details:</h4>
 							<div className="bg-muted/30 rounded-lg p-4 max-h-48 overflow-y-auto">
-								{progressStates.map((state, index) => (
+								{progressStates.map((state) => (
 									<div
-										key={index}
+										key={`${state.status}-${state.step}-${state.message}`}
 										className="text-base text-foreground font-mono mb-2"
 									>
 										<span
