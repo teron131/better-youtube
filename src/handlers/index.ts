@@ -10,6 +10,7 @@ import {
 } from "@/core/runtimeConfig";
 import { createMessageListener } from "@/core/utils/chrome";
 import { handleFetchSubtitles } from "./refine";
+import { handleExtractSubscriptions } from "./subscriptions";
 import { handleGenerateSummary } from "./summary";
 import { handleScrapeVideo } from "./transcript";
 
@@ -96,6 +97,10 @@ createMessageListener((message, sender, sendResponse) => {
 
 			return true;
 		}
+
+		case MESSAGE_ACTIONS.EXTRACT_SUBSCRIPTIONS:
+			void handleExtractSubscriptions(message, sendResponse);
+			return true;
 
 		default:
 			return false;

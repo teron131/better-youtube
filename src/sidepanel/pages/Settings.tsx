@@ -1,3 +1,4 @@
+import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { EditableCombobox } from "@ui/components/ui/editable-combobox";
@@ -506,6 +507,8 @@ const Settings = () => {
 					</Card>
 
 					{/* Appearance */}
+					<RecommendationFilterSettings />
+
 					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
 						<CardHeader className="p-4 pb-1">
 							<div className="flex items-center gap-2 text-primary mb-0.5">

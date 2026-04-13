@@ -22,6 +22,7 @@ import {
 	triggerCaptionRefinement,
 } from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
+import { startRecommendationFiltering } from "./recommendationFiltering";
 import { getRefinerModel, getVideoStorageKeys } from "./storageHelpers";
 import {
 	applyCaptionFontSize,
@@ -229,6 +230,7 @@ class ContentManager {
 
 	const run = () => {
 		manager.initialize();
+		startRecommendationFiltering();
 	};
 
 	// Setup message listener exactly once
