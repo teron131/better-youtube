@@ -24,6 +24,20 @@ export const STORAGE_KEYS = {
 	TARGET_LANGUAGE_RECOMMENDED: "targetLanguageRecommended",
 	TARGET_LANGUAGE_CUSTOM: "targetLanguageCustom",
 	QUALITY_MODEL: "qualityModel",
+	VIEWS_FILTER_ENABLED: "viewsFilterEnabled",
+	DURATION_FILTER_ENABLED: "durationFilterEnabled",
+	KEYWORD_FILTER_ENABLED: "keywordFilterEnabled",
+	AGE_FILTER_ENABLED: "ageFilterEnabled",
+	ENGLISH_ONLY_TITLES: "englishOnlyTitles",
+	PRESERVE_SUBSCRIBED_CHANNELS: "preserveSubscribedChannels",
+	MIN_VIEWS: "minViews",
+	MIN_DURATION: "minDuration",
+	MAX_DURATION: "maxDuration",
+	MAX_AGE_YEARS: "maxAgeYears",
+	FILTER_KEYWORDS: "filterKeywords",
+	FILTER_STATS: "filterStats",
+	FILTERED_VIDEOS: "filteredVideos",
+	YOUTUBE_SUBSCRIPTIONS: "youtubeSubscriptions",
 } as const;
 
 // ============================================================================
@@ -138,6 +152,17 @@ export const DEFAULTS = {
 	SUMMARIZER_PROVIDER: "auto" as const,
 	SUMMARIZER_MODE: "validation" as const,
 	TRANSCRIPT_PROVIDER_PREFERENCE: "scrapeCreators" as const,
+	VIEWS_FILTER_ENABLED: true,
+	DURATION_FILTER_ENABLED: true,
+	KEYWORD_FILTER_ENABLED: true,
+	AGE_FILTER_ENABLED: true,
+	ENGLISH_ONLY_TITLES: false,
+	PRESERVE_SUBSCRIBED_CHANNELS: true,
+	MIN_VIEWS: 10000,
+	MIN_DURATION: 60,
+	MAX_DURATION: 3600,
+	MAX_AGE_YEARS: 5,
+	FILTER_KEYWORDS: ["spoiler", "clickbait", "sponsor"] as string[],
 } as const;
 
 // ============================================================================
@@ -213,6 +238,7 @@ export const MESSAGE_ACTIONS = {
 	GET_VIDEO_TITLE: "getVideoTitle",
 	SHOW_ERROR: "showError",
 	UPDATE_CAPTION_FONT_SIZE: "updateCaptionFontSize",
+	EXTRACT_SUBSCRIPTIONS: "extractSubscriptions",
 } as const;
 
 export const ELEMENT_IDS = {
