@@ -90,7 +90,7 @@ const API_KEY_FIELDS: ApiField[] = [
 	{
 		key: STORAGE_KEYS.LLM_BASE_URL,
 		label: "LLM Base URL",
-		placeholder: "https://api.openai.com/v1",
+		placeholder: "https://api.openai.com/v1 (OpenAI API Compatible)",
 		type: "url",
 	},
 	{
@@ -351,13 +351,13 @@ const Settings = () => {
 						</CardContent>
 					</Card>
 
-					{/* User Experience */}
+					{/* Generation */}
 					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
 						<CardHeader className="p-4 pb-1">
 							<div className="flex items-center gap-2 text-primary mb-0.5">
 								<Zap className="h-4 w-4" />
 								<span className="text-xs font-bold uppercase tracking-widest">
-									User Experience
+									Generation
 								</span>
 							</div>
 						</CardHeader>
@@ -490,7 +490,7 @@ const Settings = () => {
 										</div>
 										<div>
 											<h4 className="font-bold text-foreground text-xs">
-												Auto-Generate
+												Auto-Generate Caption
 											</h4>
 										</div>
 									</div>
