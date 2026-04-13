@@ -36,7 +36,10 @@ export async function handleExtractSubscriptions(
 	try {
 		const channels = await runPageSubscriptionExtraction(message.tabId);
 		const storedSubscriptions = buildStoredSubscriptions(channels);
-		await setStorageValue(STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS, storedSubscriptions);
+		await setStorageValue(
+			STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS,
+			storedSubscriptions,
+		);
 
 		sendResponse({
 			success: true,
@@ -206,7 +209,10 @@ function extractSubscriptionsInPageContext() {
 		);
 	}
 
-	function chooseBetterName(existingName: string | null, nextName: string | null) {
+	function chooseBetterName(
+		existingName: string | null,
+		nextName: string | null,
+	) {
 		if (!isPlausibleChannelName(existingName)) {
 			return isPlausibleChannelName(nextName) ? normalizeText(nextName) : null;
 		}
@@ -278,54 +284,61 @@ function extractSubscriptionsInPageContext() {
 		};
 	}
 
-	function getRendererData(renderer: Element & {
-		data?: unknown;
-		__data?: { data?: unknown };
-		__dataHost?: { data?: unknown };
-	}) {
-		return renderer.data || renderer.__data?.data || renderer.__dataHost?.data || null;
+	function getRendererData(
+		renderer: Element & {
+			data?: unknown;
+			__data?: { data?: unknown };
+			__dataHost?: { data?: unknown };
+		},
+	) {
+		return (
+			renderer.data ||
+			renderer.__data?.data ||
+			renderer.__dataHost?.data ||
+			null
+		);
 	}
 
-	function getChannelRecordFromRenderer(renderer: Element): PageSubscriptionRecord | null {
+	function getChannelRecordFromRenderer(
+		renderer: Element,
+	): PageSubscriptionRecord | null {
 		const data = getRendererData(
 			renderer as Element & {
 				data?: unknown;
 				__data?: { data?: unknown };
 				__dataHost?: { data?: unknown };
 			},
-		) as
-			| {
-					title?: unknown;
-					channelId?: string;
+		) as {
+			title?: unknown;
+			channelId?: string;
+			navigationEndpoint?: {
+				browseEndpoint?: { browseId?: string; canonicalBaseUrl?: string };
+				commandMetadata?: { webCommandMetadata?: { url?: string } };
+			};
+			longBylineText?: {
+				runs?: Array<{
 					navigationEndpoint?: {
-						browseEndpoint?: { browseId?: string; canonicalBaseUrl?: string };
+						browseEndpoint?: {
+							browseId?: string;
+							canonicalBaseUrl?: string;
+						};
 						commandMetadata?: { webCommandMetadata?: { url?: string } };
 					};
-					longBylineText?: {
-						runs?: Array<{
-							navigationEndpoint?: {
-								browseEndpoint?: {
-									browseId?: string;
-									canonicalBaseUrl?: string;
-								};
-								commandMetadata?: { webCommandMetadata?: { url?: string } };
-							};
-						}>;
+				}>;
+			};
+			shortBylineText?: {
+				runs?: Array<{
+					navigationEndpoint?: {
+						browseEndpoint?: {
+							browseId?: string;
+							canonicalBaseUrl?: string;
+						};
+						commandMetadata?: { webCommandMetadata?: { url?: string } };
 					};
-					shortBylineText?: {
-						runs?: Array<{
-							navigationEndpoint?: {
-								browseEndpoint?: {
-									browseId?: string;
-									canonicalBaseUrl?: string;
-								};
-								commandMetadata?: { webCommandMetadata?: { url?: string } };
-							};
-						}>;
-					};
-					descriptionSnippet?: unknown;
-			  }
-			| null;
+				}>;
+			};
+			descriptionSnippet?: unknown;
+		} | null;
 
 		const endpoint =
 			data?.navigationEndpoint ||
@@ -337,12 +350,10 @@ function extractSubscriptionsInPageContext() {
 			name:
 				textFromNode(data?.title) ||
 				normalizeText(
-					renderer.querySelector(`#main-link, ${CHANNEL_LINK_SELECTOR}`)?.textContent,
+					renderer.querySelector(`#main-link, ${CHANNEL_LINK_SELECTOR}`)
+						?.textContent,
 				),
-			channelId:
-				data?.channelId ||
-				endpoint?.browseEndpoint?.browseId ||
-				null,
+			channelId: data?.channelId || endpoint?.browseEndpoint?.browseId || null,
 			channelPath:
 				endpoint?.browseEndpoint?.canonicalBaseUrl ||
 				endpoint?.commandMetadata?.webCommandMetadata?.url ||
@@ -352,7 +363,9 @@ function extractSubscriptionsInPageContext() {
 		});
 	}
 
-	function getChannelRecordFromDom(renderer: Element): PageSubscriptionRecord | null {
+	function getChannelRecordFromDom(
+		renderer: Element,
+	): PageSubscriptionRecord | null {
 		const channelLink = renderer.querySelector(CHANNEL_LINK_SELECTOR);
 		if (!channelLink) {
 			return null;
@@ -379,8 +392,9 @@ function extractSubscriptionsInPageContext() {
 			window.scrollTo({ top: document.documentElement.scrollHeight });
 			await sleep(SCROLL_WAIT_MS);
 
-			const currentChannelCount =
-				document.querySelectorAll(CHANNEL_RENDERER_SELECTOR).length;
+			const currentChannelCount = document.querySelectorAll(
+				CHANNEL_RENDERER_SELECTOR,
+			).length;
 			if (currentChannelCount === previousChannelCount) {
 				stablePasses += 1;
 			} else {

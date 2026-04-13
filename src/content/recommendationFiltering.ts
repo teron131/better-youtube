@@ -4,13 +4,13 @@
 
 import { STORAGE_KEYS } from "@/core/constants";
 import {
-	type FeedFilterSettings,
-	type FilterStats,
-	type FilteredVideoRecord,
-	type StoredSubscriptions,
-	loadFeedFilterSettings,
-	getFilterStats,
 	DEFAULT_FILTER_STATS,
+	type FeedFilterSettings,
+	type FilteredVideoRecord,
+	type FilterStats,
+	getFilterStats,
+	loadFeedFilterSettings,
+	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import {
@@ -20,9 +20,9 @@ import {
 	normalizeChannelPath,
 	normalizeText,
 	queueVideoCardForReprocessing,
-	type VideoCardData,
 	VIDEO_CARD_NODE_NAMES,
 	VIDEO_CARD_SELECTOR,
+	type VideoCardData,
 } from "./recommendationFilterExtractor";
 
 const SUBSCRIPTIONS_PAGE_PATH = "/feed/channels";
@@ -47,7 +47,10 @@ type SubscriptionLookup = {
 };
 
 function parseViewCount(text: string): number {
-	const cleaned = text.replace(/views?/i, "").replace(/,/g, "").trim();
+	const cleaned = text
+		.replace(/views?/i, "")
+		.replace(/,/g, "")
+		.trim();
 	const match = cleaned.match(/([\d.]+)\s*([KMB]?)/i);
 
 	if (match) {
@@ -105,7 +108,9 @@ function createEmptySubscriptionLookup(): SubscriptionLookup {
 	};
 }
 
-function buildSubscriptionLookup(channels: StoredSubscriptions["channels"] = []) {
+function buildSubscriptionLookup(
+	channels: StoredSubscriptions["channels"] = [],
+) {
 	const lookup = createEmptySubscriptionLookup();
 
 	for (const channel of channels) {
@@ -114,12 +119,16 @@ function buildSubscriptionLookup(channels: StoredSubscriptions["channels"] = [])
 		}
 
 		const channelId =
-			typeof channel.channelId === "string" && channel.channelId.startsWith("UC")
+			typeof channel.channelId === "string" &&
+			channel.channelId.startsWith("UC")
 				? channel.channelId
 				: normalizeChannelPath(channel.channelPath)?.startsWith("/channel/")
-					? normalizeChannelPath(channel.channelPath)?.split("/channel/")[1] || null
+					? normalizeChannelPath(channel.channelPath)?.split("/channel/")[1] ||
+						null
 					: null;
-		const channelPath = normalizeChannelPath(channel.channelPath)?.toLowerCase();
+		const channelPath = normalizeChannelPath(
+			channel.channelPath,
+		)?.toLowerCase();
 		const channelName = normalizeText(channel.name)?.toLowerCase();
 
 		if (channelId) {
@@ -141,7 +150,9 @@ function isSubscribedChannel(
 	subscribedChannels: SubscriptionLookup,
 ): boolean {
 	const channelId = getNormalizedChannelId(videoData);
-	const channelPath = normalizeChannelPath(videoData.channelPath)?.toLowerCase();
+	const channelPath = normalizeChannelPath(
+		videoData.channelPath,
+	)?.toLowerCase();
 	const channelName = normalizeText(videoData.channelName)?.toLowerCase();
 
 	return Boolean(
@@ -250,7 +261,11 @@ function checkViewsFilter(
 	videoData: VideoCardData,
 	settings: FeedFilterSettings,
 ): FilterResult {
-	if (!settings.viewsFilterEnabled || settings.minViews <= 0 || !videoData.viewCount) {
+	if (
+		!settings.viewsFilterEnabled ||
+		settings.minViews <= 0 ||
+		!videoData.viewCount
+	) {
 		return { shouldFilter: false };
 	}
 
@@ -299,7 +314,11 @@ function checkAgeFilter(
 	videoData: VideoCardData,
 	settings: FeedFilterSettings,
 ): FilterResult {
-	if (!settings.ageFilterEnabled || settings.maxAgeYears <= 0 || !videoData.publishTime) {
+	if (
+		!settings.ageFilterEnabled ||
+		settings.maxAgeYears <= 0 ||
+		!videoData.publishTime
+	) {
 		return { shouldFilter: false };
 	}
 
@@ -393,19 +412,22 @@ function getTriggeredFilter(
 	videoData: VideoCardData,
 	settings: FeedFilterSettings,
 ): FilterResult {
-	return [
-		checkViewsFilter(videoData, settings),
-		checkDurationFilter(videoData, settings),
-		checkAgeFilter(videoData, settings),
-		checkLanguageFilter(videoData, settings),
-		checkKeywordsFilter(videoData, settings),
-	].find((result) => result.shouldFilter) ?? { shouldFilter: false };
+	return (
+		[
+			checkViewsFilter(videoData, settings),
+			checkDurationFilter(videoData, settings),
+			checkAgeFilter(videoData, settings),
+			checkLanguageFilter(videoData, settings),
+			checkKeywordsFilter(videoData, settings),
+		].find((result) => result.shouldFilter) ?? { shouldFilter: false }
+	);
 }
 
 class FeedFilterController {
 	private filterSettings: FeedFilterSettings | null = null;
 	private filterStats: FilterStats = { ...DEFAULT_FILTER_STATS };
-	private subscribedChannels: SubscriptionLookup = createEmptySubscriptionLookup();
+	private subscribedChannels: SubscriptionLookup =
+		createEmptySubscriptionLookup();
 	private metadataRetryTimeout: number | null = null;
 	private settlingRescanTimeouts: number[] = [];
 	private filterTimeout: number | null = null;
@@ -474,8 +496,9 @@ class FeedFilterController {
 		}
 
 		const existing =
-			(await getStorageValue<FilteredVideoRecord[]>(STORAGE_KEYS.FILTERED_VIDEOS)) ||
-			[];
+			(await getStorageValue<FilteredVideoRecord[]>(
+				STORAGE_KEYS.FILTERED_VIDEOS,
+			)) || [];
 		const timestamp = new Date().toISOString();
 		const nextVideos = [
 			...existing,
@@ -521,10 +544,14 @@ class FeedFilterController {
 		}
 
 		const currentStats: FilterStats = { ...DEFAULT_FILTER_STATS };
-		const filteredEntries: Array<Pick<FilteredVideoRecord, "title" | "reason">> = [];
+		const filteredEntries: Array<
+			Pick<FilteredVideoRecord, "title" | "reason">
+		> = [];
 		let incompleteCards = 0;
 
-		const videoCards = Array.from(document.querySelectorAll(VIDEO_CARD_SELECTOR));
+		const videoCards = Array.from(
+			document.querySelectorAll(VIDEO_CARD_SELECTOR),
+		);
 		const targetCards = videoCards.filter(
 			(videoElement) =>
 				forceFullScan || !videoElement.hasAttribute("data-filter-processed"),
@@ -534,12 +561,18 @@ class FeedFilterController {
 			const wasFiltered = videoElement.hasAttribute("data-filtered");
 			const videoData = extractVideoData(videoElement);
 			const title = videoData.title || "Unknown title";
-			const isSubscribed = isSubscribedChannel(videoData, this.subscribedChannels);
+			const isSubscribed = isSubscribedChannel(
+				videoData,
+				this.subscribedChannels,
+			);
 
 			applySubscribedChannelState(videoElement, isSubscribed);
 			applyTitleLanguageState(videoElement, videoData.titleLanguage);
 
-			const triggeredFilter = getTriggeredFilter(videoData, this.filterSettings);
+			const triggeredFilter = getTriggeredFilter(
+				videoData,
+				this.filterSettings,
+			);
 			const shouldPreserveSubscribedVideo =
 				isSubscribed && this.filterSettings.preserveSubscribedChannels;
 			const retryCount = Number(
@@ -624,11 +657,9 @@ class FeedFilterController {
 						return;
 					}
 
-					element
-						.querySelectorAll(VIDEO_CARD_SELECTOR)
-						.forEach((videoCard) => {
-							queueVideoCardForReprocessing(videoCard);
-						});
+					element.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((videoCard) => {
+						queueVideoCardForReprocessing(videoCard);
+					});
 				});
 
 				return Array.from(mutation.addedNodes).some((node) => {
@@ -689,8 +720,7 @@ class FeedFilterController {
 					keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
 					ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
 					englishOnlyTitles: STORAGE_KEYS.ENGLISH_ONLY_TITLES,
-					preserveSubscribedChannels:
-						STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
+					preserveSubscribedChannels: STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
 					minViews: STORAGE_KEYS.MIN_VIEWS,
 					minDuration: STORAGE_KEYS.MIN_DURATION,
 					maxDuration: STORAGE_KEYS.MAX_DURATION,
@@ -714,7 +744,9 @@ class FeedFilterController {
 
 	private startNavigationObserver(): void {
 		const navigationObserverTarget =
-			document.querySelector("title") || document.head || document.documentElement;
+			document.querySelector("title") ||
+			document.head ||
+			document.documentElement;
 		if (!navigationObserverTarget) {
 			return;
 		}

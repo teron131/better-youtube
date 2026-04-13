@@ -4,13 +4,13 @@
 
 import { MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
-	type FeedFilterSettings,
-	type FilterStats,
-	type FilteredVideoRecord,
-	type StoredSubscriptions,
 	FEED_FILTER_STORAGE_KEYS,
+	type FeedFilterSettings,
+	type FilteredVideoRecord,
+	type FilterStats,
 	getFilterStats,
 	loadFeedFilterSettings,
+	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import { getCurrentTab, sendChromeMessage } from "@/core/utils/chrome";
@@ -21,10 +21,7 @@ export async function getRecommendationFilterSettings(): Promise<FeedFilterSetti
 
 export async function setRecommendationFilterSetting<
 	K extends keyof FeedFilterSettings,
->(
-	key: K,
-	value: FeedFilterSettings[K],
-): Promise<void> {
+>(key: K, value: FeedFilterSettings[K]): Promise<void> {
 	await setStorageValue(FEED_FILTER_STORAGE_KEYS[key], value);
 }
 
@@ -36,8 +33,9 @@ export async function getRecommendationFilterHistory(): Promise<
 	FilteredVideoRecord[]
 > {
 	return (
-		(await getStorageValue<FilteredVideoRecord[]>(STORAGE_KEYS.FILTERED_VIDEOS)) ||
-		[]
+		(await getStorageValue<FilteredVideoRecord[]>(
+			STORAGE_KEYS.FILTERED_VIDEOS,
+		)) || []
 	);
 }
 
@@ -46,7 +44,9 @@ export async function clearRecommendationFilterHistory(): Promise<void> {
 }
 
 export async function getStoredSubscriptions(): Promise<StoredSubscriptions | null> {
-	return getStorageValue<StoredSubscriptions>(STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS);
+	return getStorageValue<StoredSubscriptions>(
+		STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS,
+	);
 }
 
 export async function openSubscriptionsPage(): Promise<void> {
@@ -58,7 +58,9 @@ export async function extractSubscriptionsFromCurrentTab(): Promise<{
 }> {
 	const activeTab = await getCurrentTab();
 	if (!activeTab?.id || !activeTab.url) {
-		throw new Error("Open the YouTube subscriptions page in the active tab first.");
+		throw new Error(
+			"Open the YouTube subscriptions page in the active tab first.",
+		);
 	}
 
 	if (!activeTab.url.includes("youtube.com/feed/channels")) {
