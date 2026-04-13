@@ -13,17 +13,6 @@ import {
 	openSubscriptionsPage,
 	setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
-import { STORAGE_KEYS } from "@/core/constants";
-import type {
-	FeedFilterSettings,
-	FilterStats,
-	FilteredVideoRecord,
-	StoredSubscriptions,
-} from "@/core/recommendationFilters";
-import {
-	DEFAULT_FEED_FILTER_SETTINGS,
-	DEFAULT_FILTER_STATS,
-} from "@/core/recommendationFilters";
 import {
 	Clock3,
 	ExternalLink,
@@ -35,7 +24,18 @@ import {
 	TrendingDown,
 	Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { STORAGE_KEYS } from "@/core/constants";
+import type {
+	FeedFilterSettings,
+	FilteredVideoRecord,
+	FilterStats,
+	StoredSubscriptions,
+} from "@/core/recommendationFilters";
+import {
+	DEFAULT_FEED_FILTER_SETTINGS,
+	DEFAULT_FILTER_STATS,
+} from "@/core/recommendationFilters";
 
 const STAT_ITEMS: Array<{
 	key: keyof FilterStats;
@@ -91,13 +91,15 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		key: "englishOnlyTitles",
 		icon: Languages,
 		title: "English titles only",
-		description: "Remove recommendations whose titles are not detected as English.",
+		description:
+			"Remove recommendations whose titles are not detected as English.",
 	},
 	{
 		key: "preserveSubscribedChannels",
 		icon: ShieldCheck,
 		title: "Keep subscriptions",
-		description: "Do not hide recommendations from channels you already follow.",
+		description:
+			"Do not hide recommendations from channels you already follow.",
 	},
 ];
 
@@ -121,24 +123,42 @@ export function RecommendationFilterSettings() {
 	);
 	const [stats, setStats] = useState<FilterStats>(DEFAULT_FILTER_STATS);
 	const [history, setHistory] = useState<FilteredVideoRecord[]>([]);
-	const [subscriptions, setSubscriptions] = useState<StoredSubscriptions | null>(
-		null,
-	);
+	const [subscriptions, setSubscriptions] =
+		useState<StoredSubscriptions | null>(null);
 	const [newKeyword, setNewKeyword] = useState("");
 	const [isExtracting, setIsExtracting] = useState(false);
-	const recommendationSettingKeys = new Set<string>([
-		STORAGE_KEYS.VIEWS_FILTER_ENABLED,
-		STORAGE_KEYS.DURATION_FILTER_ENABLED,
-		STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
-		STORAGE_KEYS.AGE_FILTER_ENABLED,
-		STORAGE_KEYS.ENGLISH_ONLY_TITLES,
-		STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
-		STORAGE_KEYS.MIN_VIEWS,
-		STORAGE_KEYS.MIN_DURATION,
-		STORAGE_KEYS.MAX_DURATION,
-		STORAGE_KEYS.MAX_AGE_YEARS,
-		STORAGE_KEYS.FILTER_KEYWORDS,
-	]);
+	const recommendationSettingKeys = useMemo(
+		() =>
+			new Set<string>([
+				STORAGE_KEYS.VIEWS_FILTER_ENABLED,
+				STORAGE_KEYS.DURATION_FILTER_ENABLED,
+				STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
+				STORAGE_KEYS.AGE_FILTER_ENABLED,
+				STORAGE_KEYS.ENGLISH_ONLY_TITLES,
+				STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
+				STORAGE_KEYS.MIN_VIEWS,
+				STORAGE_KEYS.MIN_DURATION,
+				STORAGE_KEYS.MAX_DURATION,
+				STORAGE_KEYS.MAX_AGE_YEARS,
+				STORAGE_KEYS.FILTER_KEYWORDS,
+			]),
+		[],
+	);
+
+	const refresh = useCallback(async () => {
+		const [nextSettings, nextStats, nextHistory, nextSubscriptions] =
+			await Promise.all([
+				getRecommendationFilterSettings(),
+				getRecommendationFilterStats(),
+				getRecommendationFilterHistory(),
+				getStoredSubscriptions(),
+			]);
+
+		setSettings(nextSettings);
+		setStats(nextStats);
+		setHistory(nextHistory);
+		setSubscriptions(nextSubscriptions);
+	}, []);
 
 	useEffect(() => {
 		void refresh();
@@ -151,7 +171,9 @@ export function RecommendationFilterSettings() {
 				return;
 			}
 
-			if (Object.keys(changes).some((key) => recommendationSettingKeys.has(key))) {
+			if (
+				Object.keys(changes).some((key) => recommendationSettingKeys.has(key))
+			) {
 				void getRecommendationFilterSettings().then(setSettings);
 			}
 
@@ -170,22 +192,7 @@ export function RecommendationFilterSettings() {
 
 		chrome.storage.onChanged.addListener(listener);
 		return () => chrome.storage.onChanged.removeListener(listener);
-	}, []);
-
-	const refresh = async () => {
-		const [nextSettings, nextStats, nextHistory, nextSubscriptions] =
-			await Promise.all([
-				getRecommendationFilterSettings(),
-				getRecommendationFilterStats(),
-				getRecommendationFilterHistory(),
-				getStoredSubscriptions(),
-			]);
-
-		setSettings(nextSettings);
-		setStats(nextStats);
-		setHistory(nextHistory);
-		setSubscriptions(nextSubscriptions);
-	};
+	}, [recommendationSettingKeys, refresh]);
 
 	const handleSettingChange = async <K extends keyof FeedFilterSettings>(
 		key: K,
@@ -195,7 +202,10 @@ export function RecommendationFilterSettings() {
 		try {
 			await setRecommendationFilterSetting(key, value);
 		} catch (error) {
-			console.error(`Failed to save recommendation filter setting ${key}`, error);
+			console.error(
+				`Failed to save recommendation filter setting ${key}`,
+				error,
+			);
 			toast({
 				title: "Couldn't save recommendation setting",
 				description:
@@ -304,9 +314,15 @@ export function RecommendationFilterSettings() {
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					{NUMERIC_FIELDS.map((field) => (
 						<div key={field.key} className="space-y-1">
-							<label className="text-sm font-semibold">{field.label}</label>
+							<label
+								htmlFor={`recommendation-filter-${field.key}`}
+								className="text-sm font-semibold"
+							>
+								{field.label}
+							</label>
 							<div className="flex items-center gap-2">
 								<Input
+									id={`recommendation-filter-${field.key}`}
 									type="number"
 									min={0}
 									value={settings[field.key]}
@@ -430,7 +446,11 @@ export function RecommendationFilterSettings() {
 						<div className="flex flex-wrap gap-2">
 							{subscriptions.channels.slice(0, 8).map((channel, index) => (
 								<div
-									key={channel.channelId || channel.channelPath || `${channel.name}-${index}`}
+									key={
+										channel.channelId ||
+										channel.channelPath ||
+										`${channel.name}-${index}`
+									}
 									className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground"
 								>
 									{channel.name || channel.handle || channel.channelPath}
@@ -443,7 +463,9 @@ export function RecommendationFilterSettings() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<div className="text-sm font-semibold">Recent hidden recommendations</div>
+							<div className="text-sm font-semibold">
+								Recent hidden recommendations
+							</div>
 							<div className="text-xs text-muted-foreground">
 								Latest matches from the current browser session storage.
 							</div>
