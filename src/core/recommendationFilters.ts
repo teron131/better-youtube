@@ -91,9 +91,10 @@ export const FEED_FILTER_STORAGE_KEYS: Record<
 };
 
 export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
-	const result = await getStorageValues<Record<string, unknown>>(
-		Object.values(FEED_FILTER_STORAGE_KEYS),
-	);
+	const result = await getStorageValues<Record<string, unknown>>([
+		...Object.values(FEED_FILTER_STORAGE_KEYS),
+		STORAGE_KEYS.LEGACY_MAX_AGE_MONTHS,
+	]);
 
 	return {
 		viewsFilterEnabled:
@@ -127,8 +128,9 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 			result[STORAGE_KEYS.MAX_DURATION],
 			DEFAULT_FEED_FILTER_SETTINGS.maxDuration,
 		),
-		maxAgeYears: normalizeNumber(
+		maxAgeYears: normalizeAgeYears(
 			result[STORAGE_KEYS.MAX_AGE_YEARS],
+			result[STORAGE_KEYS.LEGACY_MAX_AGE_MONTHS],
 			DEFAULT_FEED_FILTER_SETTINGS.maxAgeYears,
 		),
 		keywords: normalizeKeywords(result[STORAGE_KEYS.FILTER_KEYWORDS]),
@@ -148,6 +150,25 @@ export async function getFilterStats(): Promise<FilterStats> {
 
 function normalizeNumber(value: unknown, fallback: number): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeAgeYears(
+	yearsValue: unknown,
+	legacyMonthsValue: unknown,
+	fallback: number,
+): number {
+	if (typeof yearsValue === "number" && Number.isFinite(yearsValue)) {
+		return yearsValue;
+	}
+
+	if (
+		typeof legacyMonthsValue === "number" &&
+		Number.isFinite(legacyMonthsValue)
+	) {
+		return legacyMonthsValue / 12;
+	}
+
+	return fallback;
 }
 
 function normalizeKeywords(value: unknown): string[] {

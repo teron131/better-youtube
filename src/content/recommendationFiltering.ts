@@ -95,9 +95,38 @@ function parseDuration(text: string): number {
 	return totalSeconds;
 }
 
-function parseVideoAge(text: string): number {
-	const match = text.match(/(\d+)\s+year/i);
-	return match ? parseInt(match[1], 10) : 0;
+function parseVideoAgeYears(text: string): number {
+	const normalizedText = text.trim().toLowerCase();
+	if (
+		normalizedText.includes("today") ||
+		normalizedText.includes("yesterday") ||
+		normalizedText.includes("just now")
+	) {
+		return 0;
+	}
+
+	const match = normalizedText.match(/(\d+(?:\.\d+)?)\s+(year|month)/i);
+	if (!match) {
+		return 0;
+	}
+
+	const value = parseFloat(match[1]);
+	const unit = match[2].toLowerCase();
+
+	switch (unit) {
+		case "year":
+			return value;
+		case "month":
+			return value / 12;
+		default:
+			return 0;
+	}
+}
+
+function formatAgeYears(ageYears: number): string {
+	const roundedYears =
+		ageYears >= 10 ? Math.round(ageYears) : Math.round(ageYears * 10) / 10;
+	return `${roundedYears} year${roundedYears === 1 ? "" : "s"}`;
 }
 
 function createEmptySubscriptionLookup(): SubscriptionLookup {
@@ -322,12 +351,12 @@ function checkAgeFilter(
 		return { shouldFilter: false };
 	}
 
-	const videoAge = parseVideoAge(videoData.publishTime);
-	if (videoAge >= settings.maxAgeYears) {
+	const videoAgeYears = parseVideoAgeYears(videoData.publishTime);
+	if (videoAgeYears >= settings.maxAgeYears) {
 		return {
 			shouldFilter: true,
 			reason: "age",
-			details: `Too old: ${videoData.publishTime} (${videoAge} years)`,
+			details: `Too old: ${videoData.publishTime} (${formatAgeYears(videoAgeYears)})`,
 		};
 	}
 

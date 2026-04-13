@@ -10,7 +10,6 @@ import {
 	getRecommendationFilterSettings,
 	getRecommendationFilterStats,
 	getStoredSubscriptions,
-	openSubscriptionsPage,
 	setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import {
@@ -67,13 +66,13 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		key: "viewsFilterEnabled",
 		icon: TrendingDown,
 		title: "Low Views",
-		description: "Hide recommendations that miss your minimum view threshold.",
+		description: "",
 	},
 	{
 		key: "durationFilterEnabled",
 		icon: Clock3,
 		title: "Duration Range",
-		description: "Filter recommendations outside your preferred watch length.",
+		description: "",
 	},
 	{
 		key: "keywordFilterEnabled",
@@ -85,35 +84,20 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		key: "ageFilterEnabled",
 		icon: History,
 		title: "Older Videos",
-		description: "Hide recommendations older than your year limit.",
+		description: "",
 	},
 	{
 		key: "englishOnlyTitles",
 		icon: Languages,
-		title: "English Titles Only",
-		description:
-			"Remove recommendations whose titles are not detected as English.",
+		title: "English Videos Only",
+		description: "Remove videos whose titles are not English.",
 	},
 	{
 		key: "preserveSubscribedChannels",
 		icon: ShieldCheck,
 		title: "Keep Subscriptions",
-		description:
-			"Do not hide recommendations from channels you already follow.",
+		description: "Subscriptions are immune to filters.",
 	},
-];
-
-type NumericFieldConfig = {
-	key: "minViews" | "minDuration" | "maxDuration" | "maxAgeYears";
-	label: string;
-	hint: string;
-};
-
-const NUMERIC_FIELDS: NumericFieldConfig[] = [
-	{ key: "minViews", label: "Minimum Views", hint: "views" },
-	{ key: "minDuration", label: "Minimum Duration", hint: "seconds" },
-	{ key: "maxDuration", label: "Maximum Duration", hint: "seconds" },
-	{ key: "maxAgeYears", label: "Maximum Age", hint: "years" },
 ];
 
 export function RecommendationFilterSettings() {
@@ -140,6 +124,7 @@ export function RecommendationFilterSettings() {
 				STORAGE_KEYS.MIN_DURATION,
 				STORAGE_KEYS.MAX_DURATION,
 				STORAGE_KEYS.MAX_AGE_YEARS,
+				STORAGE_KEYS.LEGACY_MAX_AGE_MONTHS,
 				STORAGE_KEYS.FILTER_KEYWORDS,
 			]),
 		[],
@@ -244,7 +229,7 @@ export function RecommendationFilterSettings() {
 			await refresh();
 			toast({
 				title: "Subscriptions imported",
-				description: `Saved ${result.count} channels from the active tab.`,
+				description: `Saved ${result.count} channels from your subscriptions page.`,
 			});
 		} catch (error) {
 			toast({
@@ -269,6 +254,104 @@ export function RecommendationFilterSettings() {
 		});
 	};
 
+	const renderMergedSettingSentence = (key: ToggleConfig["key"]) => {
+		switch (key) {
+			case "viewsFilterEnabled":
+				return (
+					<label
+						htmlFor="recommendation-filter-minViews"
+						className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95"
+					>
+						<span>Hide videos under</span>
+						<Input
+							id="recommendation-filter-minViews"
+							type="number"
+							min={0}
+							inputMode="numeric"
+							value={settings.minViews}
+							onChange={(event) =>
+								void handleSettingChange(
+									"minViews",
+									Math.max(0, Number(event.target.value) || 0),
+								)
+							}
+							className="h-9 w-28 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+						/>
+						<span>views.</span>
+					</label>
+				);
+			case "durationFilterEnabled":
+				return (
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95">
+						<span>Keep videos between</span>
+						<Input
+							id="recommendation-filter-minDuration"
+							type="number"
+							min={0}
+							inputMode="numeric"
+							value={settings.minDuration}
+							onChange={(event) =>
+								void handleSettingChange(
+									"minDuration",
+									Math.max(0, Number(event.target.value) || 0),
+								)
+							}
+							className="input-no-spinner h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+						/>
+						<span>and</span>
+						<Input
+							id="recommendation-filter-maxDuration"
+							type="number"
+							min={0}
+							inputMode="numeric"
+							value={settings.maxDuration}
+							onChange={(event) =>
+								void handleSettingChange(
+									"maxDuration",
+									Math.max(0, Number(event.target.value) || 0),
+								)
+							}
+							className="h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+						/>
+						<span>seconds.</span>
+					</div>
+				);
+			case "ageFilterEnabled":
+				return (
+					<label
+						htmlFor="recommendation-filter-maxAgeYears"
+						className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95"
+					>
+						<span>Hide videos older than</span>
+						<Input
+							id="recommendation-filter-maxAgeYears"
+							type="text"
+							inputMode="numeric"
+							pattern="[0-9]*"
+							value={String(settings.maxAgeYears)}
+							onChange={(event) =>
+								void handleSettingChange(
+									"maxAgeYears",
+									(() => {
+										const digitsOnly = event.target.value.replace(/\D/g, "");
+										if (!digitsOnly) {
+											return 0;
+										}
+
+										return Math.min(999, Number(digitsOnly));
+									})(),
+								)
+							}
+							className="h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+						/>
+						<span>years.</span>
+					</label>
+				);
+			default:
+				return null;
+		}
+	};
+
 	return (
 		<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
 			<CardHeader className="p-4 pb-1">
@@ -279,24 +362,29 @@ export function RecommendationFilterSettings() {
 					</span>
 				</div>
 			</CardHeader>
-			<CardContent className="p-4 pt-1 space-y-4">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+			<CardContent className="p-4 pt-2 space-y-5">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					{TOGGLE_ITEMS.map((item) => {
 						const Icon = item.icon;
 						return (
 							<div
 								key={item.key}
-								className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3"
+								className="flex min-h-[104px] items-start justify-between gap-4 rounded-[18px] border border-border/70 bg-card/70 px-4 py-3.5 transition-colors hover:border-border"
 							>
 								<div className="flex items-start gap-3">
-									<div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/20 text-primary">
+									<div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
 										<Icon className="h-4 w-4" />
 									</div>
-									<div className="space-y-0.5">
-										<div className="text-sm font-semibold">{item.title}</div>
-										<div className="text-xs text-muted-foreground">
-											{item.description}
+									<div className="space-y-2">
+										<div className="text-sm font-semibold leading-none">
+											{item.title}
 										</div>
+										{renderMergedSettingSentence(item.key)}
+										{item.description ? (
+											<div className="max-w-[28ch] text-[13px] leading-5 text-muted-foreground">
+												{item.description}
+											</div>
+										) : null}
 									</div>
 								</div>
 								<Switch
@@ -311,74 +399,47 @@ export function RecommendationFilterSettings() {
 					})}
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					{NUMERIC_FIELDS.map((field) => (
-						<div key={field.key} className="space-y-1">
-							<label
-								htmlFor={`recommendation-filter-${field.key}`}
-								className="text-sm font-semibold"
-							>
-								{field.label}
-							</label>
-							<div className="flex items-center gap-2">
-								<Input
-									id={`recommendation-filter-${field.key}`}
-									type="number"
-									min={0}
-									value={settings[field.key]}
-									onChange={(event) =>
-										void handleSettingChange(
-											field.key,
-											Math.max(0, Number(event.target.value) || 0),
-										)
-									}
-									className="h-10 rounded-xl"
-								/>
-								<span className="text-xs text-muted-foreground">
-									{field.hint}
-								</span>
-							</div>
-						</div>
-					))}
-				</div>
-
-				<div className="space-y-2">
-					<div className="flex items-center justify-between">
+				<div className="rounded-[18px] border border-border/70 bg-card/70 p-4">
+					<div className="space-y-3">
 						<div>
 							<div className="text-sm font-semibold">Blocked Keywords</div>
-							<div className="text-xs text-muted-foreground">
+							<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
 								Titles containing one of these words will be hidden.
 							</div>
 						</div>
-					</div>
-					<div className="flex gap-2">
-						<Input
-							value={newKeyword}
-							onChange={(event) => setNewKeyword(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") {
-									event.preventDefault();
-									void addKeyword();
-								}
-							}}
-							className="h-10 rounded-xl"
-							placeholder="Add Keyword"
-						/>
-						<Button type="button" onClick={() => void addKeyword()}>
-							Add
-						</Button>
-					</div>
-					<div className="flex flex-wrap gap-2">
-						{settings.keywords.map((keyword) => (
-							<button
-								key={keyword}
+						<div className="flex flex-col gap-2 sm:flex-row">
+							<Input
+								value={newKeyword}
+								onChange={(event) => setNewKeyword(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										void addKeyword();
+									}
+								}}
+								className="h-11 rounded-xl border-border/70 bg-background/70"
+								placeholder="Add Keyword"
+							/>
+							<Button
 								type="button"
-								onClick={() => void removeKeyword(keyword)}
-								className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+								onClick={() => void addKeyword()}
+								className="h-10 min-w-[8.5rem] self-end rounded-xl px-4 text-sm sm:h-11 sm:self-auto"
 							>
-								{keyword} ×
-							</button>
-						))}
+								Add
+							</Button>
+						</div>
+						<div className="flex flex-wrap gap-2">
+							{settings.keywords.map((keyword) => (
+								<button
+									key={keyword}
+									type="button"
+									onClick={() => void removeKeyword(keyword)}
+									className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+								>
+									{keyword} ×
+								</button>
+							))}
+						</div>
 					</div>
 				</div>
 
@@ -388,12 +449,12 @@ export function RecommendationFilterSettings() {
 						{STAT_ITEMS.map((item) => (
 							<div
 								key={item.key}
-								className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-2"
+								className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2.5"
 							>
-								<div className="text-lg font-semibold leading-none">
+								<div className="text-2xl font-semibold leading-none tracking-tight">
 									{stats[item.key]}
 								</div>
-								<div className="mt-1 text-[11px] text-muted-foreground">
+								<div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
 									{item.label}
 								</div>
 							</div>
@@ -401,49 +462,40 @@ export function RecommendationFilterSettings() {
 					</div>
 				</div>
 
-				<div className="space-y-2 rounded-2xl border border-border/60 bg-muted/30 p-3">
+				<div className="rounded-[18px] border border-border/70 bg-card/70 p-4">
 					<div className="flex items-start justify-between gap-4">
-						<div className="space-y-1">
+						<div className="min-w-0 flex-1 space-y-1.5">
 							<div className="flex items-center gap-2 text-sm font-semibold">
 								<Users className="h-4 w-4 text-primary" />
 								Subscribed Channels
 							</div>
-							<div className="text-xs text-muted-foreground">
-								Import your YouTube subscriptions so recommendation filters can
-								leave those channels visible.
+							<div className="max-w-[42ch] text-[13px] leading-5 text-muted-foreground">
+								Import your YouTube subscriptions to make the videos immune to
+								the filters.
 							</div>
-							<div className="text-xs text-muted-foreground">
+							<div className="text-xs font-medium text-muted-foreground">
 								{subscriptions?.count || 0} channels saved
 								{subscriptions?.extracted
 									? ` • Updated ${new Date(subscriptions.extracted).toLocaleString()}`
 									: ""}
 							</div>
 						</div>
-						<div className="flex flex-wrap gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => void openSubscriptionsPage()}
-								className="rounded-xl"
-							>
+						<Button
+							type="button"
+							onClick={() => void handleExtractSubscriptions()}
+							disabled={isExtracting}
+							className="h-10 min-w-[8.5rem] shrink-0 rounded-xl px-4 text-sm sm:h-11"
+						>
+							{isExtracting ? (
+								<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+							) : (
 								<ExternalLink className="mr-2 h-4 w-4" />
-								Open Page
-							</Button>
-							<Button
-								type="button"
-								onClick={() => void handleExtractSubscriptions()}
-								disabled={isExtracting}
-								className="rounded-xl"
-							>
-								<RefreshCw
-									className={`mr-2 h-4 w-4 ${isExtracting ? "animate-spin" : ""}`}
-								/>
-								{isExtracting ? "Importing..." : "Import Active Tab"}
-							</Button>
-						</div>
+							)}
+							{isExtracting ? "Importing..." : "Import"}
+						</Button>
 					</div>
 					{subscriptions?.channels?.length ? (
-						<div className="flex flex-wrap gap-2">
+						<div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
 							{subscriptions.channels.slice(0, 8).map((channel, index) => (
 								<div
 									key={
@@ -466,7 +518,7 @@ export function RecommendationFilterSettings() {
 							<div className="text-sm font-semibold">
 								Recent Hidden Recommendations
 							</div>
-							<div className="text-xs text-muted-foreground">
+							<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
 								Latest matches from the current browser session storage.
 							</div>
 						</div>
@@ -487,7 +539,7 @@ export function RecommendationFilterSettings() {
 								.map((entry) => (
 									<div
 										key={`${entry.timestamp}-${entry.title}`}
-										className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-2"
+										className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2.5"
 									>
 										<div className="text-sm font-medium">{entry.title}</div>
 										<div className="mt-1 text-xs text-muted-foreground">
@@ -496,7 +548,7 @@ export function RecommendationFilterSettings() {
 									</div>
 								))
 						) : (
-							<div className="rounded-2xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+							<div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-3 py-5 text-sm text-muted-foreground">
 								No recommendation matches recorded yet.
 							</div>
 						)}
