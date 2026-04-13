@@ -87,6 +87,7 @@ export function resolveModel(
 export async function loadConfig(): Promise<AppConfig> {
 	const keys = [
 		STORAGE_KEYS.LLM_API_KEY,
+		STORAGE_KEYS.LLM_BASE_URL,
 		STORAGE_KEYS.GEMINI_API_KEY,
 		STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
 		STORAGE_KEYS.SUPADATA_API_KEY,

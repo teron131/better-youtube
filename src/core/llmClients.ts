@@ -4,18 +4,19 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS } from "./constants";
-import { getLlmApiKey, getLlmBaseUrl } from "./runtimeConfig";
+import { loadRuntimeConfigSnapshot } from "./runtimeConfig";
 
 export async function createLlmClient(
 	model: string,
 	title: string = "Better YouTube",
 ): Promise<ChatOpenAI> {
+	const runtimeConfig = await loadRuntimeConfigSnapshot();
 	const apiKey =
-		(await getLlmApiKey()) ||
+		runtimeConfig.llmApiKey ||
 		(typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
 	if (!apiKey) throw new Error("LLM API key missing");
 
-	const llmBaseUrl = await getLlmBaseUrl();
+	const llmBaseUrl = runtimeConfig.llmBaseUrl;
 
 	const httpReferer =
 		typeof chrome !== "undefined" && chrome.runtime?.getURL

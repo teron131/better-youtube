@@ -25,36 +25,21 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { AppConfig } from "@/core/config";
+import { loadConfig } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import {
 	MESSAGE_ACTIONS,
 	STORAGE_KEYS,
 	TARGET_LANGUAGES,
 } from "@/core/constants";
-import { getStorageValues, setStorageValue } from "@/core/storage";
+import { setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
-
-const SETTINGS_KEYS = [
-	STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-	STORAGE_KEYS.SUPADATA_API_KEY,
-	STORAGE_KEYS.LLM_API_KEY,
-	STORAGE_KEYS.GEMINI_API_KEY,
-	"summarizerProvider",
-	"summarizerMode",
-	"transcriptProviderPreference",
-	"summarizerModel",
-	"refinerModel",
-	"targetLanguage",
-	"captionFontSize",
-	"summaryFontSize",
-	"autoGenerate",
-];
 
 const DEFAULT_SETTINGS = {
 	scrapeCreatorsApiKey: "",
 	supadataApiKey: "",
 	llmApiKey: "",
+	llmBaseUrl: "",
 	geminiApiKey: "",
 	summarizerProvider: "auto",
 	summarizerMode: "validation",
@@ -67,9 +52,22 @@ const DEFAULT_SETTINGS = {
 	autoGenerate: false,
 };
 
+type ApiField = {
+	key:
+		| typeof STORAGE_KEYS.SCRAPE_CREATORS_API_KEY
+		| typeof STORAGE_KEYS.SUPADATA_API_KEY
+		| typeof STORAGE_KEYS.LLM_API_KEY
+		| typeof STORAGE_KEYS.LLM_BASE_URL
+		| typeof STORAGE_KEYS.GEMINI_API_KEY;
+	label: string;
+	href?: string;
+	placeholder: string;
+	type?: "password" | "url";
+};
+
 const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
 const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
-const API_KEY_FIELDS = [
+const API_KEY_FIELDS: ApiField[] = [
 	{
 		key: STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
 		label: "Scrape Creators API Key",
@@ -86,19 +84,39 @@ const API_KEY_FIELDS = [
 		key: STORAGE_KEYS.LLM_API_KEY,
 		label: "LLM API Key",
 		placeholder: "sk-...",
+		type: "password",
 	},
 	{
 		key: STORAGE_KEYS.LLM_BASE_URL,
 		label: "LLM Base URL",
 		placeholder: "https://api.openai.com/v1",
+		type: "url",
 	},
 	{
 		key: STORAGE_KEYS.GEMINI_API_KEY,
 		label: "Gemini API Key",
 		href: "https://aistudio.google.com/api-keys",
 		placeholder: "...",
+		type: "password",
 	},
 ] as const;
+
+const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
+	scrapeCreatorsApiKey: STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
+	supadataApiKey: STORAGE_KEYS.SUPADATA_API_KEY,
+	llmApiKey: STORAGE_KEYS.LLM_API_KEY,
+	llmBaseUrl: STORAGE_KEYS.LLM_BASE_URL,
+	geminiApiKey: STORAGE_KEYS.GEMINI_API_KEY,
+	summarizerProvider: STORAGE_KEYS.SUMMARIZER_PROVIDER,
+	summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
+	transcriptProviderPreference: STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE,
+	summarizerModel: STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+	refinerModel: STORAGE_KEYS.REFINER_CUSTOM_MODEL,
+	targetLanguage: STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+	captionFontSize: STORAGE_KEYS.CAPTION_FONT_SIZE,
+	summaryFontSize: STORAGE_KEYS.SUMMARY_FONT_SIZE,
+	autoGenerate: STORAGE_KEYS.AUTO_GENERATE,
+};
 
 const Settings = () => {
 	const navigate = useNavigate();
@@ -110,15 +128,25 @@ const Settings = () => {
 	useEffect(() => {
 		const loadSettings = async () => {
 			try {
-				const stored = await getStorageValues(SETTINGS_KEYS);
-				setSettings((prev) => {
-					const next = { ...prev, ...stored } as AppConfig;
-
-					return next;
-				});
-				if (stored.summaryFontSize) {
-					applySummaryFontSize(stored.summaryFontSize as FontSize);
-				}
+				const config = await loadConfig();
+				const nextSettings: typeof DEFAULT_SETTINGS = {
+					scrapeCreatorsApiKey: config.scrapeCreatorsApiKey ?? "",
+					supadataApiKey: config.supadataApiKey ?? "",
+					llmApiKey: config.llmApiKey ?? "",
+					llmBaseUrl: config.llmBaseUrl ?? "",
+					geminiApiKey: config.geminiApiKey ?? "",
+					summarizerProvider: config.summarizerProvider,
+					summarizerMode: config.summarizerMode,
+					transcriptProviderPreference: config.transcriptProviderPreference,
+					summarizerModel: config.summarizerModel,
+					refinerModel: config.refinerModel,
+					targetLanguage: config.targetLanguage,
+					captionFontSize: config.captionFontSize,
+					summaryFontSize: config.summaryFontSize,
+					autoGenerate: config.autoGenerate,
+				};
+				setSettings(nextSettings);
+				applySummaryFontSize(nextSettings.summaryFontSize as FontSize);
 			} catch (error) {
 				console.error("Failed to load settings:", error);
 				toast({
@@ -145,10 +173,13 @@ const Settings = () => {
 		});
 	};
 
-	const handleChange = async (key: string, value: any) => {
+	const handleChange = async <K extends keyof typeof DEFAULT_SETTINGS>(
+		key: K,
+		value: (typeof DEFAULT_SETTINGS)[K],
+	) => {
 		setSettings((prev) => ({ ...prev, [key]: value }));
 		try {
-			await setStorageValue(key, value);
+			await setStorageValue(SETTINGS_STORAGE_KEYS[key], value);
 			console.log(`Auto-saved ${key}:`, value);
 			if (key === "summaryFontSize") {
 				applySummaryFontSize(value as FontSize);
@@ -259,7 +290,7 @@ const Settings = () => {
 									</div>
 									<Input
 										id={field.key}
-										type="password"
+										type={field.type ?? "password"}
 										value={settings[field.key]}
 										onChange={(e) => handleChange(field.key, e.target.value)}
 										className="h-10 rounded-xl"
