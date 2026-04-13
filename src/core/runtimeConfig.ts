@@ -108,6 +108,7 @@ export async function initGlobalConfig(force = false): Promise<void> {
 export function clearConfigCache(): void {
 	isConfigInitialized = false;
 	globalLlmApiKey = null;
+	globalLlmBaseUrl = null;
 	globalGeminiKey = null;
 	globalScrapeCreatorsKey = null;
 	globalSupadataKey = null;
