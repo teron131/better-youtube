@@ -73,7 +73,10 @@ export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
 	keywords: [...DEFAULTS.FILTER_KEYWORDS],
 };
 
-export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> = {
+export const FEED_FILTER_STORAGE_KEYS: Record<
+	keyof FeedFilterSettings,
+	string
+> = {
 	viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
 	durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
 	keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
@@ -111,8 +114,7 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 		preserveSubscribedChannels:
 			(result[STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS] as
 				| boolean
-				| undefined) ??
-			DEFAULT_FEED_FILTER_SETTINGS.preserveSubscribedChannels,
+				| undefined) ?? DEFAULT_FEED_FILTER_SETTINGS.preserveSubscribedChannels,
 		minViews: normalizeNumber(
 			result[STORAGE_KEYS.MIN_VIEWS],
 			DEFAULT_FEED_FILTER_SETTINGS.minViews,

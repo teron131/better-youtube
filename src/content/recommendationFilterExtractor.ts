@@ -126,7 +126,9 @@ export function getChannelIdFromPath(path: string | null): string | null {
 	return path.split("/channel/")[1] || null;
 }
 
-export function getNormalizedChannelId(videoData: VideoCardData): string | null {
+export function getNormalizedChannelId(
+	videoData: VideoCardData,
+): string | null {
 	return typeof videoData.channelId === "string" &&
 		videoData.channelId.startsWith("UC")
 		? videoData.channelId
@@ -144,7 +146,9 @@ export function getContainingVideoCard(node: Node): Element | null {
 	return node.parentElement?.closest(VIDEO_CARD_SELECTOR) || null;
 }
 
-export function queueVideoCardForReprocessing(videoElement: Element | null): void {
+export function queueVideoCardForReprocessing(
+	videoElement: Element | null,
+): void {
 	if (!videoElement) {
 		return;
 	}
@@ -227,7 +231,10 @@ function flattenMetadataTexts(metadataRows: unknown): string[] {
 		.filter((part): part is string => Boolean(part));
 }
 
-function findMetadataText(metadataTexts: string[], pattern: RegExp): string | null {
+function findMetadataText(
+	metadataTexts: string[],
+	pattern: RegExp,
+): string | null {
 	return metadataTexts.find((text) => pattern.test(text)) || null;
 }
 
@@ -296,10 +303,14 @@ function extractHomeDuration(lockupViewModel: unknown): string | null {
 		lockupViewModel &&
 		typeof lockupViewModel === "object" &&
 		"contentImage" in lockupViewModel
-			? (((lockupViewModel as Record<string, unknown>).contentImage as Record<
-					string,
-					unknown
-				>)?.thumbnailViewModel as Record<string, unknown>)?.overlays
+			? (
+					(
+						(lockupViewModel as Record<string, unknown>).contentImage as Record<
+							string,
+							unknown
+						>
+					)?.thumbnailViewModel as Record<string, unknown>
+				)?.overlays
 			: [];
 
 	if (!Array.isArray(overlays)) {
@@ -326,7 +337,8 @@ function extractHomeDuration(lockupViewModel: unknown): string | null {
 			if (!badge || typeof badge !== "object") {
 				continue;
 			}
-			const badgeViewModel = (badge as Record<string, unknown>).thumbnailBadgeViewModel;
+			const badgeViewModel = (badge as Record<string, unknown>)
+				.thumbnailBadgeViewModel;
 			const duration = normalizeDurationText(
 				badgeViewModel &&
 					typeof badgeViewModel === "object" &&
@@ -390,10 +402,9 @@ function isSearchRenderer(rendererData: Record<string, unknown>): boolean {
 	);
 }
 
-function extractSearchVideo(rendererData: Record<string, unknown>): Omit<
-	VideoCardData,
-	"titleLanguage"
-> {
+function extractSearchVideo(
+	rendererData: Record<string, unknown>,
+): Omit<VideoCardData, "titleLanguage"> {
 	const searchChannelInfo = getChannelInfoFromRuns(
 		rendererData.ownerText || rendererData.longBylineText,
 	);
@@ -417,24 +428,28 @@ function extractSearchVideo(rendererData: Record<string, unknown>): Omit<
 	};
 }
 
-function extractLockupVideo(lockupViewModel: Record<string, unknown>): Omit<
-	VideoCardData,
-	"titleLanguage"
-> {
-	const metadata = lockupViewModel.metadata as Record<string, unknown> | undefined;
+function extractLockupVideo(
+	lockupViewModel: Record<string, unknown>,
+): Omit<VideoCardData, "titleLanguage"> {
+	const metadata = lockupViewModel.metadata as
+		| Record<string, unknown>
+		| undefined;
 	const lockupMetadataViewModel = metadata?.lockupMetadataViewModel as
 		| Record<string, unknown>
 		| undefined;
 	const metadataContainer = lockupMetadataViewModel?.metadata as
 		| Record<string, unknown>
 		| undefined;
-	const contentMetadataViewModel = metadataContainer?.contentMetadataViewModel as
-		| Record<string, unknown>
-		| undefined;
+	const contentMetadataViewModel =
+		metadataContainer?.contentMetadataViewModel as
+			| Record<string, unknown>
+			| undefined;
 	const metadataRows = contentMetadataViewModel?.metadataRows || [];
 	const metadataTexts = flattenMetadataTexts(metadataRows);
 	const firstRow = Array.isArray(metadataRows)
-		? (metadataRows[0] as { metadataParts?: Array<{ text?: { commandRuns?: unknown[] } }> })
+		? (metadataRows[0] as {
+				metadataParts?: Array<{ text?: { commandRuns?: unknown[] } }>;
+			})
 		: undefined;
 	const uploaderPart = firstRow?.metadataParts?.[0]?.text;
 	const commandRuns = Array.isArray(uploaderPart?.commandRuns)
@@ -463,10 +478,9 @@ function extractLockupVideo(lockupViewModel: Record<string, unknown>): Omit<
 	};
 }
 
-function extractVideoFromRenderer(rendererData: unknown): Omit<
-	VideoCardData,
-	"titleLanguage"
-> | null {
+function extractVideoFromRenderer(
+	rendererData: unknown,
+): Omit<VideoCardData, "titleLanguage"> | null {
 	if (!rendererData || typeof rendererData !== "object") {
 		return null;
 	}
@@ -486,7 +500,10 @@ function extractVideoFromRenderer(rendererData: unknown): Omit<
 	return extractLockupVideo(lockupViewModel as Record<string, unknown>);
 }
 
-function getFirstMatchingElement(root: Element, selectors: string[]): Element | null {
+function getFirstMatchingElement(
+	root: Element,
+	selectors: string[],
+): Element | null {
 	for (const selector of selectors) {
 		const element = root.querySelector(selector);
 		if (element) {
@@ -500,7 +517,8 @@ function getFirstMatchingElement(root: Element, selectors: string[]): Element | 
 function getMetadataText(videoElement: Element): string | null {
 	return normalizeText(
 		METADATA_TEXT_SELECTORS.map(
-			(selector) => (videoElement.querySelector(selector) as HTMLElement | null)?.innerText,
+			(selector) =>
+				(videoElement.querySelector(selector) as HTMLElement | null)?.innerText,
 		)
 			.filter(Boolean)
 			.join(" "),
@@ -509,14 +527,20 @@ function getMetadataText(videoElement: Element): string | null {
 
 function extractDurationFromElement(videoElement: Element): string | null {
 	for (const selector of DURATION_SELECTORS) {
-		const text = normalizeText(videoElement.querySelector(selector)?.textContent);
+		const text = normalizeText(
+			videoElement.querySelector(selector)?.textContent,
+		);
 		if (text && DURATION_TEXT_PATTERN.test(text)) {
 			return text;
 		}
 	}
 
-	const thumbnailLink = videoElement.querySelector("a#thumbnail, a[href*='/watch']");
-	const thumbnailText = normalizeText((thumbnailLink as HTMLElement | null)?.innerText);
+	const thumbnailLink = videoElement.querySelector(
+		"a#thumbnail, a[href*='/watch']",
+	);
+	const thumbnailText = normalizeText(
+		(thumbnailLink as HTMLElement | null)?.innerText,
+	);
 	return thumbnailText?.match(DURATION_TEXT_PATTERN)?.[0] || null;
 }
 
@@ -529,7 +553,10 @@ function extractMatch(text: string | null, pattern: RegExp): string | null {
 	return match ? normalizeText(match[0]) : null;
 }
 
-function fillMetadataFromText(videoData: Omit<VideoCardData, "titleLanguage">, metadataText: string | null) {
+function fillMetadataFromText(
+	videoData: Omit<VideoCardData, "titleLanguage">,
+	metadataText: string | null,
+) {
 	if (!videoData.viewCount) {
 		videoData.viewCount =
 			extractMatch(metadataText, VIEW_COUNT_PATTERN) ||
@@ -576,7 +603,9 @@ function fillChannelInfoFromLink(
 	}
 
 	if (!videoData.channelPath) {
-		videoData.channelPath = normalizeChannelPath(channelLink.getAttribute("href"));
+		videoData.channelPath = normalizeChannelPath(
+			channelLink.getAttribute("href"),
+		);
 	}
 	if (!videoData.channelId) {
 		videoData.channelId = getChannelIdFromPath(videoData.channelPath);
@@ -592,7 +621,10 @@ function fillLockupChannelNameFromText(
 	videoElement: Element,
 	videoData: Omit<VideoCardData, "titleLanguage">,
 ) {
-	if (videoData.channelName || videoElement.tagName !== "YT-LOCKUP-VIEW-MODEL") {
+	if (
+		videoData.channelName ||
+		videoElement.tagName !== "YT-LOCKUP-VIEW-MODEL"
+	) {
 		return;
 	}
 
@@ -652,7 +684,10 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 		}
 
 		if (!data.title) {
-			const titleElement = getFirstMatchingElement(videoElement, TITLE_SELECTORS);
+			const titleElement = getFirstMatchingElement(
+				videoElement,
+				TITLE_SELECTORS,
+			);
 			data.title =
 				normalizeText(titleElement?.textContent) ||
 				normalizeText(titleElement?.getAttribute("title")) ||
@@ -664,7 +699,10 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 		}
 
 		fillMetadataFromText(data, getMetadataText(videoElement));
-		fillMetadataFromFullText(data, normalizeText((videoElement as HTMLElement).innerText));
+		fillMetadataFromFullText(
+			data,
+			normalizeText((videoElement as HTMLElement).innerText),
+		);
 		fillChannelInfoFromLink(videoElement, data);
 		fillLockupChannelNameFromText(videoElement, data);
 	} catch (error) {
