@@ -66,38 +66,38 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 	{
 		key: "viewsFilterEnabled",
 		icon: TrendingDown,
-		title: "Low views",
+		title: "Low Views",
 		description: "Hide recommendations that miss your minimum view threshold.",
 	},
 	{
 		key: "durationFilterEnabled",
 		icon: Clock3,
-		title: "Duration range",
+		title: "Duration Range",
 		description: "Filter recommendations outside your preferred watch length.",
 	},
 	{
 		key: "keywordFilterEnabled",
 		icon: ListFilter,
-		title: "Keyword match",
+		title: "Keyword Match",
 		description: "Suppress recommendations with blocked words in the title.",
 	},
 	{
 		key: "ageFilterEnabled",
 		icon: History,
-		title: "Older videos",
+		title: "Older Videos",
 		description: "Hide recommendations older than your year limit.",
 	},
 	{
 		key: "englishOnlyTitles",
 		icon: Languages,
-		title: "English titles only",
+		title: "English Titles Only",
 		description:
 			"Remove recommendations whose titles are not detected as English.",
 	},
 	{
 		key: "preserveSubscribedChannels",
 		icon: ShieldCheck,
-		title: "Keep subscriptions",
+		title: "Keep Subscriptions",
 		description:
 			"Do not hide recommendations from channels you already follow.",
 	},
@@ -110,10 +110,10 @@ type NumericFieldConfig = {
 };
 
 const NUMERIC_FIELDS: NumericFieldConfig[] = [
-	{ key: "minViews", label: "Minimum views", hint: "views" },
-	{ key: "minDuration", label: "Minimum duration", hint: "seconds" },
-	{ key: "maxDuration", label: "Maximum duration", hint: "seconds" },
-	{ key: "maxAgeYears", label: "Maximum age", hint: "years" },
+	{ key: "minViews", label: "Minimum Views", hint: "views" },
+	{ key: "minDuration", label: "Minimum Duration", hint: "seconds" },
+	{ key: "maxDuration", label: "Maximum Duration", hint: "seconds" },
+	{ key: "maxAgeYears", label: "Maximum Age", hint: "years" },
 ];
 
 export function RecommendationFilterSettings() {
@@ -345,7 +345,7 @@ export function RecommendationFilterSettings() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<div>
-							<div className="text-sm font-semibold">Blocked keywords</div>
+							<div className="text-sm font-semibold">Blocked Keywords</div>
 							<div className="text-xs text-muted-foreground">
 								Titles containing one of these words will be hidden.
 							</div>
@@ -362,7 +362,7 @@ export function RecommendationFilterSettings() {
 								}
 							}}
 							className="h-10 rounded-xl"
-							placeholder="Add keyword"
+							placeholder="Add Keyword"
 						/>
 						<Button type="button" onClick={() => void addKeyword()}>
 							Add
@@ -383,7 +383,7 @@ export function RecommendationFilterSettings() {
 				</div>
 
 				<div className="space-y-2">
-					<div className="text-sm font-semibold">Current filter stats</div>
+					<div className="text-sm font-semibold">Current Filter Stats</div>
 					<div className="grid grid-cols-2 md:grid-cols-6 gap-2">
 						{STAT_ITEMS.map((item) => (
 							<div
@@ -406,7 +406,7 @@ export function RecommendationFilterSettings() {
 						<div className="space-y-1">
 							<div className="flex items-center gap-2 text-sm font-semibold">
 								<Users className="h-4 w-4 text-primary" />
-								Subscribed channels
+								Subscribed Channels
 							</div>
 							<div className="text-xs text-muted-foreground">
 								Import your YouTube subscriptions so recommendation filters can
@@ -427,7 +427,7 @@ export function RecommendationFilterSettings() {
 								className="rounded-xl"
 							>
 								<ExternalLink className="mr-2 h-4 w-4" />
-								Open page
+								Open Page
 							</Button>
 							<Button
 								type="button"
@@ -438,7 +438,7 @@ export function RecommendationFilterSettings() {
 								<RefreshCw
 									className={`mr-2 h-4 w-4 ${isExtracting ? "animate-spin" : ""}`}
 								/>
-								{isExtracting ? "Importing..." : "Import active tab"}
+								{isExtracting ? "Importing..." : "Import Active Tab"}
 							</Button>
 						</div>
 					</div>
@@ -464,7 +464,7 @@ export function RecommendationFilterSettings() {
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<div className="text-sm font-semibold">
-								Recent hidden recommendations
+								Recent Hidden Recommendations
 							</div>
 							<div className="text-xs text-muted-foreground">
 								Latest matches from the current browser session storage.
