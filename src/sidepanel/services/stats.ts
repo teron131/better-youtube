@@ -107,6 +107,26 @@ function meanOfFinite(values: Array<number | null>): number | null {
 	);
 }
 
+function percentileScore(
+	sortedValues: number[],
+	value: number | null,
+): number | null {
+	if (value == null || sortedValues.length === 0) {
+		return null;
+	}
+
+	if (sortedValues.length === 1) {
+		return 100;
+	}
+
+	const index = sortedValues.indexOf(value);
+	if (index === -1) {
+		return null;
+	}
+
+	return (index / (sortedValues.length - 1)) * 100;
+}
+
 function firstOpenRouterProvider(modelId: string): string {
 	return modelId.split("/")[0] || "";
 }
@@ -163,6 +183,7 @@ function availableModelFromOpenRouterModel(
 		label: `${model.name} ($${blendedPrice.toFixed(2)})`,
 		provider: firstOpenRouterProvider(model.id),
 		recommended: true,
+		price: blendedPrice,
 	};
 }
 
@@ -191,7 +212,11 @@ function isAffordableTextModel(
 function buildLeaderboardScores(
 	rows: LeaderboardRow[],
 ): Record<string, LeaderboardStat> {
-	const scores: Record<string, LeaderboardStat> = {};
+	const speedMetrics: Array<{
+		modelId: string;
+		intelligenceScore: number | null;
+		rawSpeedMetric: number | null;
+	}> = [];
 
 	for (const row of rows) {
 		const openrouterApiId = row.openrouterApiId;
@@ -216,15 +241,29 @@ function buildLeaderboardScores(
 				? 1000 / endToEndLatency
 				: null,
 		]);
-		const speedScore = meanOfFinite([outputSpeed, latencyScore]);
+		const rawSpeedMetric = meanOfFinite([outputSpeed, latencyScore]);
 
-		scores[normalizeOpenRouterModelId(openrouterApiId)] = {
+		speedMetrics.push({
+			modelId: normalizeOpenRouterModelId(openrouterApiId),
 			intelligenceScore,
-			speedScore,
-		};
+			rawSpeedMetric,
+		});
 	}
 
-	return scores;
+	const sortedSpeedMetrics = speedMetrics
+		.map((entry) => entry.rawSpeedMetric)
+		.filter((value): value is number => value != null && Number.isFinite(value))
+		.sort((left, right) => left - right);
+
+	return Object.fromEntries(
+		speedMetrics.map(({ modelId, intelligenceScore, rawSpeedMetric }) => [
+			modelId,
+			{
+				intelligenceScore,
+				speedScore: percentileScore(sortedSpeedMetrics, rawSpeedMetric),
+			},
+		]),
+	);
 }
 
 function buildLeaderboardProviderLogos(

@@ -75,6 +75,7 @@ export type AvailableModel = {
 	fallbackLogo?: string;
 	intelligenceScore?: number | null;
 	speedScore?: number | null;
+	price?: number | null;
 };
 
 export type SupportedLanguage = {
