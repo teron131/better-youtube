@@ -150,7 +150,6 @@ function createSummaryListener(
 
 	const promise = new Promise<SummaryListenerResult>((resolve, reject) => {
 		let settled = false;
-		let timeoutId: NodeJS.Timeout;
 		const signal = control?.signal;
 		const runId = control?.runId;
 		let removeAbortListener = () => {};
@@ -215,7 +214,7 @@ function createSummaryListener(
 
 		chrome.runtime.onMessage.addListener(listener);
 
-		timeoutId = setTimeout(() => {
+		const timeoutId = setTimeout(() => {
 			console.warn("[stream] summary timeout", {
 				videoId,
 				requestId,

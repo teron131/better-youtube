@@ -49,13 +49,15 @@ class ContentManager {
 	};
 
 	private currentUrl: string = window.location.href;
-	private urlObserver: MutationObserver | null = null;
 	private isUrlMonitoringStarted = false;
+	private urlCheckTimeout: number | null = null;
 
 	constructor() {
 		this.checkAndTriggerAutoGeneration =
 			this.checkAndTriggerAutoGeneration.bind(this);
 		this.clearSubtitles = this.clearSubtitles.bind(this);
+		this.handlePotentialUrlChange = this.handlePotentialUrlChange.bind(this);
+		this.scheduleUrlCheck = this.scheduleUrlCheck.bind(this);
 	}
 
 	/**
@@ -88,30 +90,43 @@ class ContentManager {
 	 * Monitor URL changes on YouTube
 	 */
 	private monitorUrlChanges(): void {
-		this.urlObserver?.disconnect();
-		this.urlObserver = new MutationObserver(() => {
-			if (!isExtensionContextValid()) {
-				this.urlObserver?.disconnect();
-				return;
-			}
+		document.addEventListener("yt-navigate-finish", this.scheduleUrlCheck);
+		document.addEventListener("yt-page-data-updated", this.scheduleUrlCheck);
+		window.addEventListener("popstate", this.scheduleUrlCheck);
+		window.addEventListener("hashchange", this.scheduleUrlCheck);
+		document.addEventListener("visibilitychange", this.scheduleUrlCheck);
+	}
 
-			const newUrl = window.location.href;
-			if (this.currentUrl !== newUrl) {
-				const oldVideoId = extractVideoId(this.currentUrl);
-				const newVideoId = extractVideoId(newUrl);
-				this.currentUrl = newUrl;
+	private scheduleUrlCheck(): void {
+		if (this.urlCheckTimeout !== null) {
+			window.clearTimeout(this.urlCheckTimeout);
+		}
 
-				// Only trigger updates if the video ID actually changed
-				if (oldVideoId !== newVideoId) {
-					if (oldVideoId) clearAutoGenTrigger(oldVideoId);
-					this.onUrlChange();
-				}
-			}
-		});
-		this.urlObserver.observe(document.body, {
-			childList: true,
-			subtree: true,
-		});
+		this.urlCheckTimeout = window.setTimeout(() => {
+			this.urlCheckTimeout = null;
+			this.handlePotentialUrlChange();
+		}, 0);
+	}
+
+	private handlePotentialUrlChange(): void {
+		if (!isExtensionContextValid()) {
+			return;
+		}
+
+		const newUrl = window.location.href;
+		if (this.currentUrl === newUrl) {
+			return;
+		}
+
+		const oldVideoId = extractVideoId(this.currentUrl);
+		const newVideoId = extractVideoId(newUrl);
+		this.currentUrl = newUrl;
+
+		// Only trigger updates if the video ID actually changed
+		if (oldVideoId !== newVideoId) {
+			if (oldVideoId) clearAutoGenTrigger(oldVideoId);
+			this.onUrlChange();
+		}
 	}
 
 	private onUrlChange(): void {

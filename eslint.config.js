@@ -52,4 +52,10 @@ export default [
 			],
 		},
 	},
+	{
+		files: ["src/sidepanel/components/ui/**/*.{ts,tsx}"],
+		rules: {
+			"react-refresh/only-export-components": "off",
+		},
+	},
 ];

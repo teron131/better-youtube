@@ -18,6 +18,8 @@ let activeVideoId: string | null = null;
 class SubtitleView {
 	private container: HTMLDivElement | null = null;
 	private textElement: HTMLDivElement | null = null;
+	private currentText = "";
+	private isVisible = false;
 
 	constructor() {
 		this.ensureElements();
@@ -33,6 +35,8 @@ class SubtitleView {
 		if (existingContainer && existingText) {
 			this.container = existingContainer;
 			this.textElement = existingText;
+			this.currentText = existingText.textContent || "";
+			this.isVisible = getComputedStyle(existingContainer).display !== "none";
 			return;
 		}
 
@@ -61,23 +65,27 @@ class SubtitleView {
 	}
 
 	setText(text: string): void {
-		if (this.textElement && this.textElement.textContent !== text) {
+		if (this.textElement && this.currentText !== text) {
 			this.textElement.textContent = text;
+			this.currentText = text;
 		}
 	}
 
 	show(): void {
-		if (this.container && this.container.style.display !== "block") {
+		if (this.container && !this.isVisible) {
 			this.container.style.display = "block";
+			this.isVisible = true;
 		}
 	}
 
 	hide(): void {
-		if (this.container && this.container.style.display !== "none") {
+		if (this.container && this.isVisible) {
 			this.container.style.display = "none";
+			this.isVisible = false;
 		}
-		if (this.textElement) {
+		if (this.textElement && this.currentText) {
 			this.textElement.textContent = "";
+			this.currentText = "";
 		}
 	}
 
@@ -119,6 +127,8 @@ class SubtitleController {
 	private videoPlayer: HTMLVideoElement;
 	private subtitles: SubtitleSegment[];
 	private view: SubtitleView;
+	private activeSubtitleIndex = -1;
+	private normalizedSubtitleCache = new Map<number, string>();
 
 	constructor(
 		videoPlayer: HTMLVideoElement,
@@ -156,24 +166,61 @@ class SubtitleController {
 		if (Number.isNaN(this.videoPlayer.currentTime)) return;
 
 		const currentTime = this.videoPlayer.currentTime * 1000;
-		const foundSubtitle = this.findSubtitleAtTime(currentTime);
+		const nextSubtitleIndex = this.findSubtitleIndex(currentTime);
 
-		if (foundSubtitle) {
-			const normalizedText = normalizeSubtitleText(foundSubtitle.text);
-
-			if (!normalizedText) {
-				this.view.hide();
-				return;
-			}
-
-			this.view.setText(normalizedText);
-			this.view.show();
-		} else {
-			this.view.hide();
+		if (nextSubtitleIndex === this.activeSubtitleIndex) {
+			return;
 		}
+
+		this.activeSubtitleIndex = nextSubtitleIndex;
+
+		if (nextSubtitleIndex < 0) {
+			this.view.hide();
+			return;
+		}
+
+		const normalizedText = this.getNormalizedSubtitleText(nextSubtitleIndex);
+		if (!normalizedText) {
+			this.view.hide();
+			return;
+		}
+
+		this.view.setText(normalizedText);
+		this.view.show();
 	};
 
-	private findSubtitleAtTime(timeMs: number): SubtitleSegment | null {
+	private findSubtitleIndex(timeMs: number): number {
+		const activeSubtitle = this.subtitles[this.activeSubtitleIndex];
+		if (
+			activeSubtitle &&
+			timeMs >= activeSubtitle.startTime &&
+			timeMs < activeSubtitle.endTime
+		) {
+			return this.activeSubtitleIndex;
+		}
+
+		if (
+			activeSubtitle &&
+			this.activeSubtitleIndex >= 0 &&
+			timeMs >= activeSubtitle.endTime
+		) {
+			for (
+				let subtitleIndex = this.activeSubtitleIndex + 1;
+				subtitleIndex < this.subtitles.length;
+				subtitleIndex += 1
+			) {
+				const subtitle = this.subtitles[subtitleIndex];
+				if (timeMs < subtitle.startTime) {
+					return -1;
+				}
+				if (timeMs < subtitle.endTime) {
+					return subtitleIndex;
+				}
+			}
+
+			return -1;
+		}
+
 		let low = 0;
 		let high = this.subtitles.length - 1;
 
@@ -182,14 +229,28 @@ class SubtitleController {
 			const subtitle = this.subtitles[mid];
 
 			if (timeMs >= subtitle.startTime && timeMs < subtitle.endTime) {
-				return subtitle;
+				return mid;
 			} else if (timeMs < subtitle.startTime) {
 				high = mid - 1;
 			} else {
 				low = mid + 1;
 			}
 		}
-		return null;
+
+		return -1;
+	}
+
+	private getNormalizedSubtitleText(subtitleIndex: number): string {
+		const cachedText = this.normalizedSubtitleCache.get(subtitleIndex);
+		if (cachedText !== undefined) {
+			return cachedText;
+		}
+
+		const normalizedText = normalizeSubtitleText(
+			this.subtitles[subtitleIndex]?.text || "",
+		);
+		this.normalizedSubtitleCache.set(subtitleIndex, normalizedText);
+		return normalizedText;
 	}
 
 	private startLoop = (): void => {
@@ -211,6 +272,7 @@ class SubtitleController {
 	};
 
 	private handleSeeked = (): void => {
+		this.activeSubtitleIndex = -1;
 		this.update();
 		if (!this.videoPlayer.paused && !this.videoPlayer.ended) {
 			this.startLoop();

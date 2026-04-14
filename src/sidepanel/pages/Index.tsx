@@ -329,7 +329,7 @@ const Index = () => {
 	}, [updateState]);
 
 	useEffect(() => {
-		if (!isDemoMode) return;
+		if (import.meta.env.VITE_DEMO_MODE !== "true") return;
 		loadExample();
 	}, [loadExample]);
 

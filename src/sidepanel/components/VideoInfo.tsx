@@ -66,6 +66,7 @@ export const VideoInfo = ({
 							src={thumbnail || "/placeholder.svg"}
 							alt={title || "Video thumbnail"}
 							className="w-full h-auto object-contain block"
+							decoding="async"
 						/>
 						<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
 					</div>

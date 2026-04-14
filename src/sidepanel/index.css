@@ -337,6 +337,10 @@ All colors MUST be HSL.
 	border: 1px solid rgba(255, 0, 0, 0.2);
 }
 
+.contain-layout {
+	contain: layout;
+}
+
 .dark .modern-blur {
 	background: rgba(0, 0, 0, 0.6);
 }

@@ -24,7 +24,15 @@ import {
 	Search,
 	X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 interface TranscriptPanelProps {
 	transcript: string;
@@ -33,12 +41,12 @@ interface TranscriptPanelProps {
 export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-	const [matchCount, setMatchCount] = useState(0);
 	const transcriptRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
 
-	const copyToClipboard = async () => {
+	const copyToClipboard = useCallback(async () => {
 		try {
 			await navigator.clipboard.writeText(transcript);
 			toast({
@@ -52,90 +60,103 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 				variant: "destructive",
 			});
 		}
-	};
+	}, [transcript, toast]);
 
-	const highlightText = (text: string, query: string) => {
-		if (!text) return "";
-		if (!query.trim()) return text;
-
-		const regex = new RegExp(
-			`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-			"gi",
-		);
-		const parts = text.split(regex);
-
-		let matchIndex = 0;
-		let textOffset = 0;
-		return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
-			if (!part) return nodes;
-
-			const segmentOffset = textOffset;
-			textOffset += part.length;
-
-			if (partIndex % 2 === 1) {
-				const currentMatch = matchIndex;
-				matchIndex += 1;
-				const isCurrent = currentMatch === currentMatchIndex;
-				nodes.push(
-					<mark
-						key={`mark-${segmentOffset}-${part}-${currentMatch}`}
-						className={
-							isCurrent
-								? "bg-primary text-primary-foreground"
-								: "bg-yellow-500/30"
-						}
-					>
-						{part}
-					</mark>,
-				);
-			} else {
-				nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
-			}
-			return nodes;
-		}, []);
-	};
-
-	const handleSearch = (query: string) => {
-		setSearchQuery(query);
-		setCurrentMatchIndex(0);
-
-		if (query.trim()) {
+	const matchCount = useMemo(() => {
+		if (!deferredSearchQuery.trim()) return 0;
+		try {
 			const regex = new RegExp(
-				query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+				deferredSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
 				"gi",
 			);
 			const matches = transcript.match(regex);
-			setMatchCount(matches ? matches.length : 0);
-		} else {
-			setMatchCount(0);
+			return matches ? matches.length : 0;
+		} catch {
+			return 0;
 		}
-	};
+	}, [transcript, deferredSearchQuery]);
 
-	const navigateMatches = (direction: "next" | "prev") => {
-		if (matchCount === 0) return;
+	const highlightedContent = useMemo(() => {
+		const query = deferredSearchQuery;
+		if (!transcript) return "";
+		if (!query.trim()) return transcript;
 
-		if (direction === "next") {
-			setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
-		} else {
-			setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+		try {
+			const regex = new RegExp(
+				`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+				"gi",
+			);
+			const parts = transcript.split(regex);
+
+			let matchIndex = 0;
+			let textOffset = 0;
+			return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
+				if (!part) return nodes;
+
+				const segmentOffset = textOffset;
+				textOffset += part.length;
+
+				if (partIndex % 2 === 1) {
+					const currentMatch = matchIndex;
+					matchIndex += 1;
+					const isCurrent = currentMatch === currentMatchIndex;
+					nodes.push(
+						<mark
+							key={`mark-${segmentOffset}-${part}-${currentMatch}`}
+							className={
+								isCurrent
+									? "bg-primary text-primary-foreground"
+									: "bg-yellow-500/30"
+							}
+						>
+							{part}
+						</mark>,
+					);
+				} else {
+					nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
+				}
+				return nodes;
+			}, []);
+		} catch {
+			return transcript;
 		}
-	};
+	}, [transcript, deferredSearchQuery, currentMatchIndex]);
 
-	const clearSearch = () => {
+	const handleSearch = useCallback((query: string) => {
+		setSearchQuery(query);
+		setCurrentMatchIndex(0);
+	}, []);
+
+	const navigateMatches = useCallback(
+		(direction: "next" | "prev") => {
+			if (matchCount === 0) return;
+
+			if (direction === "next") {
+				setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
+			} else {
+				setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+			}
+		},
+		[matchCount],
+	);
+
+	const clearSearch = useCallback(() => {
 		setSearchQuery("");
 		setCurrentMatchIndex(0);
-		setMatchCount(0);
-	};
+	}, []);
 
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && matchCount > 0) {
-			e.preventDefault();
-			navigateMatches("next");
-		}
-	};
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (e.key === "Enter" && matchCount > 0) {
+				e.preventDefault();
+				navigateMatches("next");
+			}
+		},
+		[matchCount, navigateMatches],
+	);
 
 	useEffect(() => {
-		if (transcriptRef.current && searchQuery.trim()) {
+		if (transcriptRef.current && deferredSearchQuery.trim()) {
 			const marks = transcriptRef.current.querySelectorAll("mark");
 			if (marks[currentMatchIndex]) {
 				marks[currentMatchIndex].scrollIntoView({
@@ -144,10 +165,10 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 				});
 			}
 		}
-	}, [currentMatchIndex, searchQuery]);
+	}, [currentMatchIndex, deferredSearchQuery]);
 
 	return (
-		<Card className="p-0">
+		<Card className="p-0 contain-layout">
 			<Collapsible open={isOpen} onOpenChange={setIsOpen}>
 				<CollapsibleTrigger asChild>
 					<Button
@@ -247,10 +268,10 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 
 						<div
 							ref={transcriptRef}
-							className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10"
+							className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10 contain-layout"
 						>
 							<div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
-								{highlightText(transcript, searchQuery)}
+								{highlightedContent}
 							</div>
 						</div>
 					</div>
