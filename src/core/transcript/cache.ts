@@ -1,18 +1,18 @@
 import { TIMING } from "../constants.ts";
-import type { ScrapeCreatorsResponse } from "../types.ts";
+import type { TranscriptResponse } from "../types.ts";
 
 const transcriptCache = new Map<
 	string,
-	{ data: ScrapeCreatorsResponse; timestamp: number }
+	{ data: TranscriptResponse; timestamp: number }
 >();
 const pendingTranscriptFetches = new Map<
 	string,
-	Promise<ScrapeCreatorsResponse | null>
+	Promise<TranscriptResponse | null>
 >();
 
 export function getCachedTranscript(
 	videoId: string,
-): ScrapeCreatorsResponse | undefined {
+): TranscriptResponse | undefined {
 	const cached = transcriptCache.get(videoId);
 	if (
 		cached &&
@@ -25,7 +25,7 @@ export function getCachedTranscript(
 
 export function setCachedTranscript(
 	videoId: string,
-	data: ScrapeCreatorsResponse,
+	data: TranscriptResponse,
 ): void {
 	transcriptCache.set(videoId, { data, timestamp: Date.now() });
 }
@@ -36,13 +36,13 @@ export function clearTranscriptCache(videoId: string): void {
 
 export function getPendingTranscript(
 	videoId: string,
-): Promise<ScrapeCreatorsResponse | null> | undefined {
+): Promise<TranscriptResponse | null> | undefined {
 	return pendingTranscriptFetches.get(videoId);
 }
 
 export function setPendingTranscript(
 	videoId: string,
-	promise: Promise<ScrapeCreatorsResponse | null>,
+	promise: Promise<TranscriptResponse | null>,
 ): void {
 	pendingTranscriptFetches.set(videoId, promise);
 }

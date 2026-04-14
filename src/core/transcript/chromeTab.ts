@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 
 import { ERROR_MESSAGES } from "../constants.ts";
-import type { ApiTranscriptSegment, ScrapeCreatorsResponse } from "../types.ts";
+import type { ApiTranscriptSegment, TranscriptResponse } from "../types.ts";
 import { formatTimestamp } from "../utils/date.ts";
 import { createYouTubeWatchUrl } from "../utils/url.ts";
 
@@ -255,7 +255,7 @@ async function getTab(tabId: number): Promise<chrome.tabs.Tab> {
 }
 
 function isWatchPage(url: string | undefined): boolean {
-	return Boolean(url && url.includes("youtube.com/watch"));
+	return Boolean(url?.includes("youtube.com/watch"));
 }
 
 function createFailure(videoId: string, tabId: number, message: string): Error {
@@ -576,7 +576,7 @@ function toChromeTabResponse(args: {
 		selectedTrack?: ChromeTabCaptionTrack;
 	};
 	transcript: ApiTranscriptSegment[];
-}): ScrapeCreatorsResponse {
+}): TranscriptResponse {
 	const { videoId, tabTitle, extraction, transcript } = args;
 	return {
 		success: true,
@@ -608,7 +608,7 @@ function toChromeTabResponse(args: {
 export async function fetchTranscriptFromChromeTab(
 	videoId: string,
 	tabId: number,
-): Promise<ScrapeCreatorsResponse> {
+): Promise<TranscriptResponse> {
 	if (!chrome?.scripting?.executeScript) {
 		throw new Error(
 			"Chrome scripting API is unavailable for the Chrome Tab transcript provider.",

@@ -9,13 +9,6 @@ export interface ApiTranscriptSegment {
 	startTimeText: string;
 }
 
-export interface RawTranscriptSegment {
-	text: string;
-	startMs: string | number;
-	endMs: string | number;
-	startTimeText: string;
-}
-
 export interface ChannelInfo {
 	id: string;
 	url: string;
@@ -23,7 +16,7 @@ export interface ChannelInfo {
 	title: string;
 }
 
-export interface ScrapeCreatorsResponse {
+export interface TranscriptResponse {
 	success?: boolean;
 	credits_remaining?: number;
 	type?: string;
@@ -43,25 +36,6 @@ export interface ScrapeCreatorsResponse {
 	videoId?: string;
 	captionTracks?: any[];
 	language?: string;
-}
-
-export interface SupadataTranscriptItem {
-	lang?: string;
-	text: string;
-	offset: number;
-	duration: number;
-}
-
-export interface SupadataTranscriptResponse {
-	lang?: string;
-	availableLangs?: string[];
-	content?: string | SupadataTranscriptItem[];
-}
-
-export interface SupadataJobResponse extends SupadataTranscriptResponse {
-	jobId?: string;
-	status?: "queued" | "active" | "completed" | "failed";
-	error?: { message?: string; details?: string } | string;
 }
 
 /**

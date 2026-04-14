@@ -33,9 +33,6 @@ export function ErrorDisplay({
 	progressStates,
 	onLoadExample,
 }: ErrorDisplayProps) {
-	const hasScrapeCretorsIssue = error.message.includes(
-		"SCRAPECREATORS_API_KEY",
-	);
 	const hasGeminiIssue = error.message.includes("GEMINI_API_KEY");
 
 	return (
@@ -89,16 +86,6 @@ export function ErrorDisplay({
 									</div>
 								))}
 							</div>
-						</div>
-					)}
-
-					{hasScrapeCretorsIssue && (
-						<div className="mt-3 p-3 bg-muted/30 border border-border/60 rounded-lg">
-							<p className="text-base text-foreground">
-								<strong>Configuration Issue:</strong> The Scrape Creators API
-								key is not configured on the backend server. Please contact the
-								administrator to configure the required API keys.
-							</p>
 						</div>
 					)}
 

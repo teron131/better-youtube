@@ -5,14 +5,11 @@
 // ============================================================================
 
 export const STORAGE_KEYS = {
-	SCRAPE_CREATORS_API_KEY: "scrapeCreatorsApiKey",
-	SUPADATA_API_KEY: "supadataApiKey",
 	LLM_API_KEY: "llmApiKey",
 	LLM_BASE_URL: "llmBaseUrl",
 	GEMINI_API_KEY: "geminiApiKey",
 	SUMMARIZER_PROVIDER: "summarizerProvider",
 	SUMMARIZER_MODE: "summarizerMode",
-	TRANSCRIPT_PROVIDER_PREFERENCE: "transcriptProviderPreference",
 	SUMMARIZER_RECOMMENDED_MODEL: "summarizerRecommendedModel",
 	SUMMARIZER_CUSTOM_MODEL: "summarizerCustomModel",
 	REFINER_RECOMMENDED_MODEL: "refinerRecommendedModel",
@@ -46,8 +43,6 @@ export const STORAGE_KEYS = {
 // ============================================================================
 
 export const API_ENDPOINTS = {
-	SCRAPE_CREATORS: "https://api.scrapecreators.com/v1/youtube/video/transcript",
-	SUPADATA: "https://api.supadata.ai/v1/transcript",
 	LLM: "https://api.openai.com/v1/chat/completions",
 	LLM_DEFAULT_BASE_URL: "https://api.openai.com/v1",
 } as const;
@@ -66,7 +61,6 @@ export const TIMING = {
 	SUMMARY_SUCCESS_DISPLAY_MS: 3000,
 	CAPTION_CHECK_DELAY_MS: 500,
 	TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
-	SCRAPE_API_TIMEOUT_MS: 30 * 1000, // 30 seconds
 	PROCESSING_TIMEOUT_MS: 2 * 60 * 1000, // 2 minutes
 	RETRY_BACKOFF_MULTIPLIER_MS: 1000, // Base unit for exponential backoff
 	API_TIMEOUT_MS: 300000, // 5 minutes
@@ -152,7 +146,6 @@ export const DEFAULTS = {
 	TARGET_LANGUAGE_CUSTOM: "",
 	SUMMARIZER_PROVIDER: "auto" as const,
 	SUMMARIZER_MODE: "validation" as const,
-	TRANSCRIPT_PROVIDER_PREFERENCE: "scrapeCreators" as const,
 	VIEWS_FILTER_ENABLED: true,
 	DURATION_FILTER_ENABLED: true,
 	KEYWORD_FILTER_ENABLED: true,
@@ -268,10 +261,8 @@ export const ERROR_MESSAGES = {
 	VIDEO_ID_REQUIRED: "Video ID is required.",
 	NO_VIDEO_ID: "Could not extract video ID from URL.",
 	NO_TRANSCRIPT: "No transcript available for this video",
-	SCRAPE_KEY_MISSING:
-		"Scrape Creators API key not found. Please set it in settings.",
 	CHROME_TAB_REQUIRES_TAB:
-		"Chrome Tab transcript provider requires an active YouTube watch tab.",
+		"Chrome transcript extraction requires an active YouTube watch tab.",
 	LLM_KEY_MISSING: "LLM API key not found",
 	NOT_YOUTUBE_PAGE: "Not a YouTube video page",
 	SUMMARY_IN_PROGRESS:

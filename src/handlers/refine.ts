@@ -3,7 +3,6 @@ import {
 	getRefinerWorkloadStats,
 	refineTranscriptWithLLM,
 } from "@/core/refiner";
-import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { saveSubtitles } from "@/core/storage";
 import {
 	clearTranscriptCache,
@@ -27,17 +26,11 @@ export async function handleFetchSubtitles(
 		captionRequests: Map<string, string>;
 		latestCaptionWorkloads: Map<string, string>;
 		pendingCaptionJobs: Map<string, Promise<void>>;
-		config: RuntimeConfigSnapshot;
 	},
 	sendResponse: (response: any) => void,
 ): Promise<void> {
-	const {
-		tabId,
-		captionRequests,
-		latestCaptionWorkloads,
-		pendingCaptionJobs,
-		config,
-	} = ctx;
+	const { tabId, captionRequests, latestCaptionWorkloads, pendingCaptionJobs } =
+		ctx;
 	const { videoId, requestId, modelSelection, forceRegenerate } =
 		message as any;
 
@@ -76,41 +69,6 @@ export async function handleFetchSubtitles(
 			.catch(() => {});
 	};
 
-	if (config.transcriptProviderPreference === "chromeTab") {
-		try {
-			const preflight = await fetchTranscript(videoId, 2, {
-				scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
-				supadataApiKey: config.supadataApiKey,
-				transcriptProviderPreference: config.transcriptProviderPreference,
-				tabId,
-			});
-			if (!preflight?.transcript?.length) {
-				sendResponse({
-					status: "error",
-					message:
-						"Chrome Tab transcript extraction did not produce caption segments.",
-				});
-				return;
-			}
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Chrome Tab transcript extraction failed.";
-			console.error("[refine] chromeTab preflight failed", {
-				videoId,
-				requestId: effectiveRequestId,
-				error: errorMessage,
-			});
-			emitCaptionError(errorMessage);
-			sendResponse({
-				status: "error",
-				message: errorMessage,
-			});
-			return;
-		}
-	}
-
 	if (pendingCaptionJobs.has(workloadKey)) {
 		console.log("[refine] dedupe join existing workload", {
 			videoId,
@@ -144,10 +102,7 @@ export async function handleFetchSubtitles(
 		try {
 			if (forceRegenerate) clearTranscriptCache(videoId);
 
-			const data = await fetchTranscript(videoId, 2, {
-				scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
-				supadataApiKey: config.supadataApiKey,
-				transcriptProviderPreference: config.transcriptProviderPreference,
+			const data = await fetchTranscript(videoId, {
 				tabId,
 			});
 			if (!data?.transcript?.length) {

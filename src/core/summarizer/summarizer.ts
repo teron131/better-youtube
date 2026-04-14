@@ -59,7 +59,7 @@ function createScrapeYoutubeTool(input: SummarizationInput) {
 			if (!resolvedVideoId) return "Error: Could not extract video id.";
 
 			const data = await fetchTranscript(resolvedVideoId);
-			if (!data) return "Error: No transcript API keys configured.";
+			if (!data) return "Error: No transcript available for this video.";
 
 			const transcriptOnlyText =
 				typeof data.transcript_only_text === "string"

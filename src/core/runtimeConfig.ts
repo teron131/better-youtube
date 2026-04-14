@@ -1,4 +1,4 @@
-import { loadConfig, type TranscriptProviderPreference } from "./config.ts";
+import { loadConfig } from "./config.ts";
 import { DEFAULTS } from "./constants.ts";
 
 // ============================================================================
@@ -9,11 +9,8 @@ export interface RuntimeConfigSnapshot {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	geminiApiKey: string | null;
-	scrapeCreatorsApiKey: string | null;
-	supadataApiKey: string | null;
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: TranscriptProviderPreference;
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
@@ -28,11 +25,8 @@ function applySnapshot(config: RuntimeConfigSnapshot): void {
 	globalLlmApiKey = config.llmApiKey;
 	globalLlmBaseUrl = config.llmBaseUrl;
 	globalGeminiKey = config.geminiApiKey;
-	globalScrapeCreatorsKey = config.scrapeCreatorsApiKey;
-	globalSupadataKey = config.supadataApiKey;
 	globalSummarizerProvider = config.summarizerProvider;
 	globalSummarizerMode = config.summarizerMode;
-	globalTranscriptProviderPreference = config.transcriptProviderPreference;
 	globalSummarizerModel = config.summarizerModel;
 	globalRefinerModel = config.refinerModel;
 	globalQualityModel = config.qualityModel;
@@ -47,8 +41,6 @@ function applySnapshot(config: RuntimeConfigSnapshot): void {
 export let globalLlmApiKey: string | null = null;
 export let globalLlmBaseUrl: string | null = null;
 export let globalGeminiKey: string | null = null;
-export let globalScrapeCreatorsKey: string | null = null;
-export let globalSupadataKey: string | null = null;
 export let globalSummarizerModel: string = "";
 export let globalRefinerModel: string = "";
 export let globalQualityModel: string = "";
@@ -60,8 +52,6 @@ export let globalSummaryFontSize: string = "";
 export let globalSummarizerProvider: "auto" | "gemini" | "llm" = "auto";
 export let globalSummarizerMode: "native" | "validation" | "fast" =
 	DEFAULTS.SUMMARIZER_MODE;
-export let globalTranscriptProviderPreference: TranscriptProviderPreference =
-	"scrapeCreators";
 
 /**
  * Load immutable config snapshot for a single request lifecycle.
@@ -72,11 +62,8 @@ export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot
 		llmApiKey: config.llmApiKey,
 		llmBaseUrl: config.llmBaseUrl,
 		geminiApiKey: config.geminiApiKey,
-		scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
-		supadataApiKey: config.supadataApiKey,
 		summarizerProvider: config.summarizerProvider,
 		summarizerMode: config.summarizerMode,
-		transcriptProviderPreference: config.transcriptProviderPreference,
 		summarizerModel: config.summarizerModel,
 		refinerModel: config.refinerModel,
 		qualityModel: config.qualityModel,
@@ -110,8 +97,6 @@ export function clearConfigCache(): void {
 	globalLlmApiKey = null;
 	globalLlmBaseUrl = null;
 	globalGeminiKey = null;
-	globalScrapeCreatorsKey = null;
-	globalSupadataKey = null;
 	globalSummarizerModel = "";
 	globalRefinerModel = "";
 	globalQualityModel = "";
@@ -123,7 +108,6 @@ export function clearConfigCache(): void {
 
 	globalSummarizerProvider = "auto";
 	globalSummarizerMode = DEFAULTS.SUMMARIZER_MODE;
-	globalTranscriptProviderPreference = "scrapeCreators";
 }
 
 // ============================================================================
@@ -143,14 +127,4 @@ export async function getLlmBaseUrl(): Promise<string | null> {
 export async function getGeminiApiKey(): Promise<string | null> {
 	await initGlobalConfig();
 	return globalGeminiKey;
-}
-
-export async function getScrapeCreatorsApiKey(): Promise<string | null> {
-	await initGlobalConfig();
-	return globalScrapeCreatorsKey;
-}
-
-export async function getSupadataApiKey(): Promise<string | null> {
-	await initGlobalConfig();
-	return globalSupadataKey;
 }

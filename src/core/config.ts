@@ -13,23 +13,16 @@ import { getStorageValues } from "./storage.ts";
 
 export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 export type SummarizerModePreference = "native" | "validation" | "fast";
-export type TranscriptProviderPreference =
-	| "scrapeCreators"
-	| "supadata"
-	| "chromeTab";
 
 export interface AppConfig {
 	// API Keys (nullable)
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	geminiApiKey: string | null;
-	scrapeCreatorsApiKey: string | null;
-	supadataApiKey: string | null;
 
 	// Routing
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: TranscriptProviderPreference;
 
 	// Model selections
 	summarizerModel: string;
@@ -48,8 +41,6 @@ export interface ApiKeys {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	geminiApiKey: string | null;
-	scrapeCreatorsApiKey: string | null;
-	supadataApiKey: string | null;
 }
 
 export interface ModelConfig {
@@ -92,11 +83,8 @@ export async function loadConfig(): Promise<AppConfig> {
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
 		STORAGE_KEYS.GEMINI_API_KEY,
-		STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-		STORAGE_KEYS.SUPADATA_API_KEY,
 		STORAGE_KEYS.SUMMARIZER_PROVIDER,
 		STORAGE_KEYS.SUMMARIZER_MODE,
-		STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE,
 		STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
 		STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
 		STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
@@ -124,17 +112,6 @@ export async function loadConfig(): Promise<AppConfig> {
 			? modeRaw
 			: DEFAULTS.SUMMARIZER_MODE;
 
-	const transcriptPrefRaw = String(
-		result[STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE] ??
-			DEFAULTS.TRANSCRIPT_PROVIDER_PREFERENCE,
-	);
-	const transcriptProviderPreference: TranscriptProviderPreference =
-		transcriptPrefRaw === "supadata"
-			? "supadata"
-			: transcriptPrefRaw === "chromeTab"
-				? "chromeTab"
-				: "scrapeCreators";
-
 	const summarizerModel = resolveModel(
 		result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],
 		result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
@@ -151,14 +128,9 @@ export async function loadConfig(): Promise<AppConfig> {
 		llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
 		llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
-		scrapeCreatorsApiKey: normalizeKey(
-			result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY],
-		),
-		supadataApiKey: normalizeKey(result[STORAGE_KEYS.SUPADATA_API_KEY]),
 
 		summarizerProvider,
 		summarizerMode,
-		transcriptProviderPreference,
 
 		summarizerModel,
 		refinerModel,
@@ -187,8 +159,6 @@ export async function getApiKeys(): Promise<ApiKeys> {
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
 		STORAGE_KEYS.GEMINI_API_KEY,
-		STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-		STORAGE_KEYS.SUPADATA_API_KEY,
 	];
 
 	const result = await getStorageValues<Record<string, any>>(keys);
@@ -197,10 +167,6 @@ export async function getApiKeys(): Promise<ApiKeys> {
 		llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
 		llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
-		scrapeCreatorsApiKey: normalizeKey(
-			result[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY],
-		),
-		supadataApiKey: normalizeKey(result[STORAGE_KEYS.SUPADATA_API_KEY]),
 	};
 }
 

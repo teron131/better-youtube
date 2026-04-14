@@ -20,7 +20,6 @@ const latestCaptionWorkloads = new Map<string, string>();
 const latestSummaryWorkloads = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
-type AsyncActionHandler = (config: RuntimeConfigSnapshot) => Promise<void>;
 
 // Allow side panel to open on action click
 chrome.sidePanel
@@ -33,34 +32,6 @@ chrome.sidePanel
 createMessageListener((message, sender, sendResponse) => {
 	const tabId =
 		typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
-	const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
-		[MESSAGE_ACTIONS.SCRAPE_VIDEO]: (config) =>
-			handleScrapeVideo(message, { config, tabId }, sendResponse),
-		[MESSAGE_ACTIONS.FETCH_SUBTITLES]: (config) =>
-			handleFetchSubtitles(
-				message,
-				{
-					tabId,
-					captionRequests,
-					latestCaptionWorkloads,
-					pendingCaptionJobs,
-					config,
-				},
-				sendResponse,
-			),
-		[MESSAGE_ACTIONS.GENERATE_SUMMARY]: (config) =>
-			handleGenerateSummary(
-				message,
-				{
-					tabId,
-					summaryRequests,
-					latestSummaryWorkloads,
-					pendingSummaryJobs,
-					config,
-				},
-				sendResponse,
-			),
-	};
 
 	switch (message.action) {
 		case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
@@ -71,12 +42,29 @@ createMessageListener((message, sender, sendResponse) => {
 			return false;
 
 		case MESSAGE_ACTIONS.SCRAPE_VIDEO:
+			void handleScrapeVideo(message, { tabId }, sendResponse).catch(
+				(error) => {
+					console.error(`[handlers] ${message.action} failed`, error);
+				},
+			);
+			return true;
+
 		case MESSAGE_ACTIONS.FETCH_SUBTITLES:
+			void handleFetchSubtitles(
+				message,
+				{
+					tabId,
+					captionRequests,
+					latestCaptionWorkloads,
+					pendingCaptionJobs,
+				},
+				sendResponse,
+			).catch((error) => {
+				console.error(`[handlers] ${message.action} failed`, error);
+			});
+			return true;
+
 		case MESSAGE_ACTIONS.GENERATE_SUMMARY: {
-			const runAction = actionHandlers[message.action];
-			if (!runAction) {
-				return false;
-			}
 			(async () => {
 				let config: RuntimeConfigSnapshot;
 				try {
@@ -91,7 +79,17 @@ createMessageListener((message, sender, sendResponse) => {
 				}
 
 				try {
-					await runAction(config);
+					await handleGenerateSummary(
+						message,
+						{
+							tabId,
+							summaryRequests,
+							latestSummaryWorkloads,
+							pendingSummaryJobs,
+							config,
+						},
+						sendResponse,
+					);
 				} catch (error) {
 					console.error(`[handlers] ${message.action} failed`, error);
 				}

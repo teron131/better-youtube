@@ -62,16 +62,6 @@ export function validateAutoGen(
 		return { isValid: false, reason: "captions disabled" };
 	}
 
-	const hasTranscriptKey =
-		!!String(
-			storageResult[STORAGE_KEYS.SCRAPE_CREATORS_API_KEY] || "",
-		).trim() ||
-		!!String(storageResult[STORAGE_KEYS.SUPADATA_API_KEY] || "").trim();
-	if (!hasTranscriptKey) {
-		console.log("Auto-gen skipped: missing transcript API key");
-		return { isValid: false, reason: "missing api key" };
-	}
-
 	const hasLlmKey = !!String(
 		storageResult[STORAGE_KEYS.LLM_API_KEY] || "",
 	).trim();

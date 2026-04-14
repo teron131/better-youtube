@@ -192,7 +192,7 @@ function calculatePriorityWindow(
 function createPriorityHandler(
 	priorityRangeCount: number,
 	splitIndex: number,
-	segments: SubtitleSegment[],
+	_segments: SubtitleSegment[],
 	chunks: SegmentChunk[],
 	onPriorityComplete?: (segments: SubtitleSegment[]) => void,
 ): (result: any, index: number, allResults: (any | null)[]) => void {
