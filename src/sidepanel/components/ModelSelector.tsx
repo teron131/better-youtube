@@ -5,6 +5,7 @@
 import {
 	type ComboboxOption,
 	EditableCombobox,
+	findMatchingComboboxOption,
 } from "@ui/components/ui/editable-combobox";
 import type { LucideIcon } from "lucide-react";
 
@@ -25,8 +26,7 @@ export function ModelSelector({
 	options,
 	placeholder,
 }: ModelSelectorProps) {
-	const selectedOption =
-		options.find((option) => option.value === value) ?? null;
+	const selectedOption = findMatchingComboboxOption(options, value);
 
 	const renderModelOption = (option: ComboboxOption) => (
 		<>

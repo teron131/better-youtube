@@ -65,6 +65,12 @@ function extractProviderPrefixes(option: ComboboxOption): string[] {
 	return [...providers].filter(Boolean);
 }
 
+function providerPrefixesFromOptions(options: ComboboxOption[]): string[] {
+	return [
+		...new Set(options.flatMap((option) => extractProviderPrefixes(option))),
+	].sort((left, right) => right.length - left.length);
+}
+
 function searchVariants(value: string, providerPrefixes: string[]): string[] {
 	const normalizedValue = normalizeSearchValue(value);
 	if (!normalizedValue) return [];
@@ -115,6 +121,83 @@ function matchesNormalizedSearch(
 	});
 }
 
+function optionMatchScore(
+	option: ComboboxOption,
+	value: string,
+	providerPrefixes: string[],
+): number {
+	const queryVariants = searchVariants(value, providerPrefixes);
+	if (queryVariants.length === 0) return 0;
+
+	const searchCandidates = [
+		option.value,
+		option.label,
+		stripProviderPrefix(option.value),
+		stripProviderPrefix(option.label),
+	];
+
+	let bestScore = 0;
+
+	for (const variant of queryVariants) {
+		const compactVariant = variant.replace(/\s+/g, "");
+
+		for (const candidate of searchCandidates) {
+			const normalizedCandidate = normalizeSearchValue(candidate);
+			const compactCandidate = compactSearchValue(candidate);
+
+			if (
+				normalizedCandidate === variant ||
+				compactCandidate === compactVariant
+			) {
+				bestScore = Math.max(bestScore, 4);
+				continue;
+			}
+
+			if (
+				normalizedCandidate.startsWith(variant) ||
+				(compactVariant.length > 0 &&
+					compactCandidate.startsWith(compactVariant))
+			) {
+				bestScore = Math.max(bestScore, 3);
+				continue;
+			}
+
+			if (
+				normalizedCandidate.includes(variant) ||
+				(compactVariant.length > 0 && compactCandidate.includes(compactVariant))
+			) {
+				bestScore = Math.max(bestScore, 2);
+			}
+		}
+	}
+
+	return bestScore;
+}
+
+export function findMatchingComboboxOption(
+	options: ComboboxOption[],
+	value: string,
+): ComboboxOption | null {
+	const exactMatch = options.find((option) => option.value === value);
+	if (exactMatch) {
+		return exactMatch;
+	}
+
+	const providerPrefixes = providerPrefixesFromOptions(options);
+	let bestMatch: ComboboxOption | null = null;
+	let bestScore = 0;
+
+	for (const option of options) {
+		const score = optionMatchScore(option, value, providerPrefixes);
+		if (score > bestScore) {
+			bestMatch = option;
+			bestScore = score;
+		}
+	}
+
+	return bestMatch;
+}
+
 export function EditableCombobox({
 	value,
 	onChange,
@@ -135,16 +218,11 @@ export function EditableCombobox({
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 	const selectedOption = React.useMemo(
-		() => options.find((option) => option.value === value) ?? null,
+		() => findMatchingComboboxOption(options, value),
 		[options, value],
 	);
 	const providerPrefixes = React.useMemo(
-		() =>
-			[
-				...new Set(
-					options.flatMap((option) => extractProviderPrefixes(option)),
-				),
-			].sort((left, right) => right.length - left.length),
+		() => providerPrefixesFromOptions(options),
 		[options],
 	);
 

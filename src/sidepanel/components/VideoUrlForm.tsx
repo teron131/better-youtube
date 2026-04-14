@@ -6,6 +6,7 @@ import { Card } from "@ui/components/ui/card";
 import {
 	type ComboboxOption,
 	EditableCombobox,
+	findMatchingComboboxOption,
 } from "@ui/components/ui/editable-combobox";
 import { Input } from "@ui/components/ui/input";
 import {
@@ -71,9 +72,6 @@ export const VideoUrlForm = ({
 	const { preferences, updatePreferences } = useUserPreferences();
 	const { summarizerModels } = useModelSelection();
 
-	const selectedModel = summarizerModels.find(
-		(m) => m.key === preferences.summaryModel,
-	);
 	const modelOptions = useMemo<ComboboxOption[]>(
 		() =>
 			summarizerModels.map((model) => ({
@@ -90,6 +88,10 @@ export const VideoUrlForm = ({
 				),
 			})),
 		[summarizerModels],
+	);
+	const selectedModelOption = useMemo(
+		() => findMatchingComboboxOption(modelOptions, preferences.summaryModel),
+		[modelOptions, preferences.summaryModel],
 	);
 	const modelTriggerWidth = useMemo(
 		() => summaryModelWidth(modelOptions, preferences.summaryModel),
@@ -142,16 +144,7 @@ export const VideoUrlForm = ({
 		setValidationError("");
 	};
 
-	const renderSelectedModelIcon = () =>
-		selectedModel ? (
-			<ModelIcon
-				provider={selectedModel.provider}
-				logo={selectedModel.logo}
-				fallbackLogo={selectedModel.fallbackLogo}
-				alt={selectedModel.provider || selectedModel.label}
-				className="h-4 w-4 opacity-80"
-			/>
-		) : null;
+	const renderSelectedModelIcon = () => selectedModelOption?.icon ?? null;
 
 	return (
 		<Card className="w-full rounded-[24px] p-0 border border-border/60 bg-muted/40 hover:border-primary/15 transition-all duration-500">
