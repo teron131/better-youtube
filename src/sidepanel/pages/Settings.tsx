@@ -91,7 +91,7 @@ const API_KEY_FIELDS: ApiField[] = [
 		key: STORAGE_KEYS.LLM_BASE_URL,
 		label: "LLM Base URL",
 		placeholder:
-			"Any OpenAI-compatible base URL, e.g. https://api.openai.com/v1",
+			"Any OpenAI API compatible base URL, e.g. https://api.openai.com/v1",
 		type: "url",
 	},
 	{
