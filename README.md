@@ -1,76 +1,141 @@
-# Better YouTube Chrome Extension
+# Better YouTube
 
-Chrome extension combining YouTube caption refinement and AI-powered summarization.
+Chrome MV3 extension for YouTube transcript extraction, caption refinement, grounded AI summaries, and recommendation filtering.
 
 ![UI Demo](static/ui.png)
 
-**Static Demo**: https://teron131.github.io/better-youtube
+[Static Demo](https://teron131.github.io/better-youtube)
 
-## Workflow
+## What It Does
+
+- Extracts transcript and video metadata from the active YouTube watch tab.
+- Refines subtitle segments in the background and streams partial caption updates back to the player.
+- Generates video summaries with Gemini or an OpenAI-compatible LLM route.
+- Caches transcripts, subtitles, metadata, and summaries in extension storage to avoid repeated work.
+- Filters recommendation feeds with saved rules such as views, duration, age, keywords, and subscription preservation.
+
+## Architecture
 
 ```mermaid
-graph TD
-  P{Provider}
-  G[[Gemini API]]
-  OR[[OpenRouter API]]
+flowchart LR
+    accTitle: Better YouTube extension architecture
+    accDescr: Shows the three Chrome extension contexts and the shared workflows they use.
 
-  TAB[[Active YouTube Tab]]
-  CT[[Chrome Tab Transcript Extraction]]
-  C[(Transcript Cache)]
+    YT["YouTube watch page"]
+    CS["Content script"]
+    SP["Side panel React app"]
+    BG["Background service worker"]
 
-  TXT[Transcript / Metadata]
-  M{Mode}
-  V[LangGraph ReAct]
-  F[Fast]
+    subgraph CORE["Shared core workflows"]
+        TR["Transcript fetch + cache"]
+        RF["Caption refiner"]
+        SM["Summary router"]
+        ST["Chrome storage cache"]
+    end
 
-  R[Refiner]
-  YT([YouTube Player])
-  UI([Side Panel UI])
+    subgraph AI["AI providers"]
+        GM["Gemini"]
+        LLM["OpenAI-compatible LLM"]
+    end
 
-  P --> G --> UI
-  P --> OR
-  TAB --> CT --> C --> TXT
-
-  TXT --> M --> V --> UI
-  M --> F --> UI
-
-  TXT --> R --> YT
-
-  classDef api fill:#E3F2FD,stroke:#1565C0,color:#0D47A1;
-  classDef ui fill:#E8F5E9,stroke:#2E7D32,color:#1B5E20;
-  classDef option fill:#FFF3E0,stroke:#EF6C00,color:#E65100;
-
-  class G,OR,CT api;
-  class UI,YT,TAB ui;
-  class P,M option;
-  class C option;
+    YT --> CS
+    SP --> BG
+    CS --> BG
+    BG --> TR
+    BG --> RF
+    BG --> SM
+    TR <--> ST
+    RF --> ST
+    SM --> ST
+    RF --> CS
+    SM --> SP
+    SM --> GM
+    SM --> LLM
 ```
 
-## Transcript Source
+## Request Flow
 
-- The extension extracts caption tracks and metadata from the active YouTube watch tab using Chrome's tab/script APIs.
-- Transcript fetches are cached and deduplicated in the background worker before refinement or summarization runs.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SP as Side panel
+    participant BG as Background worker
+    participant TR as Transcript layer
+    participant AI as Refiner or summarizer
+    participant CS as Content script
+    participant ST as Chrome storage
 
-## Workflow Management
+    SP->>BG: Request summary or captions
+    BG->>TR: Resolve transcript and metadata
+    TR->>ST: Read or refresh cached video data
+    ST-->>TR: Cached data or empty result
+    TR-->>BG: Transcript payload
 
-- Every long-running summary/caption request carries a `requestId` and responses are matched by `{ action, videoId, requestId }`.
-- Service worker orchestration uses per-video workload keys and in-flight job maps to dedupe identical concurrent work.
-- Latest workload wins per video: stale results/errors from older workloads are suppressed.
-- Content script applies a stale guard for captions and ignores subtitle updates that do not match the current caption request ID.
-- Summary UI listener resolves only the matching request ID and ignores broadcasts from other runs.
+    alt Caption refinement
+        BG->>AI: Refine subtitle segments
+        AI-->>BG: Partial or final subtitles
+        BG->>ST: Save subtitles
+        BG-->>CS: SUBTITLES_GENERATED
+        CS-->>CS: Render overlay on player
+    else Summary generation
+        BG->>AI: Generate grounded summary
+        AI-->>BG: Structured summary result
+        BG->>ST: Save summary and metadata
+        BG-->>SP: SUMMARY_GENERATED
+    end
+```
+
+## Runtime Design
+
+- `public/manifest.json` wires the MV3 service worker, content script, side panel, and permissions.
+- `src/handlers/index.ts` is the background entrypoint and routes `MESSAGE_ACTIONS` requests.
+- `src/content/index.ts` manages YouTube SPA navigation, subtitle rendering, and auto-generation triggers.
+- `src/sidepanel/main.tsx` boots the React side panel used in both extension and demo mode.
+- `src/core/*` contains shared contracts, transcript logic, refiner logic, summarizer logic, storage helpers, and runtime config.
+
+## Key Behaviors
+
+- Transcript fetches are cached and deduplicated before caption or summary work begins.
+- Caption refinement first saves raw subtitle segments, then pushes partial refined results as they become available.
+- Summary generation selects a provider and mode from runtime config, model choice, and available API keys.
+- Long-running work is guarded by `requestId` and per-video workload tracking so stale responses are ignored.
+- Storage keys and cross-context actions are centralized in `src/core/constants.ts`.
 
 ## Development
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Dev server (side panel only)
-npm run build        # Build extension
+npm install
+npm run dev
+npm run build
 ```
+
+Useful extra commands:
+
+```bash
+npm run lint
+npm run test:chrome-tab
+```
+
+## Load The Extension
+
+1. Run `npm run build`.
+2. Open `chrome://extensions`.
+3. Enable `Developer mode`.
+4. Click `Load unpacked`.
+5. Select the repo's `dist/` directory.
 
 ## Build Output
 
-`npm run build` outputs the extension package to `dist/`:
+`npm run build` produces:
 
-- `sidepanel.html` + React bundle
-- `background.js` (service worker)
-- `content.js` + `assets/subtitles.css` (content script)
+- `dist/sidepanel.html` and the React side panel bundle
+- `dist/background.js` for the MV3 service worker
+- `dist/content.js` and `dist/assets/subtitles.css` for the YouTube page integration
+
+## Tech Stack
+
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS + shadcn/ui
+- LangGraph and LangChain
+- Chrome Extension Manifest V3
