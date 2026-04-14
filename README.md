@@ -6,8 +6,6 @@ Chrome extension combining YouTube caption refinement and AI-powered summarizati
 
 **Static Demo**: https://teron131.github.io/better-youtube
 
-**The Challenge**: YouTube's caption API has strict access limitations. While Gemini provides native YouTube access (in preview), it lacks robustness across varying video lengths and does not capture word-level caption details effectively.
-
 ## Workflow
 
 ```mermaid
@@ -16,9 +14,9 @@ graph TD
   G[[Gemini API]]
   OR[[OpenRouter API]]
 
-  T{Transcript API}
-  SC[[Scrape Creators API]]
-  SD[[Supadata API]]
+  TAB[[Active YouTube Tab]]
+  CT[[Chrome Tab Transcript Extraction]]
+  C[(Transcript Cache)]
 
   TXT[Transcript / Metadata]
   M{Mode}
@@ -30,9 +28,8 @@ graph TD
   UI([Side Panel UI])
 
   P --> G --> UI
-  P --> OR --> T
-  T --> SC --> TXT
-  T --> SD --> TXT
+  P --> OR
+  TAB --> CT --> C --> TXT
 
   TXT --> M --> V --> UI
   M --> F --> UI
@@ -43,10 +40,16 @@ graph TD
   classDef ui fill:#E8F5E9,stroke:#2E7D32,color:#1B5E20;
   classDef option fill:#FFF3E0,stroke:#EF6C00,color:#E65100;
 
-  class G,OR,SC,SD api;
-  class UI,YT ui;
-  class P,T,M option;
+  class G,OR,CT api;
+  class UI,YT,TAB ui;
+  class P,M option;
+  class C option;
 ```
+
+## Transcript Source
+
+- The extension extracts caption tracks and metadata from the active YouTube watch tab using Chrome's tab/script APIs.
+- Transcript fetches are cached and deduplicated in the background worker before refinement or summarization runs.
 
 ## Workflow Management
 
@@ -66,7 +69,7 @@ npm run build        # Build extension
 
 ## Build Output
 
-The Vite build outputs to `dist/`:
+`npm run build` outputs the extension package to `dist/`:
 
 - `sidepanel.html` + React bundle
 - `background.js` (service worker)
