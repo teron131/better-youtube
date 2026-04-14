@@ -8,6 +8,52 @@ import type { AvailableModel } from "./config";
 const MODELS_DEV_URL = "https://models.dev/api.json";
 const LEADERBOARD_URL = "https://artificialanalysis.ai/leaderboards/models";
 const LEADERBOARD_ROW_TOKEN = '"openrouterApiId":"';
+const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
+const MODELS_DEV_LOGO_URL = "https://models.dev/logos";
+const TRUSTED_ARTIFICIAL_ANALYSIS_PROVIDER_SLUGS = new Set([
+	"ai21",
+	"alibaba",
+	"anthropic",
+	"baidu",
+	"bytedance",
+	"cohere",
+	"deepseek",
+	"google",
+	"meituan",
+	"microsoft",
+	"minimax",
+	"moonshotai",
+	"nvidia",
+	"openai",
+	"openrouter",
+	"prime-intellect",
+	"stepfun",
+	"tencent",
+	"upstage",
+	"xiaomi",
+]);
+const TRUSTED_MODELS_DEV_LOGO_PROVIDERS = new Set([
+	"alibaba",
+	"anthropic",
+	"cohere",
+	"deepseek",
+	"google",
+	"inception",
+	"minimax",
+	"moonshotai",
+	"nvidia",
+	"openai",
+	"openrouter",
+	"perplexity",
+	"xiaomi",
+]);
+const ARTIFICIAL_ANALYSIS_PROVIDER_SLUG_OVERRIDES: Record<string, string> = {
+	allenai: "ai2",
+	amazon: "aws",
+	"arcee-ai": "arcee",
+	"bytedance-seed": "bytedance",
+	qwen: "alibaba",
+};
 
 export interface ModelStat {
 	id: string;
@@ -21,6 +67,118 @@ export interface ModelStat {
 export interface LeaderboardStat {
 	intelligenceScore: number | null;
 	speedScore: number | null;
+}
+
+function normalizeLogoProvider(
+	provider: string | null | undefined,
+): string | null {
+	if (typeof provider !== "string") {
+		return null;
+	}
+	const normalizedProvider = provider.trim().toLowerCase();
+	return normalizedProvider.length > 0 ? normalizedProvider : null;
+}
+
+function providerFromModelId(modelId: string): string | null {
+	const separatorIndex = modelId.indexOf("/");
+	if (separatorIndex <= 0) {
+		return null;
+	}
+	return normalizeLogoProvider(modelId.slice(0, separatorIndex));
+}
+
+function modelsDevLogoUrl(provider: string): string {
+	return `${MODELS_DEV_LOGO_URL}/${provider}.svg`;
+}
+
+function artificialAnalysisLogoUrl(slug: string): string {
+	return `${ARTIFICIAL_ANALYSIS_LOGO_URL}/${slug}_small.svg`;
+}
+
+function trustedArtificialAnalysisProviderSlug(
+	provider: string | null,
+): string | null {
+	if (!provider) {
+		return null;
+	}
+	const overriddenSlug = ARTIFICIAL_ANALYSIS_PROVIDER_SLUG_OVERRIDES[provider];
+	if (overriddenSlug) {
+		return overriddenSlug;
+	}
+	if (TRUSTED_ARTIFICIAL_ANALYSIS_PROVIDER_SLUGS.has(provider)) {
+		return provider;
+	}
+	return null;
+}
+
+function trustedModelsDevLogo(provider: string | null): string | null {
+	if (!provider || !TRUSTED_MODELS_DEV_LOGO_PROVIDERS.has(provider)) {
+		return null;
+	}
+	return modelsDevLogoUrl(provider);
+}
+
+function sanitizeLogoUrl(
+	logoUrl: unknown,
+	provider: string | null,
+): string | null {
+	if (typeof logoUrl !== "string" || logoUrl.length === 0) {
+		return null;
+	}
+	if (logoUrl.includes("models.dev/logos/")) {
+		return trustedModelsDevLogo(provider);
+	}
+	return logoUrl;
+}
+
+export function resolveModelLogos(options: {
+	provider?: string | null;
+	explicitLogo?: unknown;
+	fallbackLogo?: unknown;
+	modelCreatorSlug?: unknown;
+}): {
+	logo: string;
+	fallbackLogo: string;
+} {
+	const provider = normalizeLogoProvider(options.provider);
+	const explicitLogo = sanitizeLogoUrl(options.explicitLogo, provider);
+	const modelCreatorSlug =
+		typeof options.modelCreatorSlug === "string" &&
+		options.modelCreatorSlug.length > 0
+			? options.modelCreatorSlug
+			: null;
+	const providerSlug = trustedArtificialAnalysisProviderSlug(provider);
+	const providerLogo = providerSlug
+		? artificialAnalysisLogoUrl(providerSlug)
+		: null;
+	const modelsDevLogo =
+		sanitizeLogoUrl(options.fallbackLogo, provider) ??
+		trustedModelsDevLogo(provider);
+	const primaryLogo =
+		explicitLogo ??
+		(modelCreatorSlug
+			? artificialAnalysisLogoUrl(modelCreatorSlug)
+			: (modelsDevLogo ?? providerLogo));
+	if (!primaryLogo && modelsDevLogo) {
+		return {
+			logo: modelsDevLogo,
+			fallbackLogo: "",
+		};
+	}
+	return {
+		logo: primaryLogo ?? "",
+		fallbackLogo:
+			modelsDevLogo &&
+			modelsDevLogo !== primaryLogo &&
+			providerLogo &&
+			providerLogo !== primaryLogo
+				? providerLogo
+				: modelsDevLogo && modelsDevLogo !== primaryLogo
+					? modelsDevLogo
+					: providerLogo && providerLogo !== primaryLogo
+						? providerLogo
+						: "",
+	};
 }
 
 function asFiniteNumber(value: unknown): number | null {
@@ -154,22 +312,26 @@ export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
 
 			for (const [modelId, model] of Object.entries(models)) {
 				const m = model as any;
-				const fullId = `${providerId}/${m.id || modelId}`;
-
-				const primaryLogo =
-					m.logo ||
-					m.artificial_analysis?.model_creator?.logo_small_url ||
-					`https://artificialanalysis.ai/img/logos/${aaId}_small.svg`;
-
-				const fallbackLogo =
-					m.fallback_logo || `https://models.dev/logos/${cleanProviderId}.svg`;
+				const directModelId =
+					typeof m.id === "string" && m.id.length > 0 ? m.id : modelId;
+				const fullId =
+					typeof directModelId === "string" && directModelId.includes("/")
+						? directModelId
+						: `${providerId}/${directModelId}`;
+				const modelProvider = providerFromModelId(fullId) ?? cleanProviderId;
+				const { logo, fallbackLogo } = resolveModelLogos({
+					provider: modelProvider ?? aaId,
+					explicitLogo: m.logo,
+					fallbackLogo: m.fallback_logo,
+					modelCreatorSlug: m.artificial_analysis?.model_creator?.slug,
+				});
 
 				stats[fullId] = {
 					id: fullId,
 					name: m.name || modelId,
-					provider: providerId,
-					logo: primaryLogo,
-					fallbackLogo: fallbackLogo,
+					provider: modelProvider ?? cleanProviderId,
+					logo,
+					fallbackLogo,
 					cost: m.cost?.output ?? null,
 				};
 			}

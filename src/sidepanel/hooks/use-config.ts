@@ -22,6 +22,7 @@ import {
 	type LeaderboardStat,
 	type ModelStat,
 	normalizeOpenRouterModelId,
+	resolveModelLogos,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -42,8 +43,6 @@ interface UseConfigReturn {
 	isValidLanguage: (language: string) => boolean;
 	refresh: () => Promise<void>;
 }
-
-const MODEL_LIMIT = 15;
 
 function applyModelMetadata(
 	models: AvailableModel[],
@@ -66,12 +65,13 @@ function applyModelMetadata(
 		}
 
 		if (model.provider) {
-			const cleanId = model.provider.toLowerCase();
-			const aaId = cleanId.replace(/[^a-z0-9]/g, "");
+			const { logo, fallbackLogo } = resolveModelLogos({
+				provider: model.provider,
+			});
 			return {
 				...model,
-				logo: `https://artificialanalysis.ai/img/logos/${aaId}_small.svg`,
-				fallbackLogo: `https://models.dev/logos/${cleanId}.svg`,
+				logo,
+				fallbackLogo,
 				intelligenceScore: score?.intelligenceScore ?? null,
 				speedScore: score?.speedScore ?? null,
 			};
@@ -107,14 +107,6 @@ function sortModelsByScore(
 
 		return (left.label || left.key).localeCompare(right.label || right.key);
 	});
-}
-
-function topModelsByScore(
-	models: AvailableModel[],
-	key: "intelligenceScore" | "speedScore",
-	limit = MODEL_LIMIT,
-): AvailableModel[] {
-	return sortModelsByScore(models, key).slice(0, limit);
 }
 
 export function useConfig(): UseConfigReturn {
@@ -183,12 +175,12 @@ export function useConfig(): UseConfigReturn {
 	);
 
 	const summarizerModels = useMemo(
-		() => topModelsByScore(enrichedModels, "intelligenceScore"),
+		() => sortModelsByScore(enrichedModels, "intelligenceScore"),
 		[enrichedModels],
 	);
 
 	const refinerModels = useMemo(
-		() => topModelsByScore(enrichedModels, "speedScore"),
+		() => sortModelsByScore(enrichedModels, "speedScore"),
 		[enrichedModels],
 	);
 

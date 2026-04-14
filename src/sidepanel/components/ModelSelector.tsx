@@ -25,6 +25,9 @@ export function ModelSelector({
 	options,
 	placeholder,
 }: ModelSelectorProps) {
+	const selectedOption =
+		options.find((option) => option.value === value) ?? null;
+
 	const renderModelOption = (option: ComboboxOption) => (
 		<>
 			{option.icon && (
@@ -53,6 +56,7 @@ export function ModelSelector({
 				options={options}
 				placeholder={placeholder}
 				renderOption={renderModelOption}
+				renderIcon={() => selectedOption?.icon ?? null}
 				inputClassName="bg-background/40 border-border/60 hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground"
 			/>
 		</div>
