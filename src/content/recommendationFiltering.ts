@@ -15,7 +15,6 @@ import {
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import {
 	extractVideoData,
-	getContainingVideoCard,
 	getNormalizedChannelId,
 	normalizeChannelPath,
 	normalizeText,
@@ -666,15 +665,6 @@ class FeedFilterController {
 
 		const observer = new MutationObserver((mutations) => {
 			const hasNewContent = mutations.some((mutation) => {
-				if (mutation.type === "characterData") {
-					const videoCard = getContainingVideoCard(mutation.target);
-					if (videoCard) {
-						queueVideoCardForReprocessing(videoCard);
-						return true;
-					}
-					return false;
-				}
-
 				Array.from(mutation.addedNodes).forEach((node) => {
 					if (node.nodeType !== Node.ELEMENT_NODE) {
 						return;
@@ -721,7 +711,6 @@ class FeedFilterController {
 		observer.observe(contentRoot, {
 			childList: true,
 			subtree: true,
-			characterData: true,
 		});
 	}
 
@@ -772,15 +761,7 @@ class FeedFilterController {
 	}
 
 	private startNavigationObserver(): void {
-		const navigationObserverTarget =
-			document.querySelector("title") ||
-			document.head ||
-			document.documentElement;
-		if (!navigationObserverTarget) {
-			return;
-		}
-
-		new MutationObserver(() => {
+		const handleNavigation = () => {
 			const currentUrl = location.href;
 			if (currentUrl === this.lastUrl) {
 				return;
@@ -793,11 +774,12 @@ class FeedFilterController {
 				void this.runAllFilters(true);
 			}, 1500);
 			this.scheduleSettlingRescans("navigation");
-		}).observe(navigationObserverTarget, {
-			subtree: true,
-			characterData: true,
-			childList: true,
-		});
+		};
+
+		document.addEventListener("yt-navigate-finish", handleNavigation);
+		document.addEventListener("yt-page-data-updated", handleNavigation);
+		window.addEventListener("popstate", handleNavigation);
+		window.addEventListener("hashchange", handleNavigation);
 	}
 
 	private startScrollListener(): void {

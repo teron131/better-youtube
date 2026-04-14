@@ -23,7 +23,15 @@ import {
 	Sparkles,
 	X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { QualityData, Summary, VideoInfoResponse } from "@/core/types";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { toChineseSummary } from "@/core/utils/text";
@@ -45,13 +53,14 @@ export const SummaryPanel = ({
 	isRegenerating,
 }: SummaryPanelProps) => {
 	const [searchQuery, setSearchQuery] = useState("");
+	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-	const [matchCount, setMatchCount] = useState(0);
 	const contentRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
-	const convertedSummary = toChineseSummary(summary);
 
-	const copyToClipboard = async () => {
+	const convertedSummary = useMemo(() => toChineseSummary(summary), [summary]);
+
+	const copyToClipboard = useCallback(async () => {
 		try {
 			const markdown = generateSummaryMarkdown(summary, videoInfo);
 			await navigator.clipboard.writeText(markdown);
@@ -66,9 +75,9 @@ export const SummaryPanel = ({
 				variant: "destructive",
 			});
 		}
-	};
+	}, [summary, videoInfo, toast]);
 
-	const handleRegenerate = () => {
+	const handleRegenerate = useCallback(() => {
 		if (onRegenerate) {
 			onRegenerate();
 			toast({
@@ -76,101 +85,118 @@ export const SummaryPanel = ({
 				description: "Starting a new summary of the video",
 			});
 		}
-	};
+	}, [onRegenerate, toast]);
 
-	const highlightText = (text: string) => {
-		if (!text) return "";
-		if (!searchQuery.trim()) return text;
+	const highlightText = useCallback(
+		(text: string, query: string, matchStartIndex: number) => {
+			if (!text) return { nodes: [] as ReactNode[], matchCount: 0 };
+			if (!query.trim()) return { nodes: [text] as ReactNode[], matchCount: 0 };
 
-		const regex = new RegExp(
-			`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-			"gi",
-		);
-		const parts = text.split(regex);
-
-		let matchIndex = 0;
-		let textOffset = 0;
-		return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
-			if (!part) return nodes;
-
-			const segmentOffset = textOffset;
-			textOffset += part.length;
-
-			if (partIndex % 2 === 1) {
-				const currentMatch = matchIndex;
-				matchIndex += 1;
-				const isCurrent = currentMatch === currentMatchIndex;
-				nodes.push(
-					<mark
-						key={`mark-${segmentOffset}-${part}-${currentMatch}`}
-						className={
-							isCurrent
-								? "bg-primary text-primary-foreground"
-								: "bg-yellow-500/30"
-						}
-					>
-						{part}
-					</mark>,
+			try {
+				const regex = new RegExp(
+					`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+					"gi",
 				);
-			} else {
-				nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
-			}
-			return nodes;
-		}, []);
-	};
+				const parts = text.split(regex);
 
-	const getTextContent = () => {
+				let localMatchCount = 0;
+				let textOffset = 0;
+				const nodes = parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
+					if (!part) return nodes;
+
+					const segmentOffset = textOffset;
+					textOffset += part.length;
+
+					if (partIndex % 2 === 1) {
+						const globalMatchIndex = matchStartIndex + localMatchCount;
+						localMatchCount += 1;
+						const isCurrent = globalMatchIndex === currentMatchIndex;
+						nodes.push(
+							<mark
+								key={`mark-${segmentOffset}-${part}-${globalMatchIndex}`}
+								className={
+									isCurrent
+										? "bg-primary text-primary-foreground"
+										: "bg-yellow-500/30"
+								}
+							>
+								{part}
+							</mark>,
+						);
+					} else {
+						nodes.push(
+							<span key={`text-${segmentOffset}-${part}`}>{part}</span>,
+						);
+					}
+					return nodes;
+				}, []);
+
+				return { nodes, matchCount: localMatchCount };
+			} catch {
+				return { nodes: [text] as ReactNode[], matchCount: 0 };
+			}
+		},
+		[currentMatchIndex],
+	);
+
+	const matchCount = useMemo(() => {
+		const query = deferredSearchQuery.trim();
+		if (!query) return 0;
+
 		let text = convertedSummary.overview || "";
 		if (convertedSummary.chapters) {
 			convertedSummary.chapters.forEach((chapter) => {
 				text += ` ${chapter.title || ""} ${chapter.description || ""}`;
 			});
 		}
-		return text;
-	};
 
-	const handleSearch = (query: string) => {
-		setSearchQuery(query);
-		setCurrentMatchIndex(0);
-
-		if (query.trim()) {
-			const text = getTextContent();
+		try {
 			const regex = new RegExp(
 				query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
 				"gi",
 			);
 			const matches = text.match(regex);
-			setMatchCount(matches ? matches.length : 0);
-		} else {
-			setMatchCount(0);
+			return matches ? matches.length : 0;
+		} catch {
+			return 0;
 		}
-	};
+	}, [convertedSummary, deferredSearchQuery]);
 
-	const navigateMatches = (direction: "next" | "prev") => {
-		if (matchCount === 0) return;
+	const handleSearch = useCallback((query: string) => {
+		setSearchQuery(query);
+		setCurrentMatchIndex(0);
+	}, []);
 
-		if (direction === "next") {
-			setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
-		} else {
-			setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
-		}
-	};
+	const navigateMatches = useCallback(
+		(direction: "next" | "prev") => {
+			if (matchCount === 0) return;
 
-	const clearSearch = () => {
+			if (direction === "next") {
+				setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
+			} else {
+				setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+			}
+		},
+		[matchCount],
+	);
+
+	const clearSearch = useCallback(() => {
 		setSearchQuery("");
 		setCurrentMatchIndex(0);
-		setMatchCount(0);
-	};
+	}, []);
 
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && matchCount > 0) {
-			e.preventDefault();
-			navigateMatches("next");
-		}
-	};
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (e.key === "Enter" && matchCount > 0) {
+				e.preventDefault();
+				navigateMatches("next");
+			}
+		},
+		[matchCount, navigateMatches],
+	);
 
 	useEffect(() => {
-		if (contentRef.current && searchQuery.trim()) {
+		if (contentRef.current && deferredSearchQuery.trim()) {
 			const marks = contentRef.current.querySelectorAll("mark");
 			if (marks[currentMatchIndex]) {
 				marks[currentMatchIndex].scrollIntoView({
@@ -179,12 +205,53 @@ export const SummaryPanel = ({
 				});
 			}
 		}
-	}, [currentMatchIndex, searchQuery]);
+	}, [currentMatchIndex, deferredSearchQuery]);
+
+	const renderedContent = useMemo(() => {
+		const query = deferredSearchQuery;
+		let currentGlobalMatchIndex = 0;
+
+		const overviewResult = highlightText(
+			convertedSummary.overview || "",
+			query,
+			currentGlobalMatchIndex,
+		);
+		currentGlobalMatchIndex += overviewResult.matchCount;
+
+		const highlightedChapters = (convertedSummary.chapters || []).map(
+			(chapter) => {
+				const titleResult = highlightText(
+					chapter.title || "",
+					query,
+					currentGlobalMatchIndex,
+				);
+				currentGlobalMatchIndex += titleResult.matchCount;
+
+				const descResult = highlightText(
+					chapter.description || "",
+					query,
+					currentGlobalMatchIndex,
+				);
+				currentGlobalMatchIndex += descResult.matchCount;
+
+				return {
+					...chapter,
+					highlightedTitle: titleResult.nodes,
+					highlightedDescription: descResult.nodes,
+				};
+			},
+		);
+
+		return {
+			highlightedOverview: overviewResult.nodes,
+			highlightedChapters,
+		};
+	}, [convertedSummary, deferredSearchQuery, highlightText]);
 
 	if (!summary) return null;
 
 	return (
-		<Card className="p-0 shadow-md">
+		<Card className="p-0 shadow-md contain-layout">
 			<div className="relative space-y-6 p-6">
 				{/* Main Header */}
 				<div className="space-y-4">
@@ -304,22 +371,22 @@ export const SummaryPanel = ({
 								title="Summary"
 							/>
 							<div className="summary-text text-foreground">
-								{highlightText(convertedSummary.overview)}
+								{renderedContent.highlightedOverview}
 							</div>
 						</div>
 					)}
 
 					{/* Video Chapters Section */}
-					{convertedSummary.chapters &&
-						convertedSummary.chapters.length > 0 && (
-							<div className="space-y-2.5">
-								<SectionHeader
-									icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />}
-									title="Video Chapters"
-								/>
+					{renderedContent.highlightedChapters.length > 0 && (
+						<div className="space-y-2.5">
+							<SectionHeader
+								icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />}
+								title="Video Chapters"
+							/>
 
-								<div className="space-y-4">
-									{convertedSummary.chapters.map((chapter, chapterIndex) => (
+							<div className="space-y-4">
+								{renderedContent.highlightedChapters.map(
+									(chapter, chapterIndex) => (
 										<div
 											key={`${chapter.title}-${chapter.startTime ?? ""}-${chapter.endTime ?? ""}`}
 											className="space-y-2"
@@ -336,16 +403,17 @@ export const SummaryPanel = ({
 																.join("-")}
 														</span>
 													)}
-												<span>{highlightText(chapter.title)}</span>
+												<span>{chapter.highlightedTitle}</span>
 											</h5>
 											<div className="summary-text text-foreground">
-												{highlightText(chapter.description)}
+												{chapter.highlightedDescription}
 											</div>
 										</div>
-									))}
-								</div>
+									),
+								)}
 							</div>
-						)}
+						</div>
+					)}
 				</div>
 			</div>
 		</Card>

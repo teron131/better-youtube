@@ -57,6 +57,16 @@ const LOADING_STATE: VideoProcessingState = {
 	scrapedTranscript: null,
 };
 
+function buildFailedResult(error: ApiError): StreamingProcessingResult {
+	return {
+		success: false,
+		totalTime: "0.0s",
+		iterations: 0,
+		chunksProcessed: 0,
+		error,
+	};
+}
+
 type Action =
 	| { type: "START" }
 	| { type: "PROGRESS"; payload: StreamingProgressState }
@@ -141,91 +151,87 @@ export function useVideoProcessing() {
 		};
 	}, []);
 
-	const cancelCurrentRun = () => {
+	const cancelCurrentRun = useCallback(() => {
 		abortControllerRef.current?.abort();
 		abortControllerRef.current = null;
-	};
-	const buildFailedResult = (error: ApiError): StreamingProcessingResult => ({
-		success: false,
-		totalTime: "0.0s",
-		iterations: 0,
-		chunksProcessed: 0,
-		error,
-	});
+	}, []);
 
-	const processVideo = async (
-		url: string,
-		options?: VideoProcessingOptions,
-		onProgress?: (state: StreamingProgressState) => void,
-	): Promise<StreamingProcessingResult> => {
-		const runToken = runTokenRef.current + 1;
-		runTokenRef.current = runToken;
-		abortControllerRef.current?.abort();
-		const controller = new AbortController();
-		abortControllerRef.current = controller;
+	const processVideo = useCallback(
+		async (
+			url: string,
+			options?: VideoProcessingOptions,
+			onProgress?: (state: StreamingProgressState) => void,
+		): Promise<StreamingProcessingResult> => {
+			const runToken = runTokenRef.current + 1;
+			runTokenRef.current = runToken;
+			abortControllerRef.current?.abort();
+			const controller = new AbortController();
+			abortControllerRef.current = controller;
 
-		dispatch({ type: "START" });
+			dispatch({ type: "START" });
 
-		try {
-			const result = await streamSummary(
-				url,
-				options || {},
-				(progress) => {
-					if (runToken !== runTokenRef.current) {
-						return;
-					}
-					dispatch({ type: "PROGRESS", payload: progress });
-					onProgress?.(progress);
-				},
-				{ signal: controller.signal, runId: String(runToken) },
-			);
+			try {
+				const result = await streamSummary(
+					url,
+					options || {},
+					(progress) => {
+						if (runToken !== runTokenRef.current) {
+							return;
+						}
+						dispatch({ type: "PROGRESS", payload: progress });
+						onProgress?.(progress);
+					},
+					{ signal: controller.signal, runId: String(runToken) },
+				);
 
-			if (runToken !== runTokenRef.current) {
-				return buildFailedResult({
-					message: "Processing cancelled",
-					type: "processing",
-				});
-			}
+				if (runToken !== runTokenRef.current) {
+					return buildFailedResult({
+						message: "Processing cancelled",
+						type: "processing",
+					});
+				}
 
-			if (!result.success) {
-				const error = result.error || {
-					message: "Processing failed",
-					type: "processing",
-				};
-				dispatch({ type: "ERROR", payload: error });
+				if (!result.success) {
+					const error = result.error || {
+						message: "Processing failed",
+						type: "processing",
+					};
+					dispatch({ type: "ERROR", payload: error });
+					return result;
+				}
+
+				dispatch({ type: "COMPLETE", payload: result });
 				return result;
+			} catch (e) {
+				if (runToken !== runTokenRef.current) {
+					return buildFailedResult({
+						message: "Processing cancelled",
+						type: "processing",
+					});
+				}
+				const error =
+					typeof e === "object" && e !== null && "message" in e
+						? ({
+								message: String((e as Record<string, unknown>).message),
+								type: (e as Record<string, unknown>).type || "processing",
+							} as ApiError)
+						: ({
+								message: "Processing failed",
+								type: "processing",
+							} as ApiError);
+				dispatch({ type: "ERROR", payload: error });
+				return buildFailedResult(error);
+			} finally {
+				if (
+					runToken === runTokenRef.current &&
+					abortControllerRef.current === controller
+				) {
+					abortControllerRef.current = null;
+				}
 			}
-
-			dispatch({ type: "COMPLETE", payload: result });
-			return result;
-		} catch (e) {
-			if (runToken !== runTokenRef.current) {
-				return buildFailedResult({
-					message: "Processing cancelled",
-					type: "processing",
-				});
-			}
-			const error =
-				typeof e === "object" && e !== null && "message" in e
-					? ({
-							message: String((e as Record<string, unknown>).message),
-							type: (e as Record<string, unknown>).type || "processing",
-						} as ApiError)
-					: ({
-							message: "Processing failed",
-							type: "processing",
-						} as ApiError);
-			dispatch({ type: "ERROR", payload: error });
-			return buildFailedResult(error);
-		} finally {
-			if (
-				runToken === runTokenRef.current &&
-				abortControllerRef.current === controller
-			) {
-				abortControllerRef.current = null;
-			}
-		}
-	};
+		},
+		[],
+	);
 
 	return {
 		...state,
