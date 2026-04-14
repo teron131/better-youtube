@@ -26,6 +26,9 @@ import type { SummarizerOutput, Summary } from "./schemas";
 import { SummarySchemaNoTimestamps } from "./schemas";
 import type { SummarizationInput } from "./summarizer";
 
+type FastSummarizerAgent = ReturnType<typeof createAgent>;
+type FastSummarizerInvokeInput = Parameters<FastSummarizerAgent["invoke"]>[0];
+
 const isYoutubeUrl = (input: string) =>
 	input.includes("youtube.com/watch") || input.includes("youtu.be/");
 
@@ -178,7 +181,7 @@ export async function summarizeFast(
 					: `Summarize this transcript:\n\n${input.transcript_or_url}`,
 			},
 		],
-	});
+	} as FastSummarizerInvokeInput);
 
 	if (!response.structuredResponse)
 		throw new Error("Agent did not return structured response");
