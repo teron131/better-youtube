@@ -27,8 +27,7 @@ export function toModelComboboxOption(
 	config: ModelOptionConfig = {},
 ): ComboboxOption {
 	const hasIcon = model.logo || model.provider;
-	const iconClassName =
-		config.iconClassName ?? DEFAULT_MODEL_ICON_CLASS_NAME;
+	const iconClassName = config.iconClassName ?? DEFAULT_MODEL_ICON_CLASS_NAME;
 
 	return {
 		value: model.key,
