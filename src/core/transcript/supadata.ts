@@ -1,14 +1,14 @@
-import { API_ENDPOINTS, TIMING } from "@/core/constants";
+import { API_ENDPOINTS, TIMING } from "../constants.ts";
 import type {
 	ApiTranscriptSegment,
 	ScrapeCreatorsResponse,
 	SupadataJobResponse,
 	SupadataTranscriptItem,
 	SupadataTranscriptResponse,
-} from "@/core/types";
-import { formatTimestamp } from "@/core/utils/date";
-import { createYouTubeWatchUrl } from "@/core/utils/url";
-import { createEmptyScrapeCreatorsResponse } from "./scrapeCreators";
+} from "../types.ts";
+import { formatTimestamp } from "../utils/date.ts";
+import { createYouTubeWatchUrl } from "../utils/url.ts";
+import { createEmptyScrapeCreatorsResponse } from "./scrapeCreators.ts";
 
 const SUPADATA_POLL_INTERVAL_MS = 1000;
 

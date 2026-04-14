@@ -3,9 +3,9 @@
  * Single source of truth for all application configuration
  */
 
-import type { FontSize } from "./constants";
-import { DEFAULTS, STORAGE_KEYS } from "./constants";
-import { getStorageValues } from "./storage";
+import type { FontSize } from "./constants.ts";
+import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
+import { getStorageValues } from "./storage.ts";
 
 // ============================================================================
 // Types
@@ -13,7 +13,10 @@ import { getStorageValues } from "./storage";
 
 export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 export type SummarizerModePreference = "native" | "validation" | "fast";
-export type TranscriptProviderPreference = "scrapeCreators" | "supadata";
+export type TranscriptProviderPreference =
+	| "scrapeCreators"
+	| "supadata"
+	| "chromeTab";
 
 export interface AppConfig {
 	// API Keys (nullable)
@@ -26,7 +29,7 @@ export interface AppConfig {
 	// Routing
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: "scrapeCreators" | "supadata";
+	transcriptProviderPreference: TranscriptProviderPreference;
 
 	// Model selections
 	summarizerModel: string;
@@ -125,8 +128,12 @@ export async function loadConfig(): Promise<AppConfig> {
 		result[STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE] ??
 			DEFAULTS.TRANSCRIPT_PROVIDER_PREFERENCE,
 	);
-	const transcriptProviderPreference: "scrapeCreators" | "supadata" =
-		transcriptPrefRaw === "supadata" ? "supadata" : "scrapeCreators";
+	const transcriptProviderPreference: TranscriptProviderPreference =
+		transcriptPrefRaw === "supadata"
+			? "supadata"
+			: transcriptPrefRaw === "chromeTab"
+				? "chromeTab"
+				: "scrapeCreators";
 
 	const summarizerModel = resolveModel(
 		result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],

@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadConfig } from "@/core/config";
+import { loadConfig, type TranscriptProviderPreference } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import {
 	MESSAGE_ACTIONS,
@@ -44,7 +44,8 @@ const DEFAULT_SETTINGS = {
 	geminiApiKey: "",
 	summarizerProvider: "auto",
 	summarizerMode: "validation",
-	transcriptProviderPreference: "scrapeCreators",
+	transcriptProviderPreference:
+		"scrapeCreators" as TranscriptProviderPreference,
 	summarizerModel: "google/gemini-3-flash-preview",
 	refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
 	targetLanguage: "auto",
@@ -466,7 +467,10 @@ const Settings = () => {
 									<Select
 										value={settings.transcriptProviderPreference}
 										onValueChange={(val) =>
-											handleChange("transcriptProviderPreference", val)
+											handleChange(
+												"transcriptProviderPreference",
+												val as TranscriptProviderPreference,
+											)
 										}
 									>
 										<SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
@@ -477,6 +481,9 @@ const Settings = () => {
 												Scrape Creators
 											</SelectItem>
 											<SelectItem value="supadata">Supadata</SelectItem>
+											<SelectItem value="chromeTab">
+												Chrome Tab (experimental)
+											</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>

@@ -416,6 +416,7 @@ export async function handleGenerateSummary(
 		latestSummaryWorkloads: Map<string, string>;
 		pendingSummaryJobs: Map<string, Promise<void>>;
 		config: RuntimeConfigSnapshot;
+		tabId?: number;
 	},
 	sendResponse: (response: unknown) => void,
 ): Promise<void> {
@@ -424,6 +425,7 @@ export async function handleGenerateSummary(
 		latestSummaryWorkloads,
 		pendingSummaryJobs,
 		config,
+		tabId,
 	} = ctx;
 	const {
 		videoId,
@@ -442,6 +444,7 @@ export async function handleGenerateSummary(
 		scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
 		supadataApiKey: config.supadataApiKey,
 		transcriptProviderPreference: config.transcriptProviderPreference,
+		tabId,
 	};
 
 	if (requestId) {

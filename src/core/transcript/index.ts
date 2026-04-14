@@ -1,15 +1,13 @@
+import type { TranscriptProviderPreference } from "../config.ts";
 import {
 	globalScrapeCreatorsKey,
 	globalSupadataKey,
 	globalTranscriptProviderPreference,
-} from "@/core/runtimeConfig";
-import type { SubtitleSegment, VideoMetadata } from "@/core/storage";
-import type {
-	ApiTranscriptSegment,
-	ScrapeCreatorsResponse,
-} from "@/core/types";
-import { formatTimestamp } from "@/core/utils/date";
-import { createYouTubeWatchUrl } from "@/core/utils/url";
+} from "../runtimeConfig.ts";
+import type { SubtitleSegment, VideoMetadata } from "../storage.ts";
+import type { ApiTranscriptSegment, ScrapeCreatorsResponse } from "../types.ts";
+import { formatTimestamp } from "../utils/date.ts";
+import { createYouTubeWatchUrl } from "../utils/url.ts";
 
 import {
 	clearPendingTranscript,
@@ -17,20 +15,22 @@ import {
 	getPendingTranscript,
 	setCachedTranscript,
 	setPendingTranscript,
-} from "./cache";
+} from "./cache.ts";
+import { fetchTranscriptFromChromeTab } from "./chromeTab.ts";
 import {
 	createEmptyScrapeCreatorsResponse,
 	fetchTranscriptFromScrapeCreators,
-} from "./scrapeCreators";
-import { fetchTranscriptFromSupadata } from "./supadata";
+} from "./scrapeCreators.ts";
+import { fetchTranscriptFromSupadata } from "./supadata.ts";
 
-export { clearTranscriptCache, getCachedTranscript } from "./cache";
+export { clearTranscriptCache, getCachedTranscript } from "./cache.ts";
 export type TranscriptFetchContext = {
 	scrapeCreatorsApiKey: string | null;
 	supadataApiKey: string | null;
-	transcriptProviderPreference: "scrapeCreators" | "supadata";
+	transcriptProviderPreference: TranscriptProviderPreference;
+	tabId?: number;
 };
-export { getPendingTranscript } from "./cache";
+export { getPendingTranscript } from "./cache.ts";
 
 const transcriptFetchContexts = new Map<
 	string,
@@ -105,13 +105,25 @@ export async function fetchTranscript(
 	const preference =
 		scopedContext?.transcriptProviderPreference ??
 		globalTranscriptProviderPreference;
+	const tabId = scopedContext?.tabId;
 
-	if (!scrapeCreatorsKey && !supadataKey) {
+	if (preference !== "chromeTab" && !scrapeCreatorsKey && !supadataKey) {
 		console.error("No transcript API keys configured");
 		return null;
 	}
 
 	const fetchPromise = (async () => {
+		const tryChromeTab = async () => {
+			if (!tabId) {
+				throw new Error(
+					"Chrome Tab transcript provider requires an active YouTube watch tab.",
+				);
+			}
+			const result = await fetchTranscriptFromChromeTab(videoId, tabId);
+			setCachedTranscript(videoId, result);
+			return result;
+		};
+
 		const tryScrapeCreators = async () => {
 			if (!scrapeCreatorsKey) return null;
 			const result = await fetchTranscriptFromScrapeCreators(
@@ -129,6 +141,10 @@ export async function fetchTranscript(
 			if (result) setCachedTranscript(videoId, result);
 			return result;
 		};
+
+		if (preference === "chromeTab") {
+			return tryChromeTab();
+		}
 
 		const first = preference === "supadata" ? trySupadata : tryScrapeCreators;
 		const second = preference === "supadata" ? tryScrapeCreators : trySupadata;

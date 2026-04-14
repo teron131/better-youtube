@@ -1,9 +1,6 @@
-import { API_ENDPOINTS, TIMING } from "@/core/constants";
-import type {
-	RawTranscriptSegment,
-	ScrapeCreatorsResponse,
-} from "@/core/types";
-import { createYouTubeWatchUrl } from "@/core/utils/url";
+import { API_ENDPOINTS, TIMING } from "../constants.ts";
+import type { RawTranscriptSegment, ScrapeCreatorsResponse } from "../types.ts";
+import { createYouTubeWatchUrl } from "../utils/url.ts";
 
 function buildTranscriptRequestUrl(videoId: string): URL {
 	const requestUrl = new URL(API_ENDPOINTS.SCRAPE_CREATORS);

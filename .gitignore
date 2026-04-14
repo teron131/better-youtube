@@ -1,5 +1,6 @@
 .DS_Store
 dist/
+.playwright-cli/
 
 # Nestjs specific
 /node_modules

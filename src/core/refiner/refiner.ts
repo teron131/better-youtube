@@ -208,6 +208,9 @@ function createPriorityHandler(
 			completedPriorityChunks === priorityRangeCount
 		) {
 			priorityReported = true;
+			const completedPrioritySegments = chunks
+				.slice(0, priorityRangeCount)
+				.flatMap((chunk) => chunk.segments);
 			const priorityText = allResults
 				.slice(0, priorityRangeCount)
 				.map((response, chunkIdx) =>
@@ -222,10 +225,10 @@ function createPriorityHandler(
 			onPriorityComplete(
 				parseRefinedSegments(
 					priorityText,
-					segments.slice(0, splitIndex),
+					completedPrioritySegments,
 					REFINER_CONFIG.CHUNK_SENTINEL,
 					REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK,
-				),
+				).slice(0, splitIndex),
 			);
 		}
 	};
@@ -240,15 +243,19 @@ function validateAndExtractChunk(
 	originalChunk: SubtitleSegment[],
 ): string {
 	const text = extractResponseText(response).trim();
-	const expectedCount = originalChunk.length;
 	const normalizedLines = normalizeRefinedOutputLines(text);
-	const actualCount = normalizedLines.length;
 
-	if (actualCount !== expectedCount) {
+	if (!normalizedLines.length) {
 		console.warn(
-			`Line count mismatch in chunk ${chunkIndex + 1}: expected ${expectedCount}, got ${actualCount}. Falling back to original chunk.`,
+			`Chunk ${chunkIndex + 1} returned no usable refined lines. Falling back to the original chunk.`,
 		);
 		return formatTranscriptSegments(originalChunk);
+	}
+
+	if (normalizedLines.length !== originalChunk.length) {
+		console.warn(
+			`Line count mismatch in chunk ${chunkIndex + 1}: expected ${originalChunk.length}, got ${normalizedLines.length}. Using segment alignment fallback.`,
+		);
 	}
 
 	return normalizedLines.join("\n");

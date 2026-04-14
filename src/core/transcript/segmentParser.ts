@@ -208,7 +208,8 @@ function parseWithChunks(
 		if (refinedTextsChunk.length !== origChunk.length) {
 			console.warn(
 				`Parser chunk ${i + 1}/${ranges.length} warning: ` +
-					`expected ${origChunk.length} lines, got ${refinedTextsChunk.length}`,
+					`expected ${origChunk.length} lines, got ${refinedTextsChunk.length}. ` +
+					`Using segment alignment to preserve the rest of the chunk.`,
 			);
 		}
 
