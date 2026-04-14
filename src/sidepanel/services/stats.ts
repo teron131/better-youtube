@@ -41,6 +41,11 @@ type ModelsDevProvider = {
 type OpenRouterModel = {
 	id: string;
 	name: string;
+	architecture?: {
+		modality?: string;
+		input_modalities?: string[];
+		output_modalities?: string[];
+	};
 	pricing?: {
 		prompt?: string;
 		completion?: string;
@@ -159,6 +164,28 @@ function availableModelFromOpenRouterModel(
 		provider: firstOpenRouterProvider(model.id),
 		recommended: true,
 	};
+}
+
+function outputsImages(model: OpenRouterModel): boolean {
+	const outputModalities = model.architecture?.output_modalities ?? [];
+	if (outputModalities.includes("image")) {
+		return true;
+	}
+
+	const modality = model.architecture?.modality?.toLowerCase() ?? "";
+	return modality.includes("->") && modality.endsWith("image");
+}
+
+function isAffordableTextModel(
+	model: OpenRouterModel,
+	maxCost: number,
+): boolean {
+	if (outputsImages(model)) {
+		return false;
+	}
+
+	const blendedPrice = parseModelCostPerMillion(model);
+	return blendedPrice > 0 && blendedPrice <= maxCost;
 }
 
 function buildLeaderboardScores(
@@ -393,10 +420,7 @@ export async function fetchDynamicModels(
 		};
 
 		return (data.data || [])
-			.filter((model) => {
-				const blendedPrice = parseModelCostPerMillion(model);
-				return blendedPrice > 0 && blendedPrice <= maxCost;
-			})
+			.filter((model) => isAffordableTextModel(model, maxCost))
 			.map(availableModelFromOpenRouterModel);
 	} catch (e) {
 		console.error("Failed to fetch dynamic models", e);
