@@ -2,7 +2,7 @@
  * Fast summary path (agent-based) for LLM.
  */
 
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { ToolMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { DEFAULTS } from "@/core/constants";
@@ -171,11 +171,12 @@ export async function summarizeFast(
 
 	const response = await agent.invoke({
 		messages: [
-			new HumanMessage(
-				isUrl
+			{
+				role: "user",
+				content: isUrl
 					? `Summarize the video at: ${input.transcript_or_url}`
 					: `Summarize this transcript:\n\n${input.transcript_or_url}`,
-			),
+			},
 		],
 	});
 
