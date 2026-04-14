@@ -233,7 +233,9 @@ function handleConvertedSubtitles(
 		return;
 	}
 
-	state.currentSubtitles = convertedSubtitles;
+	state.currentSubtitles = isPartial
+		? mergeSubtitleSegments(state.currentSubtitles, convertedSubtitles)
+		: convertedSubtitles;
 	if (state.currentSubtitles.length === 0) {
 		state.currentSubtitles = [];
 		clearRenderer();
@@ -251,6 +253,33 @@ function handleConvertedSubtitles(
 		}
 	}
 	sendResponse({ status: "success" });
+}
+
+function mergeSubtitleSegments(
+	existingSubtitles: SubtitleSegment[],
+	updatedSubtitles: SubtitleSegment[],
+): SubtitleSegment[] {
+	if (!existingSubtitles.length) {
+		return updatedSubtitles;
+	}
+
+	if (!updatedSubtitles.length) {
+		return existingSubtitles;
+	}
+
+	const updatedByRange = new Map(
+		updatedSubtitles.map((subtitle) => [
+			`${subtitle.startTime}:${subtitle.endTime}`,
+			subtitle,
+		]),
+	);
+
+	return existingSubtitles.map((subtitle) => {
+		const updated = updatedByRange.get(
+			`${subtitle.startTime}:${subtitle.endTime}`,
+		);
+		return updated ?? subtitle;
+	});
 }
 
 function handleToggleSubtitles(

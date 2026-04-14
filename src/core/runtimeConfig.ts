@@ -1,5 +1,5 @@
-import { DEFAULTS } from "@/core/constants";
-import { loadConfig } from "./config";
+import { loadConfig, type TranscriptProviderPreference } from "./config.ts";
+import { DEFAULTS } from "./constants.ts";
 
 // ============================================================================
 // Global Config Cache & Variables
@@ -13,7 +13,7 @@ export interface RuntimeConfigSnapshot {
 	supadataApiKey: string | null;
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: "scrapeCreators" | "supadata";
+	transcriptProviderPreference: TranscriptProviderPreference;
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
@@ -60,7 +60,7 @@ export let globalSummaryFontSize: string = "";
 export let globalSummarizerProvider: "auto" | "gemini" | "llm" = "auto";
 export let globalSummarizerMode: "native" | "validation" | "fast" =
 	DEFAULTS.SUMMARIZER_MODE;
-export let globalTranscriptProviderPreference: "scrapeCreators" | "supadata" =
+export let globalTranscriptProviderPreference: TranscriptProviderPreference =
 	"scrapeCreators";
 
 /**

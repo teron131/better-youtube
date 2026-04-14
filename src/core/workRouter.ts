@@ -1,6 +1,9 @@
 export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 export type SummarizerModePreference = "native" | "validation" | "fast";
-export type TranscriptProviderPreference = "scrapeCreators" | "supadata";
+export type TranscriptProviderPreference =
+	| "scrapeCreators"
+	| "supadata"
+	| "chromeTab";
 
 export type EffectiveSummarizerProvider = "gemini" | "llm";
 export type EffectiveLlmMode = "react" | "fast";

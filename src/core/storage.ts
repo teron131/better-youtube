@@ -4,8 +4,13 @@
  * Chrome storage management
  */
 
-import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants";
-import type { Quality, Summary } from "./summarizer/schemas";
+import {
+	STORAGE,
+	STORAGE_CLEANUP,
+	STORAGE_KEYS,
+	YOUTUBE,
+} from "./constants.ts";
+import type { Quality, Summary } from "./summarizer/schemas.ts";
 
 // ============================================================================
 // Types

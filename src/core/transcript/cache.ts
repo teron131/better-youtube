@@ -1,5 +1,5 @@
-import { TIMING } from "@/core/constants";
-import type { ScrapeCreatorsResponse } from "@/core/types";
+import { TIMING } from "../constants.ts";
+import type { ScrapeCreatorsResponse } from "../types.ts";
 
 const transcriptCache = new Map<
 	string,

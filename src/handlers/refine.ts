@@ -1,5 +1,8 @@
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { refineTranscriptWithLLM } from "@/core/refiner";
+import {
+	getRefinerWorkloadStats,
+	refineTranscriptWithLLM,
+} from "@/core/refiner";
 import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { saveSubtitles } from "@/core/storage";
 import {
@@ -62,6 +65,52 @@ export async function handleFetchSubtitles(
 		);
 	};
 
+	const emitCaptionError = (messageText: string) => {
+		chrome.runtime
+			.sendMessage({
+				action: MESSAGE_ACTIONS.SHOW_ERROR,
+				error: messageText,
+				requestId: resolveRequestId(),
+				videoId,
+			})
+			.catch(() => {});
+	};
+
+	if (config.transcriptProviderPreference === "chromeTab") {
+		try {
+			const preflight = await fetchTranscript(videoId, 2, {
+				scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
+				supadataApiKey: config.supadataApiKey,
+				transcriptProviderPreference: config.transcriptProviderPreference,
+				tabId,
+			});
+			if (!preflight?.transcript?.length) {
+				sendResponse({
+					status: "error",
+					message:
+						"Chrome Tab transcript extraction did not produce caption segments.",
+				});
+				return;
+			}
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: "Chrome Tab transcript extraction failed.";
+			console.error("[refine] chromeTab preflight failed", {
+				videoId,
+				requestId: effectiveRequestId,
+				error: errorMessage,
+			});
+			emitCaptionError(errorMessage);
+			sendResponse({
+				status: "error",
+				message: errorMessage,
+			});
+			return;
+		}
+	}
+
 	if (pendingCaptionJobs.has(workloadKey)) {
 		console.log("[refine] dedupe join existing workload", {
 			videoId,
@@ -99,14 +148,33 @@ export async function handleFetchSubtitles(
 				scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
 				supadataApiKey: config.supadataApiKey,
 				transcriptProviderPreference: config.transcriptProviderPreference,
+				tabId,
 			});
 			if (!data?.transcript?.length) {
 				sendSubtitlesToTab([], { noTranscript: true });
+				emitCaptionError("No transcript available for this video.");
 				return;
 			}
 
 			const segments = toSubtitleSegments(data.transcript);
+			const workload = getRefinerWorkloadStats(segments);
+			console.log("[refine] transcript workload", {
+				videoId,
+				requestId: effectiveRequestId,
+				segmentCount: workload.segmentCount,
+				chunkCount: workload.chunkCount,
+			});
+			if (!isCurrent()) return;
+			await saveSubtitles(videoId, segments);
+			sendSubtitlesToTab(segments, {
+				isRawFallback: true,
+			});
 
+			console.log("[refine] started", {
+				videoId,
+				requestId: effectiveRequestId,
+				chunkCount: workload.chunkCount,
+			});
 			const refinedSegments = await refineTranscriptWithLLM(
 				segments,
 				data.title,
@@ -114,15 +182,28 @@ export async function handleFetchSubtitles(
 				undefined, // onProgress
 				modelSelection,
 				(prioritySegments) => {
+					console.log("[refine] partial emitted", {
+						videoId,
+						requestId: effectiveRequestId,
+						segmentCount: prioritySegments.length,
+					});
 					sendSubtitlesToTab(prioritySegments, { isPartial: true });
 				},
 			);
 
 			if (!isCurrent()) return;
 			await saveSubtitles(videoId, refinedSegments);
+			console.log("[refine] completed", {
+				videoId,
+				requestId: effectiveRequestId,
+				segmentCount: refinedSegments.length,
+			});
 			sendSubtitlesToTab(refinedSegments);
 		} catch (error) {
 			console.error("Refinement error:", error);
+			emitCaptionError(
+				error instanceof Error ? error.message : "Caption refinement failed.",
+			);
 		}
 	})();
 

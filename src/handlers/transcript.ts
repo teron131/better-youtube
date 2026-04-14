@@ -10,22 +10,26 @@ import type { ChromeMessage } from "@/core/utils/chrome";
  */
 export async function handleScrapeVideo(
 	message: ChromeMessage,
-	ctx: { config: RuntimeConfigSnapshot },
+	ctx: { config: RuntimeConfigSnapshot; tabId?: number },
 	sendResponse: (response: any) => void,
 ): Promise<void> {
 	try {
 		const { videoId } = message as any;
-		const { config } = ctx;
+		const { config, tabId } = ctx;
 
 		const data = await fetchTranscript(videoId, 2, {
 			scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
 			supadataApiKey: config.supadataApiKey,
 			transcriptProviderPreference: config.transcriptProviderPreference,
+			tabId,
 		});
 		if (!data) {
 			sendResponse({
 				status: "error",
-				message: "Failed to fetch video data (Check API Key)",
+				message:
+					config.transcriptProviderPreference === "chromeTab"
+						? "Chrome Tab transcript extraction did not return caption data."
+						: "Failed to fetch video data (Check API Key)",
 			});
 			return;
 		}
@@ -55,7 +59,8 @@ export async function handleScrapeVideo(
 		console.error("Scrape video error:", error);
 		sendResponse({
 			status: "error",
-			message: "Failed to fetch video data",
+			message:
+				error instanceof Error ? error.message : "Failed to fetch video data",
 		});
 	}
 }

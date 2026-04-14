@@ -270,6 +270,8 @@ export const ERROR_MESSAGES = {
 	NO_TRANSCRIPT: "No transcript available for this video",
 	SCRAPE_KEY_MISSING:
 		"Scrape Creators API key not found. Please set it in settings.",
+	CHROME_TAB_REQUIRES_TAB:
+		"Chrome Tab transcript provider requires an active YouTube watch tab.",
 	LLM_KEY_MISSING: "LLM API key not found",
 	NOT_YOUTUBE_PAGE: "Not a YouTube video page",
 	SUMMARY_IN_PROGRESS:

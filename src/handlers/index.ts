@@ -31,10 +31,11 @@ chrome.sidePanel
  * Main message listener
  */
 createMessageListener((message, sender, sendResponse) => {
-	const tabId = sender.tab?.id;
+	const tabId =
+		typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
 	const actionHandlers: Partial<Record<string, AsyncActionHandler>> = {
 		[MESSAGE_ACTIONS.SCRAPE_VIDEO]: (config) =>
-			handleScrapeVideo(message, { config }, sendResponse),
+			handleScrapeVideo(message, { config, tabId }, sendResponse),
 		[MESSAGE_ACTIONS.FETCH_SUBTITLES]: (config) =>
 			handleFetchSubtitles(
 				message,
@@ -51,6 +52,7 @@ createMessageListener((message, sender, sendResponse) => {
 			handleGenerateSummary(
 				message,
 				{
+					tabId,
 					summaryRequests,
 					latestSummaryWorkloads,
 					pendingSummaryJobs,

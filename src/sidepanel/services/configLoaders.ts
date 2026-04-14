@@ -3,7 +3,7 @@
  * Centralized functions to load model settings from storage
  */
 
-import { loadConfig } from "@/core/config";
+import { loadConfig, type TranscriptProviderPreference } from "@/core/config";
 
 /**
  * Get model settings from storage
@@ -15,7 +15,7 @@ export async function getModelSettings(): Promise<{
 	showSubtitles: boolean;
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: "scrapeCreators" | "supadata";
+	transcriptProviderPreference: TranscriptProviderPreference;
 }> {
 	const config = await loadConfig();
 	return {
@@ -39,7 +39,7 @@ export async function getProcessingConfig(): Promise<{
 	showSubtitles: boolean;
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
-	transcriptProviderPreference: "scrapeCreators" | "supadata";
+	transcriptProviderPreference: TranscriptProviderPreference;
 }> {
 	return await getModelSettings();
 }
