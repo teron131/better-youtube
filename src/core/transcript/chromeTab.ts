@@ -3,7 +3,7 @@
 import { ERROR_MESSAGES } from "../constants.ts";
 import type { ApiTranscriptSegment, TranscriptResponse } from "../types.ts";
 import { formatTimestamp } from "../utils/date.ts";
-import { createYouTubeWatchUrl } from "../utils/url.ts";
+import { createYouTubeWatchUrl, getThumbnailUrl } from "../utils/url.ts";
 
 const LOG_PREFIX = "[transcript:chromeTab]";
 const CAPTION_FORMATS = ["json3", "srv3", "srv1", "vtt"] as const;
@@ -37,6 +37,13 @@ type ChromeTabMainWorldResult = {
 	activeVideoId: string | null;
 	title: string;
 	description: string;
+	author: string;
+	channelUrl?: string;
+	channelHandle?: string;
+	publishDate?: string;
+	durationSeconds?: number;
+	viewCount?: number;
+	likeCount?: number;
 	language?: string;
 	source?: string;
 	captionTracks: ChromeTabCaptionTrack[];
@@ -242,6 +249,37 @@ function segmentsToText(segments: ApiTranscriptSegment[]): string {
 		.trim();
 }
 
+function formatDurationFromSeconds(totalSeconds?: number): string {
+	if (!Number.isFinite(totalSeconds) || !totalSeconds || totalSeconds < 0) {
+		return "";
+	}
+
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+
+	if (hours > 0) {
+		return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+	}
+
+	return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function createChannelInfo(extraction: {
+	author: string;
+	channelUrl?: string;
+	channelHandle?: string;
+}): TranscriptResponse["channel"] | undefined {
+	if (!extraction.author) return undefined;
+
+	return {
+		id: "",
+		url: extraction.channelUrl || "",
+		handle: extraction.channelHandle || "",
+		title: extraction.author,
+	};
+}
+
 async function getTab(tabId: number): Promise<chrome.tabs.Tab> {
 	return new Promise((resolve, reject) => {
 		chrome.tabs.get(tabId, (tab) => {
@@ -374,6 +412,11 @@ async function executeChromeTabExtraction(
 		];
 	};
 
+	const getAnyPlayerResponse = () =>
+		getCaptionSources()
+			.map((source) => source.response)
+			.find((response) => Boolean(response)) ?? null;
+
 	const getCaptionState = (): ChromeTabCaptionState | null => {
 		for (const source of getCaptionSources()) {
 			const captionTracks = readCaptionTracks(source.response);
@@ -463,10 +506,58 @@ async function executeChromeTabExtraction(
 		activeVideoId,
 		title: document.title,
 		description: "",
+		author: "",
 		captionTracks: [],
 		attempts: [],
 		...overrides,
 	});
+
+	const normalizeText = (value: unknown): string => {
+		if (typeof value !== "string") return "";
+		return value.replace(/\s+/g, " ").trim();
+	};
+
+	const parseCompactNumber = (value: string): number | undefined => {
+		const normalized = value.replace(/,/g, "").trim();
+		const match = normalized.match(/(\d+(?:\.\d+)?)([KMB])?/i);
+		if (!match) return undefined;
+
+		const base = Number(match[1]);
+		if (!Number.isFinite(base)) return undefined;
+
+		const suffix = match[2]?.toUpperCase();
+		if (suffix === "K") return Math.round(base * 1_000);
+		if (suffix === "M") return Math.round(base * 1_000_000);
+		if (suffix === "B") return Math.round(base * 1_000_000_000);
+		return Math.round(base);
+	};
+
+	const parseLikeCount = (): number | undefined => {
+		const likeButton = document.querySelector(
+			"like-button-view-model button, segmented-like-dislike-button-view-model button, ytd-toggle-button-renderer button",
+		);
+		const ariaLabel = normalizeText(
+			likeButton?.getAttribute("aria-label") ?? "",
+		).toLowerCase();
+
+		if (!ariaLabel?.includes("like")) {
+			return undefined;
+		}
+
+		const fromPhrase = ariaLabel.match(
+			/along with ([\d.,]+(?:\s*[kmb])?) other people/i,
+		)?.[1];
+		if (fromPhrase) {
+			return parseCompactNumber(fromPhrase);
+		}
+
+		return parseCompactNumber(ariaLabel);
+	};
+
+	const ownerAnchor = document.querySelector(
+		"ytd-video-owner-renderer ytd-channel-name a",
+	) as HTMLAnchorElement | null;
+	const ownerText = normalizeText(ownerAnchor?.textContent ?? "");
 
 	if (!pageUrl.includes("youtube.com/watch")) {
 		return createResult({
@@ -486,14 +577,40 @@ async function executeChromeTabExtraction(
 		captionState = getCaptionState();
 	}
 
-	const playerResponse = captionState?.response ?? null;
+	const playerResponse = captionState?.response ?? getAnyPlayerResponse();
 	const videoDetails = playerResponse?.videoDetails ?? {};
+	const microformat =
+		playerResponse?.microformat?.playerMicroformatRenderer ?? {};
 	const title = String(videoDetails.title ?? document.title);
 	const description = String(videoDetails.shortDescription ?? "");
+	const author = normalizeText(
+		videoDetails.author ?? microformat.ownerChannelName ?? ownerText,
+	);
+	const durationSeconds = Number(
+		videoDetails.lengthSeconds ?? microformat.lengthSeconds ?? 0,
+	);
+	const viewCount = Number(
+		videoDetails.viewCount ?? microformat.viewCount ?? 0,
+	);
+	const publishDate = normalizeText(
+		microformat.publishDate ?? microformat.uploadDate ?? "",
+	);
+	const likeCount = parseLikeCount();
 	const captionTracks = captionState?.captionTracks ?? [];
 	const baseResult = createResult({
 		title,
 		description,
+		author,
+		channelUrl: ownerAnchor?.href,
+		channelHandle: ownerAnchor?.pathname || undefined,
+		publishDate: publishDate || undefined,
+		durationSeconds:
+			Number.isFinite(durationSeconds) && durationSeconds > 0
+				? durationSeconds
+				: undefined,
+		viewCount:
+			Number.isFinite(viewCount) && viewCount > 0 ? viewCount : undefined,
+		likeCount,
 		source: captionState?.sourceName,
 		captionTracks,
 	});
@@ -571,7 +688,17 @@ function toChromeTabResponse(args: {
 	tabTitle?: string;
 	extraction: Pick<
 		ChromeTabMainWorldResult,
-		"title" | "description" | "language" | "captionTracks"
+		| "title"
+		| "description"
+		| "author"
+		| "channelUrl"
+		| "channelHandle"
+		| "publishDate"
+		| "durationSeconds"
+		| "viewCount"
+		| "likeCount"
+		| "language"
+		| "captionTracks"
 	> & {
 		selectedTrack?: ChromeTabCaptionTrack;
 	};
@@ -580,7 +707,6 @@ function toChromeTabResponse(args: {
 	const { videoId, tabTitle, extraction, transcript } = args;
 	return {
 		success: true,
-		credits_remaining: 0,
 		type: "video",
 		url: createYouTubeWatchUrl(videoId),
 		videoId,
@@ -588,20 +714,15 @@ function toChromeTabResponse(args: {
 		transcript_only_text: segmentsToText(transcript),
 		title: extraction.title || tabTitle || "",
 		description: extraction.description || "",
+		thumbnail: getThumbnailUrl(videoId),
+		channel: createChannelInfo(extraction),
+		durationFormatted: formatDurationFromSeconds(extraction.durationSeconds),
+		publishDate: extraction.publishDate,
+		viewCountInt: extraction.viewCount,
+		likeCountInt: extraction.likeCount,
 		language:
 			extraction.language || extraction.selectedTrack?.languageCode || "",
 		captionTracks: extraction.captionTracks,
-		channel: {
-			id: "",
-			url: "",
-			handle: "",
-			title: "",
-		},
-		durationFormatted: "",
-		publishDate: "",
-		viewCountInt: 0,
-		likeCountInt: 0,
-		keywords: [],
 	};
 }
 
