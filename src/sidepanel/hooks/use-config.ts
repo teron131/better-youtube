@@ -17,12 +17,13 @@ import {
 } from "@ui/services/config";
 import {
 	fetchDynamicModels,
+	fetchLeaderboardProviderLogos,
 	fetchLeaderboardScores,
 	fetchModelStats,
 	type LeaderboardStat,
 	type ModelStat,
 	normalizeOpenRouterModelId,
-	resolveModelLogos,
+	type ProviderLogoStat,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -48,30 +49,30 @@ function applyModelMetadata(
 	models: AvailableModel[],
 	stats: Record<string, ModelStat>,
 	leaderboardScores: Record<string, LeaderboardStat>,
+	providerLogos: Record<string, ProviderLogoStat>,
 ): AvailableModel[] {
 	return models.map((model) => {
 		const stat = stats[model.key];
 		const scoreKey = normalizeOpenRouterModelId(model.key);
 		const score = leaderboardScores[scoreKey];
+		const providerKey = (model.provider ?? stat?.provider)?.toLowerCase();
+		const providerLogo = providerKey ? providerLogos[providerKey] : undefined;
 
 		if (stat) {
 			return {
 				...model,
-				logo: stat.logo,
-				fallbackLogo: stat.fallbackLogo,
+				logo: providerLogo?.logo ?? stat.logo,
+				fallbackLogo: providerLogo?.logo ? "" : stat.fallbackLogo,
 				intelligenceScore: score?.intelligenceScore ?? null,
 				speedScore: score?.speedScore ?? null,
 			};
 		}
 
-		if (model.provider) {
-			const { logo, fallbackLogo } = resolveModelLogos({
-				provider: model.provider,
-			});
+		if (providerLogo?.logo) {
 			return {
 				...model,
-				logo,
-				fallbackLogo,
+				logo: providerLogo.logo,
+				fallbackLogo: "",
 				intelligenceScore: score?.intelligenceScore ?? null,
 				speedScore: score?.speedScore ?? null,
 			};
@@ -115,6 +116,9 @@ export function useConfig(): UseConfigReturn {
 	const [leaderboardScores, setLeaderboardScores] = useState<
 		Record<string, LeaderboardStat>
 	>({});
+	const [providerLogos, setProviderLogos] = useState<
+		Record<string, ProviderLogoStat>
+	>({});
 	const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -124,15 +128,23 @@ export function useConfig(): UseConfigReturn {
 			setIsLoading(true);
 			setError(null);
 
-			const [configuration, modelStats, scores, fetchedDynamicModels] =
-				await Promise.all([
-					api.getConfiguration().catch(() => null),
-					fetchModelStats().catch(() => ({}) as Record<string, ModelStat>),
-					fetchLeaderboardScores().catch(
-						() => ({}) as Record<string, LeaderboardStat>,
-					),
-					fetchDynamicModels().catch(() => [] as AvailableModel[]),
-				]);
+			const [
+				configuration,
+				modelStats,
+				scores,
+				fetchedProviderLogos,
+				fetchedDynamicModels,
+			] = await Promise.all([
+				api.getConfiguration().catch(() => null),
+				fetchModelStats().catch(() => ({}) as Record<string, ModelStat>),
+				fetchLeaderboardScores().catch(
+					() => ({}) as Record<string, LeaderboardStat>,
+				),
+				fetchLeaderboardProviderLogos().catch(
+					() => ({}) as Record<string, ProviderLogoStat>,
+				),
+				fetchDynamicModels().catch(() => [] as AvailableModel[]),
+			]);
 
 			if (configuration) {
 				setConfig(configuration);
@@ -150,6 +162,7 @@ export function useConfig(): UseConfigReturn {
 
 			setStats(modelStats);
 			setLeaderboardScores(scores);
+			setProviderLogos(fetchedProviderLogos);
 			setDynamicModels(fetchedDynamicModels);
 		} catch (err) {
 			setError(
@@ -165,8 +178,14 @@ export function useConfig(): UseConfigReturn {
 	}, [loadConfig]);
 
 	const enrichedModels = useMemo(
-		() => applyModelMetadata(dynamicModels, stats, leaderboardScores),
-		[dynamicModels, stats, leaderboardScores],
+		() =>
+			applyModelMetadata(
+				dynamicModels,
+				stats,
+				leaderboardScores,
+				providerLogos,
+			),
+		[dynamicModels, stats, leaderboardScores, providerLogos],
 	);
 
 	const models = useMemo(
