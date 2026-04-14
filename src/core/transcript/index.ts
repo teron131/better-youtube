@@ -1,11 +1,5 @@
-import type { TranscriptProviderPreference } from "../config.ts";
-import {
-	globalScrapeCreatorsKey,
-	globalSupadataKey,
-	globalTranscriptProviderPreference,
-} from "../runtimeConfig.ts";
 import type { SubtitleSegment, VideoMetadata } from "../storage.ts";
-import type { ApiTranscriptSegment, ScrapeCreatorsResponse } from "../types.ts";
+import type { ApiTranscriptSegment, TranscriptResponse } from "../types.ts";
 import { formatTimestamp } from "../utils/date.ts";
 import { createYouTubeWatchUrl } from "../utils/url.ts";
 
@@ -17,17 +11,9 @@ import {
 	setPendingTranscript,
 } from "./cache.ts";
 import { fetchTranscriptFromChromeTab } from "./chromeTab.ts";
-import {
-	createEmptyScrapeCreatorsResponse,
-	fetchTranscriptFromScrapeCreators,
-} from "./scrapeCreators.ts";
-import { fetchTranscriptFromSupadata } from "./supadata.ts";
 
 export { clearTranscriptCache, getCachedTranscript } from "./cache.ts";
 export type TranscriptFetchContext = {
-	scrapeCreatorsApiKey: string | null;
-	supadataApiKey: string | null;
-	transcriptProviderPreference: TranscriptProviderPreference;
 	tabId?: number;
 };
 export { getPendingTranscript } from "./cache.ts";
@@ -66,7 +52,7 @@ export function toSubtitleSegments(
 }
 
 export function extractVideoInfo(
-	data: ScrapeCreatorsResponse,
+	data: TranscriptResponse,
 	videoId: string,
 ): VideoMetadata {
 	return {
@@ -86,73 +72,39 @@ export function getTranscriptText(transcript: ApiTranscriptSegment[]): string {
 	return transcript.map((segment) => segment.text).join(" ");
 }
 
+function resolveFetchContext(
+	videoId: string,
+	context?: TranscriptFetchContext,
+): TranscriptFetchContext | undefined {
+	return context ?? transcriptFetchContexts.get(videoId)?.context;
+}
+
 export async function fetchTranscript(
 	videoId: string,
-	retries = 2,
 	context?: TranscriptFetchContext,
-): Promise<ScrapeCreatorsResponse | null> {
+): Promise<TranscriptResponse | null> {
 	const cached = getCachedTranscript(videoId);
 	if (cached) return cached;
 
 	const pending = getPendingTranscript(videoId);
 	if (pending) return pending;
 
-	const scopedContext =
-		context ?? transcriptFetchContexts.get(videoId)?.context;
-	const scrapeCreatorsKey =
-		scopedContext?.scrapeCreatorsApiKey ?? globalScrapeCreatorsKey;
-	const supadataKey = scopedContext?.supadataApiKey ?? globalSupadataKey;
-	const preference =
-		scopedContext?.transcriptProviderPreference ??
-		globalTranscriptProviderPreference;
+	const scopedContext = resolveFetchContext(videoId, context);
 	const tabId = scopedContext?.tabId;
 
-	if (preference !== "chromeTab" && !scrapeCreatorsKey && !supadataKey) {
-		console.error("No transcript API keys configured");
-		return null;
-	}
-
 	const fetchPromise = (async () => {
-		const tryChromeTab = async () => {
-			if (!tabId) {
+		if (!tabId) {
+			if (scopedContext) {
 				throw new Error(
-					"Chrome Tab transcript provider requires an active YouTube watch tab.",
+					"Chrome transcript extraction requires an active YouTube watch tab.",
 				);
 			}
-			const result = await fetchTranscriptFromChromeTab(videoId, tabId);
-			setCachedTranscript(videoId, result);
-			return result;
-		};
-
-		const tryScrapeCreators = async () => {
-			if (!scrapeCreatorsKey) return null;
-			const result = await fetchTranscriptFromScrapeCreators(
-				videoId,
-				scrapeCreatorsKey,
-				retries,
-			);
-			if (result) setCachedTranscript(videoId, result);
-			return result;
-		};
-
-		const trySupadata = async () => {
-			if (!supadataKey) return null;
-			const result = await fetchTranscriptFromSupadata(videoId, supadataKey);
-			if (result) setCachedTranscript(videoId, result);
-			return result;
-		};
-
-		if (preference === "chromeTab") {
-			return tryChromeTab();
+			return null;
 		}
 
-		const first = preference === "supadata" ? trySupadata : tryScrapeCreators;
-		const second = preference === "supadata" ? tryScrapeCreators : trySupadata;
-
-		const result = (await first()) ?? (await second());
-		if (result) return result;
-
-		return createEmptyScrapeCreatorsResponse(videoId);
+		const result = await fetchTranscriptFromChromeTab(videoId, tabId);
+		setCachedTranscript(videoId, result);
+		return result;
 	})();
 
 	setPendingTranscript(videoId, fetchPromise);

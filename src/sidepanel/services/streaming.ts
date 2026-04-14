@@ -16,7 +16,6 @@ import {
 	type ChromeMessage,
 	getCurrentTab,
 	sendChromeMessage,
-	sendTabMessage,
 } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 import { getProcessingConfig } from "./configLoaders";
@@ -266,14 +265,12 @@ function triggerRefinement(
 	videoId: string,
 	requestId: RequestId,
 	refinerModel: string,
-	transcriptProviderPreference?: string,
 ): void {
 	void requestCaptionGeneration(
 		videoId,
 		requestId,
 		refinerModel,
 		undefined,
-		transcriptProviderPreference,
 	).catch((error) => console.error("Caption refinement error:", error));
 }
 
@@ -282,34 +279,9 @@ async function requestCaptionGeneration(
 	requestId: RequestId,
 	refinerModel: string,
 	options?: { forceRegenerate?: boolean },
-	transcriptProviderPreference?: string,
 ) {
-	const message = {
-		action: MESSAGE_ACTIONS.GENERATE_SUBTITLES,
-		videoId,
-		requestId,
-		modelSelection: refinerModel,
-		forceRegenerate: options?.forceRegenerate,
-	};
 	const activeTab = await getCurrentTab();
 	const activeTabId = activeTab?.id;
-	const activeTabVideoId =
-		typeof activeTab?.url === "string" ? extractVideoId(activeTab.url) : null;
-
-	if (
-		transcriptProviderPreference !== "chromeTab" &&
-		activeTabId &&
-		activeTabVideoId === videoId
-	) {
-		try {
-			return await sendTabMessage(activeTabId, message);
-		} catch (error) {
-			console.warn(
-				"[stream] active-tab caption request failed, falling back to runtime",
-				error,
-			);
-		}
-	}
 
 	return sendChromeMessage({
 		action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
@@ -328,14 +300,12 @@ export async function triggerCaptionGeneration(
 	const videoId = extractVideoId(url);
 	if (!videoId) throw new Error("Invalid YouTube URL");
 
-	const { refinerModel, transcriptProviderPreference } =
-		await getProcessingConfig();
+	const { refinerModel } = await getProcessingConfig();
 	const response = await requestCaptionGeneration(
 		videoId,
 		createRequestId("caption"),
 		refinerModel,
 		options,
-		transcriptProviderPreference,
 	);
 
 	if (response?.status === "error") {
@@ -381,7 +351,6 @@ export async function streamSummary(
 			showSubtitles,
 			summarizerProvider,
 			summarizerMode,
-			transcriptProviderPreference,
 		} = await withAbort(getProcessingConfig(), signal, runId);
 		throwIfAborted(signal, runId);
 		const activeTab = await withAbort(getCurrentTab(), signal, runId);
@@ -395,12 +364,7 @@ export async function streamSummary(
 				runId,
 			);
 			if (showSubtitles)
-				triggerRefinement(
-					videoId,
-					createRequestId("caption"),
-					refinerModel,
-					transcriptProviderPreference,
-				);
+				triggerRefinement(videoId, createRequestId("caption"), refinerModel);
 		} else {
 			emitProgress({
 				step: "scraping",

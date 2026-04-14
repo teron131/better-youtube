@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadConfig, type TranscriptProviderPreference } from "@/core/config";
+import { loadConfig } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import {
 	MESSAGE_ACTIONS,
@@ -37,15 +37,11 @@ import { setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 
 const DEFAULT_SETTINGS = {
-	scrapeCreatorsApiKey: "",
-	supadataApiKey: "",
 	llmApiKey: "",
 	llmBaseUrl: "",
 	geminiApiKey: "",
 	summarizerProvider: "auto",
 	summarizerMode: "validation",
-	transcriptProviderPreference:
-		"scrapeCreators" as TranscriptProviderPreference,
 	summarizerModel: "google/gemini-3-flash-preview",
 	refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
 	targetLanguage: "auto",
@@ -56,8 +52,6 @@ const DEFAULT_SETTINGS = {
 
 type ApiField = {
 	key:
-		| typeof STORAGE_KEYS.SCRAPE_CREATORS_API_KEY
-		| typeof STORAGE_KEYS.SUPADATA_API_KEY
 		| typeof STORAGE_KEYS.LLM_API_KEY
 		| typeof STORAGE_KEYS.LLM_BASE_URL
 		| typeof STORAGE_KEYS.GEMINI_API_KEY;
@@ -70,18 +64,6 @@ type ApiField = {
 const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
 const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
 const API_KEY_FIELDS: ApiField[] = [
-	{
-		key: STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-		label: "Scrape Creators API Key",
-		href: "https://scrapecreators.com",
-		placeholder: "...",
-	},
-	{
-		key: STORAGE_KEYS.SUPADATA_API_KEY,
-		label: "Supadata API Key",
-		href: "https://supadata.ai",
-		placeholder: "...",
-	},
 	{
 		key: STORAGE_KEYS.LLM_API_KEY,
 		label: "LLM API Key",
@@ -105,14 +87,11 @@ const API_KEY_FIELDS: ApiField[] = [
 ] as const;
 
 const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
-	scrapeCreatorsApiKey: STORAGE_KEYS.SCRAPE_CREATORS_API_KEY,
-	supadataApiKey: STORAGE_KEYS.SUPADATA_API_KEY,
 	llmApiKey: STORAGE_KEYS.LLM_API_KEY,
 	llmBaseUrl: STORAGE_KEYS.LLM_BASE_URL,
 	geminiApiKey: STORAGE_KEYS.GEMINI_API_KEY,
 	summarizerProvider: STORAGE_KEYS.SUMMARIZER_PROVIDER,
 	summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
-	transcriptProviderPreference: STORAGE_KEYS.TRANSCRIPT_PROVIDER_PREFERENCE,
 	summarizerModel: STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
 	refinerModel: STORAGE_KEYS.REFINER_CUSTOM_MODEL,
 	targetLanguage: STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
@@ -133,14 +112,11 @@ const Settings = () => {
 			try {
 				const config = await loadConfig();
 				const nextSettings: typeof DEFAULT_SETTINGS = {
-					scrapeCreatorsApiKey: config.scrapeCreatorsApiKey ?? "",
-					supadataApiKey: config.supadataApiKey ?? "",
 					llmApiKey: config.llmApiKey ?? "",
 					llmBaseUrl: config.llmBaseUrl ?? "",
 					geminiApiKey: config.geminiApiKey ?? "",
 					summarizerProvider: config.summarizerProvider,
 					summarizerMode: config.summarizerMode,
-					transcriptProviderPreference: config.transcriptProviderPreference,
 					summarizerModel: config.summarizerModel,
 					refinerModel: config.refinerModel,
 					targetLanguage: config.targetLanguage,
@@ -394,7 +370,7 @@ const Settings = () => {
 							</div>
 
 							{/* Routing */}
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 								<div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
 									<div className="flex items-center gap-2">
 										<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
@@ -449,41 +425,6 @@ const Settings = () => {
 												Validation Agent
 											</SelectItem>
 											<SelectItem value="fast">Fast Agent</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-
-								<div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
-									<div className="flex items-center gap-2">
-										<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-											<Key className="h-4 w-4" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground text-xs">
-												Transcript
-											</h4>
-										</div>
-									</div>
-									<Select
-										value={settings.transcriptProviderPreference}
-										onValueChange={(val) =>
-											handleChange(
-												"transcriptProviderPreference",
-												val as TranscriptProviderPreference,
-											)
-										}
-									>
-										<SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
-											<SelectValue placeholder="Scrape Creators" />
-										</SelectTrigger>
-										<SelectContent className="rounded-xl">
-											<SelectItem value="scrapeCreators">
-												Scrape Creators
-											</SelectItem>
-											<SelectItem value="supadata">Supadata</SelectItem>
-											<SelectItem value="chromeTab">
-												Chrome Tab (experimental)
-											</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>

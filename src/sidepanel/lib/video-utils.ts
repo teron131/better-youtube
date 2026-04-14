@@ -21,7 +21,7 @@ export const PROGRESS_STEPS = [
 	{
 		step: "scraping",
 		name: "Scraping Video",
-		description: "Extracting video info and transcript using Scrape Creators",
+		description: "Extracting video info and transcript from the current tab",
 	},
 	{
 		step: "summary_generation",

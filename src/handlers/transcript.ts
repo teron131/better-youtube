@@ -1,7 +1,10 @@
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import { saveVideoMetadata } from "@/core/storage";
-import { extractVideoInfo, fetchTranscript } from "@/core/transcript";
+import {
+	extractVideoInfo,
+	fetchTranscript,
+	getTranscriptText,
+} from "@/core/transcript";
 
 import type { ChromeMessage } from "@/core/utils/chrome";
 
@@ -10,26 +13,20 @@ import type { ChromeMessage } from "@/core/utils/chrome";
  */
 export async function handleScrapeVideo(
 	message: ChromeMessage,
-	ctx: { config: RuntimeConfigSnapshot; tabId?: number },
+	ctx: { tabId?: number },
 	sendResponse: (response: any) => void,
 ): Promise<void> {
 	try {
 		const { videoId } = message as any;
-		const { config, tabId } = ctx;
+		const { tabId } = ctx;
 
-		const data = await fetchTranscript(videoId, 2, {
-			scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
-			supadataApiKey: config.supadataApiKey,
-			transcriptProviderPreference: config.transcriptProviderPreference,
+		const data = await fetchTranscript(videoId, {
 			tabId,
 		});
 		if (!data) {
 			sendResponse({
 				status: "error",
-				message:
-					config.transcriptProviderPreference === "chromeTab"
-						? "Chrome Tab transcript extraction did not return caption data."
-						: "Failed to fetch video data (Check API Key)",
+				message: "Chrome transcript extraction did not return caption data.",
 			});
 			return;
 		}
@@ -38,9 +35,7 @@ export async function handleScrapeVideo(
 		await saveVideoMetadata(videoId, videoInfo);
 
 		const transcriptText =
-			data.transcript_only_text ||
-			data.transcript?.map((s: any) => s.text).join(" ") ||
-			null;
+			data.transcript_only_text || getTranscriptText(data.transcript) || null;
 		sendResponse({
 			status: "success",
 			videoInfo,

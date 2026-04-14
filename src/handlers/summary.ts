@@ -34,7 +34,7 @@ import {
 	setTranscriptFetchContext,
 	type TranscriptFetchContext,
 } from "@/core/transcript";
-import type { ScrapeCreatorsResponse } from "@/core/types";
+import type { TranscriptResponse } from "@/core/types";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { createYouTubeWatchUrl } from "@/core/utils/url";
 import {
@@ -108,15 +108,12 @@ function logSummaryConfig(payload: {
 	targetLanguage: string;
 	providerPref: ProviderPref;
 	modePref: SummarizerMode;
-	transcriptProviderPreference: string;
 	resolvedProvider: string;
 	desiredLlmMode: "react" | "fast";
 	msgHasTranscript: boolean;
 	hasKeys: {
 		gemini: boolean;
 		llm: boolean;
-		scrapeCreators: boolean;
-		supadata: boolean;
 	};
 }) {
 	console.log(
@@ -129,7 +126,6 @@ function logSummaryConfig(payload: {
 				targetLanguage: payload.targetLanguage,
 				providerPref: payload.providerPref,
 				modePref: payload.modePref,
-				transcriptProviderPreference: payload.transcriptProviderPreference,
 				desiredLlmMode: payload.desiredLlmMode,
 				resolvedProvider: payload.resolvedProvider,
 				msgHasTranscript: payload.msgHasTranscript,
@@ -201,7 +197,7 @@ async function getTranscriptSource(
 		return segmentsToText(storedSubtitles);
 	}
 
-	const fetched = await fetchTranscript(videoId, 2, fetchContext);
+	const fetched = await fetchTranscript(videoId, fetchContext);
 	const text = toTranscriptText(fetched);
 	if (text) {
 		console.log(`Using fetched transcript for summary of ${videoId}`);
@@ -233,7 +229,7 @@ async function getVideoInfo(
 	}
 
 	console.log(`No stored/cached video info for ${videoId}, fetching...`);
-	const data = await fetchTranscript(videoId, 2, fetchContext);
+	const data = await fetchTranscript(videoId, fetchContext);
 	if (data) {
 		const videoInfo = extractVideoInfo(data, videoId);
 		await saveVideoMetadata(videoId, videoInfo);
@@ -252,7 +248,7 @@ async function getVideoInfo(
 	};
 }
 
-function toTranscriptText(data: ScrapeCreatorsResponse | null): string | null {
+function toTranscriptText(data: TranscriptResponse | null): string | null {
 	if (!data) return null;
 	const transcriptOnlyText =
 		typeof data.transcript_only_text === "string"
@@ -440,12 +436,7 @@ export async function handleGenerateSummary(
 		summarizerMode,
 		summarizerProvider,
 	} = message as unknown as SummaryMessage;
-	const transcriptFetchContext: TranscriptFetchContext = {
-		scrapeCreatorsApiKey: config.scrapeCreatorsApiKey,
-		supadataApiKey: config.supadataApiKey,
-		transcriptProviderPreference: config.transcriptProviderPreference,
-		tabId,
-	};
+	const transcriptFetchContext: TranscriptFetchContext = { tabId };
 
 	if (requestId) {
 		summaryRequests.set(videoId, String(requestId));
@@ -531,17 +522,12 @@ export async function handleGenerateSummary(
 				targetLanguage: String(targetLanguage),
 				providerPref,
 				modePref,
-				transcriptProviderPreference: String(
-					config.transcriptProviderPreference,
-				),
 				resolvedProvider: provider,
 				desiredLlmMode,
 				msgHasTranscript: Boolean(msgTranscript),
 				hasKeys: {
 					gemini: Boolean(geminiKey),
 					llm: Boolean(llmKey),
-					scrapeCreators: Boolean(config.scrapeCreatorsApiKey),
-					supadata: Boolean(config.supadataApiKey),
 				},
 			});
 
