@@ -26,7 +26,7 @@ import {
 	type ProviderLogoStat,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STORAGE_KEYS } from "@/core/constants";
 import { setStorageValue } from "@/core/storage";
 
@@ -76,6 +76,10 @@ function summarizerModeValue(
 	return value === "native" || value === "validation" || value === "fast"
 		? value
 		: undefined;
+}
+
+function hasConfiguredModels(config: ConfigurationResponse | null): boolean {
+	return Object.keys(config?.available_models ?? {}).length > 0;
 }
 
 function applyModelMetadata(
@@ -277,10 +281,7 @@ export function useConfig(): UseConfigReturn {
 		[enrichedModels],
 	);
 
-	const summarizerModels = useMemo(
-		() => sortModelsByScore(enrichedModels, "intelligenceScore"),
-		[enrichedModels],
-	);
+	const summarizerModels = models;
 
 	const refinerModels = useMemo(
 		() => sortModelsByScore(enrichedModels, "speedScore"),
@@ -291,8 +292,8 @@ export function useConfig(): UseConfigReturn {
 		if (dynamicModels.some((candidate) => candidate.key === model)) {
 			return true;
 		}
-		return config?.available_models
-			? model in config.available_models
+		return hasConfiguredModels(config)
+			? model in (config?.available_models ?? {})
 			: model.length > 0;
 	};
 
@@ -370,6 +371,7 @@ export function useUserPreferences() {
 		DEFAULT_USER_PREFERENCES,
 	);
 	const [isLoaded, setIsLoaded] = useState(false);
+	const hasLocalEditsRef = useRef(false);
 	const { isValidModel, isValidLanguage } = useConfig();
 
 	const validatePreferences = useCallback(
@@ -400,12 +402,14 @@ export function useUserPreferences() {
 
 	useEffect(() => {
 		chrome.storage.local.get(USER_PREFERENCE_STORAGE_KEYS, (result) => {
-			setPreferences(
-				validatePreferences(
-					storagePreferences(result),
-					DEFAULT_USER_PREFERENCES,
-				),
-			);
+			if (!hasLocalEditsRef.current) {
+				setPreferences(
+					validatePreferences(
+						storagePreferences(result),
+						DEFAULT_USER_PREFERENCES,
+					),
+				);
+			}
 			setIsLoaded(true);
 		});
 
@@ -428,6 +432,7 @@ export function useUserPreferences() {
 	}, [validatePreferences]);
 
 	const updatePreferences = (updates: Partial<UserPreferences>) => {
+		hasLocalEditsRef.current = true;
 		const newPrefs = { ...preferences, ...updates };
 		setPreferences(newPrefs);
 

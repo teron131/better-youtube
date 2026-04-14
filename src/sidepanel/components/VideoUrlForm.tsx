@@ -3,26 +3,19 @@ import { ModelIcon } from "@ui/components/ModelIcon";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
-import { Input } from "@ui/components/ui/input";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/components/ui/select";
+	type ComboboxOption,
+	EditableCombobox,
+} from "@ui/components/ui/editable-combobox";
+import { Input } from "@ui/components/ui/input";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@ui/components/ui/tooltip";
-import {
-	useLanguageSelection,
-	useModelSelection,
-	useUserPreferences,
-} from "@ui/hooks/use-config";
+import { useModelSelection, useUserPreferences } from "@ui/hooks/use-config";
 import { AlertCircle, ArrowUp, Captions, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	isFormValid,
 	prepareProcessingOptions,
@@ -43,6 +36,30 @@ interface VideoUrlFormProps {
 	initialUrl?: string;
 }
 
+const SUMMARY_MODEL_INPUT_CLASS_NAME =
+	"h-8 rounded-full border border-transparent bg-transparent text-xs shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0";
+
+function measureModelWidthLabel(label: string): string {
+	const withoutProvider = label.includes(":")
+		? label.split(":").slice(1).join(":").trim()
+		: label;
+
+	return withoutProvider.replace(/\s*\(\$[^)]+\)\s*$/, "").trim();
+}
+
+function summaryModelWidth(
+	options: ComboboxOption[],
+	currentValue: string,
+): string {
+	const widestLabelLength = Math.max(
+		...options.map((option) => measureModelWidthLabel(option.label).length),
+		measureModelWidthLabel(currentValue).length,
+		"Model".length,
+	);
+
+	return `${widestLabelLength + 4}ch`;
+}
+
 export const VideoUrlForm = ({
 	onSubmit,
 	isLoading,
@@ -53,10 +70,30 @@ export const VideoUrlForm = ({
 	const [showExamples, setShowExamples] = useState(false);
 	const { preferences, updatePreferences } = useUserPreferences();
 	const { summarizerModels } = useModelSelection();
-	const { languages } = useLanguageSelection();
 
 	const selectedModel = summarizerModels.find(
 		(m) => m.key === preferences.summaryModel,
+	);
+	const modelOptions = useMemo<ComboboxOption[]>(
+		() =>
+			summarizerModels.map((model) => ({
+				value: model.key,
+				label: model.label,
+				icon: (
+					<ModelIcon
+						provider={model.provider}
+						logo={model.logo}
+						fallbackLogo={model.fallbackLogo}
+						alt={model.provider || model.label}
+						className="h-4 w-4 opacity-80"
+					/>
+				),
+			})),
+		[summarizerModels],
+	);
+	const modelTriggerWidth = useMemo(
+		() => summaryModelWidth(modelOptions, preferences.summaryModel),
+		[modelOptions, preferences.summaryModel],
 	);
 
 	useEffect(() => {
@@ -105,6 +142,17 @@ export const VideoUrlForm = ({
 		setValidationError("");
 	};
 
+	const renderSelectedModelIcon = () =>
+		selectedModel ? (
+			<ModelIcon
+				provider={selectedModel.provider}
+				logo={selectedModel.logo}
+				fallbackLogo={selectedModel.fallbackLogo}
+				alt={selectedModel.provider || selectedModel.label}
+				className="h-4 w-4 opacity-80"
+			/>
+		) : null;
+
 	return (
 		<Card className="w-full rounded-[24px] p-0 border border-border/60 bg-muted/40 hover:border-primary/15 transition-all duration-500">
 			<form
@@ -141,60 +189,32 @@ export const VideoUrlForm = ({
 				</div>
 
 				<div className="flex items-center justify-between gap-3 pt-1">
-					<div className="flex items-center gap-2 flex-wrap">
-						<Select
-							value={preferences.summaryModel}
-							onValueChange={(val) => updatePreferences({ summaryModel: val })}
+					<div className="flex flex-1 min-w-0 items-center gap-2">
+						<div
+							className="max-w-full"
+							style={{ width: `min(100%, ${modelTriggerWidth})` }}
 						>
-							<SelectTrigger className="h-8 w-[200px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
-								<div className="flex items-center gap-2 overflow-hidden">
-									<ModelIcon
-										provider={selectedModel?.provider}
-										logo={selectedModel?.logo}
-										fallbackLogo={selectedModel?.fallbackLogo}
-										alt={selectedModel?.provider || selectedModel?.label}
-										className="h-4 w-4 opacity-80"
-									/>
-									<span className="truncate">
-										{selectedModel?.label || "Model"}
-									</span>
-								</div>
-							</SelectTrigger>
-							<SelectContent className="rounded-xl">
-								{summarizerModels.map((m) => (
-									<SelectItem key={m.key} value={m.key}>
-										<div className="flex items-center gap-2">
-											<ModelIcon
-												provider={m.provider}
-												logo={m.logo}
-												fallbackLogo={m.fallbackLogo}
-												alt={m.provider || m.label}
-												className="h-4 w-4 opacity-80"
-											/>
-											<span>{m.label}</span>
-										</div>
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-
-						<Select
-							value={preferences.targetLanguage}
-							onValueChange={(val) =>
-								updatePreferences({ targetLanguage: val })
-							}
-						>
-							<SelectTrigger className="h-8 w-[140px] rounded-full text-xs border border-transparent bg-transparent shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent data-[state=open]:border-border/60 data-[state=open]:hover:border-border/60 active:border-transparent">
-								<SelectValue placeholder="Language" />
-							</SelectTrigger>
-							<SelectContent className="rounded-xl">
-								{languages.map((l) => (
-									<SelectItem key={l.key} value={l.key}>
-										{l.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+							<EditableCombobox
+								value={preferences.summaryModel}
+								onChange={(value) => updatePreferences({ summaryModel: value })}
+								options={modelOptions}
+								placeholder="Model"
+								className="w-full"
+								inputClassName={SUMMARY_MODEL_INPUT_CLASS_NAME}
+								contentClassName="rounded-xl"
+								renderIcon={renderSelectedModelIcon}
+								renderOption={(option) => (
+									<>
+										{option.icon && (
+											<span className="mr-2 flex h-4 w-4 items-center justify-center">
+												{option.icon}
+											</span>
+										)}
+										<span className="truncate">{option.label}</span>
+									</>
+								)}
+							/>
+						</div>
 					</div>
 
 					<div className="flex items-center gap-2">

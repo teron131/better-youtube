@@ -24,6 +24,97 @@ interface EditableComboboxProps {
 	type?: "text" | "url";
 }
 
+function normalizeSearchValue(value: string): string {
+	return value
+		.toLowerCase()
+		.normalize("NFKD")
+		.replace(/[^\p{L}\p{N}]+/gu, " ")
+		.trim()
+		.replace(/\s+/g, " ");
+}
+
+function compactSearchValue(value: string): string {
+	return normalizeSearchValue(value).replace(/\s+/g, "");
+}
+
+function stripProviderPrefix(value: string): string {
+	if (value.includes(":")) {
+		return value.split(":").slice(1).join(":").trim();
+	}
+
+	if (value.includes("/")) {
+		return value.split("/").slice(1).join("/").trim();
+	}
+
+	return value;
+}
+
+function extractProviderPrefixes(option: ComboboxOption): string[] {
+	const providers = new Set<string>();
+	const labelProvider = option.label.split(":")[0]?.trim();
+	const valueProvider = option.value.split("/")[0]?.trim();
+
+	if (labelProvider && labelProvider !== option.label) {
+		providers.add(normalizeSearchValue(labelProvider));
+	}
+
+	if (valueProvider && valueProvider !== option.value) {
+		providers.add(normalizeSearchValue(valueProvider));
+	}
+
+	return [...providers].filter(Boolean);
+}
+
+function searchVariants(value: string, providerPrefixes: string[]): string[] {
+	const normalizedValue = normalizeSearchValue(value);
+	if (!normalizedValue) return [];
+
+	const variants = new Set<string>([normalizedValue]);
+
+	for (const providerPrefix of providerPrefixes) {
+		if (!providerPrefix) continue;
+		if (!normalizedValue.startsWith(`${providerPrefix} `)) continue;
+
+		const withoutProvider = normalizedValue.slice(providerPrefix.length).trim();
+		if (withoutProvider.length > 0) {
+			variants.add(withoutProvider);
+		}
+	}
+
+	return [...variants].filter(Boolean);
+}
+
+function matchesNormalizedSearch(
+	option: ComboboxOption,
+	searchText: string,
+	providerPrefixes: string[],
+): boolean {
+	const queryVariants = searchVariants(searchText, providerPrefixes);
+	if (queryVariants.length === 0) return true;
+
+	const searchCandidates = [
+		option.label,
+		option.value,
+		stripProviderPrefix(option.label),
+		stripProviderPrefix(option.value),
+	];
+
+	const normalizedCandidates = searchCandidates.map(normalizeSearchValue);
+	const compactCandidates = searchCandidates.map(compactSearchValue);
+
+	return queryVariants.some((variant) => {
+		const compactVariant = variant.replace(/\s+/g, "");
+
+		return (
+			normalizedCandidates.some((candidate) => candidate.includes(variant)) ||
+			compactCandidates.some(
+				(candidate) =>
+					compactVariant.length > 0 && candidate.includes(compactVariant),
+			)
+		);
+	});
+}
+
 export function EditableCombobox({
 	value,
 	onChange,
@@ -43,13 +134,26 @@ export function EditableCombobox({
 	);
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
+	const selectedOption = React.useMemo(
+		() => options.find((option) => option.value === value) ?? null,
+		[options, value],
+	);
+	const providerPrefixes = React.useMemo(
+		() =>
+			[
+				...new Set(
+					options.flatMap((option) => extractProviderPrefixes(option)),
+				),
+			].sort((left, right) => right.length - left.length),
+		[options],
+	);
 
 	// Sync searchText with value when value changes externally (only when closed)
 	React.useEffect(() => {
 		if (!open) {
-			setSearchText(value || "");
+			setSearchText(selectedOption?.label || value || "");
 		}
-	}, [value, open]);
+	}, [value, open, selectedOption]);
 
 	// Measure trigger width for the portal content
 	React.useEffect(() => {
@@ -58,17 +162,21 @@ export function EditableCombobox({
 		}
 	}, [open]);
 
+	const isSelectedOptionQuery =
+		selectedOption != null &&
+		(searchText === selectedOption.label ||
+			searchText === selectedOption.value);
+
 	// Filter options: show all when searchText is empty or matches current value, otherwise filter
 	const filteredOptions = React.useMemo(() => {
-		if (!searchText || searchText === value) return options;
+		if (!searchText) return options;
 
-		const lowerSearch = searchText.toLowerCase();
-		return options.filter(
-			(option) =>
-				option.label.toLowerCase().includes(lowerSearch) ||
-				option.value.toLowerCase().includes(lowerSearch),
+		if (isSelectedOptionQuery) return options;
+
+		return options.filter((option) =>
+			matchesNormalizedSearch(option, searchText, providerPrefixes),
 		);
-	}, [searchText, value, options]);
+	}, [isSelectedOptionQuery, options, providerPrefixes, searchText]);
 
 	const openDropdown = () => {
 		setSearchText("");
@@ -77,7 +185,7 @@ export function EditableCombobox({
 
 	const closeDropdown = () => {
 		setOpen(false);
-		setSearchText(value || "");
+		setSearchText(selectedOption?.label || value || "");
 	};
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,9 +195,9 @@ export function EditableCombobox({
 		if (!open) setOpen(true);
 	};
 
-	const handleOptionSelect = (optionValue: string) => {
-		onChange(optionValue);
-		setSearchText(optionValue);
+	const handleOptionSelect = (option: ComboboxOption) => {
+		onChange(option.value);
+		setSearchText(option.label);
 		setOpen(false);
 	};
 
@@ -110,7 +218,9 @@ export function EditableCombobox({
 		}
 	};
 
-	const displayValue = open ? searchText || value || "" : value || "";
+	const displayValue = open
+		? searchText || selectedOption?.label || value || ""
+		: selectedOption?.label || value || "";
 
 	return (
 		<div ref={containerRef} className={cn("relative w-full", className)}>
@@ -194,7 +304,7 @@ export function EditableCombobox({
 											)}
 											onMouseDown={(e) => {
 												e.preventDefault(); // Prevent focus loss from input
-												handleOptionSelect(option.value);
+												handleOptionSelect(option);
 											}}
 										>
 											{value === option.value && (
