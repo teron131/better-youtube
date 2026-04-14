@@ -25,6 +25,3 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
-
-# package manager lockfile
-package-lock.json
