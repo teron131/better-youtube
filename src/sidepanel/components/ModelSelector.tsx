@@ -7,8 +7,13 @@ import {
 	EditableCombobox,
 	findMatchingComboboxOption,
 } from "@ui/components/ui/editable-combobox";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 type ModelSortMetric = "intelligence" | "speed" | "price";
 type SortDirection = "asc" | "desc";
@@ -30,7 +35,7 @@ function metricValue(option: ComboboxOption, metric: ModelSortMetric): number {
 	}
 
 	const value =
-		metric === "intelligence" ? option.intelligenceScore : option.speedScore;
+		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
 	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
 }
 
@@ -42,19 +47,17 @@ function formatMetricScore(
 	option: ComboboxOption,
 	metric: Exclude<ModelSortMetric, "price">,
 ): string | null {
-	const rawValue =
-		metric === "intelligence" ? option.intelligenceScore : option.speedScore;
+	if (metric === "speed") {
+		return null;
+	}
+
+	const rawValue = option.intelligenceScore;
 
 	if (typeof rawValue !== "number") {
 		return "[-]";
 	}
 
-	const formattedValue =
-		metric === "intelligence"
-			? rawValue.toFixed(0)
-			: rawValue >= 100
-				? rawValue.toFixed(0)
-				: rawValue.toFixed(1);
+	const formattedValue = rawValue.toFixed(0);
 
 	return `[${formattedValue}]`;
 }
@@ -68,7 +71,7 @@ function decorateOptionLabel(
 	}
 
 	const scoreLabel = formatMetricScore(option, metric);
-	return `${option.label} ${scoreLabel}`;
+	return scoreLabel ? `${option.label} ${scoreLabel}` : option.label;
 }
 
 function sortModelOptions(
@@ -99,6 +102,7 @@ interface ModelSelectorProps {
 	placeholder: string;
 	enableSorting?: boolean;
 	defaultSortMetric?: ModelSortMetric;
+	sortControlsTrailing?: ReactNode;
 }
 
 export function ModelSelector({
@@ -110,6 +114,7 @@ export function ModelSelector({
 	placeholder,
 	enableSorting = false,
 	defaultSortMetric = "intelligence",
+	sortControlsTrailing,
 }: ModelSelectorProps) {
 	const [sortMetric, setSortMetric] =
 		useState<ModelSortMetric>(defaultSortMetric);
@@ -179,25 +184,35 @@ export function ModelSelector({
 				{enableSorting && (
 					<div className="flex items-center rounded-lg border border-border/60 bg-background/40 p-0.5">
 						{MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
-							<button
-								key={metric}
-								type="button"
-								onMouseDown={(event) => {
-									event.preventDefault();
-									event.stopPropagation();
-								}}
-								onClick={(event) => handleSortClick(event, metric)}
-								className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-									sortMetric === metric
-										? "bg-primary text-white"
-										: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-								}`}
-								aria-label={label}
-								title={label}
-							>
-								<MetricIcon className="h-3.5 w-3.5" />
-							</button>
+							<Tooltip key={metric} delayDuration={0}>
+								<TooltipTrigger asChild>
+									<button
+										type="button"
+										onMouseDown={(event) => {
+											event.preventDefault();
+											event.stopPropagation();
+										}}
+										onClick={(event) => handleSortClick(event, metric)}
+										className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+											sortMetric === metric
+												? "bg-primary text-white"
+												: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+										}`}
+										aria-label={label}
+									>
+										<MetricIcon className="h-3.5 w-3.5" />
+									</button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>{label}</p>
+								</TooltipContent>
+							</Tooltip>
 						))}
+						{sortControlsTrailing && (
+							<div className="ml-1 flex items-center gap-1 border-l border-border/60 pl-1.5">
+								{sortControlsTrailing}
+							</div>
+						)}
 					</div>
 				)}
 			</div>

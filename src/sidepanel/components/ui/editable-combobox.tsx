@@ -10,7 +10,7 @@ export interface ComboboxOption {
 	label: string;
 	icon?: React.ReactNode;
 	intelligenceScore?: number | null;
-	speedScore?: number | null;
+	speedMetric?: number | null;
 	price?: number | null;
 }
 

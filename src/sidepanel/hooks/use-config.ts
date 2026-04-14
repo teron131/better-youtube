@@ -27,8 +27,9 @@ import {
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { STORAGE_KEYS } from "@/core/constants";
-import { setStorageValue } from "@/core/storage";
+import { normalizeModelCostLimit } from "@/core/config";
+import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
+import { getStorageValues, setStorageValue } from "@/core/storage";
 
 const DEFAULT_CONFIGURATION_RESPONSE: ConfigurationResponse = {
 	status: "success",
@@ -54,6 +55,12 @@ interface UseConfigReturn {
 	models: AvailableModel[];
 	summarizerModels: AvailableModel[];
 	refinerModels: AvailableModel[];
+	allSummarizerModels: AvailableModel[];
+	allRefinerModels: AvailableModel[];
+	modelPriceRange: {
+		min: number | null;
+		max: number | null;
+	};
 	languages: SupportedLanguage[];
 	isLoading: boolean;
 	error: string | null;
@@ -98,7 +105,7 @@ function applyModelMetadata(
 		const baseModel = {
 			...model,
 			intelligenceScore: score?.intelligenceScore ?? null,
-			speedScore: score?.speedScore ?? null,
+			speedMetric: score?.speedMetric ?? null,
 		};
 
 		if (providerLogo?.logo) {
@@ -121,28 +128,55 @@ function applyModelMetadata(
 	});
 }
 
-function scoreValue(
+function rankingValue(
 	model: AvailableModel,
-	key: "intelligenceScore" | "speedScore",
+	key: "intelligenceScore" | "speedMetric",
 ): number {
 	const value = model[key];
 	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
 }
 
-function sortModelsByScore(
+function sortModelsByMetric(
 	models: AvailableModel[],
-	key: "intelligenceScore" | "speedScore",
+	key: "intelligenceScore" | "speedMetric",
 ): AvailableModel[] {
 	return [...models].sort((left, right) => {
-		const leftScore = scoreValue(left, key);
-		const rightScore = scoreValue(right, key);
+		const leftValue = rankingValue(left, key);
+		const rightValue = rankingValue(right, key);
 
-		if (leftScore !== rightScore) {
-			return rightScore - leftScore;
+		if (leftValue !== rightValue) {
+			return rightValue - leftValue;
 		}
 
 		return (left.label || left.key).localeCompare(right.label || right.key);
 	});
+}
+
+function modelPriceRange(models: AvailableModel[]): {
+	min: number | null;
+	max: number | null;
+} {
+	const prices = models
+		.map((model) => model.price)
+		.filter(
+			(price): price is number => price != null && Number.isFinite(price),
+		);
+
+	if (prices.length === 0) {
+		return { min: null, max: null };
+	}
+
+	return {
+		min: Math.min(...prices),
+		max: Math.max(...prices),
+	};
+}
+
+async function getStoredModelCostLimit(): Promise<number> {
+	const result = await getStorageValues<Record<string, unknown>>([
+		STORAGE_KEYS.MODEL_COST_LIMIT,
+	]);
+	return normalizeModelCostLimit(result[STORAGE_KEYS.MODEL_COST_LIMIT]);
 }
 
 function storagePreferences(
@@ -220,6 +254,9 @@ export function useConfig(): UseConfigReturn {
 		Record<string, ProviderLogoStat>
 	>({});
 	const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>([]);
+	const [modelCostLimit, setModelCostLimit] = useState<number>(
+		DEFAULTS.MODEL_COST_LIMIT,
+	);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -265,6 +302,35 @@ export function useConfig(): UseConfigReturn {
 		loadConfig();
 	}, [loadConfig]);
 
+	useEffect(() => {
+		let isActive = true;
+
+		void getStoredModelCostLimit().then((storedModelCostLimit) => {
+			if (!isActive) return;
+			setModelCostLimit(storedModelCostLimit);
+		});
+
+		const listener = (
+			changes: Record<string, chrome.storage.StorageChange>,
+			areaName: string,
+		) => {
+			if (areaName !== "local") return;
+			if (!changes[STORAGE_KEYS.MODEL_COST_LIMIT]) return;
+
+			setModelCostLimit(
+				normalizeModelCostLimit(
+					changes[STORAGE_KEYS.MODEL_COST_LIMIT].newValue,
+				),
+			);
+		};
+
+		chrome.storage.onChanged.addListener(listener);
+		return () => {
+			isActive = false;
+			chrome.storage.onChanged.removeListener(listener);
+		};
+	}, []);
+
 	const enrichedModels = useMemo(
 		() =>
 			applyModelMetadata(
@@ -275,17 +341,45 @@ export function useConfig(): UseConfigReturn {
 			),
 		[dynamicModels, stats, leaderboardScores, providerLogos],
 	);
-
-	const models = useMemo(
-		() => sortModelsByScore(enrichedModels, "intelligenceScore"),
+	const availablePriceRange = useMemo(
+		() => modelPriceRange(enrichedModels),
 		[enrichedModels],
+	);
+	const costLimitedModels = useMemo(
+		() =>
+			enrichedModels.filter(
+				(model) =>
+					typeof model.price !== "number" || model.price <= modelCostLimit,
+			),
+		[enrichedModels, modelCostLimit],
+	);
+
+	const allSummarizerModels = useMemo(
+		() => sortModelsByMetric(enrichedModels, "intelligenceScore"),
+		[enrichedModels],
+	);
+	const allRefinerModels = useMemo(
+		() => sortModelsByMetric(enrichedModels, "speedMetric"),
+		[enrichedModels],
+	);
+	const models = useMemo(
+		() =>
+			allSummarizerModels.filter(
+				(model) =>
+					typeof model.price !== "number" || model.price <= modelCostLimit,
+			),
+		[allSummarizerModels, modelCostLimit],
 	);
 
 	const summarizerModels = models;
 
 	const refinerModels = useMemo(
-		() => sortModelsByScore(enrichedModels, "speedScore"),
-		[enrichedModels],
+		() =>
+			allRefinerModels.filter(
+				(model) =>
+					typeof model.price !== "number" || model.price <= modelCostLimit,
+			),
+		[allRefinerModels, modelCostLimit],
 	);
 
 	const isValidModel = (model: string) => {
@@ -307,6 +401,9 @@ export function useConfig(): UseConfigReturn {
 		models,
 		summarizerModels,
 		refinerModels,
+		allSummarizerModels,
+		allRefinerModels,
+		modelPriceRange: availablePriceRange,
 		languages: SUPPORTED_LANGUAGES_LIST,
 		isLoading,
 		error,
@@ -325,6 +422,9 @@ export function useModelSelection() {
 		models,
 		summarizerModels,
 		refinerModels,
+		allSummarizerModels,
+		allRefinerModels,
+		modelPriceRange,
 		getModelByKey,
 		isValidModel,
 	} = useConfig();
@@ -333,6 +433,9 @@ export function useModelSelection() {
 		models,
 		summarizerModels,
 		refinerModels,
+		allSummarizerModels,
+		allRefinerModels,
+		modelPriceRange,
 		getModelByKey,
 		isValidModel,
 		defaultModel: DEFAULT_SUMMARY_MODEL,

@@ -74,7 +74,7 @@ export type AvailableModel = {
 	logo?: string;
 	fallbackLogo?: string;
 	intelligenceScore?: number | null;
-	speedScore?: number | null;
+	speedMetric?: number | null;
 	price?: number | null;
 };
 
