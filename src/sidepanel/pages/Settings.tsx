@@ -109,6 +109,9 @@ function toModelOption(model: {
 	provider?: string;
 	logo?: string;
 	fallbackLogo?: string;
+	intelligenceScore?: number | null;
+	speedScore?: number | null;
+	price?: number | null;
 }): ComboboxOption {
 	const hasIcon = model.logo || model.provider;
 	return {
@@ -123,6 +126,9 @@ function toModelOption(model: {
 				className="w-full h-full object-contain"
 			/>
 		) : undefined,
+		intelligenceScore: model.intelligenceScore,
+		speedScore: model.speedScore,
+		price: model.price,
 	};
 }
 
@@ -324,6 +330,8 @@ const Settings = () => {
 								onChange={(val) => handleChange("summarizerModel", val)}
 								options={summarizerModels.map(toModelOption)}
 								placeholder="Select or type model..."
+								enableSorting
+								defaultSortMetric="intelligence"
 							/>
 							<ModelSelector
 								label="Caption Refinement Model"
@@ -332,6 +340,8 @@ const Settings = () => {
 								onChange={(val) => handleChange("refinerModel", val)}
 								options={refinerModels.map(toModelOption)}
 								placeholder="Select or type model..."
+								enableSorting
+								defaultSortMetric="speed"
 							/>
 						</CardContent>
 					</Card>

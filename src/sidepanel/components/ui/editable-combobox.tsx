@@ -9,6 +9,9 @@ export interface ComboboxOption {
 	value: string;
 	label: string;
 	icon?: React.ReactNode;
+	intelligenceScore?: number | null;
+	speedScore?: number | null;
+	price?: number | null;
 }
 
 interface EditableComboboxProps {

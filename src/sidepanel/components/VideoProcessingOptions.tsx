@@ -24,6 +24,9 @@ export function VideoProcessingOptions() {
 		flag?: string;
 		logo?: string;
 		fallbackLogo?: string;
+		intelligenceScore?: number | null;
+		speedScore?: number | null;
+		price?: number | null;
 	}): ComboboxOption => {
 		const hasIcon = m.logo || m.provider;
 		return {
@@ -40,6 +43,9 @@ export function VideoProcessingOptions() {
 			) : m.flag ? (
 				<span className="text-sm">{m.flag}</span>
 			) : undefined,
+			intelligenceScore: m.intelligenceScore,
+			speedScore: m.speedScore,
+			price: m.price,
 		};
 	};
 
@@ -52,6 +58,8 @@ export function VideoProcessingOptions() {
 				onChange={(value) => updatePreferences({ summaryModel: value })}
 				options={summarizerModels.map(toOption)}
 				placeholder="Select summarizer..."
+				enableSorting
+				defaultSortMetric="intelligence"
 			/>
 
 			<ModelSelector
@@ -61,6 +69,8 @@ export function VideoProcessingOptions() {
 				onChange={(value) => updatePreferences({ qualityModel: value })}
 				options={refinerModels.map(toOption)}
 				placeholder="Select refiner..."
+				enableSorting
+				defaultSortMetric="speed"
 			/>
 
 			<ModelSelector
