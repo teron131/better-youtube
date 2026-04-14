@@ -416,7 +416,7 @@ const Settings = () => {
 										</SelectTrigger>
 										<SelectContent className="rounded-xl">
 											<SelectItem value="auto">Auto</SelectItem>
-											<SelectItem value="gemini">Gemini</SelectItem>
+											<SelectItem value="gemini">Gemini Native</SelectItem>
 											<SelectItem value="llm">LLM</SelectItem>
 										</SelectContent>
 									</Select>
