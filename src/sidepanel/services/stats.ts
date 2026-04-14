@@ -9,51 +9,6 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 const LEADERBOARD_URL = "https://artificialanalysis.ai/leaderboards/models";
 const LEADERBOARD_ROW_TOKEN = '"openrouterApiId":"';
 const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
-const MODELS_DEV_LOGO_URL = "https://models.dev/logos";
-const TRUSTED_ARTIFICIAL_ANALYSIS_PROVIDER_SLUGS = new Set([
-	"ai21",
-	"alibaba",
-	"anthropic",
-	"baidu",
-	"bytedance",
-	"cohere",
-	"deepseek",
-	"google",
-	"meituan",
-	"microsoft",
-	"minimax",
-	"moonshotai",
-	"nvidia",
-	"openai",
-	"openrouter",
-	"prime-intellect",
-	"stepfun",
-	"tencent",
-	"upstage",
-	"xiaomi",
-]);
-const TRUSTED_MODELS_DEV_LOGO_PROVIDERS = new Set([
-	"alibaba",
-	"anthropic",
-	"cohere",
-	"deepseek",
-	"google",
-	"inception",
-	"minimax",
-	"moonshotai",
-	"nvidia",
-	"openai",
-	"openrouter",
-	"perplexity",
-	"xiaomi",
-]);
-const ARTIFICIAL_ANALYSIS_PROVIDER_SLUG_OVERRIDES: Record<string, string> = {
-	allenai: "ai2",
-	amazon: "aws",
-	"arcee-ai": "arcee",
-	"bytedance-seed": "bytedance",
-	qwen: "alibaba",
-};
 
 export interface ModelStat {
 	id: string;
@@ -67,6 +22,10 @@ export interface ModelStat {
 export interface LeaderboardStat {
 	intelligenceScore: number | null;
 	speedScore: number | null;
+}
+
+export interface ProviderLogoStat {
+	logo: string;
 }
 
 function normalizeLogoProvider(
@@ -87,98 +46,24 @@ function providerFromModelId(modelId: string): string | null {
 	return normalizeLogoProvider(modelId.slice(0, separatorIndex));
 }
 
-function modelsDevLogoUrl(provider: string): string {
-	return `${MODELS_DEV_LOGO_URL}/${provider}.svg`;
-}
-
 function artificialAnalysisLogoUrl(slug: string): string {
 	return `${ARTIFICIAL_ANALYSIS_LOGO_URL}/${slug}_small.svg`;
 }
 
-function trustedArtificialAnalysisProviderSlug(
-	provider: string | null,
-): string | null {
-	if (!provider) {
+function toAbsoluteArtificialAnalysisLogoUrl(value: unknown): string | null {
+	if (typeof value !== "string" || value.length === 0) {
 		return null;
 	}
-	const overriddenSlug = ARTIFICIAL_ANALYSIS_PROVIDER_SLUG_OVERRIDES[provider];
-	if (overriddenSlug) {
-		return overriddenSlug;
+	if (value.startsWith("http://") || value.startsWith("https://")) {
+		return value;
 	}
-	if (TRUSTED_ARTIFICIAL_ANALYSIS_PROVIDER_SLUGS.has(provider)) {
-		return provider;
+	if (value.startsWith("/")) {
+		return `https://artificialanalysis.ai${value}`;
 	}
-	return null;
-}
-
-function trustedModelsDevLogo(provider: string | null): string | null {
-	if (!provider || !TRUSTED_MODELS_DEV_LOGO_PROVIDERS.has(provider)) {
-		return null;
+	if (value.includes("/")) {
+		return `https://artificialanalysis.ai/${value}`;
 	}
-	return modelsDevLogoUrl(provider);
-}
-
-function sanitizeLogoUrl(
-	logoUrl: unknown,
-	provider: string | null,
-): string | null {
-	if (typeof logoUrl !== "string" || logoUrl.length === 0) {
-		return null;
-	}
-	if (logoUrl.includes("models.dev/logos/")) {
-		return trustedModelsDevLogo(provider);
-	}
-	return logoUrl;
-}
-
-export function resolveModelLogos(options: {
-	provider?: string | null;
-	explicitLogo?: unknown;
-	fallbackLogo?: unknown;
-	modelCreatorSlug?: unknown;
-}): {
-	logo: string;
-	fallbackLogo: string;
-} {
-	const provider = normalizeLogoProvider(options.provider);
-	const explicitLogo = sanitizeLogoUrl(options.explicitLogo, provider);
-	const modelCreatorSlug =
-		typeof options.modelCreatorSlug === "string" &&
-		options.modelCreatorSlug.length > 0
-			? options.modelCreatorSlug
-			: null;
-	const providerSlug = trustedArtificialAnalysisProviderSlug(provider);
-	const providerLogo = providerSlug
-		? artificialAnalysisLogoUrl(providerSlug)
-		: null;
-	const modelsDevLogo =
-		sanitizeLogoUrl(options.fallbackLogo, provider) ??
-		trustedModelsDevLogo(provider);
-	const primaryLogo =
-		explicitLogo ??
-		(modelCreatorSlug
-			? artificialAnalysisLogoUrl(modelCreatorSlug)
-			: (modelsDevLogo ?? providerLogo));
-	if (!primaryLogo && modelsDevLogo) {
-		return {
-			logo: modelsDevLogo,
-			fallbackLogo: "",
-		};
-	}
-	return {
-		logo: primaryLogo ?? "",
-		fallbackLogo:
-			modelsDevLogo &&
-			modelsDevLogo !== primaryLogo &&
-			providerLogo &&
-			providerLogo !== primaryLogo
-				? providerLogo
-				: modelsDevLogo && modelsDevLogo !== primaryLogo
-					? modelsDevLogo
-					: providerLogo && providerLogo !== primaryLogo
-						? providerLogo
-						: "",
-	};
+	return `https://artificialanalysis.ai/img/logos/${value}`;
 }
 
 function asFiniteNumber(value: unknown): number | null {
@@ -196,6 +81,77 @@ function meanOfFinite(values: Array<number | null>): number | null {
 	return (
 		finiteValues.reduce((sum, value) => sum + value, 0) / finiteValues.length
 	);
+}
+
+function buildLeaderboardScores(
+	rows: Record<string, unknown>[],
+): Record<string, LeaderboardStat> {
+	const scores: Record<string, LeaderboardStat> = {};
+
+	for (const row of rows) {
+		const openrouterApiId = row.openrouterApiId;
+		if (typeof openrouterApiId !== "string" || !openrouterApiId) {
+			continue;
+		}
+
+		const intelligenceScore = asFiniteNumber(row.intelligenceIndex);
+		const outputSpeed = asFiniteNumber(row.medianOutputTokensPerSecond);
+		const timeToFirstToken = asFiniteNumber(
+			row.medianTimeToFirstAnswerTokenSeconds ??
+				row.medianTimeToFirstTokenSeconds,
+		);
+		const endToEndLatency = asFiniteNumber(
+			row.medianEndToEndResponseTimeSeconds,
+		);
+		const latencyScore = meanOfFinite([
+			timeToFirstToken != null && timeToFirstToken > 0
+				? 1000 / timeToFirstToken
+				: null,
+			endToEndLatency != null && endToEndLatency > 0
+				? 1000 / endToEndLatency
+				: null,
+		]);
+		const speedScore = meanOfFinite([outputSpeed, latencyScore]);
+
+		scores[normalizeOpenRouterModelId(openrouterApiId)] = {
+			intelligenceScore,
+			speedScore,
+		};
+	}
+
+	return scores;
+}
+
+function buildLeaderboardProviderLogos(
+	rows: Record<string, unknown>[],
+): Record<string, ProviderLogoStat> {
+	const providerLogos: Record<string, ProviderLogoStat> = {};
+
+	for (const row of rows) {
+		const openrouterApiId = row.openrouterApiId;
+		if (typeof openrouterApiId !== "string" || !openrouterApiId) {
+			continue;
+		}
+
+		const provider = providerFromModelId(openrouterApiId);
+		if (!provider || providerLogos[provider]) {
+			continue;
+		}
+
+		const logo =
+			toAbsoluteArtificialAnalysisLogoUrl(row.modelCreatorLogo) ??
+			(typeof row.modelCreatorSlug === "string" &&
+			row.modelCreatorSlug.length > 0
+				? artificialAnalysisLogoUrl(row.modelCreatorSlug)
+				: null);
+		if (!logo) {
+			continue;
+		}
+
+		providerLogos[provider] = { logo };
+	}
+
+	return providerLogos;
 }
 
 export function normalizeOpenRouterModelId(modelId: string): string {
@@ -308,7 +264,6 @@ export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
 			const models = p.models || {};
 
 			const cleanProviderId = providerId.toLowerCase();
-			const aaId = cleanProviderId.replace(/[^a-z0-9]/g, "");
 
 			for (const [modelId, model] of Object.entries(models)) {
 				const m = model as any;
@@ -319,19 +274,13 @@ export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
 						? directModelId
 						: `${providerId}/${directModelId}`;
 				const modelProvider = providerFromModelId(fullId) ?? cleanProviderId;
-				const { logo, fallbackLogo } = resolveModelLogos({
-					provider: modelProvider ?? aaId,
-					explicitLogo: m.logo,
-					fallbackLogo: m.fallback_logo,
-					modelCreatorSlug: m.artificial_analysis?.model_creator?.slug,
-				});
 
 				stats[fullId] = {
 					id: fullId,
 					name: m.name || modelId,
 					provider: modelProvider ?? cleanProviderId,
-					logo,
-					fallbackLogo,
+					logo: "",
+					fallbackLogo: "",
 					cost: m.cost?.output ?? null,
 				};
 			}
@@ -355,42 +304,27 @@ export async function fetchLeaderboardScores(): Promise<
 
 		const pageHtml = await response.text();
 		const rows = extractLeaderboardRows(pageHtml);
-		const scores: Record<string, LeaderboardStat> = {};
-
-		for (const row of rows) {
-			const openrouterApiId = row.openrouterApiId;
-			if (typeof openrouterApiId !== "string" || !openrouterApiId) {
-				continue;
-			}
-
-			const intelligenceScore = asFiniteNumber(row.intelligenceIndex);
-			const outputSpeed = asFiniteNumber(row.medianOutputTokensPerSecond);
-			const timeToFirstToken = asFiniteNumber(
-				row.medianTimeToFirstAnswerTokenSeconds ??
-					row.medianTimeToFirstTokenSeconds,
-			);
-			const endToEndLatency = asFiniteNumber(
-				row.medianEndToEndResponseTimeSeconds,
-			);
-			const latencyScore = meanOfFinite([
-				timeToFirstToken != null && timeToFirstToken > 0
-					? 1000 / timeToFirstToken
-					: null,
-				endToEndLatency != null && endToEndLatency > 0
-					? 1000 / endToEndLatency
-					: null,
-			]);
-			const speedScore = meanOfFinite([outputSpeed, latencyScore]);
-
-			scores[normalizeOpenRouterModelId(openrouterApiId)] = {
-				intelligenceScore,
-				speedScore,
-			};
-		}
-
-		return scores;
+		return buildLeaderboardScores(rows);
 	} catch (error) {
 		console.error("Error fetching leaderboard scores:", error);
+		return {};
+	}
+}
+
+export async function fetchLeaderboardProviderLogos(): Promise<
+	Record<string, ProviderLogoStat>
+> {
+	try {
+		const response = await fetch(LEADERBOARD_URL);
+		if (!response.ok) {
+			throw new Error("Failed to fetch leaderboard provider logos");
+		}
+
+		const pageHtml = await response.text();
+		const rows = extractLeaderboardRows(pageHtml);
+		return buildLeaderboardProviderLogos(rows);
+	} catch (error) {
+		console.error("Error fetching leaderboard provider logos:", error);
 		return {};
 	}
 }
