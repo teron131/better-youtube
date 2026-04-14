@@ -46,7 +46,7 @@ function formatMetricScore(
 		metric === "intelligence" ? option.intelligenceScore : option.speedScore;
 
 	if (typeof rawValue !== "number") {
-		return null;
+		return "[-]";
 	}
 
 	const formattedValue =
@@ -68,7 +68,7 @@ function decorateOptionLabel(
 	}
 
 	const scoreLabel = formatMetricScore(option, metric);
-	return scoreLabel ? `${option.label} ${scoreLabel}` : option.label;
+	return `${option.label} ${scoreLabel}`;
 }
 
 function sortModelOptions(
