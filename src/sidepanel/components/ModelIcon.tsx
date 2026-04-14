@@ -6,16 +6,38 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/core/utils/text";
 
-const REMOTE_IMAGE_BLOB_URL_BY_SOURCE = new Map<string, string | null>();
+const REMOTE_IMAGE_BLOB_URL_BY_SOURCE = new Map<string, string>();
 const REMOTE_IMAGE_LOAD_BY_SOURCE = new Map<string, Promise<string | null>>();
 
 function isRemoteImageSource(source: string): boolean {
 	return /^https?:\/\//i.test(source);
 }
 
+function imageSources(logo?: string, fallbackLogo?: string): string[] {
+	const seen = new Set<string>();
+	return [logo, fallbackLogo].filter((candidate): candidate is string => {
+		if (!candidate || seen.has(candidate)) {
+			return false;
+		}
+		seen.add(candidate);
+		return true;
+	});
+}
+
+function modelBadgeText(provider?: string, alt?: string): string {
+	return (provider || alt || "")
+		.split(/[^a-z0-9]+/i)
+		.filter(Boolean)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase();
+}
+
 async function loadRemoteImageBlobUrl(source: string): Promise<string | null> {
-	if (REMOTE_IMAGE_BLOB_URL_BY_SOURCE.has(source)) {
-		return REMOTE_IMAGE_BLOB_URL_BY_SOURCE.get(source) ?? null;
+	const cachedBlobUrl = REMOTE_IMAGE_BLOB_URL_BY_SOURCE.get(source);
+	if (cachedBlobUrl) {
+		return cachedBlobUrl;
 	}
 
 	const existingRequest = REMOTE_IMAGE_LOAD_BY_SOURCE.get(source);
@@ -58,16 +80,10 @@ export function ModelIcon({
 	alt = "",
 	className = "h-4 w-4 object-contain",
 }: ModelIconProps) {
-	const sources = useMemo(() => {
-		const seen = new Set<string>();
-		return [logo, fallbackLogo].filter((candidate): candidate is string => {
-			if (!candidate || seen.has(candidate)) {
-				return false;
-			}
-			seen.add(candidate);
-			return true;
-		});
-	}, [fallbackLogo, logo]);
+	const sources = useMemo(
+		() => imageSources(logo, fallbackLogo),
+		[fallbackLogo, logo],
+	);
 	const sourceKey = sources.join("|");
 	const [sourceState, setSourceState] = useState({
 		key: sourceKey,
@@ -122,13 +138,7 @@ export function ModelIcon({
 	}, [src, handleError]);
 
 	if (!src || !resolvedSrc) {
-		const badgeText = (provider || alt)
-			.split(/[^a-z0-9]+/i)
-			.filter(Boolean)
-			.map((part) => part[0])
-			.join("")
-			.slice(0, 2)
-			.toUpperCase();
+		const badgeText = modelBadgeText(provider, alt);
 
 		if (!badgeText) {
 			return null;

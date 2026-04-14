@@ -7,8 +7,12 @@ import type { AvailableModel } from "./config";
 
 const MODELS_DEV_URL = "https://models.dev/api.json";
 const LEADERBOARD_URL = "https://artificialanalysis.ai/leaderboards/models";
+const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const LEADERBOARD_ROW_TOKEN = '"openrouterApiId":"';
 const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
+const PRICE_PER_MILLION_TOKENS = 1_000_000;
+const INPUT_PRICE_WEIGHT = 3;
+const OUTPUT_PRICE_WEIGHT = 1;
 
 export interface ModelStat {
 	id: string;
@@ -27,6 +31,21 @@ export interface LeaderboardStat {
 export interface ProviderLogoStat {
 	logo: string;
 }
+
+type LeaderboardRow = Record<string, unknown>;
+
+type ModelsDevProvider = {
+	models?: Record<string, any>;
+};
+
+type OpenRouterModel = {
+	id: string;
+	name: string;
+	pricing?: {
+		prompt?: string;
+		completion?: string;
+	};
+};
 
 function normalizeLogoProvider(
 	provider: string | null | undefined,
@@ -83,8 +102,67 @@ function meanOfFinite(values: Array<number | null>): number | null {
 	);
 }
 
+function firstOpenRouterProvider(modelId: string): string {
+	return modelId.split("/")[0] || "";
+}
+
+function parseModelCostPerMillion(model: OpenRouterModel): number {
+	const inputCost = parseFloat(model.pricing?.prompt || "0");
+	const outputCost = parseFloat(model.pricing?.completion || "0");
+	return (
+		((inputCost * INPUT_PRICE_WEIGHT + outputCost * OUTPUT_PRICE_WEIGHT) /
+			(INPUT_PRICE_WEIGHT + OUTPUT_PRICE_WEIGHT)) *
+		PRICE_PER_MILLION_TOKENS
+	);
+}
+
+function leaderboardProviderLogo(row: LeaderboardRow): string | null {
+	return (
+		toAbsoluteArtificialAnalysisLogoUrl(row.modelCreatorLogo) ??
+		(typeof row.modelCreatorSlug === "string" && row.modelCreatorSlug.length > 0
+			? artificialAnalysisLogoUrl(row.modelCreatorSlug)
+			: null)
+	);
+}
+
+function modelStatFromModelsDevModel(
+	providerId: string,
+	modelId: string,
+	model: Record<string, any>,
+): ModelStat {
+	const directModelId =
+		typeof model.id === "string" && model.id.length > 0 ? model.id : modelId;
+	const fullId =
+		typeof directModelId === "string" && directModelId.includes("/")
+			? directModelId
+			: `${providerId}/${directModelId}`;
+	const provider = providerFromModelId(fullId) ?? providerId.toLowerCase();
+
+	return {
+		id: fullId,
+		name: model.name || modelId,
+		provider,
+		logo: "",
+		fallbackLogo: "",
+		cost: model.cost?.output ?? null,
+	};
+}
+
+function availableModelFromOpenRouterModel(
+	model: OpenRouterModel,
+): AvailableModel {
+	const blendedPrice = parseModelCostPerMillion(model);
+
+	return {
+		key: model.id,
+		label: `${model.name} ($${blendedPrice.toFixed(2)})`,
+		provider: firstOpenRouterProvider(model.id),
+		recommended: true,
+	};
+}
+
 function buildLeaderboardScores(
-	rows: Record<string, unknown>[],
+	rows: LeaderboardRow[],
 ): Record<string, LeaderboardStat> {
 	const scores: Record<string, LeaderboardStat> = {};
 
@@ -123,7 +201,7 @@ function buildLeaderboardScores(
 }
 
 function buildLeaderboardProviderLogos(
-	rows: Record<string, unknown>[],
+	rows: LeaderboardRow[],
 ): Record<string, ProviderLogoStat> {
 	const providerLogos: Record<string, ProviderLogoStat> = {};
 
@@ -138,12 +216,7 @@ function buildLeaderboardProviderLogos(
 			continue;
 		}
 
-		const logo =
-			toAbsoluteArtificialAnalysisLogoUrl(row.modelCreatorLogo) ??
-			(typeof row.modelCreatorSlug === "string" &&
-			row.modelCreatorSlug.length > 0
-				? artificialAnalysisLogoUrl(row.modelCreatorSlug)
-				: null);
+		const logo = leaderboardProviderLogo(row);
 		if (!logo) {
 			continue;
 		}
@@ -211,9 +284,9 @@ function findObjectEnd(corpus: string, startIndex: number): number {
 	return -1;
 }
 
-function extractLeaderboardRows(pageHtml: string): Record<string, unknown>[] {
+function extractLeaderboardRows(pageHtml: string): LeaderboardRow[] {
 	const corpus = extractFlightCorpus(pageHtml);
-	const rowsById = new Map<string, Record<string, unknown>>();
+	const rowsById = new Map<string, LeaderboardRow>();
 	let cursor = 0;
 
 	while (true) {
@@ -234,10 +307,9 @@ function extractLeaderboardRows(pageHtml: string): Record<string, unknown>[] {
 		}
 
 		try {
-			const row = JSON.parse(corpus.slice(startIndex, endIndex + 1)) as Record<
-				string,
-				unknown
-			>;
+			const row = JSON.parse(
+				corpus.slice(startIndex, endIndex + 1),
+			) as LeaderboardRow;
 			const openrouterApiId = row.openrouterApiId;
 			if (typeof openrouterApiId !== "string" || !openrouterApiId) {
 				continue;
@@ -251,6 +323,14 @@ function extractLeaderboardRows(pageHtml: string): Record<string, unknown>[] {
 	return [...rowsById.values()];
 }
 
+async function fetchLeaderboardRows(): Promise<LeaderboardRow[]> {
+	const response = await fetch(LEADERBOARD_URL);
+	if (!response.ok) {
+		throw new Error("Failed to fetch leaderboard page");
+	}
+	return extractLeaderboardRows(await response.text());
+}
+
 export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
 	try {
 		const response = await fetch(MODELS_DEV_URL);
@@ -260,29 +340,16 @@ export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
 		const stats: Record<string, ModelStat> = {};
 
 		for (const [providerId, provider] of Object.entries(data)) {
-			const p = provider as any;
-			const models = p.models || {};
-
-			const cleanProviderId = providerId.toLowerCase();
+			const modelsDevProvider = provider as ModelsDevProvider;
+			const models = modelsDevProvider.models || {};
 
 			for (const [modelId, model] of Object.entries(models)) {
-				const m = model as any;
-				const directModelId =
-					typeof m.id === "string" && m.id.length > 0 ? m.id : modelId;
-				const fullId =
-					typeof directModelId === "string" && directModelId.includes("/")
-						? directModelId
-						: `${providerId}/${directModelId}`;
-				const modelProvider = providerFromModelId(fullId) ?? cleanProviderId;
-
-				stats[fullId] = {
-					id: fullId,
-					name: m.name || modelId,
-					provider: modelProvider ?? cleanProviderId,
-					logo: "",
-					fallbackLogo: "",
-					cost: m.cost?.output ?? null,
-				};
+				const modelStat = modelStatFromModelsDevModel(
+					providerId,
+					modelId,
+					model as Record<string, any>,
+				);
+				stats[modelStat.id] = modelStat;
 			}
 		}
 
@@ -297,14 +364,7 @@ export async function fetchLeaderboardScores(): Promise<
 	Record<string, LeaderboardStat>
 > {
 	try {
-		const response = await fetch(LEADERBOARD_URL);
-		if (!response.ok) {
-			throw new Error("Failed to fetch leaderboard scores");
-		}
-
-		const pageHtml = await response.text();
-		const rows = extractLeaderboardRows(pageHtml);
-		return buildLeaderboardScores(rows);
+		return buildLeaderboardScores(await fetchLeaderboardRows());
 	} catch (error) {
 		console.error("Error fetching leaderboard scores:", error);
 		return {};
@@ -315,14 +375,7 @@ export async function fetchLeaderboardProviderLogos(): Promise<
 	Record<string, ProviderLogoStat>
 > {
 	try {
-		const response = await fetch(LEADERBOARD_URL);
-		if (!response.ok) {
-			throw new Error("Failed to fetch leaderboard provider logos");
-		}
-
-		const pageHtml = await response.text();
-		const rows = extractLeaderboardRows(pageHtml);
-		return buildLeaderboardProviderLogos(rows);
+		return buildLeaderboardProviderLogos(await fetchLeaderboardRows());
 	} catch (error) {
 		console.error("Error fetching leaderboard provider logos:", error);
 		return {};
@@ -333,33 +386,18 @@ export async function fetchDynamicModels(
 	maxCost = 5.0,
 ): Promise<AvailableModel[]> {
 	try {
-		const response = await fetch("https://openrouter.ai/api/v1/models");
+		const response = await fetch(OPENROUTER_MODELS_URL);
 		if (!response.ok) return [];
-		const data = (await response.json()) as any;
+		const data = (await response.json()) as {
+			data?: OpenRouterModel[];
+		};
 
-		const models = (data.data || []).map((m: any) => {
-			const input = parseFloat(m.pricing?.prompt || "0");
-			const output = parseFloat(m.pricing?.completion || "0");
-			const blended = ((input * 3 + output) / 4) * 1000000;
-			return {
-				...m,
-				blendedPrice: blended,
-			};
-		});
-
-		const underBudget = models.filter(
-			(m: any) => m.blendedPrice > 0 && m.blendedPrice <= maxCost,
-		);
-
-		return underBudget.map((m: any) => {
-			const provider = m.id.split("/")[0];
-			return {
-				key: m.id,
-				label: `${m.name} ($${m.blendedPrice.toFixed(2)})`,
-				provider,
-				recommended: true,
-			};
-		});
+		return (data.data || [])
+			.filter((model) => {
+				const blendedPrice = parseModelCostPerMillion(model);
+				return blendedPrice > 0 && blendedPrice <= maxCost;
+			})
+			.map(availableModelFromOpenRouterModel);
 	} catch (e) {
 		console.error("Failed to fetch dynamic models", e);
 		return [];

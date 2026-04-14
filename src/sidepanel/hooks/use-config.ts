@@ -30,6 +30,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { STORAGE_KEYS } from "@/core/constants";
 import { setStorageValue } from "@/core/storage";
 
+const DEFAULT_CONFIGURATION_RESPONSE: ConfigurationResponse = {
+	status: "success",
+	message: "Using local configuration fallback",
+	available_models: {},
+	supported_languages: SUPPORTED_LANGUAGES,
+	default_summary_model: DEFAULT_SUMMARY_MODEL,
+	default_quality_model: DEFAULT_QUALITY_MODEL,
+	default_target_language: DEFAULT_TARGET_LANGUAGE,
+};
+
+const USER_PREFERENCE_STORAGE_KEYS = [
+	STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+	STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
+	STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+	STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
+	STORAGE_KEYS.SUMMARIZER_MODE,
+	STORAGE_KEYS.QUALITY_MODEL,
+] as const;
+
 interface UseConfigReturn {
 	config: ConfigurationResponse | null;
 	models: AvailableModel[];
@@ -45,6 +64,20 @@ interface UseConfigReturn {
 	refresh: () => Promise<void>;
 }
 
+type UserPreferenceStorageResult = Record<string, unknown>;
+
+function stringValue(value: unknown): string | undefined {
+	return typeof value === "string" ? value : undefined;
+}
+
+function summarizerModeValue(
+	value: unknown,
+): UserPreferences["summarizerMode"] | undefined {
+	return value === "native" || value === "validation" || value === "fast"
+		? value
+		: undefined;
+}
+
 function applyModelMetadata(
 	models: AvailableModel[],
 	stats: Record<string, ModelStat>,
@@ -58,30 +91,28 @@ function applyModelMetadata(
 		const providerKey = (model.provider ?? stat?.provider)?.toLowerCase();
 		const providerLogo = providerKey ? providerLogos[providerKey] : undefined;
 
-		if (stat) {
-			return {
-				...model,
-				logo: providerLogo?.logo ?? stat.logo,
-				fallbackLogo: providerLogo?.logo ? "" : stat.fallbackLogo,
-				intelligenceScore: score?.intelligenceScore ?? null,
-				speedScore: score?.speedScore ?? null,
-			};
-		}
-
-		if (providerLogo?.logo) {
-			return {
-				...model,
-				logo: providerLogo.logo,
-				fallbackLogo: "",
-				intelligenceScore: score?.intelligenceScore ?? null,
-				speedScore: score?.speedScore ?? null,
-			};
-		}
-
-		return {
+		const baseModel = {
 			...model,
 			intelligenceScore: score?.intelligenceScore ?? null,
 			speedScore: score?.speedScore ?? null,
+		};
+
+		if (providerLogo?.logo) {
+			return {
+				...baseModel,
+				logo: providerLogo.logo,
+				fallbackLogo: stat?.logo || "",
+			};
+		}
+
+		if (!stat) {
+			return baseModel;
+		}
+
+		return {
+			...baseModel,
+			logo: stat.logo,
+			fallbackLogo: stat.fallbackLogo,
 		};
 	});
 }
@@ -108,6 +139,71 @@ function sortModelsByScore(
 
 		return (left.label || left.key).localeCompare(right.label || right.key);
 	});
+}
+
+function storagePreferences(
+	result: UserPreferenceStorageResult,
+): Partial<UserPreferences> {
+	return {
+		summaryModel:
+			stringValue(result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL]) ||
+			stringValue(result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]),
+		targetLanguage:
+			stringValue(result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM]) ||
+			stringValue(result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]),
+		summarizerMode: summarizerModeValue(result[STORAGE_KEYS.SUMMARIZER_MODE]),
+		qualityModel: stringValue(result[STORAGE_KEYS.QUALITY_MODEL]),
+	};
+}
+
+function storagePreferenceUpdates(
+	changes: Record<string, chrome.storage.StorageChange>,
+): Partial<UserPreferences> {
+	const summaryModelChange =
+		changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
+		changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL];
+	const targetLanguageChange =
+		changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
+		changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED];
+
+	const updates: Partial<UserPreferences> = {};
+
+	if (summaryModelChange) {
+		updates.summaryModel = summaryModelChange.newValue;
+	}
+	if (targetLanguageChange) {
+		updates.targetLanguage = targetLanguageChange.newValue;
+	}
+	if (changes[STORAGE_KEYS.SUMMARIZER_MODE]) {
+		updates.summarizerMode = changes[STORAGE_KEYS.SUMMARIZER_MODE].newValue;
+	}
+	if (changes[STORAGE_KEYS.QUALITY_MODEL]) {
+		updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
+	}
+
+	return updates;
+}
+
+function storageUpdatesFromPreferences(
+	updates: Partial<UserPreferences>,
+): Record<string, unknown> {
+	const storageUpdates: Record<string, unknown> = {};
+
+	if (updates.summaryModel) {
+		storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] = updates.summaryModel;
+	}
+	if (updates.targetLanguage) {
+		storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] =
+			updates.targetLanguage;
+	}
+	if (updates.summarizerMode) {
+		storageUpdates[STORAGE_KEYS.SUMMARIZER_MODE] = updates.summarizerMode;
+	}
+	if (updates.qualityModel) {
+		storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
+	}
+
+	return storageUpdates;
 }
 
 export function useConfig(): UseConfigReturn {
@@ -146,19 +242,7 @@ export function useConfig(): UseConfigReturn {
 				fetchDynamicModels().catch(() => [] as AvailableModel[]),
 			]);
 
-			if (configuration) {
-				setConfig(configuration);
-			} else {
-				setConfig({
-					status: "success",
-					message: "Using local configuration fallback",
-					available_models: {},
-					supported_languages: SUPPORTED_LANGUAGES,
-					default_summary_model: DEFAULT_SUMMARY_MODEL,
-					default_quality_model: DEFAULT_QUALITY_MODEL,
-					default_target_language: DEFAULT_TARGET_LANGUAGE,
-				});
-			}
+			setConfig(configuration ?? DEFAULT_CONFIGURATION_RESPONSE);
 
 			setStats(modelStats);
 			setLeaderboardScores(scores);
@@ -315,62 +399,20 @@ export function useUserPreferences() {
 	);
 
 	useEffect(() => {
-		const keys = [
-			STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-			STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
-			STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-			STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-			STORAGE_KEYS.SUMMARIZER_MODE,
-			STORAGE_KEYS.QUALITY_MODEL,
-		];
-
-		chrome.storage.local.get(keys, (result) => {
-			const loadedPrefs: Partial<UserPreferences> = {
-				summaryModel:
-					result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-					result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
-				targetLanguage:
-					result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-					result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
-				summarizerMode: result[STORAGE_KEYS.SUMMARIZER_MODE],
-				qualityModel: result[STORAGE_KEYS.QUALITY_MODEL],
-			};
-
+		chrome.storage.local.get(USER_PREFERENCE_STORAGE_KEYS, (result) => {
 			setPreferences(
-				validatePreferences(loadedPrefs, DEFAULT_USER_PREFERENCES),
+				validatePreferences(
+					storagePreferences(result),
+					DEFAULT_USER_PREFERENCES,
+				),
 			);
 			setIsLoaded(true);
 		});
 
-		const listener = (changes: {
-			[key: string]: chrome.storage.StorageChange;
-		}) => {
-			const updates: Partial<UserPreferences> = {};
-			if (
-				changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-				changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]
-			) {
-				updates.summaryModel = (
-					changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-					changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL]
-				).newValue;
-			}
-			if (
-				changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-				changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
-			) {
-				updates.targetLanguage = (
-					changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-					changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]
-				).newValue;
-			}
-			if (changes[STORAGE_KEYS.SUMMARIZER_MODE]) {
-				updates.summarizerMode = changes[STORAGE_KEYS.SUMMARIZER_MODE].newValue;
-			}
-			if (changes[STORAGE_KEYS.QUALITY_MODEL]) {
-				updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
-			}
-
+		const listener = (
+			changes: Record<string, chrome.storage.StorageChange>,
+		) => {
+			const updates = storagePreferenceUpdates(changes);
 			if (Object.keys(updates).length > 0) {
 				setPreferences((prev) =>
 					validatePreferences(
@@ -389,22 +431,7 @@ export function useUserPreferences() {
 		const newPrefs = { ...preferences, ...updates };
 		setPreferences(newPrefs);
 
-		const storageUpdates: Record<string, unknown> = {};
-		if (updates.summaryModel) {
-			storageUpdates[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] =
-				updates.summaryModel;
-		}
-		if (updates.targetLanguage) {
-			storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] =
-				updates.targetLanguage;
-		}
-		if (updates.summarizerMode) {
-			storageUpdates[STORAGE_KEYS.SUMMARIZER_MODE] = updates.summarizerMode;
-		}
-		if (updates.qualityModel) {
-			storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
-		}
-
+		const storageUpdates = storageUpdatesFromPreferences(updates);
 		const writeEntries = Object.entries(storageUpdates);
 		if (writeEntries.length === 0) return;
 
