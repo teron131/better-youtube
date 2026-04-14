@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "npm exec -- tsc && vite build && vite build --config vite.content.config.ts",
-		"build:demo": "npm exec -- tsc && vite build",
+		"build:demo": "npm exec -- tsc && VITE_DEMO_MODE=true VITE_ROUTER_MODE=hash vite build",
 		"preview": "vite preview",
 		"lint": "biome lint .",
 		"test:chrome-tab": "node --experimental-strip-types --test tests/chromeTabTranscript.test.ts"
