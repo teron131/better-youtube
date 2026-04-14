@@ -3,8 +3,45 @@
  * Relies on props provided by the caller, which should be enriched by the stats service.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/core/utils/text";
+
+const REMOTE_IMAGE_BLOB_URL_BY_SOURCE = new Map<string, string | null>();
+const REMOTE_IMAGE_LOAD_BY_SOURCE = new Map<string, Promise<string | null>>();
+
+function isRemoteImageSource(source: string): boolean {
+	return /^https?:\/\//i.test(source);
+}
+
+async function loadRemoteImageBlobUrl(source: string): Promise<string | null> {
+	if (REMOTE_IMAGE_BLOB_URL_BY_SOURCE.has(source)) {
+		return REMOTE_IMAGE_BLOB_URL_BY_SOURCE.get(source) ?? null;
+	}
+
+	const existingRequest = REMOTE_IMAGE_LOAD_BY_SOURCE.get(source);
+	if (existingRequest) {
+		return existingRequest;
+	}
+
+	const loadRequest = fetch(source)
+		.then(async (response) => {
+			if (!response.ok) {
+				return null;
+			}
+
+			const imageBlob = await response.blob();
+			const blobUrl = URL.createObjectURL(imageBlob);
+			REMOTE_IMAGE_BLOB_URL_BY_SOURCE.set(source, blobUrl);
+			return blobUrl;
+		})
+		.catch(() => null)
+		.finally(() => {
+			REMOTE_IMAGE_LOAD_BY_SOURCE.delete(source);
+		});
+
+	REMOTE_IMAGE_LOAD_BY_SOURCE.set(source, loadRequest);
+	return loadRequest;
+}
 
 interface ModelIconProps {
 	provider?: string;
@@ -38,8 +75,9 @@ export function ModelIcon({
 	});
 	const sourceIndex = sourceState.key === sourceKey ? sourceState.index : 0;
 	const src = sources[sourceIndex] ?? null;
+	const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
 
-	const handleError = () => {
+	const handleError = useCallback(() => {
 		if (sourceIndex < sources.length - 1) {
 			setSourceState({
 				key: sourceKey,
@@ -51,9 +89,39 @@ export function ModelIcon({
 			key: sourceKey,
 			index: sources.length,
 		});
-	};
+	}, [sourceIndex, sourceKey, sources.length]);
 
-	if (!src) {
+	useEffect(() => {
+		if (!src) {
+			setResolvedSrc(null);
+			return;
+		}
+
+		if (!isRemoteImageSource(src)) {
+			setResolvedSrc(src);
+			return;
+		}
+
+		let cancelled = false;
+		setResolvedSrc(null);
+
+		void loadRemoteImageBlobUrl(src).then((blobUrl) => {
+			if (cancelled) {
+				return;
+			}
+			if (blobUrl) {
+				setResolvedSrc(blobUrl);
+				return;
+			}
+			handleError();
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [src, handleError]);
+
+	if (!src || !resolvedSrc) {
 		const badgeText = (provider || alt)
 			.split(/[^a-z0-9]+/i)
 			.filter(Boolean)
@@ -81,7 +149,7 @@ export function ModelIcon({
 
 	return (
 		<img
-			src={src}
+			src={resolvedSrc}
 			alt={alt || provider}
 			className={className}
 			onError={handleError}
