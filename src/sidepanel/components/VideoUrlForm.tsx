@@ -1,5 +1,4 @@
 import { ExampleUrls } from "@ui/components/ExampleUrls";
-import { ModelIcon } from "@ui/components/ModelIcon";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
@@ -22,6 +21,7 @@ import {
 	prepareProcessingOptions,
 	validateYouTubeUrl,
 } from "@/core/utils/validation";
+import { toModelComboboxOption } from "../lib/model-options";
 
 interface VideoUrlFormProps {
 	onSubmit: (
@@ -74,19 +74,9 @@ export const VideoUrlForm = ({
 
 	const modelOptions = useMemo<ComboboxOption[]>(
 		() =>
-			summarizerModels.map((model) => ({
-				value: model.key,
-				label: model.label,
-				icon: (
-					<ModelIcon
-						provider={model.provider}
-						logo={model.logo}
-						fallbackLogo={model.fallbackLogo}
-						alt={model.provider || model.label}
-						className="h-4 w-4 opacity-80"
-					/>
-				),
-			})),
+			summarizerModels.map((model) =>
+				toModelComboboxOption(model, { iconClassName: "h-4 w-4 opacity-80" }),
+			),
 		[summarizerModels],
 	);
 	const selectedModelOption = useMemo(

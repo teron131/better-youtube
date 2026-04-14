@@ -28,6 +28,7 @@ export interface AppConfig {
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
+	modelCostLimit: number;
 
 	// UI preferences
 	targetLanguage: string;
@@ -47,6 +48,7 @@ export interface ModelConfig {
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
+	modelCostLimit: number;
 }
 
 // ============================================================================
@@ -59,6 +61,17 @@ function normalizeKey(value: unknown): string | null {
 	return trimmed ? trimmed : null;
 }
 
+export function normalizeModelCostLimit(value: unknown): number {
+	const numericValue =
+		typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+
+	if (!Number.isFinite(numericValue) || numericValue <= 0) {
+		return DEFAULTS.MODEL_COST_LIMIT;
+	}
+
+	return Number.parseFloat(numericValue.toFixed(2));
+}
+
 /**
  * Resolve model from custom/recommended/default hierarchy
  */
@@ -68,6 +81,18 @@ export function resolveModel(
 	defaultModel: string,
 ): string {
 	return customModel || recommendedModel || defaultModel;
+}
+
+function resolveQualityModel(
+	storedQualityModel: string | null | undefined,
+	refinerCustomModel: string | null | undefined,
+	refinerRecommendedModel: string | null | undefined,
+	defaultModel: string,
+): string {
+	return (
+		storedQualityModel ||
+		resolveModel(refinerCustomModel, refinerRecommendedModel, defaultModel)
+	);
 }
 
 // ============================================================================
@@ -90,6 +115,7 @@ export async function loadConfig(): Promise<AppConfig> {
 		STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
 		STORAGE_KEYS.REFINER_CUSTOM_MODEL,
 		STORAGE_KEYS.QUALITY_MODEL,
+		STORAGE_KEYS.MODEL_COST_LIMIT,
 		STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
 		STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
 		STORAGE_KEYS.AUTO_GENERATE,
@@ -134,7 +160,15 @@ export async function loadConfig(): Promise<AppConfig> {
 
 		summarizerModel,
 		refinerModel,
-		qualityModel: result[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
+		qualityModel: resolveQualityModel(
+			result[STORAGE_KEYS.QUALITY_MODEL],
+			result[STORAGE_KEYS.REFINER_CUSTOM_MODEL],
+			result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
+			summarizerModel,
+		),
+		modelCostLimit: normalizeModelCostLimit(
+			result[STORAGE_KEYS.MODEL_COST_LIMIT],
+		),
 
 		targetLanguage: resolveModel(
 			result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM],
@@ -180,6 +214,7 @@ export async function getModelConfig(): Promise<ModelConfig> {
 		STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
 		STORAGE_KEYS.REFINER_CUSTOM_MODEL,
 		STORAGE_KEYS.QUALITY_MODEL,
+		STORAGE_KEYS.MODEL_COST_LIMIT,
 	];
 
 	const result = await getStorageValues<Record<string, any>>(keys);
@@ -197,6 +232,14 @@ export async function getModelConfig(): Promise<ModelConfig> {
 			result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
 			DEFAULTS.MODEL_REFINER,
 		),
-		qualityModel: result[STORAGE_KEYS.QUALITY_MODEL] || summarizerModel,
+		qualityModel: resolveQualityModel(
+			result[STORAGE_KEYS.QUALITY_MODEL],
+			result[STORAGE_KEYS.REFINER_CUSTOM_MODEL],
+			result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
+			summarizerModel,
+		),
+		modelCostLimit: normalizeModelCostLimit(
+			result[STORAGE_KEYS.MODEL_COST_LIMIT],
+		),
 	};
 }

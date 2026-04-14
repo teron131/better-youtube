@@ -25,7 +25,7 @@ export interface ModelStat {
 
 export interface LeaderboardStat {
 	intelligenceScore: number | null;
-	speedScore: number | null;
+	speedMetric: number | null;
 }
 
 export interface ProviderLogoStat {
@@ -93,38 +93,6 @@ function toAbsoluteArtificialAnalysisLogoUrl(value: unknown): string | null {
 function asFiniteNumber(value: unknown): number | null {
 	const numericValue = Number(value);
 	return Number.isFinite(numericValue) ? numericValue : null;
-}
-
-function meanOfFinite(values: Array<number | null>): number | null {
-	const finiteValues = values.filter(
-		(value): value is number => value != null && Number.isFinite(value),
-	);
-	if (finiteValues.length === 0) {
-		return null;
-	}
-	return (
-		finiteValues.reduce((sum, value) => sum + value, 0) / finiteValues.length
-	);
-}
-
-function percentileScore(
-	sortedValues: number[],
-	value: number | null,
-): number | null {
-	if (value == null || sortedValues.length === 0) {
-		return null;
-	}
-
-	if (sortedValues.length === 1) {
-		return 100;
-	}
-
-	const index = sortedValues.indexOf(value);
-	if (index === -1) {
-		return null;
-	}
-
-	return (index / (sortedValues.length - 1)) * 100;
 }
 
 function firstOpenRouterProvider(modelId: string): string {
@@ -197,16 +165,13 @@ function outputsImages(model: OpenRouterModel): boolean {
 	return modality.includes("->") && modality.endsWith("image");
 }
 
-function isAffordableTextModel(
-	model: OpenRouterModel,
-	maxCost: number,
-): boolean {
+function isSupportedTextModel(model: OpenRouterModel): boolean {
 	if (outputsImages(model)) {
 		return false;
 	}
 
 	const blendedPrice = parseModelCostPerMillion(model);
-	return blendedPrice > 0 && blendedPrice <= maxCost;
+	return blendedPrice > 0;
 }
 
 function buildLeaderboardScores(
@@ -215,7 +180,7 @@ function buildLeaderboardScores(
 	const speedMetrics: Array<{
 		modelId: string;
 		intelligenceScore: number | null;
-		rawSpeedMetric: number | null;
+		speedMetric: number | null;
 	}> = [];
 
 	for (const row of rows) {
@@ -225,42 +190,21 @@ function buildLeaderboardScores(
 		}
 
 		const intelligenceScore = asFiniteNumber(row.intelligenceIndex);
-		const outputSpeed = asFiniteNumber(row.medianOutputTokensPerSecond);
-		const timeToFirstToken = asFiniteNumber(
-			row.medianTimeToFirstAnswerTokenSeconds ??
-				row.medianTimeToFirstTokenSeconds,
-		);
-		const endToEndLatency = asFiniteNumber(
-			row.medianEndToEndResponseTimeSeconds,
-		);
-		const latencyScore = meanOfFinite([
-			timeToFirstToken != null && timeToFirstToken > 0
-				? 1000 / timeToFirstToken
-				: null,
-			endToEndLatency != null && endToEndLatency > 0
-				? 1000 / endToEndLatency
-				: null,
-		]);
-		const rawSpeedMetric = meanOfFinite([outputSpeed, latencyScore]);
+		const speedMetric = asFiniteNumber(row.medianOutputTokensPerSecond);
 
 		speedMetrics.push({
 			modelId: normalizeOpenRouterModelId(openrouterApiId),
 			intelligenceScore,
-			rawSpeedMetric,
+			speedMetric,
 		});
 	}
 
-	const sortedSpeedMetrics = speedMetrics
-		.map((entry) => entry.rawSpeedMetric)
-		.filter((value): value is number => value != null && Number.isFinite(value))
-		.sort((left, right) => left - right);
-
 	return Object.fromEntries(
-		speedMetrics.map(({ modelId, intelligenceScore, rawSpeedMetric }) => [
+		speedMetrics.map(({ modelId, intelligenceScore, speedMetric }) => [
 			modelId,
 			{
 				intelligenceScore,
-				speedScore: percentileScore(sortedSpeedMetrics, rawSpeedMetric),
+				speedMetric,
 			},
 		]),
 	);
@@ -448,9 +392,7 @@ export async function fetchLeaderboardProviderLogos(): Promise<
 	}
 }
 
-export async function fetchDynamicModels(
-	maxCost = 5.0,
-): Promise<AvailableModel[]> {
+export async function fetchDynamicModels(): Promise<AvailableModel[]> {
 	try {
 		const response = await fetch(OPENROUTER_MODELS_URL);
 		if (!response.ok) return [];
@@ -459,7 +401,7 @@ export async function fetchDynamicModels(
 		};
 
 		return (data.data || [])
-			.filter((model) => isAffordableTextModel(model, maxCost))
+			.filter(isSupportedTextModel)
 			.map(availableModelFromOpenRouterModel);
 	} catch (e) {
 		console.error("Failed to fetch dynamic models", e);
