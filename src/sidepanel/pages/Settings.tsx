@@ -1,7 +1,9 @@
+import { ModelIcon } from "@ui/components/ModelIcon";
+import { ModelSelector } from "@ui/components/ModelSelector";
 import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Button } from "@ui/components/ui/button";
 import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
-import { EditableCombobox } from "@ui/components/ui/editable-combobox";
+import type { ComboboxOption } from "@ui/components/ui/editable-combobox";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
 import {
@@ -16,6 +18,7 @@ import { useModelSelection } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
 import {
 	ArrowLeft,
+	Bot,
 	Cpu,
 	Globe,
 	Key,
@@ -99,6 +102,29 @@ const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
 	summaryFontSize: STORAGE_KEYS.SUMMARY_FONT_SIZE,
 	autoGenerate: STORAGE_KEYS.AUTO_GENERATE,
 };
+
+function toModelOption(model: {
+	key: string;
+	label: string;
+	provider?: string;
+	logo?: string;
+	fallbackLogo?: string;
+}): ComboboxOption {
+	const hasIcon = model.logo || model.provider;
+	return {
+		value: model.key,
+		label: model.label,
+		icon: hasIcon ? (
+			<ModelIcon
+				provider={model.provider}
+				logo={model.logo}
+				fallbackLogo={model.fallbackLogo}
+				alt={model.provider || model.label}
+				className="w-full h-full object-contain"
+			/>
+		) : undefined,
+	};
+}
 
 const Settings = () => {
 	const navigate = useNavigate();
@@ -291,41 +317,22 @@ const Settings = () => {
 							</div>
 						</CardHeader>
 						<CardContent className="p-4 pt-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-1">
-								<Label
-									htmlFor="summarizerModel"
-									className="text-sm font-semibold"
-								>
-									Summary Model
-								</Label>
-								<EditableCombobox
-									value={settings.summarizerModel}
-									onChange={(val) => handleChange("summarizerModel", val)}
-									options={summarizerModels.map((m) => ({
-										value: m.key,
-										label: m.label,
-									}))}
-									placeholder="Select or type model..."
-									inputClassName="h-10 rounded-xl"
-									contentClassName="rounded-xl"
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="refinerModel" className="text-sm font-semibold">
-									Caption Refinement Model
-								</Label>
-								<EditableCombobox
-									value={settings.refinerModel}
-									onChange={(val) => handleChange("refinerModel", val)}
-									options={refinerModels.map((m) => ({
-										value: m.key,
-										label: m.label,
-									}))}
-									placeholder="Select or type model..."
-									inputClassName="h-10 rounded-xl"
-									contentClassName="rounded-xl"
-								/>
-							</div>
+							<ModelSelector
+								label="Summary Model"
+								icon={Bot}
+								value={settings.summarizerModel}
+								onChange={(val) => handleChange("summarizerModel", val)}
+								options={summarizerModels.map(toModelOption)}
+								placeholder="Select or type model..."
+							/>
+							<ModelSelector
+								label="Caption Refinement Model"
+								icon={Sparkles}
+								value={settings.refinerModel}
+								onChange={(val) => handleChange("refinerModel", val)}
+								options={refinerModels.map(toModelOption)}
+								placeholder="Select or type model..."
+							/>
 						</CardContent>
 					</Card>
 

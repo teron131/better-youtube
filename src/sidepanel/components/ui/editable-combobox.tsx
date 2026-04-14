@@ -119,7 +119,7 @@ export function EditableCombobox({
 					<div className="relative flex items-center">
 						{/* Render icon inside input if provided */}
 						{renderIcon && (
-							<div className="absolute left-3 z-10 flex items-center justify-center pointer-events-none">
+							<div className="absolute left-3 z-10 flex h-5 w-5 items-center justify-center overflow-hidden pointer-events-none [&_img]:h-full [&_img]:w-full [&_img]:object-contain">
 								{renderIcon(value)}
 							</div>
 						)}
