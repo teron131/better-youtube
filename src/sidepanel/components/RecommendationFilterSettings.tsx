@@ -377,7 +377,7 @@ export function RecommendationFilterSettings() {
 										{renderMergedSettingSentence(item.key)}
 									</div>
 									{item.description ? (
-										<div className="mt-2 max-w-[30ch] text-[13px] leading-5 text-muted-foreground">
+										<div className="mt-2 max-w-[30ch] text-sm font-medium leading-6 text-foreground/95">
 											{item.description}
 										</div>
 									) : null}
@@ -438,7 +438,7 @@ export function RecommendationFilterSettings() {
 			</div>
 
 			<div className="space-y-3 pt-4">
-				<div className="text-sm font-semibold">Current Filter Stats</div>
+				<div className="text-sm font-semibold">Total Videos Skipped</div>
 				<div className="grid grid-cols-3 gap-x-4 gap-y-5 md:grid-cols-6">
 					{STAT_ITEMS.map((item) => (
 						<div key={item.key} className="space-y-1">

@@ -9,7 +9,8 @@
 		"https://api.scrapecreators.com/*",
 		"https://openrouter.ai/*",
 		"https://models.dev/*",
-		"https://artificialanalysis.ai/*"
+		"https://artificialanalysis.ai/*",
+		"https://vercel.com/*"
 	],
 	"action": {
 		"default_title": "Better YouTube",
