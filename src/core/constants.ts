@@ -23,6 +23,7 @@ export const STORAGE_KEYS = {
 	QUALITY_MODEL: "qualityModel",
 	SUMMARIZER_MODEL_COST_LIMIT: "summarizerModelCostLimit",
 	REFINER_MODEL_COST_LIMIT: "refinerModelCostLimit",
+	DYNAMIC_MODELS_CACHE: "dynamicModelsCache",
 	VIEWS_FILTER_ENABLED: "viewsFilterEnabled",
 	DURATION_FILTER_ENABLED: "durationFilterEnabled",
 	KEYWORD_FILTER_ENABLED: "keywordFilterEnabled",
