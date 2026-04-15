@@ -23,7 +23,11 @@ import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeModelCostLimit } from "@/core/config";
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
-import { getStorageValues, setStorageValue } from "@/core/storage";
+import {
+	getStorageValue,
+	getStorageValues,
+	setStorageValue,
+} from "@/core/storage";
 
 const DEFAULT_CONFIGURATION_RESPONSE: ConfigurationResponse = {
 	status: "success",
@@ -48,6 +52,7 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const PRICE_PER_MILLION_TOKENS = 1_000_000;
 const INPUT_PRICE_WEIGHT = 3;
 const OUTPUT_PRICE_WEIGHT = 1;
+const DYNAMIC_MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type OpenRouterModel = {
 	id: string;
@@ -64,6 +69,11 @@ type OpenRouterModel = {
 };
 
 let dynamicModelsPromise: Promise<AvailableModel[]> | null = null;
+
+type DynamicModelsCache = {
+	fetchedAtMs: number;
+	models: AvailableModel[];
+};
 
 interface UseConfigReturn {
 	config: ConfigurationResponse | null;
@@ -166,6 +176,98 @@ function availableModelFromOpenRouterModel(
 	};
 }
 
+function normalizeOptionalString(value: unknown): string | undefined {
+	return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function normalizeOptionalNumber(value: unknown): number | null | undefined {
+	return typeof value === "number" && Number.isFinite(value)
+		? value
+		: undefined;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeAvailableModel(value: unknown): AvailableModel | null {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+
+	const record = value as Record<string, unknown>;
+	if (typeof record.key !== "string" || typeof record.label !== "string") {
+		return null;
+	}
+
+	return {
+		key: record.key,
+		label: record.label,
+		provider: normalizeOptionalString(record.provider),
+		recommended: normalizeOptionalBoolean(record.recommended),
+		logo: normalizeOptionalString(record.logo),
+		fallbackLogo: normalizeOptionalString(record.fallbackLogo),
+		intelligenceScore: normalizeOptionalNumber(record.intelligenceScore),
+		speedMetric: normalizeOptionalNumber(record.speedMetric),
+		price: normalizeOptionalNumber(record.price),
+	};
+}
+
+function normalizeDynamicModelsCache(
+	value: unknown,
+): DynamicModelsCache | null {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+
+	const record = value as Record<string, unknown>;
+	if (
+		typeof record.fetchedAtMs !== "number" ||
+		!Number.isFinite(record.fetchedAtMs)
+	) {
+		return null;
+	}
+
+	if (!Array.isArray(record.models)) {
+		return null;
+	}
+
+	const models = record.models
+		.map((model) => normalizeAvailableModel(model))
+		.filter((model): model is AvailableModel => model !== null);
+
+	return {
+		fetchedAtMs: record.fetchedAtMs,
+		models,
+	};
+}
+
+function isDynamicModelsCacheFresh(cache: DynamicModelsCache | null): boolean {
+	if (!cache) {
+		return false;
+	}
+
+	return Date.now() - cache.fetchedAtMs <= DYNAMIC_MODELS_CACHE_TTL_MS;
+}
+
+async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
+	const cachedValue = await getStorageValue<unknown>(
+		STORAGE_KEYS.DYNAMIC_MODELS_CACHE,
+	);
+	return normalizeDynamicModelsCache(cachedValue);
+}
+
+async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
+	if (models.length === 0) {
+		return;
+	}
+
+	await setStorageValue<DynamicModelsCache>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE, {
+		fetchedAtMs: Date.now(),
+		models,
+	});
+}
+
 async function fetchDynamicModels(): Promise<AvailableModel[]> {
 	try {
 		if (!dynamicModelsPromise) {
@@ -203,6 +305,14 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 		console.error("Failed to fetch dynamic models", error);
 		return [];
 	}
+}
+
+async function fetchAndCacheDynamicModels(): Promise<AvailableModel[]> {
+	const models = await fetchDynamicModels();
+	if (models.length > 0) {
+		await saveDynamicModelsCache(models);
+	}
+	return models;
 }
 
 function rankingValue(
@@ -361,19 +471,52 @@ export function useConfig(): UseConfigReturn {
 	);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const dynamicModelsRef = useRef<AvailableModel[]>([]);
+
+	useEffect(() => {
+		dynamicModelsRef.current = dynamicModels;
+	}, [dynamicModels]);
 
 	const loadConfig = useCallback(async () => {
 		try {
-			setIsLoading(true);
+			const hasVisibleModels = dynamicModelsRef.current.length > 0;
+			if (!hasVisibleModels) {
+				setIsLoading(true);
+			}
 			setError(null);
 
-			const [configuration, fetchedDynamicModels] = await Promise.all([
+			const [configuration, cachedDynamicModels] = await Promise.all([
 				api.getConfiguration().catch(() => null),
-				fetchDynamicModels().catch(() => [] as AvailableModel[]),
+				loadDynamicModelsCache(),
 			]);
 
 			setConfig(configuration ?? DEFAULT_CONFIGURATION_RESPONSE);
-			setDynamicModels(fetchedDynamicModels);
+
+			if (cachedDynamicModels?.models.length) {
+				setDynamicModels(cachedDynamicModels.models);
+
+				if (!isDynamicModelsCacheFresh(cachedDynamicModels)) {
+					void fetchAndCacheDynamicModels()
+						.then((freshDynamicModels) => {
+							if (freshDynamicModels.length > 0) {
+								setDynamicModels(freshDynamicModels);
+							}
+						})
+						.catch((refreshError) => {
+							console.error(
+								"Failed to refresh cached dynamic models",
+								refreshError,
+							);
+						});
+				}
+
+				return;
+			}
+
+			const fetchedDynamicModels = await fetchAndCacheDynamicModels();
+			if (fetchedDynamicModels.length > 0 || !hasVisibleModels) {
+				setDynamicModels(fetchedDynamicModels);
+			}
 		} catch (err) {
 			setError(
 				err instanceof Error ? err.message : "Failed to load configuration",
