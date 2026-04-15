@@ -6,33 +6,40 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as Sonner } from "@ui/components/ui/sonner";
 import { Toaster } from "@ui/components/ui/toaster";
 import { TooltipProvider } from "@ui/components/ui/tooltip";
-import { useEffect } from "react";
-import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { loadSummaryFontSize } from "./lib/font-size";
+import { getCurrentSidepanelPath } from "./lib/routes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
-function isExtensionRuntime() {
-	if (import.meta.env.MODE === "extension") return true;
-	if (import.meta.env.DEV) return true; // Use HashRouter in dev for easier previewing
-	return (
-		typeof window !== "undefined" &&
-		window.location.protocol === "chrome-extension:"
-	);
-}
-
 function AppRoutes() {
-	return (
-		<Routes>
-			<Route path="/" element={<Index />} />
-			<Route path="/settings" element={<Settings />} />
-			{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-			<Route path="*" element={<NotFound />} />
-		</Routes>
-	);
+	const [path, setPath] = useState(getCurrentSidepanelPath);
+
+	useEffect(() => {
+		const updatePath = () => {
+			setPath(getCurrentSidepanelPath());
+		};
+
+		window.addEventListener("hashchange", updatePath);
+		window.addEventListener("popstate", updatePath);
+
+		return () => {
+			window.removeEventListener("hashchange", updatePath);
+			window.removeEventListener("popstate", updatePath);
+		};
+	}, []);
+
+	switch (path) {
+		case "/settings":
+			return <Settings />;
+		case "/":
+			return <Index />;
+		default:
+			return <NotFound path={path} />;
+	}
 }
 
 const App = () => {
@@ -40,23 +47,12 @@ const App = () => {
 		loadSummaryFontSize();
 	}, []);
 
-	const useHashRouter =
-		isExtensionRuntime() || import.meta.env.VITE_ROUTER_MODE === "hash";
-	const Router = useHashRouter ? HashRouter : BrowserRouter;
-
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
 				<Toaster />
 				<Sonner />
-				<Router
-					future={{
-						v7_startTransition: true,
-						v7_relativeSplatPath: true,
-					}}
-				>
-					<AppRoutes />
-				</Router>
+				<AppRoutes />
 			</TooltipProvider>
 		</QueryClientProvider>
 	);

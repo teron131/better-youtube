@@ -27,6 +27,23 @@ interface EditableComboboxProps {
 	type?: "text" | "url";
 }
 
+function exactMatchingOption(
+	options: ComboboxOption[],
+	value: string,
+): ComboboxOption | null {
+	const trimmedValue = value.trim();
+	if (!trimmedValue) {
+		return null;
+	}
+
+	return (
+		options.find(
+			(option) =>
+				option.value === trimmedValue || option.label === trimmedValue,
+		) ?? null
+	);
+}
+
 function normalizeSearchValue(value: string): string {
 	return value
 		.toLowerCase()
@@ -38,6 +55,10 @@ function normalizeSearchValue(value: string): string {
 
 function compactSearchValue(value: string): string {
 	return normalizeSearchValue(value).replace(/\s+/g, "");
+}
+
+function stripTrailingScoreSuffix(value: string): string {
+	return value.replace(/\s+\[[^\]]+\]$/, "").trim();
 }
 
 function stripProviderPrefix(value: string): string {
@@ -228,6 +249,31 @@ export function EditableCombobox({
 		() => providerPrefixesFromOptions(options),
 		[options],
 	);
+	const matchesSelectedOptionQuery = React.useCallback(
+		(query: string) => {
+			if (!selectedOption) {
+				return false;
+			}
+
+			const normalizedQuery = normalizeSearchValue(
+				stripTrailingScoreSuffix(query),
+			);
+			if (!normalizedQuery) {
+				return false;
+			}
+
+			const normalizedOptionLabel = normalizeSearchValue(
+				stripTrailingScoreSuffix(selectedOption.label),
+			);
+			const normalizedOptionValue = normalizeSearchValue(selectedOption.value);
+
+			return (
+				normalizedQuery === normalizedOptionLabel ||
+				normalizedQuery === normalizedOptionValue
+			);
+		},
+		[selectedOption],
+	);
 
 	// Sync searchText with value when value changes externally (only when closed)
 	React.useEffect(() => {
@@ -236,6 +282,12 @@ export function EditableCombobox({
 		}
 	}, [value, open, selectedOption]);
 
+	React.useEffect(() => {
+		if (open && matchesSelectedOptionQuery(searchText)) {
+			setSearchText(selectedOption?.label || value || "");
+		}
+	}, [matchesSelectedOptionQuery, open, searchText, selectedOption, value]);
+
 	// Measure trigger width for the portal content
 	React.useEffect(() => {
 		if (open && containerRef.current) {
@@ -243,10 +295,7 @@ export function EditableCombobox({
 		}
 	}, [open]);
 
-	const isSelectedOptionQuery =
-		selectedOption != null &&
-		(searchText === selectedOption.label ||
-			searchText === selectedOption.value);
+	const isSelectedOptionQuery = matchesSelectedOptionQuery(searchText);
 
 	// Filter options: show all when searchText is empty or matches current value, otherwise filter
 	const filteredOptions = React.useMemo(() => {
@@ -264,15 +313,14 @@ export function EditableCombobox({
 		setOpen(true);
 	};
 
-	const closeDropdown = () => {
+	const closeDropdown = React.useCallback(() => {
 		setOpen(false);
 		setSearchText(selectedOption?.label || value || "");
-	};
+	}, [selectedOption, value]);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newValue = e.target.value;
 		setSearchText(newValue);
-		onChange(newValue);
 		if (!open) setOpen(true);
 	};
 
@@ -288,6 +336,19 @@ export function EditableCombobox({
 		// but select it so typing replaces it
 		e.target.select();
 	};
+
+	const commitInputValue = React.useCallback(() => {
+		const trimmedSearchText = searchText.trim();
+		if (!trimmedSearchText) {
+			closeDropdown();
+			return;
+		}
+
+		const matchedOption = exactMatchingOption(options, trimmedSearchText);
+		onChange(matchedOption?.value ?? trimmedSearchText);
+		setSearchText(matchedOption?.label ?? trimmedSearchText);
+		setOpen(false);
+	}, [closeDropdown, onChange, options, searchText]);
 
 	const toggleOpen = (e: React.MouseEvent) => {
 		e.preventDefault();
@@ -322,6 +383,18 @@ export function EditableCombobox({
 							onChange={handleInputChange}
 							onFocus={handleInputFocus}
 							onClick={() => !open && setOpen(true)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault();
+									commitInputValue();
+									return;
+								}
+
+								if (event.key === "Escape") {
+									event.preventDefault();
+									closeDropdown();
+								}
+							}}
 							placeholder={placeholder}
 							className={cn(
 								"pr-10 transition-all duration-200",
@@ -381,7 +454,7 @@ export function EditableCombobox({
 											type="button"
 											key={option.value}
 											className={cn(
-												"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
+												"relative flex w-full cursor-default select-none items-start justify-start rounded-sm py-1.5 pl-8 pr-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
 											)}
 											onMouseDown={(e) => {
 												e.preventDefault(); // Prevent focus loss from input
@@ -393,17 +466,19 @@ export function EditableCombobox({
 													<Check className="h-4 w-4" />
 												</span>
 											)}
-											<div className="flex items-center gap-2 w-full">
+											<div className="flex w-full items-start gap-2 text-left">
 												{renderOption ? (
 													renderOption(option)
 												) : (
 													<>
 														{option.icon && (
-															<span className="flex h-4 w-4 items-center justify-center">
+															<span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 																{option.icon}
 															</span>
 														)}
-														<span>{option.label}</span>
+														<span className="min-w-0 flex-1 whitespace-normal text-left">
+															{option.label}
+														</span>
 													</>
 												)}
 											</div>

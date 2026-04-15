@@ -13,7 +13,7 @@ import {
 	TooltipTrigger,
 } from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type ModelSortMetric = "intelligence" | "speed" | "price";
 type SortDirection = "asc" | "desc";
@@ -47,14 +47,15 @@ function formatMetricScore(
 	option: ComboboxOption,
 	metric: Exclude<ModelSortMetric, "price">,
 ): string | null {
-	if (metric === "speed") {
+	const rawValue =
+		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
+
+	if (typeof rawValue !== "number") {
 		return null;
 	}
 
-	const rawValue = option.intelligenceScore;
-
-	if (typeof rawValue !== "number") {
-		return "[-]";
+	if (metric === "speed") {
+		return `[${rawValue.toFixed(0)}]`;
 	}
 
 	const formattedValue = rawValue.toFixed(0);
@@ -121,24 +122,91 @@ export function ModelSelector({
 	const [sortDirection, setSortDirection] = useState<SortDirection>(
 		defaultSortDirection(defaultSortMetric),
 	);
+	const [stackControls, setStackControls] = useState(false);
+	const headerRef = useRef<HTMLDivElement>(null);
+	const controlsRef = useRef<HTMLDivElement>(null);
+	const titleRef = useRef<HTMLSpanElement>(null);
+	const availableSortOptions = MODEL_SORT_OPTIONS;
+	const effectiveSortMetric = availableSortOptions.some(
+		({ metric }) => metric === sortMetric,
+	)
+		? sortMetric
+		: (availableSortOptions[0]?.metric ?? sortMetric);
+	const effectiveSortDirection =
+		effectiveSortMetric === sortMetric
+			? sortDirection
+			: defaultSortDirection(effectiveSortMetric);
 	const sortedOptions = useMemo(
 		() =>
 			enableSorting
-				? sortModelOptions(options, sortMetric, sortDirection)
+				? sortModelOptions(options, effectiveSortMetric, effectiveSortDirection)
 				: options,
-		[enableSorting, options, sortDirection, sortMetric],
+		[effectiveSortDirection, effectiveSortMetric, enableSorting, options],
 	);
 	const visibleOptions = useMemo(
 		() =>
 			enableSorting
 				? sortedOptions.map((option) => ({
 						...option,
-						label: decorateOptionLabel(option, sortMetric),
+						label: decorateOptionLabel(option, effectiveSortMetric),
 					}))
 				: sortedOptions,
-		[enableSorting, sortedOptions, sortMetric],
+		[effectiveSortMetric, enableSorting, sortedOptions],
 	);
 	const selectedOption = findMatchingComboboxOption(visibleOptions, value);
+
+	useEffect(() => {
+		if (!enableSorting) {
+			setStackControls(false);
+			return;
+		}
+
+		const titleElement = titleRef.current;
+		const headerElement = headerRef.current;
+		const controlsElement = controlsRef.current;
+		if (!titleElement || !headerElement || !controlsElement) {
+			return;
+		}
+
+		const updateStackedLayout = () => {
+			const computedStyle = window.getComputedStyle(titleElement);
+			const canvas = document.createElement("canvas");
+			const context = canvas.getContext("2d");
+			if (!context) {
+				return;
+			}
+
+			context.font = computedStyle.font;
+			const letterSpacing =
+				Number.parseFloat(computedStyle.letterSpacing || "0") || 0;
+			const textWidth =
+				context.measureText(label).width +
+				Math.max(label.length - 1, 0) * letterSpacing;
+			const iconAndGapWidth = 24 + 8;
+			const controlsWidth = controlsElement.getBoundingClientRect().width;
+			const availableInlineWidth =
+				headerElement.getBoundingClientRect().width - controlsWidth - 12;
+			const estimatedLineCount =
+				availableInlineWidth > 0
+					? Math.ceil((textWidth + iconAndGapWidth) / availableInlineWidth)
+					: Number.POSITIVE_INFINITY;
+
+			setStackControls(estimatedLineCount > 2);
+		};
+
+		updateStackedLayout();
+
+		const resizeObserver = new ResizeObserver(() => {
+			updateStackedLayout();
+		});
+		resizeObserver.observe(headerElement);
+		resizeObserver.observe(controlsElement);
+		resizeObserver.observe(titleElement);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	}, [enableSorting, label]);
 
 	const handleSortClick = (
 		event: React.MouseEvent<HTMLButtonElement>,
@@ -161,40 +229,49 @@ export function ModelSelector({
 	const renderModelOption = (option: ComboboxOption) => (
 		<>
 			{option.icon && (
-				<span className="mr-2 flex items-center justify-center w-4 h-4">
+				<span className="mr-2 mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 					{option.icon}
 				</span>
 			)}
-			<span>{option.label}</span>
+			<span className="min-w-0 flex-1 whitespace-normal text-left">
+				{option.label}
+			</span>
 		</>
 	);
 
 	return (
 		<div className="flex flex-col gap-2">
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-2 group relative">
-					<div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+			<div
+				ref={headerRef}
+				className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+			>
+				<div className="group relative flex min-h-12 min-w-0 flex-1 items-center gap-2">
+					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
 						<Icon className="w-3 h-3 text-white" />
 					</div>
-					<span className="text-sm font-bold text-primary uppercase tracking-wide">
+					<span
+						ref={titleRef}
+						className="min-w-0 block text-sm font-bold uppercase tracking-wide text-primary"
+					>
 						{label}
 					</span>
 				</div>
 
 				{enableSorting && (
-					<div className="flex items-center rounded-lg border border-border/60 bg-background/40 p-0.5">
-						{MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
+					<div
+						ref={controlsRef}
+						className={`flex shrink-0 items-center rounded-lg border border-border/60 bg-background/40 p-0.5 ${
+							stackControls ? "ml-auto basis-full justify-end" : "ml-auto"
+						}`}
+					>
+						{availableSortOptions.map(({ metric, icon: MetricIcon, label }) => (
 							<Tooltip key={metric} delayDuration={0}>
 								<TooltipTrigger asChild>
 									<button
 										type="button"
-										onMouseDown={(event) => {
-											event.preventDefault();
-											event.stopPropagation();
-										}}
 										onClick={(event) => handleSortClick(event, metric)}
 										className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-											sortMetric === metric
+											effectiveSortMetric === metric
 												? "bg-primary text-white"
 												: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
 										}`}

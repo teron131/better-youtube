@@ -21,7 +21,6 @@ import { handleApiError } from "@ui/services/api";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
 import { Captions, Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
 	getStorageValue,
@@ -35,6 +34,7 @@ import {
 } from "@/core/storage";
 import type { QualityData } from "@/core/types";
 import { extractVideoId } from "@/core/utils/url";
+import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
 
 function segmentsToTranscript(
 	segments?: Array<{ text: string }> | null,
@@ -129,7 +129,6 @@ function getTrackedStorageKeys(videoId: string): Set<string> {
 }
 
 const Index = () => {
-	const navigate = useNavigate();
 	const resultsRef = useRef<HTMLDivElement | null>(null);
 	const currentUrlVideoIdRef = useRef<string | null>(null);
 	const [initialUrl, setInitialUrl] = useState<string>("");
@@ -505,6 +504,7 @@ const Index = () => {
 							<Button
 								variant="ghost"
 								size="sm"
+								type="button"
 								onClick={() => handleToggleSubtitles(!showSubtitles)}
 								className={`gap-2 text-xs font-medium transition-colors ${
 									showSubtitles
@@ -518,12 +518,17 @@ const Index = () => {
 							</Button>
 						</div>
 						<Button
+							asChild
 							variant="ghost"
 							size="icon"
-							onClick={() => navigate("/settings")}
 							className="text-muted-foreground hover:text-foreground transition-all"
 						>
-							<SettingsIcon className="h-6 w-6" />
+							<a
+								aria-label="Open settings"
+								href={SIDEPANEL_ROUTE_HREFS.settings}
+							>
+								<SettingsIcon className="h-6 w-6" />
+							</a>
 						</Button>
 					</div>
 				</div>
