@@ -19,18 +19,23 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 ```mermaid
 flowchart LR
     accTitle: Better YouTube extension architecture
-    accDescr: Shows the three Chrome extension contexts and the shared workflows they use.
+    accDescr: Shows the Chrome extension contexts, shared workflows, storage, and model providers.
 
-    YT["YouTube watch page"]
-    CS["Content script"]
-    SP["Side panel React app"]
-    BG["Background service worker"]
+    YT["YouTube watch and feed pages"]
+
+    subgraph EXT["Chrome extension contexts"]
+        CS["Content script"]
+        SP["Side panel React app"]
+        BG["Background service worker"]
+    end
 
     subgraph CORE["Shared core workflows"]
-        TR["Transcript fetch + cache"]
-        RF["Caption refiner"]
-        SM["Summary router"]
-        ST["Chrome storage cache"]
+        TR["Transcript fetch, cache, and dedupe"]
+        RF["Caption refiner with partial updates"]
+        SR["Summary route selection"]
+        RC["Recommendation rules and subscriptions"]
+        ST["Chrome storage"]
+        CFG["Runtime config"]
     end
 
     subgraph AI["AI providers"]
@@ -39,50 +44,79 @@ flowchart LR
     end
 
     YT --> CS
-    SP --> BG
     CS --> BG
+    SP --> BG
+    CS --> RC
     BG --> TR
     BG --> RF
-    BG --> SM
+    BG --> SR
     TR <--> ST
     RF --> ST
-    SM --> ST
+    SR --> ST
+    RC <--> ST
+    CFG --> BG
+    SR --> CFG
     RF --> CS
-    SM --> SP
-    SM --> GM
-    SM --> LLM
+    SR --> SP
+    SR --> GM
+    SR --> LLM
 ```
 
-## Request Flow
+## Processing Flows
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant SP as Side panel
+    participant UI as Side panel or content script
     participant BG as Background worker
-    participant TR as Transcript layer
-    participant AI as Refiner or summarizer
-    participant CS as Content script
+    participant TC as Transcript cache
+    participant YT as Active YouTube tab
+    participant AI as Gemini or LLM
     participant ST as Chrome storage
+    participant CS as Content script
 
-    SP->>BG: Request summary or captions
-    BG->>TR: Resolve transcript and metadata
-    TR->>ST: Read or refresh cached video data
-    ST-->>TR: Cached data or empty result
-    TR-->>BG: Transcript payload
+    UI->>BG: Request captions or summary
+    BG->>TC: Reuse cached or pending transcript work
+    alt Cache miss
+        TC->>YT: Extract transcript and video metadata
+        YT-->>TC: Transcript payload
+    end
+    TC-->>BG: Transcript text and metadata
 
     alt Caption refinement
-        BG->>AI: Refine subtitle segments
-        AI-->>BG: Partial or final subtitles
-        BG->>ST: Save subtitles
-        BG-->>CS: SUBTITLES_GENERATED
+        BG->>ST: Save raw subtitle segments
+        BG-->>CS: SUBTITLES_GENERATED (raw fallback)
+        BG->>AI: Refine transcript in chunks
+        AI-->>BG: Partial and final subtitle updates
+        BG->>ST: Save refined subtitles
+        BG-->>CS: SUBTITLES_GENERATED (partial and final)
         CS-->>CS: Render overlay on player
     else Summary generation
+        BG->>BG: Resolve provider and mode
         BG->>AI: Generate grounded summary
         AI-->>BG: Structured summary result
         BG->>ST: Save summary and metadata
-        BG-->>SP: SUMMARY_GENERATED
+        BG-->>UI: SUMMARY_GENERATED
     end
+```
+
+## Recommendation Filtering
+
+```mermaid
+flowchart TD
+    accTitle: Recommendation filtering flow
+    accDescr: Shows how the content script filters YouTube recommendation cards using saved rules and optional subscription preservation.
+
+    LOAD["YouTube feed or watch page loads"] --> PAGE{"Supported page?"}
+    PAGE -->|No: channel or subscriptions page| SKIP["Skip filtering"]
+    PAGE -->|Yes| READ["Load filter settings, stats, and subscriptions"]
+    READ --> SCAN["Scan visible recommendation cards"]
+    SCAN --> CHECK{"Subscribed or passes rules?"}
+    CHECK -->|Yes| SHOW["Keep card visible"]
+    CHECK -->|No| HIDE["Hide card and record reason"]
+    SHOW --> RESCAN["Observe DOM changes and reprocess new cards"]
+    HIDE --> RESCAN
+    SUBS["Extract subscriptions from /feed/channels on demand"] --> READ
 ```
 
 ## Runtime Design
