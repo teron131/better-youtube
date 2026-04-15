@@ -245,13 +245,11 @@ export function ModelSelector({
 				ref={headerRef}
 				className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
 			>
-				<div className="group relative flex min-h-12 min-w-0 flex-1 items-center gap-2">
-					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
-						<Icon className="w-3 h-3 text-white" />
-					</div>
+				<div className="group relative flex min-h-9 min-w-0 flex-1 items-center gap-2">
+					<Icon className="h-4 w-4 shrink-0 text-primary" />
 					<span
 						ref={titleRef}
-						className="min-w-0 block text-sm font-bold uppercase tracking-wide text-primary"
+						className="min-w-0 block text-sm font-semibold text-foreground"
 					>
 						{label}
 					</span>
@@ -260,7 +258,7 @@ export function ModelSelector({
 				{enableSorting && (
 					<div
 						ref={controlsRef}
-						className={`flex shrink-0 items-center rounded-lg border border-border/60 bg-background/40 p-0.5 ${
+						className={`flex shrink-0 items-center rounded-md border border-border/60 bg-background p-0.5 ${
 							stackControls ? "ml-auto basis-full justify-end" : "ml-auto"
 						}`}
 					>
@@ -270,10 +268,10 @@ export function ModelSelector({
 									<button
 										type="button"
 										onClick={(event) => handleSortClick(event, metric)}
-										className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+										className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors ${
 											effectiveSortMetric === metric
 												? "bg-primary text-white"
-												: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+												: "text-muted-foreground hover:bg-muted hover:text-foreground"
 										}`}
 										aria-label={label}
 									>
@@ -301,7 +299,7 @@ export function ModelSelector({
 				placeholder={placeholder}
 				renderOption={renderModelOption}
 				renderIcon={() => selectedOption?.icon ?? null}
-				inputClassName="bg-background/40 border-border/60 hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground"
+				inputClassName="rounded-md bg-background border-border/70 hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground"
 			/>
 		</div>
 	);

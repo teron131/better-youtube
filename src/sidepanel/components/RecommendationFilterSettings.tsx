@@ -1,5 +1,4 @@
 import { Button } from "@ui/components/ui/button";
-import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { Switch } from "@ui/components/ui/switch";
 import { useToast } from "@ui/hooks/use-toast";
@@ -274,7 +273,7 @@ export function RecommendationFilterSettings() {
 									Math.max(0, Number(event.target.value) || 0),
 								)
 							}
-							className="h-9 w-28 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+							className="h-9 w-28 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 						/>
 						<span>views.</span>
 					</label>
@@ -295,7 +294,7 @@ export function RecommendationFilterSettings() {
 									Math.max(0, Number(event.target.value) || 0),
 								)
 							}
-							className="input-no-spinner h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+							className="input-no-spinner h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 						/>
 						<span>and</span>
 						<Input
@@ -310,7 +309,7 @@ export function RecommendationFilterSettings() {
 									Math.max(0, Number(event.target.value) || 0),
 								)
 							}
-							className="h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+							className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 						/>
 						<span>seconds.</span>
 					</div>
@@ -341,7 +340,7 @@ export function RecommendationFilterSettings() {
 									})(),
 								)
 							}
-							className="h-9 w-24 rounded-xl border-border/70 bg-background/60 px-3 text-sm font-semibold"
+							className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 						/>
 						<span>years.</span>
 					</label>
@@ -352,208 +351,202 @@ export function RecommendationFilterSettings() {
 	};
 
 	return (
-		<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
-			<CardHeader className="p-4 pb-1">
-				<div className="flex items-center gap-2 text-primary mb-0.5">
-					<ListFilter className="h-4 w-4" />
-					<span className="text-xs font-bold uppercase tracking-widest">
-						Recommendation Filters
-					</span>
-				</div>
-			</CardHeader>
-			<CardContent className="p-4 pt-2 space-y-5">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					{TOGGLE_ITEMS.map((item) => {
-						const Icon = item.icon;
-						return (
-							<div
-								key={item.key}
-								className="flex min-h-[104px] items-start justify-between gap-4 rounded-[18px] border border-border/70 bg-card/70 px-4 py-3.5 transition-colors hover:border-border"
-							>
-								<div className="flex items-start gap-3">
-									<div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
-										<Icon className="h-4 w-4" />
-									</div>
-									<div className="space-y-2">
-										<div className="text-sm font-semibold leading-none">
-											{item.title}
-										</div>
-										{renderMergedSettingSentence(item.key)}
-										{item.description ? (
-											<div className="max-w-[28ch] text-[13px] leading-5 text-muted-foreground">
-												{item.description}
-											</div>
-										) : null}
+		<section className="space-y-8 border-t border-border/70 pt-5">
+			<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+				<ListFilter className="h-4 w-4 text-primary" />
+				<span>Recommendation Filters</span>
+			</div>
+
+			<div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2 md:gap-y-5">
+				{TOGGLE_ITEMS.map((item) => {
+					const Icon = item.icon;
+					return (
+						<div
+							key={item.key}
+							className="flex min-h-[92px] items-start justify-between gap-4 py-2.5"
+						>
+							<div className="min-w-0 space-y-2">
+								<div className="flex items-center gap-2">
+									<Icon className="h-4 w-4 shrink-0 text-primary" />
+									<div className="text-sm font-semibold leading-none">
+										{item.title}
 									</div>
 								</div>
-								<Switch
-									checked={settings[item.key]}
-									onCheckedChange={(checked) =>
-										void handleSettingChange(item.key, checked)
-									}
-									className="data-[state=checked]:bg-primary scale-75"
-								/>
+								<div className="pl-6">
+									<div className="text-sm font-medium leading-6 text-foreground/95">
+										{renderMergedSettingSentence(item.key)}
+									</div>
+									{item.description ? (
+										<div className="mt-2 max-w-[30ch] text-[13px] leading-5 text-muted-foreground">
+											{item.description}
+										</div>
+									) : null}
+								</div>
 							</div>
-						);
-					})}
-				</div>
-
-				<div className="rounded-[18px] border border-border/70 bg-card/70 p-4">
-					<div className="space-y-3">
-						<div>
-							<div className="text-sm font-semibold">Blocked Keywords</div>
-							<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
-								Titles containing one of these words will be hidden.
-							</div>
-						</div>
-						<div className="flex flex-col gap-2 sm:flex-row">
-							<Input
-								value={newKeyword}
-								onChange={(event) => setNewKeyword(event.target.value)}
-								onKeyDown={(event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										void addKeyword();
-									}
-								}}
-								className="h-11 rounded-xl border-border/70 bg-background/70"
-								placeholder="Add Keyword"
+							<Switch
+								checked={settings[item.key]}
+								onCheckedChange={(checked) =>
+									void handleSettingChange(item.key, checked)
+								}
+								className="mt-0.5 scale-75 data-[state=checked]:bg-primary"
 							/>
-							<Button
-								type="button"
-								onClick={() => void addKeyword()}
-								className="h-10 min-w-[8.5rem] self-end rounded-xl px-4 text-sm sm:h-11 sm:self-auto"
-							>
-								Add
-							</Button>
 						</div>
-						<div className="flex flex-wrap gap-2">
-							{settings.keywords.map((keyword) => (
-								<button
-									key={keyword}
-									type="button"
-									onClick={() => void removeKeyword(keyword)}
-									className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
-								>
-									{keyword} ×
-								</button>
-							))}
-						</div>
+					);
+				})}
+			</div>
+
+			<div className="space-y-3 pt-4">
+				<div>
+					<div className="text-sm font-semibold">Blocked Keywords</div>
+					<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
+						Titles containing one of these words will be hidden.
 					</div>
 				</div>
+				<div className="flex flex-col gap-2 sm:flex-row">
+					<Input
+						value={newKeyword}
+						onChange={(event) => setNewKeyword(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								void addKeyword();
+							}
+						}}
+						className="h-11 rounded-md border-border/70 bg-background"
+						placeholder="Add keyword"
+					/>
+					<Button
+						type="button"
+						onClick={() => void addKeyword()}
+						className="h-11 min-w-[7.5rem] rounded-md px-4 text-sm"
+					>
+						Add
+					</Button>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					{settings.keywords.map((keyword) => (
+						<button
+							key={keyword}
+							type="button"
+							onClick={() => void removeKeyword(keyword)}
+							className="rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+						>
+							{keyword} ×
+						</button>
+					))}
+				</div>
+			</div>
 
-				<div className="space-y-2">
-					<div className="text-sm font-semibold">Current Filter Stats</div>
-					<div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-						{STAT_ITEMS.map((item) => (
+			<div className="space-y-3 pt-4">
+				<div className="text-sm font-semibold">Current Filter Stats</div>
+				<div className="grid grid-cols-3 gap-x-4 gap-y-5 md:grid-cols-6">
+					{STAT_ITEMS.map((item) => (
+						<div key={item.key} className="space-y-1">
+							<div className="text-[1.75rem] font-semibold leading-none tracking-tight">
+								{stats[item.key]}
+							</div>
+							<div className="text-xs font-medium text-muted-foreground">
+								{item.label}
+							</div>
+						</div>
+					))}
+				</div>
+			</div>
+
+			<div className="space-y-4 pt-4">
+				<div className="flex items-start justify-between gap-4">
+					<div className="min-w-0 flex-1 space-y-1.5">
+						<div className="flex items-center gap-2 text-sm font-semibold">
+							<Users className="h-4 w-4 text-primary" />
+							Subscribed Channels
+						</div>
+						<div className="max-w-[36ch] text-[13px] leading-5 text-muted-foreground">
+							Import your YouTube subscriptions to make the videos immune to the
+							filters.
+						</div>
+						<div className="text-xs font-medium text-muted-foreground">
+							{subscriptions?.count || 0} channels saved
+							{subscriptions?.extracted
+								? ` • Updated ${new Date(subscriptions.extracted).toLocaleString()}`
+								: ""}
+						</div>
+					</div>
+					<Button
+						type="button"
+						onClick={() => void handleExtractSubscriptions()}
+						disabled={isExtracting}
+						className="h-10 min-w-[6.75rem] shrink-0 rounded-md px-4 text-sm"
+					>
+						{isExtracting ? (
+							<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<ExternalLink className="mr-2 h-4 w-4" />
+						)}
+						{isExtracting ? "Importing..." : "Import"}
+					</Button>
+				</div>
+				{subscriptions?.channels?.length ? (
+					<div className="flex flex-wrap gap-2 border-t border-border/60 pt-4">
+						{subscriptions.channels.slice(0, 8).map((channel, index) => (
 							<div
-								key={item.key}
-								className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2.5"
+								key={
+									channel.channelId ||
+									channel.channelPath ||
+									`${channel.name}-${index}`
+								}
+								className="rounded-md border border-border/70 px-2.5 py-1 text-xs text-muted-foreground"
 							>
-								<div className="text-2xl font-semibold leading-none tracking-tight">
-									{stats[item.key]}
-								</div>
-								<div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-									{item.label}
-								</div>
+								{channel.name || channel.handle || channel.channelPath}
 							</div>
 						))}
 					</div>
-				</div>
+				) : null}
+			</div>
 
-				<div className="rounded-[18px] border border-border/70 bg-card/70 p-4">
-					<div className="flex items-start justify-between gap-4">
-						<div className="min-w-0 flex-1 space-y-1.5">
-							<div className="flex items-center gap-2 text-sm font-semibold">
-								<Users className="h-4 w-4 text-primary" />
-								Subscribed Channels
-							</div>
-							<div className="max-w-[42ch] text-[13px] leading-5 text-muted-foreground">
-								Import your YouTube subscriptions to make the videos immune to
-								the filters.
-							</div>
-							<div className="text-xs font-medium text-muted-foreground">
-								{subscriptions?.count || 0} channels saved
-								{subscriptions?.extracted
-									? ` • Updated ${new Date(subscriptions.extracted).toLocaleString()}`
-									: ""}
-							</div>
+			<div className="space-y-3 pt-4">
+				<div className="flex items-start justify-between gap-3">
+					<div>
+						<div className="text-sm font-semibold">
+							Recent Hidden Recommendations
 						</div>
-						<Button
-							type="button"
-							onClick={() => void handleExtractSubscriptions()}
-							disabled={isExtracting}
-							className="h-10 min-w-[8.5rem] shrink-0 rounded-xl px-4 text-sm sm:h-11"
-						>
-							{isExtracting ? (
-								<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<ExternalLink className="mr-2 h-4 w-4" />
-							)}
-							{isExtracting ? "Importing..." : "Import"}
-						</Button>
+						<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
+							Latest matches from the current browser session storage.
+						</div>
 					</div>
-					{subscriptions?.channels?.length ? (
-						<div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
-							{subscriptions.channels.slice(0, 8).map((channel, index) => (
+					<Button
+						type="button"
+						variant="ghost"
+						onClick={() => void handleClearHistory()}
+						className="h-8 rounded-md px-2 text-xs"
+					>
+						Clear
+					</Button>
+				</div>
+				{history.length ? (
+					<div className="border-t border-border/60">
+						{history
+							.slice(-6)
+							.reverse()
+							.map((entry) => (
 								<div
-									key={
-										channel.channelId ||
-										channel.channelPath ||
-										`${channel.name}-${index}`
-									}
-									className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground"
+									key={`${entry.timestamp}-${entry.title}`}
+									className="border-b border-border/60 py-3"
 								>
-									{channel.name || channel.handle || channel.channelPath}
+									<div className="text-sm font-medium leading-6">
+										{entry.title}
+									</div>
+									<div className="text-xs text-muted-foreground">
+										{entry.reason}
+									</div>
 								</div>
 							))}
-						</div>
-					) : null}
-				</div>
-
-				<div className="space-y-2">
-					<div className="flex items-center justify-between gap-3">
-						<div>
-							<div className="text-sm font-semibold">
-								Recent Hidden Recommendations
-							</div>
-							<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
-								Latest matches from the current browser session storage.
-							</div>
-						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							onClick={() => void handleClearHistory()}
-							className="rounded-xl text-xs"
-						>
-							Clear
-						</Button>
 					</div>
-					<div className="space-y-2">
-						{history.length ? (
-							history
-								.slice(-6)
-								.reverse()
-								.map((entry) => (
-									<div
-										key={`${entry.timestamp}-${entry.title}`}
-										className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2.5"
-									>
-										<div className="text-sm font-medium">{entry.title}</div>
-										<div className="mt-1 text-xs text-muted-foreground">
-											{entry.reason}
-										</div>
-									</div>
-								))
-						) : (
-							<div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-3 py-5 text-sm text-muted-foreground">
-								No recommendation matches recorded yet.
-							</div>
-						)}
+				) : (
+					<div className="pt-3 text-sm text-muted-foreground">
+						No recommendation matches recorded yet.
 					</div>
-				</div>
-			</CardContent>
-		</Card>
+				)}
+			</div>
+		</section>
 	);
 }

@@ -1,7 +1,6 @@
 import { ModelSelector } from "@ui/components/ModelSelector";
 import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Button } from "@ui/components/ui/button";
-import { Card, CardContent, CardHeader } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
 import {
@@ -76,8 +75,8 @@ type ApiField = {
 	type?: "password" | "url";
 };
 
-const SELECT_TRIGGER_CLASSNAME = "w-[200px] h-9 rounded-xl text-xs";
 const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
+const SETTINGS_SECTION_CLASSNAME = "space-y-4 border-t border-border/70 pt-5";
 const API_KEY_FIELDS: ApiField[] = [
 	{
 		key: STORAGE_KEYS.LLM_API_KEY,
@@ -545,16 +544,16 @@ const Settings = () => {
 	const renderFontSizeSelector = (
 		key: "captionFontSize" | "summaryFontSize",
 	) => (
-		<div className="flex bg-muted/30 rounded-xl p-1 border border-border/60">
+		<div className="grid grid-cols-3 rounded-md border border-border/70 bg-background p-1">
 			{FONT_SIZE_OPTIONS.map((size) => (
 				<button
 					key={size}
 					type="button"
 					onClick={() => handleChange(key, size)}
-					className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+					className={`h-9 rounded-sm text-sm font-semibold transition-colors ${
 						settings[key] === size
-							? "bg-primary text-white shadow-lg"
-							: "text-muted-foreground hover:text-foreground"
+							? "bg-primary text-white"
+							: "text-muted-foreground hover:bg-muted hover:text-foreground"
 					}`}
 				>
 					{size}
@@ -606,21 +605,17 @@ const Settings = () => {
 			</div>
 
 			<div className="sidepanel-container pt-24">
-				<div className="grid grid-cols-1 gap-2 fade-in-up stagger-1">
+				<div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
 					{/* API Configuration */}
-					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
-						<CardHeader className="p-4 pb-1">
-							<div className="flex items-center gap-2 text-primary mb-0.5">
-								<Key className="h-4 w-4" />
-								<span className="text-xs font-bold uppercase tracking-widest">
-									API Configuration
-								</span>
-							</div>
-						</CardHeader>
-						<CardContent className="p-4 pt-1 space-y-2.5">
+					<section className={SETTINGS_SECTION_CLASSNAME}>
+						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+							<Key className="h-4 w-4 text-primary" />
+							<span>API Configuration</span>
+						</div>
+						<div className="space-y-4">
 							{API_KEY_FIELDS.map((field) => (
-								<div className="space-y-1" key={field.key}>
-									<div className="flex items-center justify-between">
+								<div className="space-y-1.5" key={field.key}>
+									<div className="flex items-center justify-between gap-3">
 										<Label
 											htmlFor={field.key}
 											className="text-sm font-semibold"
@@ -632,7 +627,7 @@ const Settings = () => {
 												href={field.href}
 												target="_blank"
 												rel="noreferrer"
-												className="text-[10px] text-primary/80 hover:text-primary hover:underline"
+												className="text-xs text-primary/80 hover:text-primary hover:underline"
 											>
 												Get key ↗
 											</a>
@@ -643,25 +638,21 @@ const Settings = () => {
 										type={field.type ?? "password"}
 										value={settings[field.key]}
 										onChange={(e) => handleChange(field.key, e.target.value)}
-										className="h-10 rounded-xl"
+										className="h-10 rounded-md border-border/70 bg-background"
 										placeholder={field.placeholder}
 									/>
 								</div>
 							))}
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 
 					{/* Model Configuration */}
-					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
-						<CardHeader className="p-4 pb-1">
-							<div className="flex items-center gap-2 text-primary mb-0.5">
-								<Cpu className="h-4 w-4" />
-								<span className="text-xs font-bold uppercase tracking-widest">
-									Model Configuration
-								</span>
-							</div>
-						</CardHeader>
-						<CardContent className="grid gap-4 p-4 pt-1 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
+					<section className={SETTINGS_SECTION_CLASSNAME}>
+						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+							<Cpu className="h-4 w-4 text-primary" />
+							<span>Model Configuration</span>
+						</div>
+						<div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
 							{selectorConfigs.map((selectorConfig) => (
 								<ModelSelector
 									key={selectorConfig.modelKey}
@@ -685,40 +676,29 @@ const Settings = () => {
 									)}
 								/>
 							))}
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 
 					{/* Generation */}
-					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
-						<CardHeader className="p-4 pb-1">
-							<div className="flex items-center gap-2 text-primary mb-0.5">
-								<Zap className="h-4 w-4" />
-								<span className="text-xs font-bold uppercase tracking-widest">
-									Generation
-								</span>
-							</div>
-						</CardHeader>
-						<CardContent className="p-4 pt-1 space-y-2">
-							{/* Language */}
-							<div className="flex flex-row items-center justify-between gap-4 p-2 rounded-2xl bg-muted/30 border border-border/60">
-								<div className="flex items-center gap-3">
-									<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-										<Globe className="h-4 w-4" />
-									</div>
-									<div>
-										<h4 className="font-bold text-foreground text-sm">
-											Target Language
-										</h4>
-									</div>
+					<section className={SETTINGS_SECTION_CLASSNAME}>
+						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+							<Zap className="h-4 w-4 text-primary" />
+							<span>Generation</span>
+						</div>
+						<div className="space-y-5">
+							<div className="space-y-2">
+								<div className="flex items-center gap-2 text-sm font-semibold">
+									<Globe className="h-4 w-4 text-primary" />
+									<span>Target Language</span>
 								</div>
 								<Select
 									value={settings.targetLanguage}
 									onValueChange={(val) => handleChange("targetLanguage", val)}
 								>
-									<SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
+									<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
 										<SelectValue placeholder="Language" />
 									</SelectTrigger>
-									<SelectContent className="rounded-xl">
+									<SelectContent className="rounded-md">
 										{TARGET_LANGUAGES.map((lang) => (
 											<SelectItem key={lang.value} value={lang.value}>
 												{lang.label}
@@ -728,18 +708,11 @@ const Settings = () => {
 								</Select>
 							</div>
 
-							{/* Routing */}
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-								<div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
-									<div className="flex items-center gap-2">
-										<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-											<Cpu className="h-4 w-4" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground text-xs">
-												Provider
-											</h4>
-										</div>
+							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-sm font-semibold">
+										<Cpu className="h-4 w-4 text-primary" />
+										<span>Provider</span>
 									</div>
 									<Select
 										value={settings.summarizerProvider}
@@ -747,10 +720,10 @@ const Settings = () => {
 											handleChange("summarizerProvider", val)
 										}
 									>
-										<SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
+										<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
 											<SelectValue placeholder="Auto" />
 										</SelectTrigger>
-										<SelectContent className="rounded-xl">
+										<SelectContent className="rounded-md">
 											<SelectItem value="auto">Auto</SelectItem>
 											<SelectItem value="gemini">Gemini Native</SelectItem>
 											<SelectItem value="llm">LLM</SelectItem>
@@ -758,16 +731,10 @@ const Settings = () => {
 									</Select>
 								</div>
 
-								<div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-muted/30 border border-border/60">
-									<div className="flex items-center gap-2">
-										<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-											<Sparkles className="h-4 w-4" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground text-xs">
-												Mode
-											</h4>
-										</div>
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-sm font-semibold">
+										<Sparkles className="h-4 w-4 text-primary" />
+										<span>Mode</span>
 									</div>
 									<Select
 										value={settings.summarizerMode}
@@ -775,10 +742,10 @@ const Settings = () => {
 											await handleChange("summarizerMode", val);
 										}}
 									>
-										<SelectTrigger className={SELECT_TRIGGER_CLASSNAME}>
+										<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
 											<SelectValue placeholder="Select mode" />
 										</SelectTrigger>
-										<SelectContent className="rounded-xl">
+										<SelectContent className="rounded-md">
 											<SelectItem value="native">Gemini Native</SelectItem>
 											<SelectItem value="validation">
 												Validation Agent
@@ -789,60 +756,45 @@ const Settings = () => {
 								</div>
 							</div>
 
-							{/* Toggles */}
-							<div className="grid grid-cols-1 gap-2">
-								<div className="flex items-center justify-between p-2 rounded-2xl bg-muted/30 border border-border/60">
-									<div className="flex items-center gap-2">
-										<div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-											<Sparkles className="h-4 w-4" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground text-xs">
-												Auto-Generate Caption
-											</h4>
-										</div>
-									</div>
-									<Switch
-										checked={settings.autoGenerate}
-										onCheckedChange={(checked) =>
-											handleChange("autoGenerate", checked)
-										}
-										className="data-[state=checked]:bg-primary scale-75"
-									/>
+							<div className="flex items-center justify-between gap-4 pt-1">
+								<div className="flex items-center gap-2 text-sm font-semibold">
+									<Sparkles className="h-4 w-4 text-primary" />
+									<span>Auto-Generate Caption</span>
 								</div>
+								<Switch
+									checked={settings.autoGenerate}
+									onCheckedChange={(checked) =>
+										handleChange("autoGenerate", checked)
+									}
+									className="scale-75 data-[state=checked]:bg-primary"
+								/>
 							</div>
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 
 					{/* Appearance */}
 					<RecommendationFilterSettings />
 
-					<Card className="rounded-xl hover:border-primary/10 transition-all duration-500">
-						<CardHeader className="p-4 pb-1">
-							<div className="flex items-center gap-2 text-primary mb-0.5">
-								<Type className="h-4 w-4" />
-								<span className="text-xs font-bold uppercase tracking-widest">
-									Font Size
-								</span>
+					<section className={SETTINGS_SECTION_CLASSNAME}>
+						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+							<Type className="h-4 w-4 text-primary" />
+							<span>Font Size</span>
+						</div>
+						<div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+							<div className="space-y-2">
+								<Label className="text-sm font-semibold text-foreground">
+									Caption Overlay
+								</Label>
+								{renderFontSizeSelector("captionFontSize")}
 							</div>
-						</CardHeader>
-						<CardContent className="p-4 pt-1 space-y-2">
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<Label className="text-[11px] text-muted-foreground uppercase ml-1">
-										Caption Overlay
-									</Label>
-									{renderFontSizeSelector("captionFontSize")}
-								</div>
-								<div className="space-y-1.5">
-									<Label className="text-[11px] text-muted-foreground uppercase ml-1">
-										Summary Panel
-									</Label>
-									{renderFontSizeSelector("summaryFontSize")}
-								</div>
+							<div className="space-y-2">
+								<Label className="text-sm font-semibold text-foreground">
+									Summary Panel
+								</Label>
+								{renderFontSizeSelector("summaryFontSize")}
 							</div>
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 				</div>
 			</div>
 		</div>
