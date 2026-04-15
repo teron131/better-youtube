@@ -16,14 +16,8 @@ import {
 	type SupportedLanguage,
 } from "@ui/services/config";
 import {
-	fetchDynamicModels,
-	fetchLeaderboardProviderLogos,
-	fetchLeaderboardScores,
-	fetchModelStats,
-	type LeaderboardStat,
-	type ModelStat,
-	normalizeOpenRouterModelId,
-	type ProviderLogoStat,
+	fetchHarnessModelMetadataMap,
+	type HarnessModelMetadata,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -50,23 +44,46 @@ const USER_PREFERENCE_STORAGE_KEYS = [
 	STORAGE_KEYS.QUALITY_MODEL,
 ] as const;
 
+const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
+const PRICE_PER_MILLION_TOKENS = 1_000_000;
+const INPUT_PRICE_WEIGHT = 3;
+const OUTPUT_PRICE_WEIGHT = 1;
+
+type OpenRouterModel = {
+	id: string;
+	name: string;
+	architecture?: {
+		modality?: string;
+		input_modalities?: string[];
+		output_modalities?: string[];
+	};
+	pricing?: {
+		prompt?: string;
+		completion?: string;
+	};
+};
+
+let dynamicModelsPromise: Promise<AvailableModel[]> | null = null;
+
 interface UseConfigReturn {
 	config: ConfigurationResponse | null;
-	models: AvailableModel[];
 	summarizerModels: AvailableModel[];
 	refinerModels: AvailableModel[];
 	allSummarizerModels: AvailableModel[];
 	allRefinerModels: AvailableModel[];
-	modelPriceRange: {
+	summarizerModelPriceRange: {
+		min: number | null;
+		max: number | null;
+	};
+	refinerModelPriceRange: {
 		min: number | null;
 		max: number | null;
 	};
 	languages: SupportedLanguage[];
 	isLoading: boolean;
 	error: string | null;
-	getModelByKey: (key: string) => AvailableModel | undefined;
-	getLanguageByKey: (key: string) => SupportedLanguage | undefined;
-	isValidModel: (model: string) => boolean;
+	isValidSummarizerModel: (model: string) => boolean;
+	isValidRefinerModel: (model: string) => boolean;
 	isValidLanguage: (language: string) => boolean;
 	refresh: () => Promise<void>;
 }
@@ -89,43 +106,103 @@ function hasConfiguredModels(config: ConfigurationResponse | null): boolean {
 	return Object.keys(config?.available_models ?? {}).length > 0;
 }
 
-function applyModelMetadata(
-	models: AvailableModel[],
-	stats: Record<string, ModelStat>,
-	leaderboardScores: Record<string, LeaderboardStat>,
-	providerLogos: Record<string, ProviderLogoStat>,
-): AvailableModel[] {
-	return models.map((model) => {
-		const stat = stats[model.key];
-		const scoreKey = normalizeOpenRouterModelId(model.key);
-		const score = leaderboardScores[scoreKey];
-		const providerKey = (model.provider ?? stat?.provider)?.toLowerCase();
-		const providerLogo = providerKey ? providerLogos[providerKey] : undefined;
+function firstOpenRouterProvider(modelId: string): string {
+	return modelId.split("/")[0] || "";
+}
 
-		const baseModel = {
-			...model,
-			intelligenceScore: score?.intelligenceScore ?? null,
-			speedMetric: score?.speedMetric ?? null,
-		};
+function parseModelCostPerMillion(model: OpenRouterModel): number {
+	const inputCost = parseFloat(model.pricing?.prompt || "0");
+	const outputCost = parseFloat(model.pricing?.completion || "0");
+	return (
+		((inputCost * INPUT_PRICE_WEIGHT + outputCost * OUTPUT_PRICE_WEIGHT) /
+			(INPUT_PRICE_WEIGHT + OUTPUT_PRICE_WEIGHT)) *
+		PRICE_PER_MILLION_TOKENS
+	);
+}
 
-		if (providerLogo?.logo) {
-			return {
-				...baseModel,
-				logo: providerLogo.logo,
-				fallbackLogo: stat?.logo || "",
-			};
+function outputsImages(model: OpenRouterModel): boolean {
+	const outputModalities = model.architecture?.output_modalities ?? [];
+	if (outputModalities.includes("image")) {
+		return true;
+	}
+
+	const modality = model.architecture?.modality?.toLowerCase() ?? "";
+	return modality.includes("->") && modality.endsWith("image");
+}
+
+function isSupportedTextModel(model: OpenRouterModel): boolean {
+	if (outputsImages(model)) {
+		return false;
+	}
+
+	return parseModelCostPerMillion(model) > 0;
+}
+
+function availableModelFromOpenRouterModel(
+	model: OpenRouterModel,
+	harnessModelMetadataById: Record<string, HarnessModelMetadata>,
+	providerLogosByProvider: Record<string, string>,
+): AvailableModel {
+	const blendedPrice = parseModelCostPerMillion(model);
+	const provider = firstOpenRouterProvider(model.id);
+	const harnessModelMetadata =
+		harnessModelMetadataById[
+			model.id
+				.trim()
+				.toLowerCase()
+				.replace(/:[a-z0-9._-]+$/i, "")
+		];
+	const providerLogo = providerLogosByProvider[provider];
+
+	return {
+		key: model.id,
+		label: `${model.name} ($${blendedPrice.toFixed(2)})`,
+		provider,
+		recommended: true,
+		price: blendedPrice,
+		...harnessModelMetadata,
+		logo: harnessModelMetadata?.logo ?? providerLogo,
+		fallbackLogo: harnessModelMetadata?.fallbackLogo ?? providerLogo,
+	};
+}
+
+async function fetchDynamicModels(): Promise<AvailableModel[]> {
+	try {
+		if (!dynamicModelsPromise) {
+			dynamicModelsPromise = Promise.all([
+				fetch(OPENROUTER_MODELS_URL),
+				fetchHarnessModelMetadataMap(),
+			])
+				.then(async ([response, harnessMetadata]) => {
+					if (!response.ok) {
+						return [];
+					}
+
+					const data = (await response.json()) as {
+						data?: OpenRouterModel[];
+					};
+
+					return (data.data || [])
+						.filter(isSupportedTextModel)
+						.map((model) =>
+							availableModelFromOpenRouterModel(
+								model,
+								harnessMetadata.modelsById,
+								harnessMetadata.providerLogosByProvider,
+							),
+						);
+				})
+				.catch((error) => {
+					dynamicModelsPromise = null;
+					throw error;
+				});
 		}
 
-		if (!stat) {
-			return baseModel;
-		}
-
-		return {
-			...baseModel,
-			logo: stat.logo,
-			fallbackLogo: stat.fallbackLogo,
-		};
-	});
+		return await dynamicModelsPromise;
+	} catch (error) {
+		console.error("Failed to fetch dynamic models", error);
+		return [];
+	}
 }
 
 function rankingValue(
@@ -172,11 +249,41 @@ function modelPriceRange(models: AvailableModel[]): {
 	};
 }
 
-async function getStoredModelCostLimit(): Promise<number> {
+function isModelWithinCostLimit(
+	model: AvailableModel,
+	modelCostLimit: number,
+): boolean {
+	return typeof model.price !== "number" || model.price <= modelCostLimit;
+}
+
+function resolveFallbackModelKey(
+	preferredKey: string,
+	models: AvailableModel[],
+): string {
+	if (models.some((model) => model.key === preferredKey)) {
+		return preferredKey;
+	}
+
+	return models[0]?.key ?? preferredKey;
+}
+
+async function getStoredModelCostLimits(): Promise<{
+	summarizerModelCostLimit: number;
+	refinerModelCostLimit: number;
+}> {
 	const result = await getStorageValues<Record<string, unknown>>([
-		STORAGE_KEYS.MODEL_COST_LIMIT,
+		STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+		STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
 	]);
-	return normalizeModelCostLimit(result[STORAGE_KEYS.MODEL_COST_LIMIT]);
+
+	return {
+		summarizerModelCostLimit: normalizeModelCostLimit(
+			result[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT],
+		),
+		refinerModelCostLimit: normalizeModelCostLimit(
+			result[STORAGE_KEYS.REFINER_MODEL_COST_LIMIT],
+		),
+	};
 }
 
 function storagePreferences(
@@ -246,16 +353,11 @@ function storageUpdatesFromPreferences(
 
 export function useConfig(): UseConfigReturn {
 	const [config, setConfig] = useState<ConfigurationResponse | null>(null);
-	const [stats, setStats] = useState<Record<string, ModelStat>>({});
-	const [leaderboardScores, setLeaderboardScores] = useState<
-		Record<string, LeaderboardStat>
-	>({});
-	const [providerLogos, setProviderLogos] = useState<
-		Record<string, ProviderLogoStat>
-	>({});
 	const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>([]);
-	const [modelCostLimit, setModelCostLimit] = useState<number>(
-		DEFAULTS.MODEL_COST_LIMIT,
+	const [summarizerModelCostLimit, setSummarizerModelCostLimit] =
+		useState<number>(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT);
+	const [refinerModelCostLimit, setRefinerModelCostLimit] = useState<number>(
+		DEFAULTS.REFINER_MODEL_COST_LIMIT,
 	);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -265,29 +367,12 @@ export function useConfig(): UseConfigReturn {
 			setIsLoading(true);
 			setError(null);
 
-			const [
-				configuration,
-				modelStats,
-				scores,
-				fetchedProviderLogos,
-				fetchedDynamicModels,
-			] = await Promise.all([
+			const [configuration, fetchedDynamicModels] = await Promise.all([
 				api.getConfiguration().catch(() => null),
-				fetchModelStats().catch(() => ({}) as Record<string, ModelStat>),
-				fetchLeaderboardScores().catch(
-					() => ({}) as Record<string, LeaderboardStat>,
-				),
-				fetchLeaderboardProviderLogos().catch(
-					() => ({}) as Record<string, ProviderLogoStat>,
-				),
 				fetchDynamicModels().catch(() => [] as AvailableModel[]),
 			]);
 
 			setConfig(configuration ?? DEFAULT_CONFIGURATION_RESPONSE);
-
-			setStats(modelStats);
-			setLeaderboardScores(scores);
-			setProviderLogos(fetchedProviderLogos);
 			setDynamicModels(fetchedDynamicModels);
 		} catch (err) {
 			setError(
@@ -305,9 +390,12 @@ export function useConfig(): UseConfigReturn {
 	useEffect(() => {
 		let isActive = true;
 
-		void getStoredModelCostLimit().then((storedModelCostLimit) => {
+		void getStoredModelCostLimits().then((storedModelCostLimits) => {
 			if (!isActive) return;
-			setModelCostLimit(storedModelCostLimit);
+			setSummarizerModelCostLimit(
+				storedModelCostLimits.summarizerModelCostLimit,
+			);
+			setRefinerModelCostLimit(storedModelCostLimits.refinerModelCostLimit);
 		});
 
 		const listener = (
@@ -315,13 +403,20 @@ export function useConfig(): UseConfigReturn {
 			areaName: string,
 		) => {
 			if (areaName !== "local") return;
-			if (!changes[STORAGE_KEYS.MODEL_COST_LIMIT]) return;
+			if (
+				!changes[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT] &&
+				!changes[STORAGE_KEYS.REFINER_MODEL_COST_LIMIT]
+			) {
+				return;
+			}
 
-			setModelCostLimit(
-				normalizeModelCostLimit(
-					changes[STORAGE_KEYS.MODEL_COST_LIMIT].newValue,
-				),
-			);
+			void getStoredModelCostLimits().then((storedModelCostLimits) => {
+				if (!isActive) return;
+				setSummarizerModelCostLimit(
+					storedModelCostLimits.summarizerModelCostLimit,
+				);
+				setRefinerModelCostLimit(storedModelCostLimits.refinerModelCostLimit);
+			});
 		};
 
 		chrome.storage.onChanged.addListener(listener);
@@ -331,28 +426,7 @@ export function useConfig(): UseConfigReturn {
 		};
 	}, []);
 
-	const enrichedModels = useMemo(
-		() =>
-			applyModelMetadata(
-				dynamicModels,
-				stats,
-				leaderboardScores,
-				providerLogos,
-			),
-		[dynamicModels, stats, leaderboardScores, providerLogos],
-	);
-	const availablePriceRange = useMemo(
-		() => modelPriceRange(enrichedModels),
-		[enrichedModels],
-	);
-	const costLimitedModels = useMemo(
-		() =>
-			enrichedModels.filter(
-				(model) =>
-					typeof model.price !== "number" || model.price <= modelCostLimit,
-			),
-		[enrichedModels, modelCostLimit],
-	);
+	const enrichedModels = useMemo(() => dynamicModels, [dynamicModels]);
 
 	const allSummarizerModels = useMemo(
 		() => sortModelsByMetric(enrichedModels, "intelligenceScore"),
@@ -362,29 +436,68 @@ export function useConfig(): UseConfigReturn {
 		() => sortModelsByMetric(enrichedModels, "speedMetric"),
 		[enrichedModels],
 	);
-	const models = useMemo(
-		() =>
-			allSummarizerModels.filter(
-				(model) =>
-					typeof model.price !== "number" || model.price <= modelCostLimit,
-			),
-		[allSummarizerModels, modelCostLimit],
+	const summarizerModelPriceRange = useMemo(
+		() => modelPriceRange(allSummarizerModels),
+		[allSummarizerModels],
 	);
-
-	const summarizerModels = models;
+	const refinerModelPriceRange = useMemo(
+		() => modelPriceRange(allRefinerModels),
+		[allRefinerModels],
+	);
+	const summarizerCostLimitedModels = useMemo(
+		() =>
+			enrichedModels.filter((model) =>
+				isModelWithinCostLimit(model, summarizerModelCostLimit),
+			),
+		[enrichedModels, summarizerModelCostLimit],
+	);
+	const summarizerCostLimitedModelKeys = useMemo(
+		() => new Set(summarizerCostLimitedModels.map((model) => model.key)),
+		[summarizerCostLimitedModels],
+	);
+	const refinerCostLimitedModels = useMemo(
+		() =>
+			enrichedModels.filter((model) =>
+				isModelWithinCostLimit(model, refinerModelCostLimit),
+			),
+		[enrichedModels, refinerModelCostLimit],
+	);
+	const refinerCostLimitedModelKeys = useMemo(
+		() => new Set(refinerCostLimitedModels.map((model) => model.key)),
+		[refinerCostLimitedModels],
+	);
+	const dynamicModelKeys = useMemo(
+		() => new Set(dynamicModels.map((model) => model.key)),
+		[dynamicModels],
+	);
+	const summarizerModels = useMemo(
+		() =>
+			allSummarizerModels.filter((model) =>
+				isModelWithinCostLimit(model, summarizerModelCostLimit),
+			),
+		[allSummarizerModels, summarizerModelCostLimit],
+	);
 
 	const refinerModels = useMemo(
 		() =>
-			allRefinerModels.filter(
-				(model) =>
-					typeof model.price !== "number" || model.price <= modelCostLimit,
+			allRefinerModels.filter((model) =>
+				isModelWithinCostLimit(model, refinerModelCostLimit),
 			),
-		[allRefinerModels, modelCostLimit],
+		[allRefinerModels, refinerModelCostLimit],
 	);
 
-	const isValidModel = (model: string) => {
-		if (dynamicModels.some((candidate) => candidate.key === model)) {
-			return true;
+	const isValidSummarizerModel = (model: string) => {
+		if (dynamicModelKeys.has(model)) {
+			return summarizerCostLimitedModelKeys.has(model);
+		}
+		return hasConfiguredModels(config)
+			? model in (config?.available_models ?? {})
+			: model.length > 0;
+	};
+
+	const isValidRefinerModel = (model: string) => {
+		if (dynamicModelKeys.has(model)) {
+			return refinerCostLimitedModelKeys.has(model);
 		}
 		return hasConfiguredModels(config)
 			? model in (config?.available_models ?? {})
@@ -398,20 +511,17 @@ export function useConfig(): UseConfigReturn {
 
 	return {
 		config,
-		models,
 		summarizerModels,
 		refinerModels,
 		allSummarizerModels,
 		allRefinerModels,
-		modelPriceRange: availablePriceRange,
+		summarizerModelPriceRange,
+		refinerModelPriceRange,
 		languages: SUPPORTED_LANGUAGES_LIST,
 		isLoading,
 		error,
-		getModelByKey: (key: string) =>
-			models.find((candidate) => candidate.key === key),
-		getLanguageByKey: (key: string) =>
-			SUPPORTED_LANGUAGES_LIST.find((candidate) => candidate.key === key),
-		isValidModel,
+		isValidSummarizerModel,
+		isValidRefinerModel,
 		isValidLanguage,
 		refresh: loadConfig,
 	};
@@ -419,39 +529,34 @@ export function useConfig(): UseConfigReturn {
 
 export function useModelSelection() {
 	const {
-		models,
 		summarizerModels,
 		refinerModels,
 		allSummarizerModels,
 		allRefinerModels,
-		modelPriceRange,
-		getModelByKey,
-		isValidModel,
+		summarizerModelPriceRange,
+		refinerModelPriceRange,
+		isValidSummarizerModel,
+		isValidRefinerModel,
 	} = useConfig();
 
 	return {
-		models,
 		summarizerModels,
 		refinerModels,
 		allSummarizerModels,
 		allRefinerModels,
-		modelPriceRange,
-		getModelByKey,
-		isValidModel,
-		defaultModel: DEFAULT_SUMMARY_MODEL,
-		defaultQualityModel: DEFAULT_QUALITY_MODEL,
+		summarizerModelPriceRange,
+		refinerModelPriceRange,
+		isValidSummarizerModel,
+		isValidRefinerModel,
 	};
 }
 
 export function useLanguageSelection() {
-	const { languages, getLanguageByKey, isValidLanguage } = useConfig();
+	const { languages, isValidLanguage } = useConfig();
 
 	return {
 		languages,
-		getLanguageByKey,
 		isValidLanguage,
-		defaultLanguage: DEFAULT_TARGET_LANGUAGE,
-		supportsTranslation: languages.length > 0,
 	};
 }
 
@@ -475,17 +580,38 @@ export function useUserPreferences() {
 	);
 	const [isLoaded, setIsLoaded] = useState(false);
 	const hasLocalEditsRef = useRef(false);
-	const { isValidModel, isValidLanguage } = useConfig();
+	const {
+		isValidSummarizerModel,
+		isValidRefinerModel,
+		isValidLanguage,
+		summarizerModels,
+		refinerModels,
+	} = useConfig();
+	const validatedDefaultPreferences = useMemo(
+		() => ({
+			summaryModel: resolveFallbackModelKey(
+				DEFAULT_USER_PREFERENCES.summaryModel,
+				summarizerModels,
+			),
+			qualityModel: resolveFallbackModelKey(
+				DEFAULT_USER_PREFERENCES.qualityModel,
+				refinerModels,
+			),
+			targetLanguage: DEFAULT_USER_PREFERENCES.targetLanguage,
+			summarizerMode: DEFAULT_USER_PREFERENCES.summarizerMode,
+		}),
+		[refinerModels, summarizerModels],
+	);
 
 	const validatePreferences = useCallback(
 		(prefs: Partial<UserPreferences>, defaults: UserPreferences) => {
 			return {
 				summaryModel:
-					prefs.summaryModel && isValidModel(prefs.summaryModel)
+					prefs.summaryModel && isValidSummarizerModel(prefs.summaryModel)
 						? prefs.summaryModel
 						: defaults.summaryModel,
 				qualityModel:
-					prefs.qualityModel && isValidModel(prefs.qualityModel)
+					prefs.qualityModel && isValidRefinerModel(prefs.qualityModel)
 						? prefs.qualityModel
 						: defaults.qualityModel,
 				targetLanguage:
@@ -500,7 +626,7 @@ export function useUserPreferences() {
 						: defaults.summarizerMode,
 			};
 		},
-		[isValidModel, isValidLanguage],
+		[isValidLanguage, isValidRefinerModel, isValidSummarizerModel],
 	);
 
 	useEffect(() => {
@@ -509,7 +635,7 @@ export function useUserPreferences() {
 				setPreferences(
 					validatePreferences(
 						storagePreferences(result),
-						DEFAULT_USER_PREFERENCES,
+						validatedDefaultPreferences,
 					),
 				);
 			}
@@ -524,7 +650,7 @@ export function useUserPreferences() {
 				setPreferences((prev) =>
 					validatePreferences(
 						{ ...prev, ...updates },
-						DEFAULT_USER_PREFERENCES,
+						validatedDefaultPreferences,
 					),
 				);
 			}
@@ -532,7 +658,7 @@ export function useUserPreferences() {
 
 		chrome.storage.onChanged.addListener(listener);
 		return () => chrome.storage.onChanged.removeListener(listener);
-	}, [validatePreferences]);
+	}, [validatePreferences, validatedDefaultPreferences]);
 
 	const updatePreferences = (updates: Partial<UserPreferences>) => {
 		hasLocalEditsRef.current = true;
@@ -551,7 +677,7 @@ export function useUserPreferences() {
 	};
 
 	const resetPreferences = () => {
-		setPreferences(DEFAULT_USER_PREFERENCES);
+		setPreferences(validatedDefaultPreferences);
 		chrome.storage.local.remove([
 			STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
 			STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,

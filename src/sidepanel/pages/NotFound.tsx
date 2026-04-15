@@ -4,17 +4,19 @@
 
 import { Button } from "@ui/components/ui/button";
 import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
 
-const NotFound = () => {
-	const location = useLocation();
+interface NotFoundProps {
+	path: string;
+}
 
+const NotFound = ({ path }: NotFoundProps) => {
 	useEffect(() => {
 		console.error(
 			"404 Error: User attempted to access non-existent route:",
-			location.pathname,
+			path,
 		);
-	}, [location.pathname]);
+	}, [path]);
 
 	return (
 		<div className="relative min-h-screen flex items-center justify-center bg-background overflow-hidden">
@@ -36,7 +38,7 @@ const NotFound = () => {
 				</div>
 				<div className="flex justify-center">
 					<Button asChild size="lg" className="px-6 h-12">
-						<Link to="/">Return home</Link>
+						<a href={SIDEPANEL_ROUTE_HREFS.home}>Return home</a>
 					</Button>
 				</div>
 			</div>

@@ -30,8 +30,7 @@ import {
 	Type,
 	Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { loadConfig, normalizeModelCostLimit } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import {
@@ -43,6 +42,9 @@ import {
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 import { toModelComboboxOption } from "../lib/model-options";
+import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
+
+type ModelCostLimitKey = "summarizerModelCostLimit" | "refinerModelCostLimit";
 
 const DEFAULT_SETTINGS = {
 	llmApiKey: "",
@@ -52,12 +54,16 @@ const DEFAULT_SETTINGS = {
 	summarizerMode: "validation",
 	summarizerModel: "google/gemini-3-flash-preview",
 	refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
-	modelCostLimit: Number(DEFAULTS.MODEL_COST_LIMIT),
+	summarizerModelCostLimit: Number(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
+	refinerModelCostLimit: Number(DEFAULTS.REFINER_MODEL_COST_LIMIT),
 	targetLanguage: "auto",
 	captionFontSize: "M",
 	summaryFontSize: "M",
 	autoGenerate: false,
 };
+
+type SettingsState = typeof DEFAULT_SETTINGS;
+type ModelCostLimitInputs = Record<ModelCostLimitKey, string>;
 
 type ApiField = {
 	key:
@@ -103,11 +109,17 @@ const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
 	summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
 	summarizerModel: STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
 	refinerModel: STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-	modelCostLimit: STORAGE_KEYS.MODEL_COST_LIMIT,
+	summarizerModelCostLimit: STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+	refinerModelCostLimit: STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
 	targetLanguage: STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
 	captionFontSize: STORAGE_KEYS.CAPTION_FONT_SIZE,
 	summaryFontSize: STORAGE_KEYS.SUMMARY_FONT_SIZE,
 	autoGenerate: STORAGE_KEYS.AUTO_GENERATE,
+};
+
+const DEFAULT_MODEL_COST_LIMIT_INPUTS: ModelCostLimitInputs = {
+	summarizerModelCostLimit: String(DEFAULT_SETTINGS.summarizerModelCostLimit),
+	refinerModelCostLimit: String(DEFAULT_SETTINGS.refinerModelCostLimit),
 };
 
 function clampModelCostLimit(
@@ -128,6 +140,22 @@ function clampModelCostLimit(
 	return value;
 }
 
+function resolveVisibleModelKey(
+	currentKey: string,
+	visibleModels: Array<{ key: string }>,
+	fallbackKey: string,
+): string {
+	if (visibleModels.some((model) => model.key === currentKey)) {
+		return currentKey;
+	}
+
+	if (visibleModels.some((model) => model.key === fallbackKey)) {
+		return fallbackKey;
+	}
+
+	return visibleModels[0]?.key ?? currentKey;
+}
+
 function modelCostLimitBounds(priceRange: {
 	min: number | null;
 	max: number | null;
@@ -142,28 +170,73 @@ function modelCostLimitBounds(priceRange: {
 }
 
 const Settings = () => {
-	const navigate = useNavigate();
 	const { toast } = useToast();
 	const {
-		summarizerModels,
-		refinerModels,
 		allSummarizerModels,
 		allRefinerModels,
-		modelPriceRange,
+		summarizerModelPriceRange,
+		refinerModelPriceRange,
 	} = useModelSelection();
-	const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-	const [modelCostLimitInput, setModelCostLimitInput] = useState(
-		String(DEFAULT_SETTINGS.modelCostLimit),
-	);
+	const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
+	const [modelCostLimitInputs, setModelCostLimitInputs] =
+		useState<ModelCostLimitInputs>(DEFAULT_MODEL_COST_LIMIT_INPUTS);
 	const [isLoading, setIsLoading] = useState(true);
-	const costLimitBounds = modelCostLimitBounds(modelPriceRange);
-	const visibleSummarizerModels = allSummarizerModels.filter(
-		(model) =>
-			typeof model.price !== "number" || model.price <= settings.modelCostLimit,
+	const [hasLoadedStoredSettings, setHasLoadedStoredSettings] = useState(false);
+	const summarizerCostLimitBounds = modelCostLimitBounds(
+		summarizerModelPriceRange,
 	);
-	const visibleRefinerModels = allRefinerModels.filter(
-		(model) =>
-			typeof model.price !== "number" || model.price <= settings.modelCostLimit,
+	const refinerCostLimitBounds = modelCostLimitBounds(refinerModelPriceRange);
+	const visibleSummarizerModels = useMemo(
+		() =>
+			allSummarizerModels.filter(
+				(model) =>
+					typeof model.price !== "number" ||
+					model.price <= settings.summarizerModelCostLimit,
+			),
+		[allSummarizerModels, settings.summarizerModelCostLimit],
+	);
+	const visibleRefinerModels = useMemo(
+		() =>
+			allRefinerModels.filter(
+				(model) =>
+					typeof model.price !== "number" ||
+					model.price <= settings.refinerModelCostLimit,
+			),
+		[allRefinerModels, settings.refinerModelCostLimit],
+	);
+	const selectorConfigs = useMemo(
+		() => [
+			{
+				modelKey: "summarizerModel" as const,
+				costLimitKey: "summarizerModelCostLimit" as const,
+				label: "Summary Model",
+				icon: Bot,
+				options: visibleSummarizerModels,
+				priceRange: summarizerModelPriceRange,
+				costLimitBounds: summarizerCostLimitBounds,
+				defaultSortMetric: "intelligence" as const,
+				costLimitAriaLabel: "Summary model cost limit",
+			},
+			{
+				modelKey: "refinerModel" as const,
+				costLimitKey: "refinerModelCostLimit" as const,
+				label: "Caption Refinement Model",
+				icon: Sparkles,
+				options: visibleRefinerModels,
+				priceRange: refinerModelPriceRange,
+				costLimitBounds: refinerCostLimitBounds,
+				defaultSortMetric: "speed" as const,
+				costLimitAriaLabel: "Caption refinement model cost limit",
+			},
+		],
+		[
+			refinerCostLimitBounds,
+			refinerModelPriceRange,
+			summarizerCostLimitBounds,
+			summarizerModelPriceRange,
+			visibleRefinerModels,
+			visibleSummarizerModels,
+		],
 	);
 
 	useEffect(() => {
@@ -178,15 +251,22 @@ const Settings = () => {
 					summarizerMode: config.summarizerMode,
 					summarizerModel: config.summarizerModel,
 					refinerModel: config.refinerModel,
-					modelCostLimit: config.modelCostLimit,
+					summarizerModelCostLimit: config.summarizerModelCostLimit,
+					refinerModelCostLimit: config.refinerModelCostLimit,
 					targetLanguage: config.targetLanguage,
 					captionFontSize: config.captionFontSize,
 					summaryFontSize: config.summaryFontSize,
 					autoGenerate: config.autoGenerate,
 				};
 				setSettings(nextSettings);
-				setModelCostLimitInput(String(nextSettings.modelCostLimit));
+				setModelCostLimitInputs({
+					summarizerModelCostLimit: String(
+						nextSettings.summarizerModelCostLimit,
+					),
+					refinerModelCostLimit: String(nextSettings.refinerModelCostLimit),
+				});
 				applySummaryFontSize(nextSettings.summaryFontSize as FontSize);
+				setHasLoadedStoredSettings(true);
 			} catch (error) {
 				console.error("Failed to load settings:", error);
 				toast({
@@ -213,39 +293,61 @@ const Settings = () => {
 		});
 	};
 
-	const commitModelCostLimit = async () => {
+	const commitModelCostLimit = async (
+		key: ModelCostLimitKey,
+		rawValue: string,
+		priceRange: { min: number | null; max: number | null },
+	) => {
 		const nextValue = clampModelCostLimit(
-			normalizeModelCostLimit(modelCostLimitInput),
-			modelPriceRange,
+			normalizeModelCostLimit(rawValue),
+			priceRange,
 		);
-		await handleChange("modelCostLimit", nextValue);
+		await handleChange(key, nextValue);
 	};
 
-	const handleModelCostLimitInputChange = (rawValue: string) => {
+	const setModelCostLimitInput = (key: ModelCostLimitKey, value: string) => {
+		setModelCostLimitInputs((currentInputs) =>
+			currentInputs[key] === value
+				? currentInputs
+				: { ...currentInputs, [key]: value },
+		);
+	};
+
+	const handleModelCostLimitInputChange = (
+		key: ModelCostLimitKey,
+		rawValue: string,
+		priceRange: { min: number | null; max: number | null },
+	) => {
 		if (rawValue.trim() === "") {
-			setModelCostLimitInput(rawValue);
+			setModelCostLimitInput(key, rawValue);
 			return;
 		}
 
 		const parsedValue = Number.parseFloat(rawValue);
 		if (!Number.isFinite(parsedValue)) {
-			setModelCostLimitInput(rawValue);
+			setModelCostLimitInput(key, rawValue);
 			return;
 		}
 
-		const nextValue = clampModelCostLimit(parsedValue, modelPriceRange);
+		const nextValue = clampModelCostLimit(parsedValue, priceRange);
 		const normalizedValue = Number.parseFloat(nextValue.toFixed(1));
-		const nextText = String(normalizedValue);
-
-		setModelCostLimitInput(nextText);
+		setModelCostLimitInput(key, String(normalizedValue));
 		setSettings((currentSettings) =>
-			currentSettings.modelCostLimit === normalizedValue
+			currentSettings[key] === normalizedValue
 				? currentSettings
-				: { ...currentSettings, modelCostLimit: normalizedValue },
+				: { ...currentSettings, [key]: normalizedValue },
 		);
 	};
 
-	const renderModelCostLimitControl = (ariaLabel: string) => (
+	const renderModelCostLimitControl = (
+		key: ModelCostLimitKey,
+		priceRange: { min: number | null; max: number | null },
+		costLimitBounds: {
+			min: string;
+			max?: string;
+		},
+		ariaLabel: string,
+	) => (
 		<>
 			<span className="text-[10px] font-semibold text-muted-foreground">≤</span>
 			<Tooltip delayDuration={0}>
@@ -255,12 +357,20 @@ const Settings = () => {
 						min={costLimitBounds.min}
 						max={costLimitBounds.max}
 						step="0.1"
-						value={modelCostLimitInput}
+						value={modelCostLimitInputs[key]}
 						onChange={(event) =>
-							handleModelCostLimitInputChange(event.target.value)
+							handleModelCostLimitInputChange(
+								key,
+								event.target.value,
+								priceRange,
+							)
 						}
 						onBlur={() => {
-							void commitModelCostLimit();
+							void commitModelCostLimit(
+								key,
+								modelCostLimitInputs[key],
+								priceRange,
+							);
 						}}
 						onKeyDown={(event) => {
 							if (event.key !== "Enter") return;
@@ -278,29 +388,114 @@ const Settings = () => {
 	);
 
 	useEffect(() => {
-		if (modelPriceRange.min == null || modelPriceRange.max == null) {
+		if (
+			summarizerModelPriceRange.min == null ||
+			summarizerModelPriceRange.max == null ||
+			refinerModelPriceRange.min == null ||
+			refinerModelPriceRange.max == null
+		) {
 			return;
 		}
 
 		setSettings((currentSettings) => {
-			const clampedValue = clampModelCostLimit(
-				currentSettings.modelCostLimit,
-				modelPriceRange,
+			const clampedSummarizerValue = clampModelCostLimit(
+				currentSettings.summarizerModelCostLimit,
+				summarizerModelPriceRange,
 			);
-			if (clampedValue === currentSettings.modelCostLimit) {
+			const clampedRefinerValue = clampModelCostLimit(
+				currentSettings.refinerModelCostLimit,
+				refinerModelPriceRange,
+			);
+			if (
+				clampedSummarizerValue === currentSettings.summarizerModelCostLimit &&
+				clampedRefinerValue === currentSettings.refinerModelCostLimit
+			) {
 				return currentSettings;
 			}
-			return { ...currentSettings, modelCostLimit: clampedValue };
+			return {
+				...currentSettings,
+				summarizerModelCostLimit: clampedSummarizerValue,
+				refinerModelCostLimit: clampedRefinerValue,
+			};
 		});
 
-		setModelCostLimitInput((currentInput) => {
-			const clampedValue = clampModelCostLimit(
-				normalizeModelCostLimit(currentInput),
-				modelPriceRange,
+		setModelCostLimitInputs((currentInputs) => ({
+			summarizerModelCostLimit: String(
+				clampModelCostLimit(
+					normalizeModelCostLimit(currentInputs.summarizerModelCostLimit),
+					summarizerModelPriceRange,
+				),
+			),
+			refinerModelCostLimit: String(
+				clampModelCostLimit(
+					normalizeModelCostLimit(currentInputs.refinerModelCostLimit),
+					refinerModelPriceRange,
+				),
+			),
+		}));
+	}, [refinerModelPriceRange, summarizerModelPriceRange]);
+
+	useEffect(() => {
+		if (!hasLoadedStoredSettings) {
+			return;
+		}
+		if (
+			selectorConfigs.some(
+				(selectorConfig) => selectorConfig.options.length === 0,
+			)
+		) {
+			return;
+		}
+
+		const nextModelSettings = selectorConfigs.reduce<Partial<SettingsState>>(
+			(updates, selectorConfig) => {
+				const nextModel = resolveVisibleModelKey(
+					settings[selectorConfig.modelKey],
+					selectorConfig.options,
+					DEFAULT_SETTINGS[selectorConfig.modelKey],
+				);
+				if (nextModel !== settings[selectorConfig.modelKey]) {
+					updates[selectorConfig.modelKey] = nextModel;
+				}
+				return updates;
+			},
+			{},
+		);
+
+		if (Object.keys(nextModelSettings).length === 0) {
+			return;
+		}
+
+		setSettings((currentSettings) => ({
+			...currentSettings,
+			...nextModelSettings,
+		}));
+
+		void Promise.all([
+			...selectorConfigs.flatMap((selectorConfig) => {
+				const nextModel = nextModelSettings[selectorConfig.modelKey];
+				return nextModel
+					? [
+							setStorageValue(
+								SETTINGS_STORAGE_KEYS[selectorConfig.modelKey],
+								nextModel,
+							),
+						]
+					: [];
+			}),
+		]).catch((error) => {
+			console.error(
+				"Failed to sync model selections after cost-limit change:",
+				error,
 			);
-			return String(clampedValue);
+			toast({
+				title: "Couldn't update model selection",
+				description:
+					"A hidden model stayed selected after the cost limit changed.",
+				variant: "destructive",
+			});
 		});
-	}, [modelPriceRange]);
+	}, [hasLoadedStoredSettings, selectorConfigs, settings, toast]);
 
 	const handleChange = async <K extends keyof typeof DEFAULT_SETTINGS>(
 		key: K,
@@ -309,19 +504,26 @@ const Settings = () => {
 		setSettings((prev) => ({ ...prev, [key]: value }));
 		try {
 			await setStorageValue(SETTINGS_STORAGE_KEYS[key], value);
-			if (key === "modelCostLimit") {
+			if (
+				key === "summarizerModelCostLimit" ||
+				key === "refinerModelCostLimit"
+			) {
 				const storedValue = await getStorageValue<number>(
-					STORAGE_KEYS.MODEL_COST_LIMIT,
+					SETTINGS_STORAGE_KEYS[key],
 				);
+				const priceRange =
+					key === "summarizerModelCostLimit"
+						? summarizerModelPriceRange
+						: refinerModelPriceRange;
 				const resolvedValue = clampModelCostLimit(
 					normalizeModelCostLimit(storedValue ?? value),
-					modelPriceRange,
+					priceRange,
 				);
 				setSettings((currentSettings) => ({
 					...currentSettings,
-					modelCostLimit: resolvedValue,
+					[key]: resolvedValue,
 				}));
-				setModelCostLimitInput(String(resolvedValue));
+				setModelCostLimitInput(key, String(resolvedValue));
 			}
 			console.log(`Auto-saved ${key}:`, value);
 			if (key === "summaryFontSize") {
@@ -387,12 +589,17 @@ const Settings = () => {
 							</h1>
 						</div>
 						<Button
+							asChild
 							variant="ghost"
 							size="icon"
-							onClick={() => navigate("/")}
 							className="text-muted-foreground hover:text-foreground transition-all"
 						>
-							<ArrowLeft className="h-6 w-6" />
+							<a
+								aria-label="Back to main page"
+								href={SIDEPANEL_ROUTE_HREFS.home}
+							>
+								<ArrowLeft className="h-6 w-6" />
+							</a>
 						</Button>
 					</div>
 				</div>
@@ -454,37 +661,30 @@ const Settings = () => {
 								</span>
 							</div>
 						</CardHeader>
-						<CardContent className="p-4 pt-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-							<ModelSelector
-								label="Summary Model"
-								icon={Bot}
-								value={settings.summarizerModel}
-								onChange={(val) => handleChange("summarizerModel", val)}
-								options={visibleSummarizerModels.map((model) =>
-									toModelComboboxOption(model),
-								)}
-								placeholder="Select or type model..."
-								enableSorting
-								defaultSortMetric="intelligence"
-								sortControlsTrailing={renderModelCostLimitControl(
-									"Summary model cost limit",
-								)}
-							/>
-							<ModelSelector
-								label="Caption Refinement Model"
-								icon={Sparkles}
-								value={settings.refinerModel}
-								onChange={(val) => handleChange("refinerModel", val)}
-								options={visibleRefinerModels.map((model) =>
-									toModelComboboxOption(model),
-								)}
-								placeholder="Select or type model..."
-								enableSorting
-								defaultSortMetric="speed"
-								sortControlsTrailing={renderModelCostLimitControl(
-									"Caption refinement model cost limit",
-								)}
-							/>
+						<CardContent className="grid gap-4 p-4 pt-1 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
+							{selectorConfigs.map((selectorConfig) => (
+								<ModelSelector
+									key={selectorConfig.modelKey}
+									label={selectorConfig.label}
+									icon={selectorConfig.icon}
+									value={settings[selectorConfig.modelKey]}
+									onChange={(value) =>
+										handleChange(selectorConfig.modelKey, value)
+									}
+									options={selectorConfig.options.map((model) =>
+										toModelComboboxOption(model),
+									)}
+									placeholder="Select or type model..."
+									enableSorting
+									defaultSortMetric={selectorConfig.defaultSortMetric}
+									sortControlsTrailing={renderModelCostLimitControl(
+										selectorConfig.costLimitKey,
+										selectorConfig.priceRange,
+										selectorConfig.costLimitBounds,
+										selectorConfig.costLimitAriaLabel,
+									)}
+								/>
+							))}
 						</CardContent>
 					</Card>
 

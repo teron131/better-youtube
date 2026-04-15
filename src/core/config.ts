@@ -28,7 +28,8 @@ export interface AppConfig {
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
-	modelCostLimit: number;
+	summarizerModelCostLimit: number;
+	refinerModelCostLimit: number;
 
 	// UI preferences
 	targetLanguage: string;
@@ -48,8 +49,11 @@ export interface ModelConfig {
 	summarizerModel: string;
 	refinerModel: string;
 	qualityModel: string;
-	modelCostLimit: number;
+	summarizerModelCostLimit: number;
+	refinerModelCostLimit: number;
 }
+
+type StoredValues = Record<string, any>;
 
 // ============================================================================
 // Utility Functions
@@ -66,10 +70,20 @@ export function normalizeModelCostLimit(value: unknown): number {
 		typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
 
 	if (!Number.isFinite(numericValue) || numericValue <= 0) {
-		return DEFAULTS.MODEL_COST_LIMIT;
+		return DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT;
 	}
 
 	return Number.parseFloat(numericValue.toFixed(2));
+}
+
+function resolveModelCostLimit(value: unknown, defaultValue: number): number {
+	const numericValue =
+		typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+	if (Number.isFinite(numericValue) && numericValue > 0) {
+		return Number.parseFloat(numericValue.toFixed(2));
+	}
+
+	return defaultValue;
 }
 
 /**
@@ -95,6 +109,21 @@ function resolveQualityModel(
 	);
 }
 
+function resolveStoredModelCostLimits(
+	result: StoredValues,
+): Pick<ModelConfig, "summarizerModelCostLimit" | "refinerModelCostLimit"> {
+	return {
+		summarizerModelCostLimit: resolveModelCostLimit(
+			result[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT],
+			DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT,
+		),
+		refinerModelCostLimit: resolveModelCostLimit(
+			result[STORAGE_KEYS.REFINER_MODEL_COST_LIMIT],
+			DEFAULTS.REFINER_MODEL_COST_LIMIT,
+		),
+	};
+}
+
 // ============================================================================
 // Config Loading
 // ============================================================================
@@ -115,7 +144,8 @@ export async function loadConfig(): Promise<AppConfig> {
 		STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
 		STORAGE_KEYS.REFINER_CUSTOM_MODEL,
 		STORAGE_KEYS.QUALITY_MODEL,
-		STORAGE_KEYS.MODEL_COST_LIMIT,
+		STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+		STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
 		STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
 		STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
 		STORAGE_KEYS.AUTO_GENERATE,
@@ -124,7 +154,7 @@ export async function loadConfig(): Promise<AppConfig> {
 		STORAGE_KEYS.SUMMARY_FONT_SIZE,
 	];
 
-	const result = await getStorageValues<Record<string, any>>(keys);
+	const result = await getStorageValues<StoredValues>(keys);
 
 	const providerRaw = String(
 		result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ?? DEFAULTS.SUMMARIZER_PROVIDER,
@@ -166,9 +196,7 @@ export async function loadConfig(): Promise<AppConfig> {
 			result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
 			summarizerModel,
 		),
-		modelCostLimit: normalizeModelCostLimit(
-			result[STORAGE_KEYS.MODEL_COST_LIMIT],
-		),
+		...resolveStoredModelCostLimits(result),
 
 		targetLanguage: resolveModel(
 			result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM],
@@ -195,7 +223,7 @@ export async function getApiKeys(): Promise<ApiKeys> {
 		STORAGE_KEYS.GEMINI_API_KEY,
 	];
 
-	const result = await getStorageValues<Record<string, any>>(keys);
+	const result = await getStorageValues<StoredValues>(keys);
 
 	return {
 		llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
@@ -214,10 +242,11 @@ export async function getModelConfig(): Promise<ModelConfig> {
 		STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
 		STORAGE_KEYS.REFINER_CUSTOM_MODEL,
 		STORAGE_KEYS.QUALITY_MODEL,
-		STORAGE_KEYS.MODEL_COST_LIMIT,
+		STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+		STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
 	];
 
-	const result = await getStorageValues<Record<string, any>>(keys);
+	const result = await getStorageValues<StoredValues>(keys);
 
 	const summarizerModel = resolveModel(
 		result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],
@@ -238,8 +267,6 @@ export async function getModelConfig(): Promise<ModelConfig> {
 			result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
 			summarizerModel,
 		),
-		modelCostLimit: normalizeModelCostLimit(
-			result[STORAGE_KEYS.MODEL_COST_LIMIT],
-		),
+		...resolveStoredModelCostLimits(result),
 	};
 }

@@ -1,241 +1,77 @@
 /**
- * Model Statistics and Logo Service
- * Fetches model metadata, leaderboard scores, and logos from remote sources.
+ * Small orchestrator around the copied browser-safe harness stats modules.
  */
 
 import type { AvailableModel } from "./config";
+import { buildMatchedRows } from "./stats/llm-stats/match-stage";
+import { enrichRows } from "./stats/llm-stats/openrouter-stage";
+import {
+	attachRelativeScores,
+	blendedPriceValue,
+	buildScores,
+} from "./stats/llm-stats/scoring";
+import { fetchSourceData } from "./stats/llm-stats/source-stage";
+import type {
+	LlmStatsStageConfig,
+	ModelStatsSelectedModel,
+} from "./stats/llm-stats/types";
+import { asFiniteNumber, asRecord, type JsonObject } from "./stats/shared";
 
-const MODELS_DEV_URL = "https://models.dev/api.json";
-const LEADERBOARD_URL = "https://artificialanalysis.ai/leaderboards/models";
-const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
-const LEADERBOARD_ROW_TOKEN = '"openrouterApiId":"';
-const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
-const PRICE_PER_MILLION_TOKENS = 1_000_000;
-const INPUT_PRICE_WEIGHT = 3;
-const OUTPUT_PRICE_WEIGHT = 1;
+export type HarnessModelMetadata = Pick<
+	AvailableModel,
+	"intelligenceScore" | "speedMetric" | "logo" | "fallbackLogo"
+>;
 
-export interface ModelStat {
-	id: string;
-	name: string;
-	provider: string;
-	logo: string;
-	fallbackLogo: string;
-	cost?: number | null;
-}
-
-export interface LeaderboardStat {
-	intelligenceScore: number | null;
-	speedMetric: number | null;
-}
-
-export interface ProviderLogoStat {
-	logo: string;
-}
-
-type LeaderboardRow = Record<string, unknown>;
-
-type ModelsDevProvider = {
-	models?: Record<string, any>;
+export type HarnessModelMetadataIndex = {
+	modelsById: Record<string, HarnessModelMetadata>;
+	providerLogosByProvider: Record<string, string>;
 };
 
-type OpenRouterModel = {
-	id: string;
-	name: string;
-	architecture?: {
-		modality?: string;
-		input_modalities?: string[];
-		output_modalities?: string[];
-	};
-	pricing?: {
-		prompt?: string;
-		completion?: string;
-	};
-};
+const LLM_STATS_STAGE_CONFIG = {
+	matcher: {
+		variantTokens: [
+			"flash-lite",
+			"flash",
+			"pro",
+			"nano",
+			"mini",
+			"lite",
+			"max",
+		],
+	},
+	openrouter: {
+		speedConcurrency: 8,
+	},
+	final: {
+		nullFieldPruneThreshold: 0.5,
+		nullFieldPruneRecentLookbackDays: 90,
+	},
+	scoring: {
+		intelligenceBenchmarkKeys: [
+			"omniscience_accuracy",
+			"hle",
+			"lcr",
+			"scicode",
+		],
+		agenticBenchmarkKeys: [
+			"omniscience_nonhallucination_rate",
+			"gdpval_normalized",
+			"ifbench",
+			"terminalbench_hard",
+		],
+		defaultSpeedOutputTokenAnchors: [200, 500, 1_000, 2_000, 8_000],
+		speedOutputTokenRangeMin: 200,
+		speedOutputTokenRangeMax: 8_000,
+		speedAnchorQuantiles: [0.25, 0.5, 0.75],
+		weightedPriceInputRatio: 0.75,
+		weightedPriceOutputRatio: 0.25,
+	},
+} satisfies LlmStatsStageConfig;
 
-function normalizeLogoProvider(
-	provider: string | null | undefined,
-): string | null {
-	if (typeof provider !== "string") {
-		return null;
-	}
-	const normalizedProvider = provider.trim().toLowerCase();
-	return normalizedProvider.length > 0 ? normalizedProvider : null;
-}
+const MIN_REQUIRED_RELATIVE_SCORE = 10;
 
-function providerFromModelId(modelId: string): string | null {
-	const separatorIndex = modelId.indexOf("/");
-	if (separatorIndex <= 0) {
-		return null;
-	}
-	return normalizeLogoProvider(modelId.slice(0, separatorIndex));
-}
-
-function artificialAnalysisLogoUrl(slug: string): string {
-	return `${ARTIFICIAL_ANALYSIS_LOGO_URL}/${slug}_small.svg`;
-}
-
-function toAbsoluteArtificialAnalysisLogoUrl(value: unknown): string | null {
-	if (typeof value !== "string" || value.length === 0) {
-		return null;
-	}
-	if (value.startsWith("http://") || value.startsWith("https://")) {
-		return value;
-	}
-	if (value.startsWith("/")) {
-		return `https://artificialanalysis.ai${value}`;
-	}
-	if (value.includes("/")) {
-		return `https://artificialanalysis.ai/${value}`;
-	}
-	return `https://artificialanalysis.ai/img/logos/${value}`;
-}
-
-function asFiniteNumber(value: unknown): number | null {
-	const numericValue = Number(value);
-	return Number.isFinite(numericValue) ? numericValue : null;
-}
-
-function firstOpenRouterProvider(modelId: string): string {
-	return modelId.split("/")[0] || "";
-}
-
-function parseModelCostPerMillion(model: OpenRouterModel): number {
-	const inputCost = parseFloat(model.pricing?.prompt || "0");
-	const outputCost = parseFloat(model.pricing?.completion || "0");
-	return (
-		((inputCost * INPUT_PRICE_WEIGHT + outputCost * OUTPUT_PRICE_WEIGHT) /
-			(INPUT_PRICE_WEIGHT + OUTPUT_PRICE_WEIGHT)) *
-		PRICE_PER_MILLION_TOKENS
-	);
-}
-
-function leaderboardProviderLogo(row: LeaderboardRow): string | null {
-	return (
-		toAbsoluteArtificialAnalysisLogoUrl(row.modelCreatorLogo) ??
-		(typeof row.modelCreatorSlug === "string" && row.modelCreatorSlug.length > 0
-			? artificialAnalysisLogoUrl(row.modelCreatorSlug)
-			: null)
-	);
-}
-
-function modelStatFromModelsDevModel(
-	providerId: string,
-	modelId: string,
-	model: Record<string, any>,
-): ModelStat {
-	const directModelId =
-		typeof model.id === "string" && model.id.length > 0 ? model.id : modelId;
-	const fullId =
-		typeof directModelId === "string" && directModelId.includes("/")
-			? directModelId
-			: `${providerId}/${directModelId}`;
-	const provider = providerFromModelId(fullId) ?? providerId.toLowerCase();
-
-	return {
-		id: fullId,
-		name: model.name || modelId,
-		provider,
-		logo: "",
-		fallbackLogo: "",
-		cost: model.cost?.output ?? null,
-	};
-}
-
-function availableModelFromOpenRouterModel(
-	model: OpenRouterModel,
-): AvailableModel {
-	const blendedPrice = parseModelCostPerMillion(model);
-
-	return {
-		key: model.id,
-		label: `${model.name} ($${blendedPrice.toFixed(2)})`,
-		provider: firstOpenRouterProvider(model.id),
-		recommended: true,
-		price: blendedPrice,
-	};
-}
-
-function outputsImages(model: OpenRouterModel): boolean {
-	const outputModalities = model.architecture?.output_modalities ?? [];
-	if (outputModalities.includes("image")) {
-		return true;
-	}
-
-	const modality = model.architecture?.modality?.toLowerCase() ?? "";
-	return modality.includes("->") && modality.endsWith("image");
-}
-
-function isSupportedTextModel(model: OpenRouterModel): boolean {
-	if (outputsImages(model)) {
-		return false;
-	}
-
-	const blendedPrice = parseModelCostPerMillion(model);
-	return blendedPrice > 0;
-}
-
-function buildLeaderboardScores(
-	rows: LeaderboardRow[],
-): Record<string, LeaderboardStat> {
-	const speedMetrics: Array<{
-		modelId: string;
-		intelligenceScore: number | null;
-		speedMetric: number | null;
-	}> = [];
-
-	for (const row of rows) {
-		const openrouterApiId = row.openrouterApiId;
-		if (typeof openrouterApiId !== "string" || !openrouterApiId) {
-			continue;
-		}
-
-		const intelligenceScore = asFiniteNumber(row.intelligenceIndex);
-		const speedMetric = asFiniteNumber(row.medianOutputTokensPerSecond);
-
-		speedMetrics.push({
-			modelId: normalizeOpenRouterModelId(openrouterApiId),
-			intelligenceScore,
-			speedMetric,
-		});
-	}
-
-	return Object.fromEntries(
-		speedMetrics.map(({ modelId, intelligenceScore, speedMetric }) => [
-			modelId,
-			{
-				intelligenceScore,
-				speedMetric,
-			},
-		]),
-	);
-}
-
-function buildLeaderboardProviderLogos(
-	rows: LeaderboardRow[],
-): Record<string, ProviderLogoStat> {
-	const providerLogos: Record<string, ProviderLogoStat> = {};
-
-	for (const row of rows) {
-		const openrouterApiId = row.openrouterApiId;
-		if (typeof openrouterApiId !== "string" || !openrouterApiId) {
-			continue;
-		}
-
-		const provider = providerFromModelId(openrouterApiId);
-		if (!provider || providerLogos[provider]) {
-			continue;
-		}
-
-		const logo = leaderboardProviderLogo(row);
-		if (!logo) {
-			continue;
-		}
-
-		providerLogos[provider] = { logo };
-	}
-
-	return providerLogos;
-}
+let harnessModelMetadataPromise: Promise<HarnessModelMetadataIndex> | null =
+	null;
 
 export function normalizeOpenRouterModelId(modelId: string): string {
 	return modelId
@@ -244,167 +80,214 @@ export function normalizeOpenRouterModelId(modelId: string): string {
 		.replace(/:[a-z0-9._-]+$/i, "");
 }
 
-function decodeFlightChunk(raw: string): string {
+function providerFromId(modelId: string | null | undefined): string | null {
+	if (typeof modelId !== "string") {
+		return null;
+	}
+	const separatorIndex = modelId.indexOf("/");
+	if (separatorIndex <= 0) {
+		return null;
+	}
+	return modelId.slice(0, separatorIndex).trim().toLowerCase();
+}
+
+function buildSpeed(
+	model: JsonObject,
+	modelId: string | null,
+	openRouterSpeedById: Map<string, JsonObject>,
+): JsonObject {
+	const openRouterSpeed = modelId ? openRouterSpeedById.get(modelId) : null;
+	return {
+		throughput_tokens_per_second_median:
+			asFiniteNumber(openRouterSpeed?.throughput_tokens_per_second_median) ??
+			asFiniteNumber(model.median_speed) ??
+			asFiniteNumber(model.median_output_tokens_per_second),
+		latency_seconds_median:
+			asFiniteNumber(openRouterSpeed?.latency_seconds_median) ??
+			asFiniteNumber(model.median_time) ??
+			asFiniteNumber(model.median_time_to_first_token_seconds),
+		e2e_latency_seconds_median:
+			asFiniteNumber(openRouterSpeed?.e2e_latency_seconds_median) ??
+			asFiniteNumber(model.median_time) ??
+			asFiniteNumber(model.median_time_to_first_answer_token) ??
+			asFiniteNumber(openRouterSpeed?.latency_seconds_median) ??
+			asFiniteNumber(model.median_time) ??
+			asFiniteNumber(model.median_time_to_first_token_seconds),
+	};
+}
+
+function buildCost(
+	model: JsonObject,
+	openRouterPricing: JsonObject,
+): JsonObject | null {
+	const baseCost = asRecord(model.cost);
+	const cleanedCost: JsonObject = Object.fromEntries(
+		Object.entries(baseCost).filter(([, value]) => value != null),
+	);
+	const weightedInput = asFiniteNumber(openRouterPricing.weighted_input);
+	const weightedOutput = asFiniteNumber(openRouterPricing.weighted_output);
+
+	if (weightedInput != null) {
+		cleanedCost.weighted_input = weightedInput;
+	}
+	if (weightedOutput != null) {
+		cleanedCost.weighted_output = weightedOutput;
+	}
+
+	const blendedPrice = blendedPriceValue(
+		cleanedCost,
+		LLM_STATS_STAGE_CONFIG.scoring,
+	);
+	if (blendedPrice != null) {
+		cleanedCost.blended_price = blendedPrice;
+	}
+
+	return Object.keys(cleanedCost).length > 0 ? cleanedCost : null;
+}
+
+function hasMinimumScoreSignal(model: ModelStatsSelectedModel): boolean {
+	const relativeScores = asRecord(model.relative_scores);
+	return [
+		"overall_score",
+		"intelligence_score",
+		"agentic_score",
+		"speed_score",
+	].some((key) => {
+		const value = asFiniteNumber(relativeScores[key]);
+		return value != null && value >= MIN_REQUIRED_RELATIVE_SCORE;
+	});
+}
+
+function toProviderLogosByProvider(
+	rows: Record<string, unknown>[],
+): Record<string, string> {
+	const providerLogosByProvider: Record<string, string> = {};
+
+	for (const row of rows) {
+		const rowRecord = asRecord(row);
+		const modelId = typeof rowRecord.id === "string" ? rowRecord.id : null;
+		const provider = providerFromId(modelId);
+		const logo = typeof rowRecord.logo === "string" ? rowRecord.logo : null;
+		if (!provider || !logo || providerLogosByProvider[provider]) {
+			continue;
+		}
+		providerLogosByProvider[provider] = logo;
+	}
+
+	return providerLogosByProvider;
+}
+
+async function buildHarnessModelMetadataIndex(): Promise<HarnessModelMetadataIndex> {
+	const sourceData = await fetchSourceData();
+	const matchedRows = await buildMatchedRows(
+		sourceData,
+		LLM_STATS_STAGE_CONFIG.matcher,
+	);
+	const enrichedRows = await enrichRows(
+		matchedRows,
+		LLM_STATS_STAGE_CONFIG.openrouter,
+		LLM_STATS_STAGE_CONFIG.scoring,
+	);
+
+	const scoredModels = attachRelativeScores(
+		enrichedRows.rows.map((row) => {
+			const rowRecord = asRecord(row);
+			const modelId = typeof rowRecord.id === "string" ? rowRecord.id : null;
+			const provider =
+				providerFromId(modelId) ??
+				(typeof rowRecord.provider_id === "string"
+					? rowRecord.provider_id
+					: null);
+			const speed = buildSpeed(
+				rowRecord,
+				modelId,
+				enrichedRows.openRouterSpeedById,
+			);
+			const cost = buildCost(
+				rowRecord,
+				modelId ? (enrichedRows.openRouterPricingById.get(modelId) ?? {}) : {},
+			);
+
+			return {
+				id: modelId,
+				name:
+					typeof rowRecord.name === "string"
+						? rowRecord.name
+						: (modelId ?? null),
+				provider,
+				logo: typeof rowRecord.logo === "string" ? rowRecord.logo : "",
+				attachment: null,
+				reasoning: null,
+				release_date:
+					typeof rowRecord.release_date === "string"
+						? rowRecord.release_date
+						: null,
+				modalities: null,
+				open_weights: null,
+				cost,
+				context_window: null,
+				speed,
+				intelligence: rowRecord.intelligence ?? null,
+				intelligence_index_cost: rowRecord.intelligence_index_cost ?? null,
+				evaluations: rowRecord.evaluations ?? null,
+				scores: buildScores(
+					rowRecord,
+					cost,
+					speed,
+					enrichedRows.speedOutputTokenAnchors,
+					LLM_STATS_STAGE_CONFIG.scoring,
+				),
+				relative_scores: null,
+			} satisfies ModelStatsSelectedModel;
+		}),
+	).filter((model) => model.id && hasMinimumScoreSignal(model));
+
+	return {
+		modelsById: Object.fromEntries(
+			scoredModels.map((model) => {
+				const normalizedModelId = normalizeOpenRouterModelId(model.id ?? "");
+				const logo =
+					typeof model.logo === "string" && model.logo.length > 0
+						? model.logo
+						: undefined;
+
+				return [
+					normalizedModelId,
+					{
+						intelligenceScore:
+							asFiniteNumber(
+								asRecord(model.relative_scores).intelligence_score,
+							) ?? null,
+						speedMetric:
+							asFiniteNumber(asRecord(model.relative_scores).speed_score) ??
+							null,
+						logo,
+						fallbackLogo: logo,
+					},
+				];
+			}),
+		),
+		providerLogosByProvider: toProviderLogosByProvider(enrichedRows.rows),
+	};
+}
+
+export async function fetchHarnessModelMetadataMap(): Promise<HarnessModelMetadataIndex> {
 	try {
-		return JSON.parse(`"${raw}"`) as string;
-	} catch {
-		return raw;
-	}
-}
-
-function extractFlightCorpus(pageHtml: string): string {
-	const regex = /self\.__next_f\.push\(\[1,"([\s\S]*?)"\]\)<\/script>/g;
-	return [...pageHtml.matchAll(regex)]
-		.map((match) => decodeFlightChunk(match[1] || ""))
-		.join("\n");
-}
-
-function findObjectEnd(corpus: string, startIndex: number): number {
-	let depth = 0;
-	let inString = false;
-	let escaping = false;
-
-	for (let index = startIndex; index < corpus.length; index += 1) {
-		const char = corpus[index];
-		if (inString) {
-			if (escaping) {
-				escaping = false;
-			} else if (char === "\\") {
-				escaping = true;
-			} else if (char === '"') {
-				inString = false;
-			}
-			continue;
-		}
-		if (char === '"') {
-			inString = true;
-			continue;
-		}
-		if (char === "{") {
-			depth += 1;
-			continue;
-		}
-		if (char === "}") {
-			depth -= 1;
-			if (depth === 0) {
-				return index;
-			}
-		}
-	}
-	return -1;
-}
-
-function extractLeaderboardRows(pageHtml: string): LeaderboardRow[] {
-	const corpus = extractFlightCorpus(pageHtml);
-	const rowsById = new Map<string, LeaderboardRow>();
-	let cursor = 0;
-
-	while (true) {
-		const hitIndex = corpus.indexOf(LEADERBOARD_ROW_TOKEN, cursor);
-		if (hitIndex === -1) {
-			break;
-		}
-		cursor = hitIndex + LEADERBOARD_ROW_TOKEN.length;
-
-		const startIndex = corpus.lastIndexOf("{", hitIndex);
-		if (startIndex === -1) {
-			continue;
+		if (!harnessModelMetadataPromise) {
+			harnessModelMetadataPromise = buildHarnessModelMetadataIndex().catch(
+				(error) => {
+					harnessModelMetadataPromise = null;
+					throw error;
+				},
+			);
 		}
 
-		const endIndex = findObjectEnd(corpus, startIndex);
-		if (endIndex === -1) {
-			continue;
-		}
-
-		try {
-			const row = JSON.parse(
-				corpus.slice(startIndex, endIndex + 1),
-			) as LeaderboardRow;
-			const openrouterApiId = row.openrouterApiId;
-			if (typeof openrouterApiId !== "string" || !openrouterApiId) {
-				continue;
-			}
-			rowsById.set(normalizeOpenRouterModelId(openrouterApiId), row);
-		} catch {
-			// Ignore malformed rows and continue scanning.
-		}
-	}
-
-	return [...rowsById.values()];
-}
-
-async function fetchLeaderboardRows(): Promise<LeaderboardRow[]> {
-	const response = await fetch(LEADERBOARD_URL);
-	if (!response.ok) {
-		throw new Error("Failed to fetch leaderboard page");
-	}
-	return extractLeaderboardRows(await response.text());
-}
-
-export async function fetchModelStats(): Promise<Record<string, ModelStat>> {
-	try {
-		const response = await fetch(MODELS_DEV_URL);
-		if (!response.ok) throw new Error("Failed to fetch model stats");
-
-		const data = await response.json();
-		const stats: Record<string, ModelStat> = {};
-
-		for (const [providerId, provider] of Object.entries(data)) {
-			const modelsDevProvider = provider as ModelsDevProvider;
-			const models = modelsDevProvider.models || {};
-
-			for (const [modelId, model] of Object.entries(models)) {
-				const modelStat = modelStatFromModelsDevModel(
-					providerId,
-					modelId,
-					model as Record<string, any>,
-				);
-				stats[modelStat.id] = modelStat;
-			}
-		}
-
-		return stats;
+		return await harnessModelMetadataPromise;
 	} catch (error) {
-		console.error("Error fetching model stats:", error);
-		return {};
-	}
-}
-
-export async function fetchLeaderboardScores(): Promise<
-	Record<string, LeaderboardStat>
-> {
-	try {
-		return buildLeaderboardScores(await fetchLeaderboardRows());
-	} catch (error) {
-		console.error("Error fetching leaderboard scores:", error);
-		return {};
-	}
-}
-
-export async function fetchLeaderboardProviderLogos(): Promise<
-	Record<string, ProviderLogoStat>
-> {
-	try {
-		return buildLeaderboardProviderLogos(await fetchLeaderboardRows());
-	} catch (error) {
-		console.error("Error fetching leaderboard provider logos:", error);
-		return {};
-	}
-}
-
-export async function fetchDynamicModels(): Promise<AvailableModel[]> {
-	try {
-		const response = await fetch(OPENROUTER_MODELS_URL);
-		if (!response.ok) return [];
-		const data = (await response.json()) as {
-			data?: OpenRouterModel[];
+		console.error("Failed to build harness model metadata", error);
+		return {
+			modelsById: {},
+			providerLogosByProvider: {},
 		};
-
-		return (data.data || [])
-			.filter(isSupportedTextModel)
-			.map(availableModelFromOpenRouterModel);
-	} catch (e) {
-		console.error("Failed to fetch dynamic models", e);
-		return [];
 	}
 }
