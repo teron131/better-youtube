@@ -38,7 +38,7 @@ interface VideoUrlFormProps {
 }
 
 const SUMMARY_MODEL_INPUT_CLASS_NAME =
-	"h-8 rounded-full border border-transparent bg-transparent text-xs shadow-none hover:bg-transparent hover:border-primary/20 focus:border-border/60 focus:hover:border-border/60 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0";
+	"h-10 rounded-md border-border/70 bg-background text-sm shadow-none hover:border-primary/30 focus:border-primary/50 focus:hover:border-primary/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0";
 
 function measureModelWidthLabel(label: string): string {
 	const withoutProvider = label.includes(":")
@@ -184,16 +184,18 @@ export const VideoUrlForm = ({
 								placeholder="Model"
 								className="w-full"
 								inputClassName={SUMMARY_MODEL_INPUT_CLASS_NAME}
-								contentClassName="rounded-xl"
+								contentClassName="rounded-md"
 								renderIcon={renderSelectedModelIcon}
 								renderOption={(option) => (
 									<>
 										{option.icon && (
-											<span className="mr-2 flex h-4 w-4 items-center justify-center">
+											<span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
 												{option.icon}
 											</span>
 										)}
-										<span className="truncate">{option.label}</span>
+										<span className="min-w-0 flex-1 whitespace-normal text-left leading-6">
+											{option.label}
+										</span>
 									</>
 								)}
 							/>
