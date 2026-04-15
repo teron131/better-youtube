@@ -25,6 +25,7 @@ import {
 } from "./recommendationFilterExtractor";
 
 const SUBSCRIPTIONS_PAGE_PATH = "/feed/channels";
+const HISTORY_PAGE_PATH = "/feed/history";
 const CHANNEL_PAGE_PREFIXES = ["/@", "/channel/", "/c/", "/user/"];
 const MAX_METADATA_RETRY_COUNT = 6;
 const METADATA_RETRY_DELAY_MS = 2000;
@@ -199,6 +200,10 @@ function isSubscriptionsPage(pathname = location.pathname): boolean {
 	return normalizePathname(pathname).startsWith(SUBSCRIPTIONS_PAGE_PATH);
 }
 
+function isHistoryPage(pathname = location.pathname): boolean {
+	return normalizePathname(pathname).startsWith(HISTORY_PAGE_PATH);
+}
+
 function isChannelPage(pathname = location.pathname): boolean {
 	const normalizedPath = normalizePathname(pathname);
 	return CHANNEL_PAGE_PREFIXES.some((prefix) =>
@@ -207,12 +212,19 @@ function isChannelPage(pathname = location.pathname): boolean {
 }
 
 function shouldSkipFilteringForPage(pathname = location.pathname): boolean {
-	return isSubscriptionsPage(pathname) || isChannelPage(pathname);
+	return (
+		isSubscriptionsPage(pathname) ||
+		isHistoryPage(pathname) ||
+		isChannelPage(pathname)
+	);
 }
 
 function getFilteringSkipReason(pathname = location.pathname): string | null {
 	if (isSubscriptionsPage(pathname)) {
 		return "subscriptions page";
+	}
+	if (isHistoryPage(pathname)) {
+		return "history page";
 	}
 	if (isChannelPage(pathname)) {
 		return "channel page";
