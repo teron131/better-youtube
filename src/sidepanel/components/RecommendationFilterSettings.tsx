@@ -150,6 +150,10 @@ export function RecommendationFilterSettings() {
 			changes: Record<string, chrome.storage.StorageChange>,
 			areaName: string,
 		) => {
+			if (areaName === "session" && changes[STORAGE_KEYS.FILTERED_VIDEOS]) {
+				void getRecommendationFilterHistory().then(setHistory);
+			}
+
 			if (areaName !== "local") {
 				return;
 			}
@@ -162,10 +166,6 @@ export function RecommendationFilterSettings() {
 
 			if (changes[STORAGE_KEYS.FILTER_STATS]) {
 				void getRecommendationFilterStats().then(setStats);
-			}
-
-			if (changes[STORAGE_KEYS.FILTERED_VIDEOS]) {
-				void getRecommendationFilterHistory().then(setHistory);
 			}
 
 			if (changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS]) {
@@ -510,7 +510,7 @@ export function RecommendationFilterSettings() {
 							Recent Hidden Recommendations
 						</div>
 						<div className="mt-1 text-[13px] leading-5 text-muted-foreground">
-							Latest matches from the current browser session storage.
+							Latest matches from this browser session only.
 						</div>
 					</div>
 					<Button

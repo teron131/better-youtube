@@ -12,7 +12,12 @@ import {
 	loadFeedFilterSettings,
 	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
-import { getStorageValue, setStorageValue } from "@/core/storage";
+import {
+	getSessionStorageValue,
+	getStorageValue,
+	setSessionStorageValue,
+	setStorageValue,
+} from "@/core/storage";
 import {
 	extractVideoData,
 	getNormalizedChannelId,
@@ -536,7 +541,7 @@ class FeedFilterController {
 		}
 
 		const existing =
-			(await getStorageValue<FilteredVideoRecord[]>(
+			(await getSessionStorageValue<FilteredVideoRecord[]>(
 				STORAGE_KEYS.FILTERED_VIDEOS,
 			)) || [];
 		const timestamp = new Date().toISOString();
@@ -545,7 +550,7 @@ class FeedFilterController {
 			...entries.map((entry) => ({ ...entry, timestamp })),
 		].slice(-HISTORY_LIMIT);
 
-		await setStorageValue(STORAGE_KEYS.FILTERED_VIDEOS, nextVideos);
+		await setSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS, nextVideos);
 	}
 
 	private async persistStats(currentStats: FilterStats): Promise<void> {
