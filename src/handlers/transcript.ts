@@ -8,26 +8,47 @@ import {
 
 import type { ChromeMessage } from "@/core/utils/chrome";
 
+type ScrapeResponse = {
+	status: "success" | "error" | "skipped";
+	message?: string;
+	videoInfo?: ReturnType<typeof extractVideoInfo>;
+	hasTranscript?: boolean;
+};
+
+function sendScrapeFailure(
+	sendResponse: (response: ScrapeResponse) => void,
+	suppressErrors: boolean,
+	message?: string,
+): void {
+	sendResponse({
+		status: suppressErrors ? "skipped" : "error",
+		message: suppressErrors ? undefined : message,
+	});
+}
+
 /**
  * Handle scrape video request
  */
 export async function handleScrapeVideo(
 	message: ChromeMessage,
 	ctx: { tabId?: number },
-	sendResponse: (response: any) => void,
+	sendResponse: (response: ScrapeResponse) => void,
 ): Promise<void> {
+	const { videoId, suppressErrors } = message as unknown as {
+		videoId: string;
+		suppressErrors?: boolean;
+	};
+
 	try {
-		const { videoId } = message as any;
 		const { tabId } = ctx;
 
-		const data = await fetchTranscript(videoId, {
-			tabId,
-		});
+		const data = await fetchTranscript(videoId, { tabId });
 		if (!data) {
-			sendResponse({
-				status: "error",
-				message: "Chrome transcript extraction did not return caption data.",
-			});
+			sendScrapeFailure(
+				sendResponse,
+				suppressErrors === true,
+				"Chrome transcript extraction did not return caption data.",
+			);
 			return;
 		}
 
@@ -51,11 +72,13 @@ export async function handleScrapeVideo(
 			})
 			.catch(() => {});
 	} catch (error) {
-		console.error("Scrape video error:", error);
-		sendResponse({
-			status: "error",
-			message:
-				error instanceof Error ? error.message : "Failed to fetch video data",
-		});
+		if (!suppressErrors) {
+			console.error("Scrape video error:", error);
+		}
+		sendScrapeFailure(
+			sendResponse,
+			suppressErrors === true,
+			error instanceof Error ? error.message : "Failed to fetch video data",
+		);
 	}
 }

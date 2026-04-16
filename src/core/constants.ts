@@ -265,6 +265,7 @@ export const ERROR_MESSAGES = {
 	VIDEO_ID_REQUIRED: "Video ID is required.",
 	NO_VIDEO_ID: "Could not extract video ID from URL.",
 	NO_TRANSCRIPT: "No transcript available for this video",
+	CHROME_TAB_EXTRACTION_FAILED: "Chrome transcript extraction failed.",
 	CHROME_TAB_REQUIRES_TAB:
 		"Chrome transcript extraction requires an active YouTube watch tab.",
 	LLM_KEY_MISSING: "LLM API key not found",

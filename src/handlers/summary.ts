@@ -171,7 +171,7 @@ async function getTranscriptSource(
 		return messageTranscript;
 	}
 
-	const pending = getPendingTranscript(videoId);
+	const pending = getPendingTranscript(videoId, fetchContext.tabId);
 	if (pending) {
 		console.log(`Waiting for pending transcript fetch for ${videoId}`);
 		const fetched = await pending;

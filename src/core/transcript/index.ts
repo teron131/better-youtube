@@ -79,6 +79,25 @@ function resolveFetchContext(
 	return context ?? transcriptFetchContexts.get(videoId)?.context;
 }
 
+async function fetchTranscriptForTab(
+	videoId: string,
+	tabId: number | undefined,
+	hasScopedContext: boolean,
+): Promise<TranscriptResponse | null> {
+	if (!tabId) {
+		if (hasScopedContext) {
+			throw new Error(
+				"Chrome transcript extraction requires an active YouTube watch tab.",
+			);
+		}
+		return null;
+	}
+
+	const result = await fetchTranscriptFromChromeTab(videoId, tabId);
+	setCachedTranscript(videoId, result);
+	return result;
+}
+
 export async function fetchTranscript(
 	videoId: string,
 	context?: TranscriptFetchContext,
@@ -86,31 +105,22 @@ export async function fetchTranscript(
 	const cached = getCachedTranscript(videoId);
 	if (cached) return cached;
 
-	const pending = getPendingTranscript(videoId);
-	if (pending) return pending;
-
 	const scopedContext = resolveFetchContext(videoId, context);
 	const tabId = scopedContext?.tabId;
 
-	const fetchPromise = (async () => {
-		if (!tabId) {
-			if (scopedContext) {
-				throw new Error(
-					"Chrome transcript extraction requires an active YouTube watch tab.",
-				);
-			}
-			return null;
-		}
+	const pending = getPendingTranscript(videoId, tabId);
+	if (pending) return pending;
 
-		const result = await fetchTranscriptFromChromeTab(videoId, tabId);
-		setCachedTranscript(videoId, result);
-		return result;
-	})();
+	const fetchPromise = fetchTranscriptForTab(
+		videoId,
+		tabId,
+		Boolean(scopedContext),
+	);
 
-	setPendingTranscript(videoId, fetchPromise);
+	setPendingTranscript(videoId, fetchPromise, tabId);
 	try {
 		return await fetchPromise;
 	} finally {
-		clearPendingTranscript(videoId);
+		clearPendingTranscript(videoId, tabId);
 	}
 }
