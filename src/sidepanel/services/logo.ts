@@ -1,6 +1,7 @@
 /** Shared Artificial Analysis provider-logo resolution helpers for stats payloads. */
 
 const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
+const BUNDLED_PROVIDER_LOGO_PATH = "provider-logos";
 
 const ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER: Record<string, string> = {
 	ai2: "ai2_small.svg",
@@ -47,6 +48,9 @@ const ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER: Record<string, string> = {
 	xiaomi: "xiaomi_small.svg",
 	"z-ai": "zai_small.svg",
 };
+const BUNDLED_PROVIDER_LOGO_ASSETS = new Set(
+	Object.values(ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER),
+);
 
 function nonEmptyString(value: string | null | undefined): string | null {
 	if (typeof value !== "string") {
@@ -67,6 +71,35 @@ function normalizeProvider(provider: string | null | undefined): string | null {
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "");
 	return normalizedProvider.length > 0 ? normalizedProvider : null;
+}
+
+function toBundledProviderLogoUrl(
+	asset: string | null | undefined,
+): string | null {
+	const assetValue = nonEmptyString(asset);
+	if (!assetValue) {
+		return null;
+	}
+
+	const bundledPath = `${BUNDLED_PROVIDER_LOGO_PATH}/${assetValue}`;
+	if (typeof chrome !== "undefined" && chrome.runtime?.getURL) {
+		return chrome.runtime.getURL(bundledPath);
+	}
+
+	return `${import.meta.env.BASE_URL}${bundledPath}`;
+}
+
+function bundledLogoAssetFromUrl(
+	logoUrl: string | null | undefined,
+): string | null {
+	const logoValue = nonEmptyString(logoUrl);
+	if (!logoValue) {
+		return null;
+	}
+
+	const [pathWithoutQuery] = logoValue.split(/[?#]/, 1);
+	const assetName = pathWithoutQuery?.split("/").pop() ?? logoValue;
+	return BUNDLED_PROVIDER_LOGO_ASSETS.has(assetName) ? assetName : null;
 }
 
 function toAbsoluteArtificialAnalysisLogoUrl(
@@ -110,7 +143,10 @@ export function resolveStatsLogo(options: {
 	explicitLogo?: string | null;
 }): string {
 	const provider = normalizeProvider(options.provider);
+	const explicitBundledAsset = bundledLogoAssetFromUrl(options.explicitLogo);
 	return (
+		toBundledProviderLogoUrl(explicitBundledAsset) ??
+		toBundledProviderLogoUrl(artificialAnalysisLogoAsset(provider)) ??
 		toAbsoluteArtificialAnalysisLogoUrl(options.explicitLogo) ??
 		buildArtificialAnalysisLogoUrl(artificialAnalysisLogoAsset(provider)) ??
 		""
