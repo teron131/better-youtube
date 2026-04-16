@@ -48,6 +48,19 @@ const ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER: Record<string, string> = {
 	xiaomi: "xiaomi_small.svg",
 	"z-ai": "zai_small.svg",
 };
+
+const PROVIDER_ALIAS_BY_PROVIDER: Record<string, string> = {
+	alibabacloud: "alibaba",
+	"alibaba-cloud": "alibaba",
+	"deep-seek": "deepseek",
+	"mini-max": "minimax",
+	moonshot: "moonshotai",
+	"moonshot-ai": "moonshotai",
+	"open-ai": "openai",
+	"perplexity-ai": "perplexity",
+	qwenlm: "qwen",
+	tongyi: "qwen",
+};
 const BUNDLED_PROVIDER_LOGO_ASSETS = new Set(
 	Object.values(ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER),
 );
@@ -70,7 +83,10 @@ function normalizeProvider(provider: string | null | undefined): string | null {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "");
-	return normalizedProvider.length > 0 ? normalizedProvider : null;
+	if (!normalizedProvider) {
+		return null;
+	}
+	return PROVIDER_ALIAS_BY_PROVIDER[normalizedProvider] ?? normalizedProvider;
 }
 
 function toBundledProviderLogoUrl(
