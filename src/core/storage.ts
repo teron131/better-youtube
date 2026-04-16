@@ -76,6 +76,8 @@ export function getSummaryStorageKey(videoId: string): string {
 // ============================================================================
 
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
+const hasSessionStorageApi =
+	typeof chrome !== "undefined" && !!chrome.storage?.session;
 const WRITE_RATE_RETRY_LIMIT = 3;
 const WRITE_RATE_BACKOFF_BASE_MS = 250;
 const QUOTA_CLEANUP_RETRY_LIMIT = 3;
@@ -227,6 +229,59 @@ async function storageRemove(keys: string[]): Promise<void> {
 	});
 }
 
+async function sessionStorageSet(
+	items: Record<string, unknown>,
+): Promise<void> {
+	if (!hasSessionStorageApi) {
+		Object.entries(items).forEach(([key, value]) => {
+			sessionStorage.setItem(key, JSON.stringify(value));
+		});
+		return;
+	}
+
+	return new Promise((resolve, reject) => {
+		chrome.storage.session.set(items, () => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+			} else {
+				resolve();
+			}
+		});
+	});
+}
+
+async function sessionStorageGet<T>(key: string): Promise<T | null> {
+	if (!hasSessionStorageApi) {
+		const item = sessionStorage.getItem(key);
+		return item ? (JSON.parse(item) as T) : null;
+	}
+
+	return new Promise((resolve) => {
+		chrome.storage.session.get([key], (result) => {
+			resolve(result[key] ?? null);
+		});
+	});
+}
+
+async function sessionStorageRemove(keys: string[]): Promise<void> {
+	if (!hasSessionStorageApi) {
+		keys.forEach((key) => {
+			sessionStorage.removeItem(key);
+		});
+		return;
+	}
+
+	return new Promise((resolve, reject) => {
+		chrome.storage.session.remove(keys, () => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+			} else {
+				resolve();
+			}
+		});
+	});
+}
+
 /**
  * Low-level storage getter for everything
  */
@@ -324,6 +379,27 @@ export async function setStorageValue<T>(key: string, value: T): Promise<void> {
 		await ensureStorageHeadroom(PROTECTED_STORAGE_HEADROOM_BYTES);
 	}
 	return setWithQuotaRetry({ [key]: value });
+}
+
+export async function removeStorageValue(key: string): Promise<void> {
+	await storageRemove([key]);
+}
+
+export async function getSessionStorageValue<T>(
+	key: string,
+): Promise<T | null> {
+	return sessionStorageGet<T>(key);
+}
+
+export async function setSessionStorageValue<T>(
+	key: string,
+	value: T,
+): Promise<void> {
+	await sessionStorageSet({ [key]: value });
+}
+
+export async function removeSessionStorageValue(key: string): Promise<void> {
+	await sessionStorageRemove([key]);
 }
 
 export async function getStorageValues<T extends Record<string, unknown>>(

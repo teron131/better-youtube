@@ -12,7 +12,12 @@ import {
 	loadFeedFilterSettings,
 	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
-import { getStorageValue, setStorageValue } from "@/core/storage";
+import {
+	getSessionStorageValue,
+	getStorageValue,
+	removeSessionStorageValue,
+	setStorageValue,
+} from "@/core/storage";
 import { getCurrentTab, sendChromeMessage } from "@/core/utils/chrome";
 
 const SUBSCRIPTIONS_PAGE_URL = "https://www.youtube.com/feed/channels";
@@ -36,14 +41,14 @@ export async function getRecommendationFilterHistory(): Promise<
 	FilteredVideoRecord[]
 > {
 	return (
-		(await getStorageValue<FilteredVideoRecord[]>(
+		(await getSessionStorageValue<FilteredVideoRecord[]>(
 			STORAGE_KEYS.FILTERED_VIDEOS,
 		)) || []
 	);
 }
 
 export async function clearRecommendationFilterHistory(): Promise<void> {
-	await setStorageValue(STORAGE_KEYS.FILTERED_VIDEOS, []);
+	await removeSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS);
 }
 
 export async function getStoredSubscriptions(): Promise<StoredSubscriptions | null> {

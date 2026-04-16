@@ -3,11 +3,12 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { MESSAGE_ACTIONS } from "@/core/constants";
+import { MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
 import {
 	loadRuntimeConfigSnapshot,
 	type RuntimeConfigSnapshot,
 } from "@/core/runtimeConfig";
+import { removeStorageValue } from "@/core/storage";
 import { createMessageListener } from "@/core/utils/chrome";
 import { handleFetchSubtitles } from "./refine";
 import { handleExtractSubscriptions } from "./subscriptions";
@@ -25,6 +26,18 @@ const pendingSummaryJobs = new Map<string, Promise<void>>();
 chrome.sidePanel
 	.setPanelBehavior({ openPanelOnActionClick: true })
 	.catch(console.error);
+
+if (chrome.storage.session) {
+	chrome.storage.session
+		.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" })
+		.catch((error) => {
+			console.error("[handlers] failed to expose session storage", error);
+		});
+}
+
+void removeStorageValue(STORAGE_KEYS.FILTERED_VIDEOS).catch((error) => {
+	console.error("[handlers] failed to clear legacy filtered history", error);
+});
 
 /**
  * Main message listener
