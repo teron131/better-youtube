@@ -3,12 +3,13 @@
  * Relies on props provided by the caller, which should be enriched by the stats service.
  */
 
+import { resolveStatsLogo } from "@ui/services/logo";
 import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/core/utils/text";
 
-function imageSources(logo?: string, fallbackLogo?: string): string[] {
+function imageSources(...candidates: Array<string | undefined>): string[] {
 	const seen = new Set<string>();
-	return [logo, fallbackLogo].filter((candidate): candidate is string => {
+	return candidates.filter((candidate): candidate is string => {
 		if (!candidate || seen.has(candidate)) {
 			return false;
 		}
@@ -42,9 +43,17 @@ export function ModelIcon({
 	alt = "",
 	className = "h-4 w-4 object-contain",
 }: ModelIconProps) {
+	const resolvedProviderLogo = useMemo(
+		() =>
+			resolveStatsLogo({
+				provider,
+				explicitLogo: logo ?? fallbackLogo,
+			}) || undefined,
+		[fallbackLogo, logo, provider],
+	);
 	const sources = useMemo(
-		() => imageSources(logo, fallbackLogo),
-		[fallbackLogo, logo],
+		() => imageSources(logo, fallbackLogo, resolvedProviderLogo),
+		[fallbackLogo, logo, resolvedProviderLogo],
 	);
 	const sourceKey = sources.join("|");
 	const [sourceState, setSourceState] = useState({

@@ -4,6 +4,15 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 
 ![UI Demo](static/ui.png)
 
+<p align="center">
+  <img src="static/ui1.png" alt="ui1" width="49.5%" />
+  <img src="static/ui2.png" alt="ui2" width="49.5%" />
+</p>
+<p align="center">
+  <img src="static/ui3.png" alt="ui3" width="49.5%" />
+  <img src="static/ui4.png" alt="ui4" width="49.5%" />
+</p>
+
 [Static Demo](https://teron131.github.io/better-youtube)
 
 ## What It Does
@@ -19,26 +28,37 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 ```mermaid
 flowchart LR
     accTitle: Better YouTube extension architecture
-    accDescr: Shows the Chrome extension contexts, shared workflows, storage, and model providers.
+    accDescr: Shows the main extension surfaces, background workflows, shared storage, and AI providers in a clean left-to-right map.
 
-    YT["YouTube watch and feed pages"]
+    YT["YouTube pages"]
 
-    subgraph EXT["Chrome extension contexts"]
-        CS["Content script"]
-        SP["Side panel React app"]
-        BG["Background service worker"]
+    subgraph SURFACES["Extension surfaces"]
+        direction TB
+        CS["Content script<br/>overlay, auto-gen, feed filtering"]
+        SP["Side panel<br/>summary and settings"]
     end
 
-    subgraph CORE["Shared core workflows"]
-        TR["Transcript fetch, cache, and dedupe"]
-        RF["Caption refiner with partial updates"]
-        SR["Summary route selection"]
-        RC["Recommendation rules and subscriptions"]
-        ST["Chrome storage"]
-        CFG["Runtime config"]
+    subgraph WORKER["Background service worker"]
+        direction TB
+        BG["Message router"]
+
+        subgraph SERVICES[" "]
+            direction LR
+            TR["Transcript service<br/>watch-tab extraction and dedupe"]
+            RF["Caption refiner<br/>raw fallback and partial updates"]
+            SR["Summary service<br/>provider routing and fallback"]
+        end
+    end
+
+    subgraph SHARED["Shared state"]
+        direction TB
+        CFG["Runtime config<br/>provider, mode, model, API keys"]
+        RC["Recommendation filters<br/>rules, stats, subscriptions"]
+        ST["Chrome storage<br/>settings headroom and oldest-video cleanup"]
     end
 
     subgraph AI["AI providers"]
+        direction TB
         GM["Gemini"]
         LLM["OpenAI-compatible LLM"]
     end
@@ -46,58 +66,79 @@ flowchart LR
     YT --> CS
     CS --> BG
     SP --> BG
+    CFG --> BG
     CS --> RC
+    RC --> ST
     BG --> TR
     BG --> RF
     BG --> SR
-    TR <--> ST
-    RF --> ST
-    SR --> ST
-    RC <--> ST
-    CFG --> BG
-    SR --> CFG
-    RF --> CS
-    SR --> SP
+    BG --> ST
+    RF --> GM
+    RF --> LLM
     SR --> GM
     SR --> LLM
 ```
 
 ## Processing Flows
 
+### Caption Flow
+
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant UI as Side panel or content script
+    participant UI as UI
+    participant CS as Watch page
     participant BG as Background worker
-    participant TC as Transcript cache
-    participant YT as Active YouTube tab
+    participant TR as Transcript service
+    participant ST as Storage
+    participant AI as AI provider
+
+    alt Auto-generate on watch page
+        CS->>CS: Wait for delay and visible tab
+        CS->>BG: SCRAPE_VIDEO
+    else Manual caption request
+        UI->>BG: FETCH_SUBTITLES
+    end
+
+    BG->>TR: Resolve transcript
+    alt Cached or pending transcript
+        TR-->>BG: Reuse transcript
+    else Fresh watch-tab extraction
+        TR->>CS: Read captions and metadata
+        CS-->>TR: Transcript payload
+    end
+    TR-->>BG: Transcript text
+    BG->>ST: Save raw subtitles
+    BG-->>CS: Raw subtitle fallback
+    BG->>AI: Refine transcript
+    AI-->>BG: Partial and final updates
+    BG->>ST: Save refined subtitles
+    BG-->>CS: Final subtitle updates
+    CS->>CS: Render overlay
+```
+
+### Summary Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as UI
+    participant BG as Background worker
+    participant TR as Transcript service
+    participant ST as Storage
     participant AI as Gemini or LLM
-    participant ST as Chrome storage
-    participant CS as Content script
 
-    UI->>BG: Request captions or summary
-    BG->>TC: Reuse cached or pending transcript work
-    alt Cache miss
-        TC->>YT: Extract transcript and video metadata
-        YT-->>TC: Transcript payload
-    end
-    TC-->>BG: Transcript text and metadata
+    UI->>BG: GENERATE_SUMMARY
+    BG->>ST: Check cached summary
 
-    alt Caption refinement
-        BG->>ST: Save raw subtitle segments
-        BG-->>CS: SUBTITLES_GENERATED (raw fallback)
-        BG->>AI: Refine transcript in chunks
-        AI-->>BG: Partial and final subtitle updates
-        BG->>ST: Save refined subtitles
-        BG-->>CS: SUBTITLES_GENERATED (partial and final)
-        CS-->>CS: Render overlay on player
-    else Summary generation
+    alt No matching cached summary
+        BG->>TR: Resolve transcript or video URL
+        TR-->>BG: Transcript text or URL
         BG->>BG: Resolve provider and mode
-        BG->>AI: Generate grounded summary
-        AI-->>BG: Structured summary result
+        BG->>AI: Run summary workflow
+        AI-->>BG: Structured summary
         BG->>ST: Save summary and metadata
-        BG-->>UI: SUMMARY_GENERATED
     end
+
+    BG-->>UI: SUMMARY_GENERATED or SHOW_ERROR
 ```
 
 ## Recommendation Filtering
@@ -105,18 +146,21 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     accTitle: Recommendation filtering flow
-    accDescr: Shows how the content script filters YouTube recommendation cards using saved rules and optional subscription preservation.
+    accDescr: Shows how the content script filters recommendation cards using saved rules, subscription lookups, and rescan scheduling.
 
     LOAD["YouTube feed or watch page loads"] --> PAGE{"Supported page?"}
-    PAGE -->|No: channel or subscriptions page| SKIP["Skip filtering"]
-    PAGE -->|Yes| READ["Load filter settings, stats, and subscriptions"]
+    PAGE -->|No: channel, subscriptions, or history page| SKIP["Skip filtering"]
+    PAGE -->|Yes| READ["Load filter settings, filter stats, and stored subscriptions"]
     READ --> SCAN["Scan visible recommendation cards"]
-    SCAN --> CHECK{"Subscribed or passes rules?"}
-    CHECK -->|Yes| SHOW["Keep card visible"]
-    CHECK -->|No| HIDE["Hide card and record reason"]
-    SHOW --> RESCAN["Observe DOM changes and reprocess new cards"]
+    SCAN --> EXTRACT["Extract title, channel, views, age, duration, and language hints"]
+    EXTRACT --> SUBS{"Preserve subscribed channels?"}
+    SUBS -->|Yes and channel matches| SHOW["Keep card visible"]
+    SUBS -->|No match| RULES{"Trips any active hide rule?"}
+    RULES -->|No| SHOW
+    RULES -->|Yes| HIDE["Hide card and record filter reason"]
+    SHOW --> RESCAN["Observe DOM changes and queue rescans for new cards"]
     HIDE --> RESCAN
-    SUBS["Extract subscriptions from /feed/channels on demand"] --> READ
+    SUBLOAD["Extract subscriptions from /feed/channels on demand"] --> READ
 ```
 
 ## Runtime Design
