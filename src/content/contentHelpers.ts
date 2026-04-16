@@ -9,6 +9,7 @@ export interface ContentScriptState {
 	currentSubtitles: SubtitleSegment[];
 	showSubtitlesEnabled: boolean;
 	userInteractedWithToggle: boolean;
+	currentVideoId?: string;
 	currentCaptionRequestId?: RequestId;
 }
 

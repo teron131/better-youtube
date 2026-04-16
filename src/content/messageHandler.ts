@@ -100,6 +100,10 @@ function sendStarted(sendResponse: (response: any) => void): void {
 	sendResponse({ status: "started" });
 }
 
+function getActiveVideoId(state: ContentScriptState): string | null {
+	return state.currentVideoId || extractVideoId(window.location.href);
+}
+
 function handleGenerateSummary(
 	message: any,
 	sendResponse: (response: any) => void,
@@ -137,6 +141,7 @@ function handleGenerateSubtitles(
 
 	clearSubtitles();
 	markAutoGenTriggered(videoId);
+	state.currentVideoId = videoId;
 
 	const requestId: RequestId =
 		(message.requestId as RequestId | undefined) ?? createRequestId("caption");
@@ -170,6 +175,15 @@ function handleSubtitlesGenerated(
 	const messageVideoId = message.videoId;
 	const messageRequestId = message.requestId as RequestId | undefined;
 	const isPartial = message.isPartial === true;
+	const activeVideoId = getActiveVideoId(state);
+
+	if (messageVideoId && activeVideoId && messageVideoId !== activeVideoId) {
+		console.log(
+			`Ignoring subtitles for stale video ${messageVideoId}; current video is ${activeVideoId}.`,
+		);
+		sendResponse({ status: "stale_video_ignored" });
+		return;
+	}
 
 	// Stale guard: ignore any caption results not matching the latest request for this video.
 	if (
@@ -374,6 +388,7 @@ function startDisplayIfReady(
 	}
 
 	const resolvedVideoId = videoId || extractVideoId(window.location.href);
+	state.currentVideoId = resolvedVideoId || undefined;
 	if (!resolvedVideoId) return;
 
 	startSubtitleDisplay(state.currentSubtitles, resolvedVideoId);

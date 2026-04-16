@@ -45,12 +45,14 @@ class ContentManager {
 		currentSubtitles: [],
 		showSubtitlesEnabled: true,
 		userInteractedWithToggle: false,
+		currentVideoId: undefined,
 		currentCaptionRequestId: undefined,
 	};
 
 	private currentUrl: string = window.location.href;
 	private isUrlMonitoringStarted = false;
 	private urlCheckTimeout: number | null = null;
+	private urlCheckIntervalId: number | null = null;
 
 	constructor() {
 		this.checkAndTriggerAutoGeneration =
@@ -95,6 +97,13 @@ class ContentManager {
 		window.addEventListener("popstate", this.scheduleUrlCheck);
 		window.addEventListener("hashchange", this.scheduleUrlCheck);
 		document.addEventListener("visibilitychange", this.scheduleUrlCheck);
+
+		if (this.urlCheckIntervalId === null) {
+			this.urlCheckIntervalId = window.setInterval(
+				this.handlePotentialUrlChange,
+				TIMING.CAPTION_CHECK_DELAY_MS,
+			);
+		}
 	}
 
 	private scheduleUrlCheck(): void {
@@ -145,6 +154,7 @@ class ContentManager {
 		if (!validation.isValid || !validation.videoId) return;
 
 		const videoId = validation.videoId;
+		this.state.currentVideoId = videoId;
 		const keysToFetch = [
 			videoId,
 			STORAGE_KEYS.CAPTION_FONT_SIZE,
@@ -152,7 +162,13 @@ class ContentManager {
 		];
 
 		chrome.storage.local.get(keysToFetch, (result) => {
-			if (chrome.runtime.lastError || !isCurrentVideo(videoId)) return;
+			if (
+				chrome.runtime.lastError ||
+				!isCurrentVideo(videoId) ||
+				this.state.currentVideoId !== videoId
+			) {
+				return;
+			}
 
 			// Apply font size
 			const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] ||
@@ -181,6 +197,7 @@ class ContentManager {
 
 	public clearSubtitles(): void {
 		this.state.currentSubtitles = [];
+		this.state.currentVideoId = undefined;
 		this.state.currentCaptionRequestId = undefined;
 		clearRenderer();
 	}
@@ -220,6 +237,7 @@ class ContentManager {
 		storageResult: Record<string, unknown>,
 	): Promise<void> {
 		this.clearSubtitles();
+		this.state.currentVideoId = videoId;
 
 		if (await executeScrapeForAutoGen(videoId)) {
 			if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
