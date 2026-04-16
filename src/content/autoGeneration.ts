@@ -12,6 +12,8 @@ export { isExtensionContextValid };
 
 // Track which videos have had auto-generation triggered
 const autoGenTriggered = new Set<string>();
+const autoGenVisibilityWaiters = new Map<string, () => void>();
+const TAB_VISIBLE_STATE = "visible";
 
 /**
  * Check if auto-generation has been triggered for a video
@@ -32,6 +34,8 @@ export function markAutoGenTriggered(videoId: string): void {
  */
 export function clearAutoGenTrigger(videoId: string): void {
 	autoGenTriggered.delete(videoId);
+	autoGenVisibilityWaiters.get(videoId)?.();
+	autoGenVisibilityWaiters.delete(videoId);
 }
 
 interface StorageResult {
@@ -140,6 +144,52 @@ async function executeAutoGen(
 	}
 }
 
+function waitForVisibleTab(videoId: string, triggerFn: () => void): void {
+	if (document.visibilityState === TAB_VISIBLE_STATE) {
+		triggerFn();
+		return;
+	}
+
+	if (autoGenVisibilityWaiters.has(videoId)) {
+		return;
+	}
+
+	console.log("Auto-gen waiting for the tab to become visible:", videoId);
+
+	const cleanup = () => {
+		document.removeEventListener("visibilitychange", handleVisibilityChange);
+		autoGenVisibilityWaiters.delete(videoId);
+	};
+
+	const handleVisibilityChange = () => {
+		if (document.visibilityState !== TAB_VISIBLE_STATE) return;
+
+		cleanup();
+
+		if (!isExtensionContextValid()) {
+			console.log("Context invalidated before auto-generation, aborting.");
+			clearAutoGenTrigger(videoId);
+			return;
+		}
+
+		console.log("Auto-gen visibility restored; triggering now for", videoId);
+		triggerFn();
+	};
+
+	autoGenVisibilityWaiters.set(videoId, cleanup);
+	document.addEventListener("visibilitychange", handleVisibilityChange);
+}
+
+function triggerWhenReady(
+	videoId: string,
+	triggerFn: () => void | Promise<void>,
+	checkCaptionsEnabled: boolean,
+): void {
+	waitForVisibleTab(videoId, () => {
+		void executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
+	});
+}
+
 /**
  * Schedule auto-generation with optional delay
  */
@@ -150,10 +200,6 @@ export function scheduleAutoGen(
 	withDelay: boolean,
 ): void {
 	markAutoGenTriggered(videoId);
-
-	const executeTrigger = () => {
-		void executeAutoGen(videoId, triggerFn, checkCaptionsEnabled);
-	};
 
 	const triggerMode = withDelay
 		? "waiting for page to load..."
@@ -167,10 +213,10 @@ export function scheduleAutoGen(
 				clearAutoGenTrigger(videoId);
 				return;
 			}
-			console.log("Auto-gen delay elapsed; triggering now for", videoId);
-			executeTrigger();
+			console.log("Auto-gen delay elapsed; waiting for visible tab:", videoId);
+			triggerWhenReady(videoId, triggerFn, checkCaptionsEnabled);
 		}, TIMING.AUTO_GENERATION_DELAY_MS);
 	} else {
-		executeTrigger();
+		triggerWhenReady(videoId, triggerFn, checkCaptionsEnabled);
 	}
 }

@@ -298,7 +298,7 @@ function isWatchPage(url: string | undefined): boolean {
 
 function createFailure(videoId: string, tabId: number, message: string): Error {
 	return new Error(
-		`${ERROR_MESSAGES.CHROME_TAB_REQUIRES_TAB} ${message} (videoId=${videoId}, tabId=${tabId})`,
+		`${ERROR_MESSAGES.CHROME_TAB_EXTRACTION_FAILED} ${message} (videoId=${videoId}, tabId=${tabId})`,
 	);
 }
 

@@ -49,6 +49,10 @@ export interface StorageUsage {
 	percentageUsed: number;
 }
 
+interface VideoStorageMeta {
+	updatedAt: number;
+}
+
 // ============================================================================
 // Storage Keys
 // ============================================================================
@@ -57,6 +61,7 @@ const StorageKeys = {
 	subtitles: (videoId: string) => videoId,
 	metadata: (videoId: string) => `video_info_${videoId}`,
 	summary: (videoId: string) => `summary_${videoId}`,
+	meta: (videoId: string) => `video_meta_${videoId}`,
 } as const;
 
 export function getSubtitlesStorageKey(videoId: string): string {
@@ -69,6 +74,29 @@ export function getVideoMetadataStorageKey(videoId: string): string {
 
 export function getSummaryStorageKey(videoId: string): string {
 	return StorageKeys.summary(videoId);
+}
+
+function createVideoStoragePayload(
+	videoId: string,
+	key: string,
+	value: unknown,
+): Record<string, unknown> {
+	const updatedAt = Date.now();
+	return {
+		[key]: value,
+		[StorageKeys.meta(videoId)]: {
+			updatedAt,
+		} satisfies VideoStorageMeta,
+	};
+}
+
+async function saveVideoScopedItem(
+	videoId: string,
+	key: string,
+	value: unknown,
+): Promise<void> {
+	await ensureStorageSpace();
+	await setWithQuotaRetry(createVideoStoragePayload(videoId, key, value));
 }
 
 // ============================================================================
@@ -84,7 +112,12 @@ const QUOTA_CLEANUP_RETRY_LIMIT = 3;
 const PROTECTED_STORAGE_HEADROOM_BYTES = 256 * 1024;
 const METADATA_KEY_PREFIX = "video_info_";
 const SUMMARY_KEY_PREFIX = "summary_";
+const VIDEO_META_KEY_PREFIX = "video_meta_";
 const PROTECTED_STORAGE_KEYS = new Set(Object.values(STORAGE_KEYS));
+const VIDEO_STORAGE_BUDGET_BYTES = Math.min(
+	STORAGE.MAX_STORAGE_BYTES,
+	STORAGE.QUOTA_BYTES - PROTECTED_STORAGE_HEADROOM_BYTES,
+);
 
 function isProtectedStorageKey(key: string): boolean {
 	return PROTECTED_STORAGE_KEYS.has(
@@ -323,9 +356,7 @@ export async function saveSubtitles(
 	videoId: string,
 	subtitles: SubtitleSegment[],
 ): Promise<void> {
-	const key = StorageKeys.subtitles(videoId);
-	await ensureStorageSpace();
-	await setWithQuotaRetry({ [key]: subtitles });
+	await saveVideoScopedItem(videoId, StorageKeys.subtitles(videoId), subtitles);
 }
 
 export async function getVideoMetadata(
@@ -338,7 +369,7 @@ export async function saveVideoMetadata(
 	videoId: string,
 	metadata: VideoMetadata,
 ): Promise<void> {
-	return setWithQuotaRetry({ [StorageKeys.metadata(videoId)]: metadata });
+	return saveVideoScopedItem(videoId, StorageKeys.metadata(videoId), metadata);
 }
 
 export async function getSummary(
@@ -362,8 +393,7 @@ export async function saveSummary(
 		modelUsed,
 		targetLanguage,
 	};
-	await ensureStorageSpace();
-	await setWithQuotaRetry({ [key]: storedSummary });
+	await saveVideoScopedItem(videoId, key, storedSummary);
 }
 
 // ============================================================================
@@ -436,8 +466,14 @@ export async function getStorageUsage(): Promise<StorageUsage> {
 type VideoStorageGroup = {
 	videoId: string;
 	keys: string[];
+	lastUpdatedAt: number | null;
 	summaryTimestamp: number | null;
 };
+
+function parseFiniteTimestamp(value: unknown): number | null {
+	const timestamp = Number(value);
+	return Number.isFinite(timestamp) ? timestamp : null;
+}
 
 function resolveVideoIdFromStorageKey(
 	key: string,
@@ -455,6 +491,9 @@ function resolveVideoIdFromStorageKey(
 	if (key.startsWith(SUMMARY_KEY_PREFIX)) {
 		return key.slice(SUMMARY_KEY_PREFIX.length);
 	}
+	if (key.startsWith(VIDEO_META_KEY_PREFIX)) {
+		return key.slice(VIDEO_META_KEY_PREFIX.length);
+	}
 	return null;
 }
 
@@ -468,25 +507,43 @@ function getVideoStorageGroups(
 		if (!videoId) return;
 
 		if (!groups.has(videoId)) {
-			groups.set(videoId, { videoId, keys: [], summaryTimestamp: null });
+			groups.set(videoId, {
+				videoId,
+				keys: [],
+				lastUpdatedAt: null,
+				summaryTimestamp: null,
+			});
 		}
 
 		const group = groups.get(videoId)!;
 		group.keys.push(key);
+		if (
+			key.startsWith(VIDEO_META_KEY_PREFIX) &&
+			value &&
+			typeof value === "object" &&
+			"updatedAt" in value
+		) {
+			group.lastUpdatedAt = parseFiniteTimestamp(
+				(value as VideoStorageMeta).updatedAt,
+			);
+		}
 		if (
 			key.startsWith(SUMMARY_KEY_PREFIX) &&
 			value &&
 			typeof value === "object" &&
 			"timestamp" in value
 		) {
-			const timestamp = Number((value as any).timestamp);
-			if (Number.isFinite(timestamp)) {
-				group.summaryTimestamp = timestamp;
-			}
+			group.summaryTimestamp = parseFiniteTimestamp(
+				(value as { timestamp?: unknown }).timestamp,
+			);
 		}
 	});
 
 	return Array.from(groups.values());
+}
+
+function getVideoGroupTimestamp(group: VideoStorageGroup): number {
+	return group.lastUpdatedAt ?? group.summaryTimestamp ?? 0;
 }
 
 async function cleanupOldVideos(countToRemove: number): Promise<void> {
@@ -503,8 +560,8 @@ async function cleanupOldVideos(countToRemove: number): Promise<void> {
 	const groupsToRemove = groups
 		.slice()
 		.sort((a, b) => {
-			const timeA = a.summaryTimestamp ?? Number.POSITIVE_INFINITY;
-			const timeB = b.summaryTimestamp ?? Number.POSITIVE_INFINITY;
+			const timeA = getVideoGroupTimestamp(a);
+			const timeB = getVideoGroupTimestamp(b);
 			if (timeA !== timeB) return timeA - timeB;
 			return a.videoId.localeCompare(b.videoId);
 		})
@@ -532,9 +589,9 @@ async function ensureStorageHeadroom(
 export async function ensureStorageSpace(): Promise<void> {
 	const usage = await getStorageUsage();
 
-	if (usage.bytesUsed > STORAGE.MAX_STORAGE_BYTES) {
+	if (usage.bytesUsed > VIDEO_STORAGE_BUDGET_BYTES) {
 		const videosToRemove = Math.ceil(
-			(usage.bytesUsed - STORAGE.MAX_STORAGE_BYTES) /
+			(usage.bytesUsed - VIDEO_STORAGE_BUDGET_BYTES) /
 				STORAGE.ESTIMATED_VIDEO_SIZE_BYTES,
 		);
 		await cleanupOldVideos(videosToRemove);

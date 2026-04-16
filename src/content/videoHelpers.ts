@@ -5,6 +5,16 @@ import { createRequestId } from "@/core/requestId";
 import { sendChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
+type AutoGenScrapeResponse = {
+	status: string;
+	message?: string;
+};
+
+const AUTO_GEN_SCRAPE_FALLBACK: AutoGenScrapeResponse = {
+	status: "skipped",
+	message: "Request failed",
+};
+
 export function isCurrentVideo(videoId: string): boolean {
 	return extractVideoId(window.location.href) === videoId;
 }
@@ -26,18 +36,15 @@ export async function executeScrapeForAutoGen(
 	videoId: string,
 ): Promise<boolean> {
 	console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
-	const result = await sendChromeMessage<{
-		status: string;
-		message?: string;
-	}>({
+	const result = await sendChromeMessage<AutoGenScrapeResponse>({
 		action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
 		videoId,
 		requestId: createRequestId("scrape"),
-	}).catch(() => ({ status: "error", message: "Request failed" }));
+		suppressErrors: true,
+	}).catch(() => AUTO_GEN_SCRAPE_FALLBACK);
 	if (result.status !== "success") {
-		console.warn(
-			`[Auto-gen] Scrape did not return transcript data for ${videoId}; stopping auto-caption generation.`,
-			result.message,
+		console.log(
+			`[Auto-gen] Scrape skipped for ${videoId}; stopping auto-caption generation.`,
 		);
 		return false;
 	}

@@ -10,6 +10,12 @@ const pendingTranscriptFetches = new Map<
 	Promise<TranscriptResponse | null>
 >();
 
+function buildPendingTranscriptKey(videoId: string, tabId?: number): string {
+	return typeof tabId === "number"
+		? `${videoId}::tab:${tabId}`
+		: `${videoId}::shared`;
+}
+
 export function getCachedTranscript(
 	videoId: string,
 ): TranscriptResponse | undefined {
@@ -36,17 +42,24 @@ export function clearTranscriptCache(videoId: string): void {
 
 export function getPendingTranscript(
 	videoId: string,
+	tabId?: number,
 ): Promise<TranscriptResponse | null> | undefined {
-	return pendingTranscriptFetches.get(videoId);
+	return pendingTranscriptFetches.get(
+		buildPendingTranscriptKey(videoId, tabId),
+	);
 }
 
 export function setPendingTranscript(
 	videoId: string,
 	promise: Promise<TranscriptResponse | null>,
+	tabId?: number,
 ): void {
-	pendingTranscriptFetches.set(videoId, promise);
+	pendingTranscriptFetches.set(
+		buildPendingTranscriptKey(videoId, tabId),
+		promise,
+	);
 }
 
-export function clearPendingTranscript(videoId: string): void {
-	pendingTranscriptFetches.delete(videoId);
+export function clearPendingTranscript(videoId: string, tabId?: number): void {
+	pendingTranscriptFetches.delete(buildPendingTranscriptKey(videoId, tabId));
 }
