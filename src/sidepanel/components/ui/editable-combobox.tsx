@@ -448,13 +448,13 @@ export function EditableCombobox({
 									No options found. Type a custom value.
 								</div>
 							) : (
-								<div className="grid gap-0.5">
+								<div className="flex flex-col gap-0.5">
 									{filteredOptions.map((option) => (
 										<button
 											type="button"
 											key={option.value}
 											className={cn(
-												"relative flex w-full cursor-default select-none items-start justify-start rounded-sm py-1.5 pl-8 pr-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
+												"relative flex w-full min-w-0 cursor-default select-none items-start justify-start rounded-sm py-1.5 pl-8 pr-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
 											)}
 											onMouseDown={(e) => {
 												e.preventDefault(); // Prevent focus loss from input
