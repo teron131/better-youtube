@@ -42,7 +42,13 @@
 	},
 	"web_accessible_resources": [
 		{
-			"resources": ["icons/*.png", "assets/*"],
+			"resources": [
+				"icons/*.png",
+				"assets/*",
+				"provider-logos/*.svg",
+				"provider-logos/*.png",
+				"provider-logos/*.jpg"
+			],
 			"matches": ["<all_urls>"]
 		}
 	]
