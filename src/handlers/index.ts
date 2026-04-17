@@ -10,6 +10,7 @@ import {
 } from "@/core/runtimeConfig";
 import { removeStorageValue } from "@/core/storage";
 import { createMessageListener } from "@/core/utils/chrome";
+import { registerContentScriptBootstrap } from "./contentScriptBootstrap";
 import { handleFetchSubtitles } from "./refine";
 import { handleExtractSubscriptions } from "./subscriptions";
 import { handleGenerateSummary } from "./summary";
@@ -21,6 +22,8 @@ const latestCaptionWorkloads = new Map<string, string>();
 const latestSummaryWorkloads = new Map<string, string>();
 const pendingCaptionJobs = new Map<string, Promise<void>>();
 const pendingSummaryJobs = new Map<string, Promise<void>>();
+
+registerContentScriptBootstrap();
 
 // Allow side panel to open on action click
 chrome.sidePanel

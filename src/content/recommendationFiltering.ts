@@ -51,6 +51,24 @@ type SubscriptionLookup = {
 	names: Set<string>;
 };
 
+function isExtensionContextInvalidatedError(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		error.message.includes("Extension context invalidated")
+	);
+}
+
+function logFilteringError(action: string, error: unknown): void {
+	if (isExtensionContextInvalidatedError(error)) {
+		console.debug(
+			`[recommendation-filter] skipped ${action} after context invalidation`,
+		);
+		return;
+	}
+
+	console.error(`[recommendation-filter] ${action} failed`, error);
+}
+
 function parseViewCount(text: string): number {
 	const cleaned = text
 		.replace(/views?/i, "")
@@ -486,7 +504,7 @@ class FeedFilterController {
 
 		if (!shouldSkipFilteringForPage()) {
 			window.setTimeout(() => {
-				void this.runAllFilters(true);
+				this.runAllFiltersSafely(true, "initial load");
 			}, 1000);
 			this.scheduleSettlingRescans("initial load");
 		}
@@ -527,10 +545,19 @@ class FeedFilterController {
 				console.log(
 					`[recommendation-filter] running settling rescan after ${delayMs}ms (${reason})`,
 				);
-				void this.runAllFilters(true);
+				this.runAllFiltersSafely(true, `settling rescan (${reason})`);
 			}, delayMs);
 			this.settlingRescanTimeouts.push(timeoutId);
 		}
+	}
+
+	private runAllFiltersSafely(
+		forceFullScan = false,
+		action = "filter run",
+	): void {
+		void this.runAllFilters(forceFullScan).catch((error) => {
+			logFilteringError(action, error);
+		});
 	}
 
 	private async appendFilteredVideos(
@@ -720,7 +747,7 @@ class FeedFilterController {
 			}
 
 			this.filterTimeout = window.setTimeout(() => {
-				void this.runAllFilters();
+				this.runAllFiltersSafely(false, "content update");
 				this.scheduleSettlingRescans("content update");
 			}, 800);
 		});
@@ -742,7 +769,7 @@ class FeedFilterController {
 					changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS].newValue?.channels,
 				);
 				resetProcessedVideoCards();
-				void this.runAllFilters(true);
+				this.runAllFiltersSafely(true, "subscription update");
 				this.scheduleSettlingRescans("subscription update");
 				return;
 			}
@@ -768,12 +795,16 @@ class FeedFilterController {
 				return;
 			}
 
-			void loadFeedFilterSettings().then((settings) => {
-				this.filterSettings = settings;
-				resetProcessedVideoCards();
-				void this.runAllFilters(true);
-				this.scheduleSettlingRescans("settings change");
-			});
+			void loadFeedFilterSettings()
+				.then((settings) => {
+					this.filterSettings = settings;
+					resetProcessedVideoCards();
+					this.runAllFiltersSafely(true, "settings change");
+					this.scheduleSettlingRescans("settings change");
+				})
+				.catch((error) => {
+					logFilteringError("settings reload", error);
+				});
 		});
 	}
 
@@ -788,7 +819,7 @@ class FeedFilterController {
 			resetProcessedVideoCards();
 			this.clearSettlingRescans();
 			window.setTimeout(() => {
-				void this.runAllFilters(true);
+				this.runAllFiltersSafely(true, "navigation");
 			}, 1500);
 			this.scheduleSettlingRescans("navigation");
 		};
@@ -813,7 +844,7 @@ class FeedFilterController {
 
 					if (currentVideoCount > this.lastVideoCount) {
 						this.lastVideoCount = currentVideoCount;
-						void this.runAllFilters();
+						this.runAllFiltersSafely(false, "scroll growth");
 						this.scheduleSettlingRescans("scroll growth");
 					}
 				}, 1000);
@@ -825,5 +856,7 @@ class FeedFilterController {
 
 export function startRecommendationFiltering(): void {
 	const controller = new FeedFilterController();
-	void controller.start();
+	void controller.start().catch((error) => {
+		logFilteringError("startup", error);
+	});
 }
