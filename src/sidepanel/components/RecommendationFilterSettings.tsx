@@ -258,29 +258,31 @@ export function RecommendationFilterSettings() {
 				return (
 					<label
 						htmlFor="recommendation-filter-minViews"
-						className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95"
+						className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-medium leading-6 text-foreground/95"
 					>
 						<span>Hide videos under</span>
-						<Input
-							id="recommendation-filter-minViews"
-							type="number"
-							min={0}
-							inputMode="numeric"
-							value={settings.minViews}
-							onChange={(event) =>
-								void handleSettingChange(
-									"minViews",
-									Math.max(0, Number(event.target.value) || 0),
-								)
-							}
-							className="h-9 w-28 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
-						/>
-						<span>views.</span>
+						<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<Input
+								id="recommendation-filter-minViews"
+								type="number"
+								min={0}
+								inputMode="numeric"
+								value={settings.minViews}
+								onChange={(event) =>
+									void handleSettingChange(
+										"minViews",
+										Math.max(0, Number(event.target.value) || 0),
+									)
+								}
+								className="h-9 w-28 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
+							/>
+							<span>views.</span>
+						</span>
 					</label>
 				);
 			case "durationFilterEnabled":
 				return (
-					<div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95">
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-medium leading-6 text-foreground/95">
 						<span>Keep videos between</span>
 						<Input
 							id="recommendation-filter-minDuration"
@@ -296,53 +298,57 @@ export function RecommendationFilterSettings() {
 							}
 							className="input-no-spinner h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 						/>
-						<span>and</span>
-						<Input
-							id="recommendation-filter-maxDuration"
-							type="number"
-							min={0}
-							inputMode="numeric"
-							value={settings.maxDuration}
-							onChange={(event) =>
-								void handleSettingChange(
-									"maxDuration",
-									Math.max(0, Number(event.target.value) || 0),
-								)
-							}
-							className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
-						/>
-						<span>seconds.</span>
+						<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<span>and</span>
+							<Input
+								id="recommendation-filter-maxDuration"
+								type="number"
+								min={0}
+								inputMode="numeric"
+								value={settings.maxDuration}
+								onChange={(event) =>
+									void handleSettingChange(
+										"maxDuration",
+										Math.max(0, Number(event.target.value) || 0),
+									)
+								}
+								className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
+							/>
+							<span>seconds.</span>
+						</span>
 					</div>
 				);
 			case "ageFilterEnabled":
 				return (
 					<label
 						htmlFor="recommendation-filter-maxAgeYears"
-						className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm font-medium leading-6 text-foreground/95"
+						className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-medium leading-6 text-foreground/95"
 					>
 						<span>Hide videos older than</span>
-						<Input
-							id="recommendation-filter-maxAgeYears"
-							type="text"
-							inputMode="numeric"
-							pattern="[0-9]*"
-							value={String(settings.maxAgeYears)}
-							onChange={(event) =>
-								void handleSettingChange(
-									"maxAgeYears",
-									(() => {
-										const digitsOnly = event.target.value.replace(/\D/g, "");
-										if (!digitsOnly) {
-											return 0;
-										}
+						<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<Input
+								id="recommendation-filter-maxAgeYears"
+								type="text"
+								inputMode="numeric"
+								pattern="[0-9]*"
+								value={String(settings.maxAgeYears)}
+								onChange={(event) =>
+									void handleSettingChange(
+										"maxAgeYears",
+										(() => {
+											const digitsOnly = event.target.value.replace(/\D/g, "");
+											if (!digitsOnly) {
+												return 0;
+											}
 
-										return Math.min(999, Number(digitsOnly));
-									})(),
-								)
-							}
-							className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
-						/>
-						<span>years.</span>
+											return Math.min(999, Number(digitsOnly));
+										})(),
+									)
+								}
+								className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
+							/>
+							<span>years.</span>
+						</span>
 					</label>
 				);
 			default:
@@ -363,9 +369,9 @@ export function RecommendationFilterSettings() {
 					return (
 						<div
 							key={item.key}
-							className="flex min-h-[92px] items-start justify-between gap-4 py-2.5"
+							className="flex items-start justify-between gap-3 py-2.5 md:min-h-[92px] md:gap-4"
 						>
-							<div className="min-w-0 space-y-2">
+							<div className="min-w-0 space-y-1.5">
 								<div className="flex items-center gap-2">
 									<Icon className="h-4 w-4 shrink-0 text-primary" />
 									<div className="text-sm font-semibold leading-none">
@@ -402,7 +408,7 @@ export function RecommendationFilterSettings() {
 						Titles containing one of these words will be hidden.
 					</div>
 				</div>
-				<div className="flex flex-col gap-2 sm:flex-row">
+				<div className="flex items-center gap-3">
 					<Input
 						value={newKeyword}
 						onChange={(event) => setNewKeyword(event.target.value)}
@@ -412,13 +418,13 @@ export function RecommendationFilterSettings() {
 								void addKeyword();
 							}
 						}}
-						className="h-11 rounded-md border-border/70 bg-background"
+						className="h-10 flex-1 rounded-md border-border/70 bg-background"
 						placeholder="Add keyword"
 					/>
 					<Button
 						type="button"
 						onClick={() => void addKeyword()}
-						className="h-11 min-w-[7.5rem] rounded-md px-4 text-sm"
+						className="h-10 min-w-[6.75rem] shrink-0 rounded-md px-4 text-sm"
 					>
 						Add
 					</Button>
@@ -517,7 +523,7 @@ export function RecommendationFilterSettings() {
 						type="button"
 						variant="ghost"
 						onClick={() => void handleClearHistory()}
-						className="h-8 rounded-md px-2 text-xs"
+						className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-primary"
 					>
 						Clear
 					</Button>

@@ -375,7 +375,7 @@ const Settings = () => {
 							if (event.key !== "Enter") return;
 							event.currentTarget.blur();
 						}}
-						className="h-6 w-16 rounded-sm border-0 bg-transparent px-1 text-right text-xs shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+						className="h-6 w-14 rounded-sm border-0 bg-transparent px-1 text-right text-xs shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
 						aria-label={ariaLabel}
 					/>
 				</TooltipTrigger>
