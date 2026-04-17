@@ -60,6 +60,9 @@ export function setupMessageListener(
 			case MESSAGE_ACTIONS.SUBTITLES_GENERATED:
 				handleSubtitlesGenerated(message, state, sendResponse);
 				break;
+			case MESSAGE_ACTIONS.SHOW_ERROR:
+				handleShowError(message, state, sendResponse);
+				break;
 			case MESSAGE_ACTIONS.TOGGLE_SUBTITLES:
 				handleToggleSubtitles(
 					message,
@@ -202,6 +205,9 @@ function handleSubtitlesGenerated(
 	if (subtitles.length === 0) {
 		state.currentSubtitles = [];
 		clearRenderer();
+		if (messageVideoId) {
+			clearAutoGenTrigger(messageVideoId);
+		}
 		sendResponse({ status: "no_subtitles_found" });
 		return;
 	}
@@ -215,6 +221,26 @@ function handleSubtitlesGenerated(
 		state,
 		sendResponse,
 	);
+}
+
+function handleShowError(
+	message: any,
+	state: ContentScriptState,
+	sendResponse: (response: any) => void,
+): void {
+	const messageVideoId = message.videoId as string | undefined;
+	const messageRequestId = message.requestId as RequestId | undefined;
+
+	if (
+		messageVideoId &&
+		messageRequestId &&
+		state.currentCaptionRequestId &&
+		messageRequestId === state.currentCaptionRequestId
+	) {
+		clearAutoGenTrigger(messageVideoId);
+	}
+
+	sendResponse({ status: "acknowledged" });
 }
 
 function handleConvertedSubtitles(
