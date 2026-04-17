@@ -377,7 +377,7 @@ export function RecommendationFilterSettings() {
 										{renderMergedSettingSentence(item.key)}
 									</div>
 									{item.description ? (
-										<div className="mt-2 max-w-[30ch] text-sm font-medium leading-6 text-foreground/95">
+										<div className="mt-2 text-sm font-medium leading-6 text-foreground/95">
 											{item.description}
 										</div>
 									) : null}
@@ -460,7 +460,7 @@ export function RecommendationFilterSettings() {
 							<Users className="h-4 w-4 text-primary" />
 							Subscribed Channels
 						</div>
-						<div className="max-w-[36ch] text-[13px] leading-5 text-muted-foreground">
+						<div className="text-[13px] leading-5 text-muted-foreground">
 							Import your YouTube subscriptions to make the videos immune to the
 							filters.
 						</div>
