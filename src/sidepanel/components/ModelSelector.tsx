@@ -191,7 +191,7 @@ export function ModelSelector({
 					? Math.ceil((textWidth + iconAndGapWidth) / availableInlineWidth)
 					: Number.POSITIVE_INFINITY;
 
-			setStackControls(estimatedLineCount > 2);
+			setStackControls(estimatedLineCount > 1);
 		};
 
 		updateStackedLayout();
@@ -258,8 +258,10 @@ export function ModelSelector({
 				{enableSorting && (
 					<div
 						ref={controlsRef}
-						className={`flex shrink-0 items-center rounded-md border border-border/60 bg-background p-0.5 ${
-							stackControls ? "ml-auto basis-full justify-end" : "ml-auto"
+						className={`flex shrink-0 items-center rounded-md border border-border/60 bg-background/80 p-0.5 ${
+							stackControls
+								? "ml-0 w-full basis-full justify-between gap-2"
+								: "ml-auto"
 						}`}
 					>
 						{availableSortOptions.map(({ metric, icon: MetricIcon, label }) => (
@@ -268,7 +270,7 @@ export function ModelSelector({
 									<button
 										type="button"
 										onClick={(event) => handleSortClick(event, metric)}
-										className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors ${
+										className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors sm:h-7 sm:w-7 ${
 											effectiveSortMetric === metric
 												? "bg-primary text-white"
 												: "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -299,7 +301,7 @@ export function ModelSelector({
 				placeholder={placeholder}
 				renderOption={renderModelOption}
 				renderIcon={() => selectedOption?.icon ?? null}
-				inputClassName="rounded-md bg-background border-border/70 hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground"
+				inputClassName="rounded-md border-border/70 bg-background text-[13px] hover:border-primary/30 focus:border-primary/50 placeholder:text-muted-foreground sm:text-sm"
 			/>
 		</div>
 	);
