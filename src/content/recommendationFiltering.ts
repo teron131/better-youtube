@@ -349,6 +349,7 @@ function checkDurationFilter(
 	settings: FeedFilterSettings,
 ): FilterResult {
 	if (
+		videoData.isLiveContent ||
 		!settings.durationFilterEnabled ||
 		(!settings.minDuration && !settings.maxDuration) ||
 		!videoData.duration
@@ -459,6 +460,7 @@ function hasIncompleteMetadata(
 			settings.minViews > 0 &&
 			!videoData.viewCount) ||
 			(settings.durationFilterEnabled &&
+				!videoData.isLiveContent &&
 				(settings.minDuration || settings.maxDuration) &&
 				!videoData.duration) ||
 			(settings.ageFilterEnabled &&
