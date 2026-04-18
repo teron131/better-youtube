@@ -37,6 +37,7 @@ export const STORAGE_KEYS = {
 	FILTER_KEYWORDS: "filterKeywords",
 	FILTER_STATS: "filterStats",
 	FILTERED_VIDEOS: "filteredVideos",
+	FILTERED_VIDEO_KEYS: "filteredVideoKeys",
 	YOUTUBE_SUBSCRIPTIONS: "youtubeSubscriptions",
 } as const;
 

@@ -51,6 +51,12 @@ type SubscriptionLookup = {
 	names: Set<string>;
 };
 
+type FilterRecordEntry = {
+	key: string;
+	title: string;
+	reason: string;
+};
+
 function isExtensionContextInvalidatedError(error: unknown): boolean {
 	return (
 		error instanceof Error &&
@@ -158,6 +164,33 @@ function createEmptySubscriptionLookup(): SubscriptionLookup {
 		paths: new Set(),
 		names: new Set(),
 	};
+}
+
+function buildFilterRecordKey(
+	videoData: VideoCardData,
+	filterReason: keyof Omit<FilterStats, "total">,
+): string | null {
+	if (videoData.videoId) {
+		return `${filterReason}:video:${videoData.videoId}`;
+	}
+
+	const titlePart = normalizeText(videoData.title)?.toLowerCase();
+	const channelPart =
+		normalizeChannelPath(videoData.channelPath)?.toLowerCase() ||
+		normalizeText(videoData.channelName)?.toLowerCase();
+	const publishTimePart = normalizeText(videoData.publishTime)?.toLowerCase();
+
+	if (!titlePart && !channelPart) {
+		return null;
+	}
+
+	return [
+		filterReason,
+		"meta",
+		titlePart || "unknown-title",
+		channelPart || "unknown-channel",
+		publishTimePart || "unknown-time",
+	].join(":");
 }
 
 function buildSubscriptionLookup(
@@ -495,6 +528,7 @@ class FeedFilterController {
 	private filterStats: FilterStats = { ...DEFAULT_FILTER_STATS };
 	private subscribedChannels: SubscriptionLookup =
 		createEmptySubscriptionLookup();
+	private recordedFilterKeys = new Set<string>();
 	private metadataRetryTimeout: number | null = null;
 	private settlingRescanTimeouts: number[] = [];
 	private filterTimeout: number | null = null;
@@ -520,15 +554,28 @@ class FeedFilterController {
 	}
 
 	private async loadState(): Promise<void> {
-		const [settings, stats, subscriptions] = await Promise.all([
-			loadFeedFilterSettings(),
-			getFilterStats(),
-			getStorageValue<StoredSubscriptions>(STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS),
-		]);
+		const [settings, stats, subscriptions, recordedFilterKeys, filteredVideos] =
+			await Promise.all([
+				loadFeedFilterSettings(),
+				getFilterStats(),
+				getStorageValue<StoredSubscriptions>(
+					STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS,
+				),
+				getSessionStorageValue<string[]>(STORAGE_KEYS.FILTERED_VIDEO_KEYS),
+				getSessionStorageValue<FilteredVideoRecord[]>(
+					STORAGE_KEYS.FILTERED_VIDEOS,
+				),
+			]);
 
 		this.filterSettings = settings;
 		this.filterStats = stats;
 		this.subscribedChannels = buildSubscriptionLookup(subscriptions?.channels);
+		this.recordedFilterKeys = new Set([
+			...(recordedFilterKeys || []),
+			...(filteredVideos || [])
+				.map((entry) => entry.key)
+				.filter((key): key is string => Boolean(key)),
+		]);
 	}
 
 	private clearSettlingRescans(): void {
@@ -565,7 +612,7 @@ class FeedFilterController {
 	}
 
 	private async appendFilteredVideos(
-		entries: Array<Pick<FilteredVideoRecord, "title" | "reason">>,
+		entries: FilterRecordEntry[],
 	): Promise<void> {
 		if (entries.length === 0) {
 			return;
@@ -579,9 +626,24 @@ class FeedFilterController {
 		const nextVideos = [
 			...existing,
 			...entries.map((entry) => ({ ...entry, timestamp })),
-		].slice(-HISTORY_LIMIT);
+		];
+		const dedupedVideos = Array.from(
+			new Map(
+				nextVideos.map((entry) => [
+					entry.key || `${entry.title}:${entry.reason}`,
+					entry,
+				]),
+			).values(),
+		).slice(-HISTORY_LIMIT);
 
-		await setSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS, nextVideos);
+		await setSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS, dedupedVideos);
+	}
+
+	private async persistRecordedFilterKeys(): Promise<void> {
+		await setSessionStorageValue(
+			STORAGE_KEYS.FILTERED_VIDEO_KEYS,
+			Array.from(this.recordedFilterKeys),
+		);
 	}
 
 	private async persistStats(currentStats: FilterStats): Promise<void> {
@@ -620,9 +682,7 @@ class FeedFilterController {
 		}
 
 		const currentStats: FilterStats = { ...DEFAULT_FILTER_STATS };
-		const filteredEntries: Array<
-			Pick<FilteredVideoRecord, "title" | "reason">
-		> = [];
+		const filteredEntries: FilterRecordEntry[] = [];
 		let incompleteCards = 0;
 
 		const videoCards = Array.from(
@@ -671,11 +731,34 @@ class FeedFilterController {
 			delete (videoElement as HTMLElement).dataset.filterRetryCount;
 
 			if (triggeredFilter.shouldFilter && !shouldPreserveSubscribedVideo) {
+				const filterRecordKey = buildFilterRecordKey(
+					videoData,
+					triggeredFilter.reason,
+				);
+				const shouldRecordFilter =
+					(filterRecordKey && !this.recordedFilterKeys.has(filterRecordKey)) ||
+					(!filterRecordKey && !wasFiltered);
+
 				hideVideoCard(videoElement, triggeredFilter.reason);
 				markVideoCardProcessed(videoElement);
-				currentStats[triggeredFilter.reason] += 1;
-				currentStats.total += 1;
-				filteredEntries.push({ title, reason: triggeredFilter.details });
+				if (shouldRecordFilter) {
+					if (filterRecordKey) {
+						this.recordedFilterKeys.add(filterRecordKey);
+						filteredEntries.push({
+							key: filterRecordKey,
+							title,
+							reason: triggeredFilter.details,
+						});
+					} else {
+						filteredEntries.push({
+							key: `${triggeredFilter.reason}:fallback:${title}`,
+							title,
+							reason: triggeredFilter.details,
+						});
+					}
+					currentStats[triggeredFilter.reason] += 1;
+					currentStats.total += 1;
+				}
 				continue;
 			}
 
@@ -692,6 +775,7 @@ class FeedFilterController {
 			await Promise.all([
 				this.persistStats(currentStats),
 				this.appendFilteredVideos(filteredEntries),
+				this.persistRecordedFilterKeys(),
 			]);
 		}
 

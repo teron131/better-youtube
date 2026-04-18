@@ -29,6 +29,7 @@ export interface FilterStats {
 }
 
 export interface FilteredVideoRecord {
+	key?: string;
 	title: string;
 	reason: string;
 	timestamp: string;
