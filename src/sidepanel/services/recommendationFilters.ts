@@ -48,7 +48,10 @@ export async function getRecommendationFilterHistory(): Promise<
 }
 
 export async function clearRecommendationFilterHistory(): Promise<void> {
-	await removeSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS);
+	await Promise.all([
+		removeSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEOS),
+		removeSessionStorageValue(STORAGE_KEYS.FILTERED_VIDEO_KEYS),
+	]);
 }
 
 export async function getStoredSubscriptions(): Promise<StoredSubscriptions | null> {
