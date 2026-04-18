@@ -35,7 +35,6 @@ export const STORAGE_KEYS = {
 	MAX_DURATION: "maxDuration",
 	MAX_AGE_YEARS: "maxAgeYears",
 	FILTER_KEYWORDS: "filterKeywords",
-	FILTER_STATS: "filterStats",
 	FILTERED_VIDEOS: "filteredVideos",
 	FILTERED_VIDEO_KEYS: "filteredVideoKeys",
 	YOUTUBE_SUBSCRIPTIONS: "youtubeSubscriptions",
