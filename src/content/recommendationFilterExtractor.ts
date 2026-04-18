@@ -10,9 +10,13 @@ const NO_VIEWS_PATTERN = /No views?/i;
 const PUBLISH_TIME_PATTERN =
 	/(streamed\s+)?\d+\s*(second|minute|hour|day|week|month|year)s?\s*ago/i;
 const DURATION_TEXT_PATTERN = /^(?:\d+:)?\d{1,2}:\d{2}$/;
+const LIVE_BADGE_PATTERN = /\b(live|live now)\b/i;
+const LIVE_VIEW_COUNT_PATTERN = /\bwatching\b/i;
+const WATCHING_COUNT_PATTERN = /\d+(?:[.,]\d+)?\s*[KMB]?\s+watching/i;
 const CHANNEL_LINK_SELECTOR = "a[href^='/@'], a[href^='/channel/']";
 const WATCH_LINK_SELECTOR =
 	"a#thumbnail, a#video-title, a#video-title-link, a[href*='/watch']";
+const THUMBNAIL_LINK_SELECTOR = "a#thumbnail, a[href*='/watch']";
 const TITLE_SELECTORS = [
 	"#video-title",
 	"a#video-title-link",
@@ -38,6 +42,8 @@ const METADATA_TEXT_SELECTORS = [
 	"ytd-video-meta-block",
 	"#channel-info",
 ];
+const LIVE_INDICATOR_SELECTOR =
+	"badge-shape .yt-badge-shape__text, .yt-badge-shape__text, yt-thumbnail-badge-view-model, [overlay-style='LIVE'], [aria-label]";
 const CHANNEL_PATH_PREFIXES = ["/@", "/channel/"];
 const RENDERER_DATA_ACCESSORS = [
 	(element: RendererElement) => element?.data,
@@ -66,6 +72,7 @@ type RendererElement = Element & {
 };
 
 export type TitleLanguage = "en" | "zh" | "unknown";
+type ExtractedVideoData = Omit<VideoCardData, "titleLanguage">;
 
 export interface VideoCardData {
 	title: string | null;
@@ -73,6 +80,7 @@ export interface VideoCardData {
 	viewCount: string | null;
 	duration: string | null;
 	publishTime: string | null;
+	isLiveContent: boolean;
 	videoId: string | null;
 	channelName: string | null;
 	channelId: string | null;
@@ -243,6 +251,79 @@ function normalizeDurationText(value: unknown): string | null {
 	return text && DURATION_TEXT_PATTERN.test(text) ? text : null;
 }
 
+function isStreamPublishTime(value: unknown): boolean {
+	const text = textFromNode(value);
+	return Boolean(text && /^streamed\s+/i.test(text));
+}
+
+function isWatchingCount(value: unknown): boolean {
+	const text = textFromNode(value);
+	return Boolean(text && LIVE_VIEW_COUNT_PATTERN.test(text));
+}
+
+function hasLiveMetadata(
+	videoData: Pick<ExtractedVideoData, "publishTime" | "viewCount">,
+): boolean {
+	return (
+		isStreamPublishTime(videoData.publishTime) ||
+		isWatchingCount(videoData.viewCount)
+	);
+}
+
+function updateLiveContentState(
+	videoData: Pick<
+		ExtractedVideoData,
+		"publishTime" | "viewCount" | "isLiveContent"
+	>,
+): void {
+	if (!videoData.isLiveContent && hasLiveMetadata(videoData)) {
+		videoData.isLiveContent = true;
+	}
+}
+
+function hasLiveRendererOverlay(value: unknown): boolean {
+	if (!Array.isArray(value)) {
+		return false;
+	}
+
+	return value.some((overlay) => {
+		if (!overlay || typeof overlay !== "object") {
+			return false;
+		}
+
+		const record = overlay as Record<string, unknown>;
+		const timeStatus = record.thumbnailOverlayTimeStatusRenderer as
+			| Record<string, unknown>
+			| undefined;
+		const style = typeof timeStatus?.style === "string" ? timeStatus.style : "";
+
+		return (
+			style.toUpperCase() === "LIVE" ||
+			Boolean(textFromNode(timeStatus?.text)?.match(LIVE_BADGE_PATTERN))
+		);
+	});
+}
+
+function getThumbnailOverlays(
+	thumbnailViewModel: Record<string, unknown> | undefined,
+): unknown[] {
+	return Array.isArray(thumbnailViewModel?.overlays)
+		? thumbnailViewModel.overlays
+		: [];
+}
+
+function getLockupThumbnailOverlays(
+	lockupViewModel: Record<string, unknown>,
+): unknown[] {
+	const contentImage = lockupViewModel.contentImage as
+		| Record<string, unknown>
+		| undefined;
+	const thumbnailViewModel = contentImage?.thumbnailViewModel as
+		| Record<string, unknown>
+		| undefined;
+	return getThumbnailOverlays(thumbnailViewModel);
+}
+
 function getChannelInfoFromEndpoint(endpoint: unknown): {
 	channelId: string | null;
 	channelPath: string | null;
@@ -299,24 +380,13 @@ function getChannelInfoFromRuns(value: unknown): {
 }
 
 function extractHomeDuration(lockupViewModel: unknown): string | null {
-	const overlays =
-		lockupViewModel &&
-		typeof lockupViewModel === "object" &&
-		"contentImage" in lockupViewModel
-			? (
-					(
-						(lockupViewModel as Record<string, unknown>).contentImage as Record<
-							string,
-							unknown
-						>
-					)?.thumbnailViewModel as Record<string, unknown>
-				)?.overlays
-			: [];
-
-	if (!Array.isArray(overlays)) {
+	if (!lockupViewModel || typeof lockupViewModel !== "object") {
 		return null;
 	}
 
+	const overlays = getLockupThumbnailOverlays(
+		lockupViewModel as Record<string, unknown>,
+	);
 	for (const overlay of overlays) {
 		if (!overlay || typeof overlay !== "object") {
 			continue;
@@ -404,9 +474,14 @@ function isSearchRenderer(rendererData: Record<string, unknown>): boolean {
 
 function extractSearchVideo(
 	rendererData: Record<string, unknown>,
-): Omit<VideoCardData, "titleLanguage"> {
+): ExtractedVideoData {
 	const searchChannelInfo = getChannelInfoFromRuns(
 		rendererData.ownerText || rendererData.longBylineText,
+	);
+	const publishTime = textFromNode(rendererData.publishedTimeText);
+	const viewCount = firstNonEmpty(
+		textFromNode(rendererData.viewCountText),
+		textFromNode(rendererData.shortViewCountText),
 	);
 
 	return {
@@ -414,11 +489,11 @@ function extractSearchVideo(
 			typeof rendererData.videoId === "string" ? rendererData.videoId : null,
 		title: textFromNode(rendererData.title),
 		duration: normalizeDurationText(rendererData.lengthText),
-		viewCount: firstNonEmpty(
-			textFromNode(rendererData.viewCountText),
-			textFromNode(rendererData.shortViewCountText),
-		),
-		publishTime: textFromNode(rendererData.publishedTimeText),
+		viewCount,
+		publishTime,
+		isLiveContent:
+			hasLiveMetadata({ publishTime, viewCount }) ||
+			hasLiveRendererOverlay(rendererData.thumbnailOverlays),
 		channelName: firstNonEmpty(
 			textFromNode(rendererData.ownerText),
 			textFromNode(rendererData.longBylineText),
@@ -430,7 +505,7 @@ function extractSearchVideo(
 
 function extractLockupVideo(
 	lockupViewModel: Record<string, unknown>,
-): Omit<VideoCardData, "titleLanguage"> {
+): ExtractedVideoData {
 	const metadata = lockupViewModel.metadata as
 		| Record<string, unknown>
 		| undefined;
@@ -462,6 +537,7 @@ function extractLockupVideo(
 						?.innertubeCommand,
 				)
 			: { channelId: null, channelPath: null };
+	const publishTime = findMetadataText(metadataTexts, PUBLISH_TIME_PATTERN);
 
 	return {
 		videoId:
@@ -471,7 +547,10 @@ function extractLockupVideo(
 		title: textFromNode(lockupMetadataViewModel?.title),
 		duration: extractHomeDuration(lockupViewModel),
 		viewCount: findMetadataText(metadataTexts, /views?/i),
-		publishTime: findMetadataText(metadataTexts, PUBLISH_TIME_PATTERN),
+		publishTime,
+		isLiveContent:
+			hasLiveMetadata({ publishTime, viewCount: null }) ||
+			hasLiveRendererOverlay(getLockupThumbnailOverlays(lockupViewModel)),
 		channelName: metadataTexts[0] || null,
 		channelId: homeChannelInfo.channelId,
 		channelPath: homeChannelInfo.channelPath,
@@ -480,7 +559,7 @@ function extractLockupVideo(
 
 function extractVideoFromRenderer(
 	rendererData: unknown,
-): Omit<VideoCardData, "titleLanguage"> | null {
+): ExtractedVideoData | null {
 	if (!rendererData || typeof rendererData !== "object") {
 		return null;
 	}
@@ -535,9 +614,7 @@ function extractDurationFromElement(videoElement: Element): string | null {
 		}
 	}
 
-	const thumbnailLink = videoElement.querySelector(
-		"a#thumbnail, a[href*='/watch']",
-	);
+	const thumbnailLink = videoElement.querySelector(THUMBNAIL_LINK_SELECTOR);
 	const thumbnailText = normalizeText(
 		(thumbnailLink as HTMLElement | null)?.innerText,
 	);
@@ -554,7 +631,7 @@ function extractMatch(text: string | null, pattern: RegExp): string | null {
 }
 
 function fillMetadataFromText(
-	videoData: Omit<VideoCardData, "titleLanguage">,
+	videoData: ExtractedVideoData,
 	metadataText: string | null,
 ) {
 	if (!videoData.viewCount) {
@@ -563,13 +640,18 @@ function fillMetadataFromText(
 			extractMatch(metadataText, NO_VIEWS_PATTERN);
 	}
 
+	if (!videoData.isLiveContent && isWatchingCount(videoData.viewCount)) {
+		videoData.isLiveContent = true;
+	}
+
 	if (!videoData.publishTime) {
 		videoData.publishTime = extractMatch(metadataText, PUBLISH_TIME_PATTERN);
 	}
+	updateLiveContentState(videoData);
 }
 
 function fillMetadataFromFullText(
-	videoData: Omit<VideoCardData, "titleLanguage">,
+	videoData: ExtractedVideoData,
 	fullText: string | null,
 ) {
 	if (!fullText) {
@@ -580,8 +662,13 @@ function fillMetadataFromFullText(
 		const viewMatch = fullText.match(VIEW_COUNT_PATTERN);
 		if (viewMatch) {
 			videoData.viewCount = normalizeText(viewMatch[0]);
-		} else if (NO_VIEWS_PATTERN.test(fullText)) {
-			videoData.viewCount = "No views";
+		} else {
+			const watchingMatch = fullText.match(WATCHING_COUNT_PATTERN);
+			if (watchingMatch) {
+				videoData.viewCount = normalizeText(watchingMatch[0]);
+			} else if (NO_VIEWS_PATTERN.test(fullText)) {
+				videoData.viewCount = "No views";
+			}
 		}
 	}
 
@@ -591,6 +678,23 @@ function fillMetadataFromFullText(
 			videoData.publishTime = normalizeText(timeMatch[0]);
 		}
 	}
+	updateLiveContentState(videoData);
+}
+
+function detectLiveContentFromElement(videoElement: Element): boolean {
+	const indicatorTexts = [
+		...videoElement.querySelectorAll(LIVE_INDICATOR_SELECTOR),
+	]
+		.map((element) =>
+			normalizeText(
+				element.getAttribute("aria-label") ||
+					element.textContent ||
+					(element as HTMLElement).innerText,
+			),
+		)
+		.filter((text): text is string => Boolean(text));
+
+	return indicatorTexts.some((text) => LIVE_BADGE_PATTERN.test(text));
 }
 
 function fillChannelInfoFromLink(
@@ -667,11 +771,12 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 			.map((candidate) => extractVideoFromRenderer(candidate))
 			.find(Boolean) || null;
 
-	const data: Omit<VideoCardData, "titleLanguage"> = {
+	const data: ExtractedVideoData = {
 		title: structuredData?.title || null,
 		viewCount: structuredData?.viewCount || null,
 		duration: structuredData?.duration || null,
 		publishTime: structuredData?.publishTime || null,
+		isLiveContent: structuredData?.isLiveContent || false,
 		videoId: structuredData?.videoId || null,
 		channelName: structuredData?.channelName || null,
 		channelId: structuredData?.channelId || null,
@@ -703,6 +808,9 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 			data,
 			normalizeText((videoElement as HTMLElement).innerText),
 		);
+		if (!data.isLiveContent) {
+			data.isLiveContent = detectLiveContentFromElement(videoElement);
+		}
 		fillChannelInfoFromLink(videoElement, data);
 		fillLockupChannelNameFromText(videoElement, data);
 	} catch (error) {
