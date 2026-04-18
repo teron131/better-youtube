@@ -81,6 +81,7 @@ export interface VideoCardData {
 	duration: string | null;
 	publishTime: string | null;
 	isLiveContent: boolean;
+	isActiveLiveContent: boolean;
 	videoId: string | null;
 	channelName: string | null;
 	channelId: string | null;
@@ -270,14 +271,24 @@ function hasLiveMetadata(
 	);
 }
 
+function hasActiveLiveMetadata(
+	videoData: Pick<ExtractedVideoData, "viewCount">,
+): boolean {
+	return isWatchingCount(videoData.viewCount);
+}
+
 function updateLiveContentState(
 	videoData: Pick<
 		ExtractedVideoData,
-		"publishTime" | "viewCount" | "isLiveContent"
+		"publishTime" | "viewCount" | "isLiveContent" | "isActiveLiveContent"
 	>,
 ): void {
 	if (!videoData.isLiveContent && hasLiveMetadata(videoData)) {
 		videoData.isLiveContent = true;
+	}
+
+	if (!videoData.isActiveLiveContent && hasActiveLiveMetadata(videoData)) {
+		videoData.isActiveLiveContent = true;
 	}
 }
 
@@ -483,6 +494,9 @@ function extractSearchVideo(
 		textFromNode(rendererData.viewCountText),
 		textFromNode(rendererData.shortViewCountText),
 	);
+	const hasActiveLiveOverlay = hasLiveRendererOverlay(
+		rendererData.thumbnailOverlays,
+	);
 
 	return {
 		videoId:
@@ -492,8 +506,9 @@ function extractSearchVideo(
 		viewCount,
 		publishTime,
 		isLiveContent:
-			hasLiveMetadata({ publishTime, viewCount }) ||
-			hasLiveRendererOverlay(rendererData.thumbnailOverlays),
+			hasLiveMetadata({ publishTime, viewCount }) || hasActiveLiveOverlay,
+		isActiveLiveContent:
+			hasActiveLiveMetadata({ viewCount }) || hasActiveLiveOverlay,
 		channelName: firstNonEmpty(
 			textFromNode(rendererData.ownerText),
 			textFromNode(rendererData.longBylineText),
@@ -538,6 +553,9 @@ function extractLockupVideo(
 				)
 			: { channelId: null, channelPath: null };
 	const publishTime = findMetadataText(metadataTexts, PUBLISH_TIME_PATTERN);
+	const hasActiveLiveOverlay = hasLiveRendererOverlay(
+		getLockupThumbnailOverlays(lockupViewModel),
+	);
 
 	return {
 		videoId:
@@ -549,8 +567,8 @@ function extractLockupVideo(
 		viewCount: findMetadataText(metadataTexts, /views?/i),
 		publishTime,
 		isLiveContent:
-			hasLiveMetadata({ publishTime, viewCount: null }) ||
-			hasLiveRendererOverlay(getLockupThumbnailOverlays(lockupViewModel)),
+			hasLiveMetadata({ publishTime, viewCount: null }) || hasActiveLiveOverlay,
+		isActiveLiveContent: hasActiveLiveOverlay,
 		channelName: metadataTexts[0] || null,
 		channelId: homeChannelInfo.channelId,
 		channelPath: homeChannelInfo.channelPath,
@@ -681,7 +699,7 @@ function fillMetadataFromFullText(
 	updateLiveContentState(videoData);
 }
 
-function detectLiveContentFromElement(videoElement: Element): boolean {
+function detectActiveLiveContentFromElement(videoElement: Element): boolean {
 	const indicatorTexts = [
 		...videoElement.querySelectorAll(LIVE_INDICATOR_SELECTOR),
 	]
@@ -777,6 +795,7 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 		duration: structuredData?.duration || null,
 		publishTime: structuredData?.publishTime || null,
 		isLiveContent: structuredData?.isLiveContent || false,
+		isActiveLiveContent: structuredData?.isActiveLiveContent || false,
 		videoId: structuredData?.videoId || null,
 		channelName: structuredData?.channelName || null,
 		channelId: structuredData?.channelId || null,
@@ -808,8 +827,12 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 			data,
 			normalizeText((videoElement as HTMLElement).innerText),
 		);
-		if (!data.isLiveContent) {
-			data.isLiveContent = detectLiveContentFromElement(videoElement);
+		if (!data.isActiveLiveContent) {
+			data.isActiveLiveContent =
+				detectActiveLiveContentFromElement(videoElement);
+		}
+		if (data.isActiveLiveContent) {
+			data.isLiveContent = true;
 		}
 		fillChannelInfoFromLink(videoElement, data);
 		fillLockupChannelNameFromText(videoElement, data);

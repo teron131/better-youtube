@@ -325,6 +325,7 @@ function checkViewsFilter(
 	settings: FeedFilterSettings,
 ): FilterResult {
 	if (
+		videoData.isActiveLiveContent ||
 		!settings.viewsFilterEnabled ||
 		settings.minViews <= 0 ||
 		!videoData.viewCount
@@ -457,6 +458,7 @@ function hasIncompleteMetadata(
 ): boolean {
 	return Boolean(
 		(settings.viewsFilterEnabled &&
+			!videoData.isActiveLiveContent &&
 			settings.minViews > 0 &&
 			!videoData.viewCount) ||
 			(settings.durationFilterEnabled &&
