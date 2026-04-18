@@ -19,15 +19,6 @@ export interface FeedFilterSettings {
 	keywords: string[];
 }
 
-export interface FilterStats {
-	views: number;
-	keywords: number;
-	duration: number;
-	age: number;
-	language: number;
-	total: number;
-}
-
 export interface FilteredVideoRecord {
 	key?: string;
 	title: string;
@@ -50,15 +41,6 @@ export interface StoredSubscriptions {
 	channelNames: string[];
 	count: number;
 }
-
-export const DEFAULT_FILTER_STATS: FilterStats = {
-	views: 0,
-	keywords: 0,
-	duration: 0,
-	age: 0,
-	language: 0,
-	total: 0,
-};
 
 export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
 	viewsFilterEnabled: DEFAULTS.VIEWS_FILTER_ENABLED,
@@ -133,17 +115,6 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 			DEFAULT_FEED_FILTER_SETTINGS.maxAgeYears,
 		),
 		keywords: normalizeKeywords(result[STORAGE_KEYS.FILTER_KEYWORDS]),
-	};
-}
-
-export async function getFilterStats(): Promise<FilterStats> {
-	const storedStats = await getStorageValue<Partial<FilterStats>>(
-		STORAGE_KEYS.FILTER_STATS,
-	);
-
-	return {
-		...DEFAULT_FILTER_STATS,
-		...(storedStats ?? {}),
 	};
 }
 

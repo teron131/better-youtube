@@ -7,8 +7,6 @@ import {
 	FEED_FILTER_STORAGE_KEYS,
 	type FeedFilterSettings,
 	type FilteredVideoRecord,
-	type FilterStats,
-	getFilterStats,
 	loadFeedFilterSettings,
 	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
@@ -31,10 +29,6 @@ export async function setRecommendationFilterSetting<
 	K extends keyof FeedFilterSettings,
 >(key: K, value: FeedFilterSettings[K]): Promise<void> {
 	await setStorageValue(FEED_FILTER_STORAGE_KEYS[key], value);
-}
-
-export async function getRecommendationFilterStats(): Promise<FilterStats> {
-	return getFilterStats();
 }
 
 export async function getRecommendationFilterHistory(): Promise<

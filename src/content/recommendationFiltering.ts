@@ -4,11 +4,8 @@
 
 import { STORAGE_KEYS } from "@/core/constants";
 import {
-	DEFAULT_FILTER_STATS,
 	type FeedFilterSettings,
 	type FilteredVideoRecord,
-	type FilterStats,
-	getFilterStats,
 	loadFeedFilterSettings,
 	type StoredSubscriptions,
 } from "@/core/recommendationFilters";
@@ -16,7 +13,6 @@ import {
 	getSessionStorageValue,
 	getStorageValue,
 	setSessionStorageValue,
-	setStorageValue,
 } from "@/core/storage";
 import {
 	extractVideoData,
@@ -36,10 +32,11 @@ const MAX_METADATA_RETRY_COUNT = 6;
 const METADATA_RETRY_DELAY_MS = 2000;
 const SETTLING_RESCAN_DELAYS_MS = [1500, 4000, 8000];
 const HISTORY_LIMIT = 100;
+type FilterReason = "views" | "keywords" | "duration" | "age" | "language";
 
 type TriggeredFilter = {
 	shouldFilter: true;
-	reason: keyof Omit<FilterStats, "total">;
+	reason: FilterReason;
 	details: string;
 };
 
@@ -168,7 +165,7 @@ function createEmptySubscriptionLookup(): SubscriptionLookup {
 
 function buildFilterRecordKey(
 	videoData: VideoCardData,
-	filterReason: keyof Omit<FilterStats, "total">,
+	filterReason: FilterReason,
 ): string | null {
 	if (videoData.videoId) {
 		return `${filterReason}:video:${videoData.videoId}`;
@@ -525,7 +522,6 @@ function getTriggeredFilter(
 
 class FeedFilterController {
 	private filterSettings: FeedFilterSettings | null = null;
-	private filterStats: FilterStats = { ...DEFAULT_FILTER_STATS };
 	private subscribedChannels: SubscriptionLookup =
 		createEmptySubscriptionLookup();
 	private recordedFilterKeys = new Set<string>();
@@ -554,10 +550,9 @@ class FeedFilterController {
 	}
 
 	private async loadState(): Promise<void> {
-		const [settings, stats, subscriptions, recordedFilterKeys, filteredVideos] =
+		const [settings, subscriptions, recordedFilterKeys, filteredVideos] =
 			await Promise.all([
 				loadFeedFilterSettings(),
-				getFilterStats(),
 				getStorageValue<StoredSubscriptions>(
 					STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS,
 				),
@@ -568,7 +563,6 @@ class FeedFilterController {
 			]);
 
 		this.filterSettings = settings;
-		this.filterStats = stats;
 		this.subscribedChannels = buildSubscriptionLookup(subscriptions?.channels);
 		this.recordedFilterKeys = new Set([
 			...(recordedFilterKeys || []),
@@ -646,19 +640,6 @@ class FeedFilterController {
 		);
 	}
 
-	private async persistStats(currentStats: FilterStats): Promise<void> {
-		this.filterStats = {
-			views: this.filterStats.views + currentStats.views,
-			keywords: this.filterStats.keywords + currentStats.keywords,
-			duration: this.filterStats.duration + currentStats.duration,
-			age: this.filterStats.age + currentStats.age,
-			language: this.filterStats.language + currentStats.language,
-			total: this.filterStats.total + currentStats.total,
-		};
-
-		await setStorageValue(STORAGE_KEYS.FILTER_STATS, this.filterStats);
-	}
-
 	private async runAllFilters(forceFullScan = false): Promise<void> {
 		if (!this.filterSettings) {
 			return;
@@ -681,7 +662,6 @@ class FeedFilterController {
 			return;
 		}
 
-		const currentStats: FilterStats = { ...DEFAULT_FILTER_STATS };
 		const filteredEntries: FilterRecordEntry[] = [];
 		let incompleteCards = 0;
 
@@ -756,8 +736,6 @@ class FeedFilterController {
 							reason: triggeredFilter.details,
 						});
 					}
-					currentStats[triggeredFilter.reason] += 1;
-					currentStats.total += 1;
 				}
 				continue;
 			}
@@ -771,9 +749,8 @@ class FeedFilterController {
 			markVideoCardProcessed(videoElement);
 		}
 
-		if (currentStats.total > 0) {
+		if (filteredEntries.length > 0) {
 			await Promise.all([
-				this.persistStats(currentStats),
 				this.appendFilteredVideos(filteredEntries),
 				this.persistRecordedFilterKeys(),
 			]);

@@ -7,7 +7,6 @@ import {
 	extractSubscriptionsFromCurrentTab,
 	getRecommendationFilterHistory,
 	getRecommendationFilterSettings,
-	getRecommendationFilterStats,
 	getStoredSubscriptions,
 	setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
@@ -27,25 +26,9 @@ import { STORAGE_KEYS } from "@/core/constants";
 import type {
 	FeedFilterSettings,
 	FilteredVideoRecord,
-	FilterStats,
 	StoredSubscriptions,
 } from "@/core/recommendationFilters";
-import {
-	DEFAULT_FEED_FILTER_SETTINGS,
-	DEFAULT_FILTER_STATS,
-} from "@/core/recommendationFilters";
-
-const STAT_ITEMS: Array<{
-	key: keyof FilterStats;
-	label: string;
-}> = [
-	{ key: "views", label: "Views" },
-	{ key: "duration", label: "Duration" },
-	{ key: "age", label: "Age" },
-	{ key: "keywords", label: "Keywords" },
-	{ key: "language", label: "Language" },
-	{ key: "total", label: "Total" },
-];
+import { DEFAULT_FEED_FILTER_SETTINGS } from "@/core/recommendationFilters";
 
 type ToggleConfig = {
 	key:
@@ -104,7 +87,6 @@ export function RecommendationFilterSettings() {
 	const [settings, setSettings] = useState<FeedFilterSettings>(
 		DEFAULT_FEED_FILTER_SETTINGS,
 	);
-	const [stats, setStats] = useState<FilterStats>(DEFAULT_FILTER_STATS);
 	const [history, setHistory] = useState<FilteredVideoRecord[]>([]);
 	const [subscriptions, setSubscriptions] =
 		useState<StoredSubscriptions | null>(null);
@@ -129,16 +111,13 @@ export function RecommendationFilterSettings() {
 	);
 
 	const refresh = useCallback(async () => {
-		const [nextSettings, nextStats, nextHistory, nextSubscriptions] =
-			await Promise.all([
-				getRecommendationFilterSettings(),
-				getRecommendationFilterStats(),
-				getRecommendationFilterHistory(),
-				getStoredSubscriptions(),
-			]);
+		const [nextSettings, nextHistory, nextSubscriptions] = await Promise.all([
+			getRecommendationFilterSettings(),
+			getRecommendationFilterHistory(),
+			getStoredSubscriptions(),
+		]);
 
 		setSettings(nextSettings);
-		setStats(nextStats);
 		setHistory(nextHistory);
 		setSubscriptions(nextSubscriptions);
 	}, []);
@@ -162,10 +141,6 @@ export function RecommendationFilterSettings() {
 				Object.keys(changes).some((key) => recommendationSettingKeys.has(key))
 			) {
 				void getRecommendationFilterSettings().then(setSettings);
-			}
-
-			if (changes[STORAGE_KEYS.FILTER_STATS]) {
-				void getRecommendationFilterStats().then(setStats);
 			}
 
 			if (changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS]) {
@@ -439,22 +414,6 @@ export function RecommendationFilterSettings() {
 						>
 							{keyword} ×
 						</button>
-					))}
-				</div>
-			</div>
-
-			<div className="space-y-3 pt-4">
-				<div className="text-sm font-semibold">Total Videos Skipped</div>
-				<div className="grid grid-cols-3 gap-x-4 gap-y-5 md:grid-cols-6">
-					{STAT_ITEMS.map((item) => (
-						<div key={item.key} className="space-y-1">
-							<div className="text-[1.75rem] font-semibold leading-none tracking-tight">
-								{stats[item.key]}
-							</div>
-							<div className="text-xs font-medium text-muted-foreground">
-								{item.label}
-							</div>
-						</div>
 					))}
 				</div>
 			</div>
