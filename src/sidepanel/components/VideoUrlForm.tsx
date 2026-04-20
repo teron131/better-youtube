@@ -14,8 +14,20 @@ import {
 	TooltipTrigger,
 } from "@ui/components/ui/tooltip";
 import { useModelSelection, useUserPreferences } from "@ui/hooks/use-config";
-import { AlertCircle, ArrowUp, Captions, Loader2 } from "lucide-react";
+import { useToast } from "@ui/hooks/use-toast";
+import {
+	AlertCircle,
+	ArrowUp,
+	Brain,
+	Captions,
+	DollarSign,
+	Loader2,
+	Rocket,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { normalizeModelCostLimit } from "@/core/config";
+import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
+import { getStorageValue, setStorageValue } from "@/core/storage";
 import {
 	isFormValid,
 	prepareProcessingOptions,
@@ -37,28 +49,122 @@ interface VideoUrlFormProps {
 	initialUrl?: string;
 }
 
-const SUMMARY_MODEL_INPUT_CLASS_NAME =
-	"h-10 rounded-md border-border/70 bg-background text-sm shadow-none hover:border-primary/30 focus:border-primary/50 focus:hover:border-primary/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0";
+type ModelSortMetric = "intelligence" | "speed" | "price";
+type SortDirection = "asc" | "desc";
 
-function measureModelWidthLabel(label: string): string {
-	const withoutProvider = label.includes(":")
-		? label.split(":").slice(1).join(":").trim()
-		: label;
+const MODEL_SORT_OPTIONS: Array<{
+	metric: ModelSortMetric;
+	icon: typeof Brain;
+	label: string;
+}> = [
+	{ metric: "intelligence", icon: Brain, label: "Sort by intelligence" },
+	{ metric: "speed", icon: Rocket, label: "Sort by speed" },
+	{ metric: "price", icon: DollarSign, label: "Sort by price" },
+];
 
-	return withoutProvider.replace(/\s*\(\$[^)]+\)\s*$/, "").trim();
+function metricValue(option: ComboboxOption, metric: ModelSortMetric): number {
+	if (metric === "price") {
+		const value = option.price;
+		return typeof value === "number" ? value : Number.POSITIVE_INFINITY;
+	}
+
+	const value =
+		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
+	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
 }
 
-function summaryModelWidth(
-	options: ComboboxOption[],
-	currentValue: string,
-): string {
-	const widestLabelLength = Math.max(
-		...options.map((option) => measureModelWidthLabel(option.label).length),
-		measureModelWidthLabel(currentValue).length,
-		"Model".length,
-	);
+function defaultSortDirection(metric: ModelSortMetric): SortDirection {
+	return metric === "price" ? "asc" : "desc";
+}
 
-	return `${widestLabelLength + 4}ch`;
+function formatMetricScore(
+	option: ComboboxOption,
+	metric: Exclude<ModelSortMetric, "price">,
+): string | null {
+	const rawValue =
+		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
+	if (typeof rawValue !== "number") {
+		return null;
+	}
+	return `[${rawValue.toFixed(0)}]`;
+}
+
+function decorateOptionLabel(
+	option: ComboboxOption,
+	metric: ModelSortMetric,
+): string {
+	if (metric === "price") {
+		return option.label;
+	}
+
+	const scoreLabel = formatMetricScore(option, metric);
+	return scoreLabel ? `${option.label} ${scoreLabel}` : option.label;
+}
+
+function sortModelOptions(
+	options: ComboboxOption[],
+	metric: ModelSortMetric,
+	direction: SortDirection,
+): ComboboxOption[] {
+	return [...options].sort((left, right) => {
+		const leftValue = metricValue(left, metric);
+		const rightValue = metricValue(right, metric);
+
+		if (leftValue !== rightValue) {
+			const ascendingResult = leftValue - rightValue;
+			return direction === "asc" ? ascendingResult : -ascendingResult;
+		}
+
+		const labelComparison = left.label.localeCompare(right.label);
+		return direction === "asc" ? labelComparison : -labelComparison;
+	});
+}
+
+function clampModelCostLimit(
+	value: number,
+	priceRange: { min: number | null; max: number | null },
+): number {
+	const minValue = priceRange.min;
+	const maxValue = priceRange.max;
+
+	if (minValue != null && value < minValue) {
+		return minValue;
+	}
+
+	if (maxValue != null && value > maxValue) {
+		return maxValue;
+	}
+
+	return value;
+}
+
+function resolveVisibleModelKey(
+	currentKey: string,
+	visibleModels: Array<{ key: string }>,
+	fallbackKey: string,
+): string {
+	if (visibleModels.some((model) => model.key === currentKey)) {
+		return currentKey;
+	}
+
+	if (visibleModels.some((model) => model.key === fallbackKey)) {
+		return fallbackKey;
+	}
+
+	return visibleModels[0]?.key ?? currentKey;
+}
+
+function modelCostLimitBounds(priceRange: {
+	min: number | null;
+	max: number | null;
+}): {
+	min: string;
+	max?: string;
+} {
+	return {
+		min: priceRange.min != null ? priceRange.min.toFixed(1) : "0.1",
+		max: priceRange.max != null ? priceRange.max.toFixed(1) : undefined,
+	};
 }
 
 export const VideoUrlForm = ({
@@ -69,28 +175,98 @@ export const VideoUrlForm = ({
 	const [url, setUrl] = useState(initialUrl || "");
 	const [validationError, setValidationError] = useState<string>("");
 	const [showExamples, setShowExamples] = useState(false);
-	const { preferences, updatePreferences } = useUserPreferences();
-	const { summarizerModels } = useModelSelection();
-
-	const modelOptions = useMemo<ComboboxOption[]>(
+	const { toast } = useToast();
+	const { preferences, updatePreferences, isLoaded } = useUserPreferences();
+	const { summarizerModels, summarizerModelPriceRange } = useModelSelection();
+	const [sortMetric, setSortMetric] = useState<ModelSortMetric>("intelligence");
+	const [modelCostLimitInput, setModelCostLimitInput] = useState(
+		String(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
+	);
+	const summarizerCostLimitBounds = modelCostLimitBounds(
+		summarizerModelPriceRange,
+	);
+	const baseModelOptions = useMemo(
 		() =>
 			summarizerModels.map((model) =>
 				toModelComboboxOption(model, { iconClassName: "h-4 w-4 opacity-80" }),
 			),
 		[summarizerModels],
 	);
+	const visibleModelOptions = useMemo(() => {
+		const direction = defaultSortDirection(sortMetric);
+		return sortModelOptions(baseModelOptions, sortMetric, direction).map(
+			(option) => ({
+				...option,
+				label: decorateOptionLabel(option, sortMetric),
+			}),
+		);
+	}, [baseModelOptions, sortMetric]);
 	const selectedModelOption = useMemo(
-		() => findMatchingComboboxOption(modelOptions, preferences.summaryModel),
-		[modelOptions, preferences.summaryModel],
-	);
-	const modelTriggerWidth = useMemo(
-		() => summaryModelWidth(modelOptions, preferences.summaryModel),
-		[modelOptions, preferences.summaryModel],
+		() =>
+			findMatchingComboboxOption(visibleModelOptions, preferences.summaryModel),
+		[preferences.summaryModel, visibleModelOptions],
 	);
 
 	useEffect(() => {
 		if (initialUrl) setUrl(initialUrl);
 	}, [initialUrl]);
+
+	useEffect(() => {
+		let isActive = true;
+
+		const syncStoredModelCostLimit = async () => {
+			try {
+				const storedValue = await getStorageValue<number>(
+					STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+				);
+				if (!isActive) return;
+				const resolvedValue = clampModelCostLimit(
+					normalizeModelCostLimit(storedValue),
+					summarizerModelPriceRange,
+				);
+				setModelCostLimitInput(String(resolvedValue));
+			} catch (error) {
+				console.error("Failed to load summary model cost limit:", error);
+			}
+		};
+
+		void syncStoredModelCostLimit();
+
+		const listener = (
+			changes: Record<string, chrome.storage.StorageChange>,
+			areaName: string,
+		) => {
+			if (
+				areaName !== "local" ||
+				!changes[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT]
+			) {
+				return;
+			}
+			void syncStoredModelCostLimit();
+		};
+
+		chrome.storage.onChanged.addListener(listener);
+		return () => {
+			isActive = false;
+			chrome.storage.onChanged.removeListener(listener);
+		};
+	}, [summarizerModelPriceRange]);
+
+	useEffect(() => {
+		if (!isLoaded || summarizerModels.length === 0) {
+			return;
+		}
+
+		const nextModelKey = resolveVisibleModelKey(
+			preferences.summaryModel,
+			summarizerModels,
+			DEFAULTS.MODEL_SUMMARIZER,
+		);
+
+		if (nextModelKey !== preferences.summaryModel) {
+			updatePreferences({ summaryModel: nextModelKey });
+		}
+	}, [isLoaded, preferences.summaryModel, summarizerModels, updatePreferences]);
 
 	const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newUrl = e.target.value;
@@ -134,7 +310,80 @@ export const VideoUrlForm = ({
 		setValidationError("");
 	};
 
-	const renderSelectedModelIcon = () => selectedModelOption?.icon ?? null;
+	const commitModelCostLimit = async (rawValue: string) => {
+		const nextValue = clampModelCostLimit(
+			normalizeModelCostLimit(rawValue),
+			summarizerModelPriceRange,
+		);
+
+		setModelCostLimitInput(String(nextValue));
+
+		try {
+			await setStorageValue(
+				STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+				nextValue,
+			);
+		} catch (error) {
+			console.error("Failed to save summary model cost limit:", error);
+			toast({
+				title: "Couldn't save model limit",
+				description: "The summary model cost cap was not updated.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	const handleModelCostLimitInputChange = (rawValue: string) => {
+		if (rawValue.trim() === "") {
+			setModelCostLimitInput(rawValue);
+			return;
+		}
+
+		const parsedValue = Number.parseFloat(rawValue);
+		if (!Number.isFinite(parsedValue)) {
+			setModelCostLimitInput(rawValue);
+			return;
+		}
+
+		const nextValue = clampModelCostLimit(
+			parsedValue,
+			summarizerModelPriceRange,
+		);
+		const normalizedValue = Number.parseFloat(nextValue.toFixed(1));
+		setModelCostLimitInput(String(normalizedValue));
+	};
+
+	const renderModelCostLimitControl = () => (
+		<>
+			<span className="text-[10px] font-semibold text-muted-foreground">≤</span>
+			<Tooltip delayDuration={0}>
+				<TooltipTrigger asChild>
+					<Input
+						type="number"
+						min={summarizerCostLimitBounds.min}
+						max={summarizerCostLimitBounds.max}
+						step="0.1"
+						value={modelCostLimitInput}
+						onChange={(event) =>
+							handleModelCostLimitInputChange(event.target.value)
+						}
+						onBlur={() => {
+							void commitModelCostLimit(modelCostLimitInput);
+						}}
+						onKeyDown={(event) => {
+							if (event.key !== "Enter") return;
+							event.currentTarget.blur();
+						}}
+						className="h-6 w-14 rounded-sm border-0 bg-transparent px-1 text-right text-xs shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+						aria-label="Summary model cost limit"
+					/>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Max blended price</p>
+				</TooltipContent>
+			</Tooltip>
+		</>
+	);
 
 	return (
 		<Card className="w-full rounded-[24px] p-0 border border-border/60 bg-muted/40 hover:border-primary/15 transition-all duration-500">
@@ -171,25 +420,21 @@ export const VideoUrlForm = ({
 					{showExamples && <ExampleUrls onSelect={handleExampleClick} />}
 				</div>
 
-				<div className="flex items-center justify-between gap-3 pt-1">
-					<div className="flex flex-1 min-w-0 items-center gap-2">
-						<div
-							className="max-w-full"
-							style={{ width: `min(100%, ${modelTriggerWidth})` }}
-						>
+				<div className="flex flex-col gap-3 pt-1 min-[520px]:flex-row min-[520px]:items-center">
+					<div className="flex min-w-0 flex-1 items-center gap-2">
+						<div className="min-w-0 flex-1">
 							<EditableCombobox
 								value={preferences.summaryModel}
 								onChange={(value) => updatePreferences({ summaryModel: value })}
-								options={modelOptions}
-								placeholder="Model"
+								options={visibleModelOptions}
+								placeholder="Select or type model..."
 								className="w-full"
-								inputClassName={SUMMARY_MODEL_INPUT_CLASS_NAME}
 								contentClassName="rounded-md"
-								renderIcon={renderSelectedModelIcon}
+								renderIcon={() => selectedModelOption?.icon ?? null}
 								renderOption={(option) => (
 									<>
 										{option.icon && (
-											<span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
+											<span className="mr-2 mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 												{option.icon}
 											</span>
 										)}
@@ -198,7 +443,35 @@ export const VideoUrlForm = ({
 										</span>
 									</>
 								)}
+								inputClassName="h-9 rounded-md border-border/70 bg-background text-sm shadow-none hover:border-primary/30 focus:border-primary/50 focus:hover:border-primary/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
 							/>
+						</div>
+
+						<div className="flex shrink-0 items-center rounded-md border border-border/60 bg-background p-0.5">
+							{MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
+								<Tooltip key={metric} delayDuration={0}>
+									<TooltipTrigger asChild>
+										<button
+											type="button"
+											onClick={() => setSortMetric(metric)}
+											className={`flex h-8 w-8 items-center justify-center rounded-sm transition-colors ${
+												sortMetric === metric
+													? "bg-primary text-white"
+													: "text-muted-foreground hover:bg-muted hover:text-foreground"
+											}`}
+											aria-label={label}
+										>
+											<MetricIcon className="h-4 w-4" />
+										</button>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>{label}</p>
+									</TooltipContent>
+								</Tooltip>
+							))}
+							<div className="ml-1 flex items-center gap-1 border-l border-border/60 pl-1.5">
+								{renderModelCostLimitControl()}
+							</div>
 						</div>
 					</div>
 
