@@ -18,10 +18,15 @@ import {
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
+import {
+	getRecommendationFilterSettings,
+	setRecommendationFilterSetting,
+} from "@ui/services/recommendationFilters";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Captions, Settings as SettingsIcon } from "lucide-react";
+import { Captions, ListFilter, Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
+import type { FeedFilterSettings } from "@/core/recommendationFilters";
 import {
 	getStorageValue,
 	getSubtitles,
@@ -128,6 +133,26 @@ function getTrackedStorageKeys(videoId: string): Set<string> {
 	]);
 }
 
+const RECOMMENDATION_FILTER_TOGGLE_KEYS = [
+	"viewsFilterEnabled",
+	"durationFilterEnabled",
+	"keywordFilterEnabled",
+	"ageFilterEnabled",
+	"englishOnlyTitles",
+] as const;
+
+const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set<string>([
+	STORAGE_KEYS.VIEWS_FILTER_ENABLED,
+	STORAGE_KEYS.DURATION_FILTER_ENABLED,
+	STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
+	STORAGE_KEYS.AGE_FILTER_ENABLED,
+	STORAGE_KEYS.ENGLISH_ONLY_TITLES,
+]);
+
+function hasActiveRecommendationFilters(settings: FeedFilterSettings): boolean {
+	return RECOMMENDATION_FILTER_TOGGLE_KEYS.some((key) => settings[key]);
+}
+
 const Index = () => {
 	const resultsRef = useRef<HTMLDivElement | null>(null);
 	const currentUrlVideoIdRef = useRef<string | null>(null);
@@ -138,6 +163,8 @@ const Index = () => {
 	const [showSubtitles, setShowSubtitles] = useState<boolean>(
 		DEFAULTS.SHOW_SUBTITLES,
 	);
+	const [recommendationFiltersEnabled, setRecommendationFiltersEnabled] =
+		useState(false);
 	const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
 	const { toast } = useToast();
 	const {
@@ -209,6 +236,45 @@ const Index = () => {
 		};
 
 		loadShowSubtitles();
+	}, []);
+
+	useEffect(() => {
+		const loadRecommendationFilterState = async () => {
+			try {
+				const settings = await getRecommendationFilterSettings();
+				setRecommendationFiltersEnabled(
+					hasActiveRecommendationFilters(settings),
+				);
+			} catch (error) {
+				console.error("Failed to load recommendation filter settings:", error);
+			}
+		};
+
+		void loadRecommendationFilterState();
+
+		if (typeof chrome === "undefined" || !chrome.storage?.onChanged) {
+			return;
+		}
+
+		const handleStorageChange = (
+			changes: { [key: string]: chrome.storage.StorageChange },
+			areaName: string,
+		) => {
+			if (areaName !== "local") return;
+			if (
+				!Object.keys(changes).some((key) =>
+					RECOMMENDATION_FILTER_STORAGE_KEYS.has(key),
+				)
+			) {
+				return;
+			}
+			void loadRecommendationFilterState();
+		};
+
+		chrome.storage.onChanged.addListener(handleStorageChange);
+		return () => {
+			chrome.storage.onChanged.removeListener(handleStorageChange);
+		};
 	}, []);
 
 	useEffect(() => {
@@ -302,6 +368,38 @@ const Index = () => {
 		}
 
 		broadcastToggleSubtitles(nextState);
+	};
+
+	const handleToggleRecommendationFilters = async () => {
+		const nextState = !recommendationFiltersEnabled;
+		setRecommendationFiltersEnabled(nextState);
+
+		try {
+			await Promise.all(
+				RECOMMENDATION_FILTER_TOGGLE_KEYS.map((key) =>
+					setRecommendationFilterSetting(key, nextState),
+				),
+			);
+		} catch (error) {
+			console.error("Failed to save recommendation filter settings:", error);
+			try {
+				const settings = await getRecommendationFilterSettings();
+				setRecommendationFiltersEnabled(
+					hasActiveRecommendationFilters(settings),
+				);
+			} catch (reloadError) {
+				console.error(
+					"Failed to reload recommendation filter settings:",
+					reloadError,
+				);
+				setRecommendationFiltersEnabled(!nextState);
+			}
+			toast({
+				title: "Update Failed",
+				description: "Couldn't update recommendation filters.",
+				variant: "destructive",
+			});
+		}
 	};
 
 	const loadExample = useCallback(() => {
@@ -515,6 +613,21 @@ const Index = () => {
 							>
 								<Captions className="h-4 w-4" />
 								<span>Overlay</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								type="button"
+								onClick={() => void handleToggleRecommendationFilters()}
+								className={`gap-2 text-xs font-medium transition-colors ${
+									recommendationFiltersEnabled
+										? "text-primary bg-primary/10 hover:bg-primary/20"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+								title="Toggle recommendation filters"
+							>
+								<ListFilter className="h-4 w-4" />
+								<span>Filters</span>
 							</Button>
 						</div>
 						<Button
