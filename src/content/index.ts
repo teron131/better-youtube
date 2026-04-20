@@ -37,6 +37,39 @@ import {
 	validateLoadContext,
 } from "./videoHelpers";
 
+const HISTORY_CHANGE_EVENT = "better-youtube:history-change";
+let historyChangeMonitoringInstalled = false;
+
+function dispatchHistoryChangeEvent(): void {
+	window.dispatchEvent(new Event(HISTORY_CHANGE_EVENT));
+}
+
+function installHistoryChangeMonitoring(): void {
+	if (historyChangeMonitoringInstalled) {
+		return;
+	}
+
+	historyChangeMonitoringInstalled = true;
+
+	const wrapHistoryMethod = (
+		methodName: "pushState" | "replaceState",
+	): void => {
+		const originalMethod = window.history[methodName];
+
+		window.history[methodName] = function (
+			this: History,
+			...args: Parameters<History["pushState"]>
+		) {
+			const result = originalMethod.apply(this, args);
+			dispatchHistoryChangeEvent();
+			return result;
+		};
+	};
+
+	wrapHistoryMethod("pushState");
+	wrapHistoryMethod("replaceState");
+}
+
 /**
  * Manages the content script lifecycle and state
  */
@@ -52,7 +85,6 @@ class ContentManager {
 	private currentUrl: string = window.location.href;
 	private isUrlMonitoringStarted = false;
 	private urlCheckTimeout: number | null = null;
-	private urlCheckIntervalId: number | null = null;
 
 	constructor() {
 		this.checkAndTriggerAutoGeneration =
@@ -92,18 +124,13 @@ class ContentManager {
 	 * Monitor URL changes on YouTube
 	 */
 	private monitorUrlChanges(): void {
+		installHistoryChangeMonitoring();
 		document.addEventListener("yt-navigate-finish", this.scheduleUrlCheck);
 		document.addEventListener("yt-page-data-updated", this.scheduleUrlCheck);
 		window.addEventListener("popstate", this.scheduleUrlCheck);
 		window.addEventListener("hashchange", this.scheduleUrlCheck);
+		window.addEventListener(HISTORY_CHANGE_EVENT, this.scheduleUrlCheck);
 		document.addEventListener("visibilitychange", this.scheduleUrlCheck);
-
-		if (this.urlCheckIntervalId === null) {
-			this.urlCheckIntervalId = window.setInterval(
-				this.handlePotentialUrlChange,
-				TIMING.CAPTION_CHECK_DELAY_MS,
-			);
-		}
 	}
 
 	private scheduleUrlCheck(): void {

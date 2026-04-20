@@ -525,12 +525,11 @@ class FeedFilterController {
 	private subscribedChannels: SubscriptionLookup =
 		createEmptySubscriptionLookup();
 	private recordedFilterKeys = new Set<string>();
+	private pendingVideoCards = new Set<Element>();
 	private metadataRetryTimeout: number | null = null;
 	private settlingRescanTimeouts: number[] = [];
 	private filterTimeout: number | null = null;
-	private scrollTimeout: number | null = null;
 	private lastUrl = location.href;
-	private lastVideoCount = 0;
 
 	public async start(): Promise<void> {
 		await this.loadState();
@@ -546,7 +545,6 @@ class FeedFilterController {
 		this.startContentObserver();
 		this.startStorageListener();
 		this.startNavigationObserver();
-		this.startScrollListener();
 	}
 
 	private async loadState(): Promise<void> {
@@ -579,6 +577,13 @@ class FeedFilterController {
 		this.settlingRescanTimeouts = [];
 	}
 
+	private clearQueuedCardFiltering(): void {
+		if (this.filterTimeout !== null) {
+			window.clearTimeout(this.filterTimeout);
+			this.filterTimeout = null;
+		}
+	}
+
 	private scheduleSettlingRescans(reason: string): void {
 		if (shouldSkipFilteringForPage()) {
 			return;
@@ -599,8 +604,9 @@ class FeedFilterController {
 	private runAllFiltersSafely(
 		forceFullScan = false,
 		action = "filter run",
+		videoCards?: Element[],
 	): void {
-		void this.runAllFilters(forceFullScan).catch((error) => {
+		void this.runAllFilters(forceFullScan, videoCards).catch((error) => {
 			logFilteringError(action, error);
 		});
 	}
@@ -640,7 +646,26 @@ class FeedFilterController {
 		);
 	}
 
-	private async runAllFilters(forceFullScan = false): Promise<void> {
+	private getTargetVideoCards(
+		forceFullScan = false,
+		videoCards?: Element[],
+	): Element[] {
+		const sourceCards =
+			videoCards && videoCards.length > 0
+				? Array.from(new Set(videoCards))
+				: Array.from(document.querySelectorAll(VIDEO_CARD_SELECTOR));
+
+		return sourceCards.filter(
+			(videoElement) =>
+				videoElement.isConnected &&
+				(forceFullScan || !videoElement.hasAttribute("data-filter-processed")),
+		);
+	}
+
+	private async runAllFilters(
+		forceFullScan = false,
+		videoCards?: Element[],
+	): Promise<void> {
 		if (!this.filterSettings) {
 			return;
 		}
@@ -651,6 +676,8 @@ class FeedFilterController {
 				window.clearTimeout(this.metadataRetryTimeout);
 				this.metadataRetryTimeout = null;
 			}
+			this.clearQueuedCardFiltering();
+			this.pendingVideoCards.clear();
 			this.clearSettlingRescans();
 			resetProcessedVideoCards();
 			console.log(`[recommendation-filter] skipping filters on ${skipReason}`);
@@ -658,20 +685,15 @@ class FeedFilterController {
 		}
 
 		if (!hasActiveHideFilters(this.filterSettings)) {
+			this.clearQueuedCardFiltering();
+			this.pendingVideoCards.clear();
 			resetProcessedVideoCards();
 			return;
 		}
 
 		const filteredEntries: FilterRecordEntry[] = [];
 		let incompleteCards = 0;
-
-		const videoCards = Array.from(
-			document.querySelectorAll(VIDEO_CARD_SELECTOR),
-		);
-		const targetCards = videoCards.filter(
-			(videoElement) =>
-				forceFullScan || !videoElement.hasAttribute("data-filter-processed"),
-		);
+		const targetCards = this.getTargetVideoCards(forceFullScan, videoCards);
 
 		for (const videoElement of targetCards) {
 			const wasFiltered = videoElement.hasAttribute("data-filtered");
@@ -766,6 +788,55 @@ class FeedFilterController {
 		}
 	}
 
+	private queueVideoCard(videoElement: Element): void {
+		queueVideoCardForReprocessing(videoElement);
+		this.pendingVideoCards.add(videoElement);
+	}
+
+	private queueVideoCardsFromNode(node: Node): boolean {
+		if (node.nodeType !== Node.ELEMENT_NODE) {
+			return false;
+		}
+
+		const element = node as Element;
+		let queuedAny = false;
+
+		if (element.matches(VIDEO_CARD_SELECTOR)) {
+			this.queueVideoCard(element);
+			queuedAny = true;
+		}
+
+		if (
+			VIDEO_CARD_NODE_NAMES.has(node.nodeName) ||
+			Boolean(element.querySelector?.(VIDEO_CARD_SELECTOR))
+		) {
+			element.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((videoCard) => {
+				this.queueVideoCard(videoCard);
+				queuedAny = true;
+			});
+		}
+
+		return queuedAny;
+	}
+
+	private scheduleQueuedCardFiltering(action: string): void {
+		if (this.filterTimeout) {
+			window.clearTimeout(this.filterTimeout);
+		}
+
+		this.filterTimeout = window.setTimeout(() => {
+			this.filterTimeout = null;
+			const pendingVideoCards = Array.from(this.pendingVideoCards);
+			this.pendingVideoCards.clear();
+
+			if (pendingVideoCards.length === 0) {
+				return;
+			}
+
+			this.runAllFiltersSafely(false, action, pendingVideoCards);
+		}, 800);
+	}
+
 	private startContentObserver(): void {
 		const contentRoot = document.querySelector("ytd-app") || document.body;
 		if (!contentRoot) {
@@ -773,48 +844,17 @@ class FeedFilterController {
 		}
 
 		const observer = new MutationObserver((mutations) => {
-			const hasNewContent = mutations.some((mutation) => {
-				Array.from(mutation.addedNodes).forEach((node) => {
-					if (node.nodeType !== Node.ELEMENT_NODE) {
-						return;
-					}
+			const queuedAny = mutations.some((mutation) =>
+				Array.from(mutation.addedNodes).some((node) =>
+					this.queueVideoCardsFromNode(node),
+				),
+			);
 
-					const element = node as Element;
-					if (element.matches(VIDEO_CARD_SELECTOR)) {
-						queueVideoCardForReprocessing(element);
-						return;
-					}
-
-					element.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((videoCard) => {
-						queueVideoCardForReprocessing(videoCard);
-					});
-				});
-
-				return Array.from(mutation.addedNodes).some((node) => {
-					if (node.nodeType !== Node.ELEMENT_NODE) {
-						return false;
-					}
-
-					const element = node as Element;
-					return (
-						VIDEO_CARD_NODE_NAMES.has(node.nodeName) ||
-						Boolean(element.querySelector?.(VIDEO_CARD_SELECTOR))
-					);
-				});
-			});
-
-			if (!hasNewContent) {
+			if (!queuedAny) {
 				return;
 			}
 
-			if (this.filterTimeout) {
-				window.clearTimeout(this.filterTimeout);
-			}
-
-			this.filterTimeout = window.setTimeout(() => {
-				this.runAllFiltersSafely(false, "content update");
-				this.scheduleSettlingRescans("content update");
-			}, 800);
+			this.scheduleQueuedCardFiltering("content update");
 		});
 
 		observer.observe(contentRoot, {
@@ -833,6 +873,8 @@ class FeedFilterController {
 				this.subscribedChannels = buildSubscriptionLookup(
 					changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS].newValue?.channels,
 				);
+				this.clearQueuedCardFiltering();
+				this.pendingVideoCards.clear();
 				resetProcessedVideoCards();
 				this.runAllFiltersSafely(true, "subscription update");
 				this.scheduleSettlingRescans("subscription update");
@@ -863,6 +905,8 @@ class FeedFilterController {
 			void loadFeedFilterSettings()
 				.then((settings) => {
 					this.filterSettings = settings;
+					this.clearQueuedCardFiltering();
+					this.pendingVideoCards.clear();
 					resetProcessedVideoCards();
 					this.runAllFiltersSafely(true, "settings change");
 					this.scheduleSettlingRescans("settings change");
@@ -881,6 +925,8 @@ class FeedFilterController {
 			}
 
 			this.lastUrl = currentUrl;
+			this.clearQueuedCardFiltering();
+			this.pendingVideoCards.clear();
 			resetProcessedVideoCards();
 			this.clearSettlingRescans();
 			window.setTimeout(() => {
@@ -893,29 +939,6 @@ class FeedFilterController {
 		document.addEventListener("yt-page-data-updated", handleNavigation);
 		window.addEventListener("popstate", handleNavigation);
 		window.addEventListener("hashchange", handleNavigation);
-	}
-
-	private startScrollListener(): void {
-		window.addEventListener(
-			"scroll",
-			() => {
-				if (this.scrollTimeout) {
-					window.clearTimeout(this.scrollTimeout);
-				}
-
-				this.scrollTimeout = window.setTimeout(() => {
-					const currentVideoCount =
-						document.querySelectorAll(VIDEO_CARD_SELECTOR).length;
-
-					if (currentVideoCount > this.lastVideoCount) {
-						this.lastVideoCount = currentVideoCount;
-						this.runAllFiltersSafely(false, "scroll growth");
-						this.scheduleSettlingRescans("scroll growth");
-					}
-				}, 1000);
-			},
-			{ passive: true },
-		);
 	}
 }
 
