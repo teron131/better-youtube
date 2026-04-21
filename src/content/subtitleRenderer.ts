@@ -14,6 +14,18 @@ const MAX_SUBTITLE_SYNC_DELAY_MS = 1000;
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;
 let activeVideoId: string | null = null;
+let cachedPageUrl = "";
+let cachedPageVideoId: string | null = null;
+
+function getCurrentPageVideoId(): string | null {
+	const currentUrl = window.location.href;
+	if (currentUrl !== cachedPageUrl) {
+		cachedPageUrl = currentUrl;
+		cachedPageVideoId = extractVideoId(currentUrl);
+	}
+
+	return cachedPageVideoId;
+}
 
 /**
  * Manages the DOM elements for subtitles (View)
@@ -157,10 +169,7 @@ class SubtitleController {
 	private syncPlayback = (): void => {
 		this.stopScheduledSync();
 
-		if (
-			activeVideoId &&
-			extractVideoId(window.location.href) !== activeVideoId
-		) {
+		if (activeVideoId && getCurrentPageVideoId() !== activeVideoId) {
 			stopSubtitleDisplay();
 			return;
 		}
@@ -209,29 +218,12 @@ class SubtitleController {
 			return this.activeSubtitleIndex;
 		}
 
-		if (
+		let low =
 			activeSubtitle &&
 			this.activeSubtitleIndex >= 0 &&
 			timeMs >= activeSubtitle.endTime
-		) {
-			for (
-				let subtitleIndex = this.activeSubtitleIndex + 1;
-				subtitleIndex < this.subtitles.length;
-				subtitleIndex += 1
-			) {
-				const subtitle = this.subtitles[subtitleIndex];
-				if (timeMs < subtitle.startTime) {
-					return -1;
-				}
-				if (timeMs < subtitle.endTime) {
-					return subtitleIndex;
-				}
-			}
-
-			return -1;
-		}
-
-		let low = 0;
+				? this.activeSubtitleIndex + 1
+				: 0;
 		let high = this.subtitles.length - 1;
 
 		while (low <= high) {
@@ -250,6 +242,22 @@ class SubtitleController {
 		return -1;
 	}
 
+	private findFirstSubtitleStartingAfter(timeMs: number): number {
+		let low = 0;
+		let high = this.subtitles.length;
+
+		while (low < high) {
+			const mid = Math.floor((low + high) / 2);
+			if (this.subtitles[mid].startTime <= timeMs) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
+		}
+
+		return low;
+	}
+
 	private getNormalizedSubtitleText(subtitleIndex: number): string {
 		const cachedText = this.normalizedSubtitleCache.get(subtitleIndex);
 		if (cachedText !== undefined) {
@@ -263,16 +271,6 @@ class SubtitleController {
 		return normalizedText;
 	}
 
-	private findNextSubtitleStartTime(timeMs: number): number | null {
-		for (const subtitle of this.subtitles) {
-			if (subtitle.startTime > timeMs) {
-				return subtitle.startTime;
-			}
-		}
-
-		return null;
-	}
-
 	private getNextSyncDelay(currentTime: number): number {
 		if (this.videoPlayer.paused || this.videoPlayer.ended) {
 			return MAX_SUBTITLE_SYNC_DELAY_MS;
@@ -282,7 +280,8 @@ class SubtitleController {
 		const nextBoundaryMs =
 			activeSubtitle && currentTime < activeSubtitle.endTime
 				? activeSubtitle.endTime
-				: this.findNextSubtitleStartTime(currentTime);
+				: (this.subtitles[this.findFirstSubtitleStartingAfter(currentTime)]
+						?.startTime ?? null);
 
 		if (nextBoundaryMs === null) {
 			return MAX_SUBTITLE_SYNC_DELAY_MS;

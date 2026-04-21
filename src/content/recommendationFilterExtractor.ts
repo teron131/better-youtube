@@ -611,31 +611,33 @@ function getFirstMatchingElement(
 	return null;
 }
 
+function getNormalizedElementText(element: Element | null): string | null {
+	return normalizeText(element?.textContent);
+}
+
 function getMetadataText(videoElement: Element): string | null {
-	return normalizeText(
-		METADATA_TEXT_SELECTORS.map(
-			(selector) =>
-				(videoElement.querySelector(selector) as HTMLElement | null)?.innerText,
-		)
-			.filter(Boolean)
-			.join(" "),
-	);
+	const metadataParts: string[] = [];
+
+	for (const selector of METADATA_TEXT_SELECTORS) {
+		const text = getNormalizedElementText(videoElement.querySelector(selector));
+		if (text) {
+			metadataParts.push(text);
+		}
+	}
+
+	return normalizeText(metadataParts.join(" "));
 }
 
 function extractDurationFromElement(videoElement: Element): string | null {
 	for (const selector of DURATION_SELECTORS) {
-		const text = normalizeText(
-			videoElement.querySelector(selector)?.textContent,
-		);
+		const text = getNormalizedElementText(videoElement.querySelector(selector));
 		if (text && DURATION_TEXT_PATTERN.test(text)) {
 			return text;
 		}
 	}
 
 	const thumbnailLink = videoElement.querySelector(THUMBNAIL_LINK_SELECTOR);
-	const thumbnailText = normalizeText(
-		(thumbnailLink as HTMLElement | null)?.innerText,
-	);
+	const thumbnailText = getNormalizedElementText(thumbnailLink);
 	return thumbnailText?.match(DURATION_TEXT_PATTERN)?.[0] || null;
 }
 
@@ -700,19 +702,18 @@ function fillMetadataFromFullText(
 }
 
 function detectActiveLiveContentFromElement(videoElement: Element): boolean {
-	const indicatorTexts = [
-		...videoElement.querySelectorAll(LIVE_INDICATOR_SELECTOR),
-	]
-		.map((element) =>
-			normalizeText(
-				element.getAttribute("aria-label") ||
-					element.textContent ||
-					(element as HTMLElement).innerText,
-			),
-		)
-		.filter((text): text is string => Boolean(text));
+	for (const element of videoElement.querySelectorAll(
+		LIVE_INDICATOR_SELECTOR,
+	)) {
+		const indicatorText = normalizeText(
+			element.getAttribute("aria-label") || element.textContent,
+		);
+		if (indicatorText && LIVE_BADGE_PATTERN.test(indicatorText)) {
+			return true;
+		}
+	}
 
-	return indicatorTexts.some((text) => LIVE_BADGE_PATTERN.test(text));
+	return false;
 }
 
 function fillChannelInfoFromLink(
@@ -759,6 +760,33 @@ function fillLockupChannelNameFromText(
 	}
 }
 
+function getStructuredVideoData(
+	videoElement: Element,
+): ExtractedVideoData | null {
+	for (const candidate of getRendererDataCandidates(videoElement)) {
+		const structuredData = extractVideoFromRenderer(candidate);
+		if (structuredData) {
+			return structuredData;
+		}
+	}
+
+	return null;
+}
+
+function needsMetadataFallback(videoData: ExtractedVideoData): boolean {
+	return (
+		!videoData.viewCount || !videoData.publishTime || !videoData.isLiveContent
+	);
+}
+
+function needsFullTextFallback(videoData: ExtractedVideoData): boolean {
+	return !videoData.viewCount || !videoData.publishTime;
+}
+
+function getVideoCardFullText(videoElement: Element): string | null {
+	return normalizeText(videoElement.textContent);
+}
+
 function detectTitleLanguage(title: string | null): TitleLanguage {
 	if (!title) {
 		return "unknown";
@@ -784,10 +812,7 @@ function detectTitleLanguage(title: string | null): TitleLanguage {
 }
 
 export function extractVideoData(videoElement: Element): VideoCardData {
-	const structuredData =
-		getRendererDataCandidates(videoElement)
-			.map((candidate) => extractVideoFromRenderer(candidate))
-			.find(Boolean) || null;
+	const structuredData = getStructuredVideoData(videoElement);
 
 	const data: ExtractedVideoData = {
 		title: structuredData?.title || null,
@@ -822,11 +847,12 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 			data.duration = extractDurationFromElement(videoElement);
 		}
 
-		fillMetadataFromText(data, getMetadataText(videoElement));
-		fillMetadataFromFullText(
-			data,
-			normalizeText((videoElement as HTMLElement).innerText),
-		);
+		if (needsMetadataFallback(data)) {
+			fillMetadataFromText(data, getMetadataText(videoElement));
+		}
+		if (needsFullTextFallback(data)) {
+			fillMetadataFromFullText(data, getVideoCardFullText(videoElement));
+		}
 		if (!data.isActiveLiveContent) {
 			data.isActiveLiveContent =
 				detectActiveLiveContentFromElement(videoElement);

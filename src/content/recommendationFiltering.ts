@@ -20,7 +20,6 @@ import {
 	normalizeChannelPath,
 	normalizeText,
 	queueVideoCardForReprocessing,
-	VIDEO_CARD_NODE_NAMES,
 	VIDEO_CARD_SELECTOR,
 	type VideoCardData,
 } from "./recommendationFilterExtractor";
@@ -526,10 +525,12 @@ class FeedFilterController {
 		createEmptySubscriptionLookup();
 	private recordedFilterKeys = new Set<string>();
 	private pendingVideoCards = new Set<Element>();
+	private metadataRetryVideoCards = new Set<Element>();
 	private metadataRetryTimeout: number | null = null;
 	private settlingRescanTimeouts: number[] = [];
 	private filterTimeout: number | null = null;
 	private lastUrl = location.href;
+	private contentObserver: MutationObserver | null = null;
 
 	public async start(): Promise<void> {
 		await this.loadState();
@@ -542,7 +543,7 @@ class FeedFilterController {
 			this.scheduleSettlingRescans("initial load");
 		}
 
-		this.startContentObserver();
+		this.updateContentObserver();
 		this.startStorageListener();
 		this.startNavigationObserver();
 	}
@@ -582,6 +583,62 @@ class FeedFilterController {
 			window.clearTimeout(this.filterTimeout);
 			this.filterTimeout = null;
 		}
+	}
+
+	private clearMetadataRetryTimeout(): void {
+		if (this.metadataRetryTimeout !== null) {
+			window.clearTimeout(this.metadataRetryTimeout);
+			this.metadataRetryTimeout = null;
+		}
+	}
+
+	private clearMetadataRetryState(): void {
+		this.clearMetadataRetryTimeout();
+		this.metadataRetryVideoCards.clear();
+	}
+
+	private shouldObserveContent(): boolean {
+		return Boolean(
+			this.filterSettings &&
+				hasActiveHideFilters(this.filterSettings) &&
+				!shouldSkipFilteringForPage(),
+		);
+	}
+
+	private updateContentObserver(): void {
+		if (!this.shouldObserveContent()) {
+			this.contentObserver?.disconnect();
+			this.contentObserver = null;
+			return;
+		}
+
+		if (this.contentObserver) {
+			return;
+		}
+
+		const contentRoot = document.querySelector("ytd-app") || document.body;
+		if (!contentRoot) {
+			return;
+		}
+
+		this.contentObserver = new MutationObserver((mutations) => {
+			const queuedAny = mutations.some((mutation) =>
+				Array.from(mutation.addedNodes).some((node) =>
+					this.queueVideoCardsFromNode(node),
+				),
+			);
+
+			if (!queuedAny) {
+				return;
+			}
+
+			this.scheduleQueuedCardFiltering("content update");
+		});
+
+		this.contentObserver.observe(contentRoot, {
+			childList: true,
+			subtree: true,
+		});
 	}
 
 	private scheduleSettlingRescans(reason: string): void {
@@ -670,12 +727,11 @@ class FeedFilterController {
 			return;
 		}
 
+		this.updateContentObserver();
+
 		const skipReason = getFilteringSkipReason();
 		if (skipReason) {
-			if (this.metadataRetryTimeout) {
-				window.clearTimeout(this.metadataRetryTimeout);
-				this.metadataRetryTimeout = null;
-			}
+			this.clearMetadataRetryState();
 			this.clearQueuedCardFiltering();
 			this.pendingVideoCards.clear();
 			this.clearSettlingRescans();
@@ -685,6 +741,7 @@ class FeedFilterController {
 		}
 
 		if (!hasActiveHideFilters(this.filterSettings)) {
+			this.clearMetadataRetryState();
 			this.clearQueuedCardFiltering();
 			this.pendingVideoCards.clear();
 			resetProcessedVideoCards();
@@ -692,7 +749,11 @@ class FeedFilterController {
 		}
 
 		const filteredEntries: FilterRecordEntry[] = [];
-		let incompleteCards = 0;
+		const nextMetadataRetryVideoCards = new Set(
+			Array.from(this.metadataRetryVideoCards).filter(
+				(videoElement) => videoElement.isConnected,
+			),
+		);
 		const targetCards = this.getTargetVideoCards(forceFullScan, videoCards);
 
 		for (const videoElement of targetCards) {
@@ -726,11 +787,12 @@ class FeedFilterController {
 					retryCount + 1,
 				);
 				showVideoCard(videoElement);
-				incompleteCards += 1;
+				nextMetadataRetryVideoCards.add(videoElement);
 				continue;
 			}
 
 			delete (videoElement as HTMLElement).dataset.filterRetryCount;
+			nextMetadataRetryVideoCards.delete(videoElement);
 
 			if (triggeredFilter.shouldFilter && !shouldPreserveSubscribedVideo) {
 				const filterRecordKey = buildFilterRecordKey(
@@ -778,12 +840,20 @@ class FeedFilterController {
 			]);
 		}
 
-		if (incompleteCards > 0) {
-			if (this.metadataRetryTimeout) {
-				window.clearTimeout(this.metadataRetryTimeout);
-			}
+		this.metadataRetryVideoCards = nextMetadataRetryVideoCards;
+		this.clearMetadataRetryTimeout();
+
+		if (this.metadataRetryVideoCards.size > 0) {
 			this.metadataRetryTimeout = window.setTimeout(() => {
-				void this.runAllFilters();
+				this.metadataRetryTimeout = null;
+				const retryVideoCards = Array.from(this.metadataRetryVideoCards).filter(
+					(videoElement) => videoElement.isConnected,
+				);
+				this.metadataRetryVideoCards.clear();
+				if (retryVideoCards.length === 0) {
+					return;
+				}
+				this.runAllFiltersSafely(false, "metadata retry", retryVideoCards);
 			}, METADATA_RETRY_DELAY_MS);
 		}
 	}
@@ -806,14 +876,13 @@ class FeedFilterController {
 			queuedAny = true;
 		}
 
-		if (
-			VIDEO_CARD_NODE_NAMES.has(node.nodeName) ||
-			Boolean(element.querySelector?.(VIDEO_CARD_SELECTOR))
-		) {
-			element.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((videoCard) => {
-				this.queueVideoCard(videoCard);
-				queuedAny = true;
-			});
+		if (element.childElementCount === 0) {
+			return queuedAny;
+		}
+
+		for (const videoCard of element.querySelectorAll(VIDEO_CARD_SELECTOR)) {
+			this.queueVideoCard(videoCard);
+			queuedAny = true;
 		}
 
 		return queuedAny;
@@ -837,32 +906,6 @@ class FeedFilterController {
 		}, 800);
 	}
 
-	private startContentObserver(): void {
-		const contentRoot = document.querySelector("ytd-app") || document.body;
-		if (!contentRoot) {
-			return;
-		}
-
-		const observer = new MutationObserver((mutations) => {
-			const queuedAny = mutations.some((mutation) =>
-				Array.from(mutation.addedNodes).some((node) =>
-					this.queueVideoCardsFromNode(node),
-				),
-			);
-
-			if (!queuedAny) {
-				return;
-			}
-
-			this.scheduleQueuedCardFiltering("content update");
-		});
-
-		observer.observe(contentRoot, {
-			childList: true,
-			subtree: true,
-		});
-	}
-
 	private startStorageListener(): void {
 		chrome.storage.onChanged.addListener((changes, areaName) => {
 			if (areaName !== "local") {
@@ -875,7 +918,9 @@ class FeedFilterController {
 				);
 				this.clearQueuedCardFiltering();
 				this.pendingVideoCards.clear();
+				this.clearMetadataRetryState();
 				resetProcessedVideoCards();
+				this.updateContentObserver();
 				this.runAllFiltersSafely(true, "subscription update");
 				this.scheduleSettlingRescans("subscription update");
 				return;
@@ -907,7 +952,9 @@ class FeedFilterController {
 					this.filterSettings = settings;
 					this.clearQueuedCardFiltering();
 					this.pendingVideoCards.clear();
+					this.clearMetadataRetryState();
 					resetProcessedVideoCards();
+					this.updateContentObserver();
 					this.runAllFiltersSafely(true, "settings change");
 					this.scheduleSettlingRescans("settings change");
 				})
@@ -927,8 +974,10 @@ class FeedFilterController {
 			this.lastUrl = currentUrl;
 			this.clearQueuedCardFiltering();
 			this.pendingVideoCards.clear();
+			this.clearMetadataRetryState();
 			resetProcessedVideoCards();
 			this.clearSettlingRescans();
+			this.updateContentObserver();
 			window.setTimeout(() => {
 				this.runAllFiltersSafely(true, "navigation");
 			}, 1500);
@@ -942,9 +991,15 @@ class FeedFilterController {
 	}
 }
 
+let activeFeedFilterController: FeedFilterController | null = null;
+
 export function startRecommendationFiltering(): void {
-	const controller = new FeedFilterController();
-	void controller.start().catch((error) => {
+	if (activeFeedFilterController) {
+		return;
+	}
+
+	activeFeedFilterController = new FeedFilterController();
+	void activeFeedFilterController.start().catch((error) => {
 		logFilteringError("startup", error);
 	});
 }
