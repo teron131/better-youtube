@@ -640,21 +640,30 @@ export async function handleGenerateSummary(
 			let finalProvider = provider as ConcreteProvider;
 			let result: SummaryResult;
 			try {
-				result = await runProvider(finalProvider);
-			} catch (error) {
-				console.warn("[summary] primary failed, trying fallback", {
-					provider,
+				console.log("[summary] trying provider", {
+					provider: finalProvider,
 					videoId,
 					requestId: effectiveRequestId,
-					error: String(error),
 				});
+				result = await runProvider(finalProvider);
+			} catch (error) {
 				if (provider === "gemini" && llmKey) {
+					console.warn("[summary] primary failed, trying fallback", {
+						provider,
+						fallbackProvider: "llm",
+						videoId,
+						requestId: effectiveRequestId,
+						error: String(error),
+					});
 					finalProvider = "llm";
 					result = await runProvider(finalProvider);
-				} else if (provider === "llm" && geminiKey) {
-					finalProvider = "gemini";
-					result = await runProvider(finalProvider);
 				} else {
+					console.warn("[summary] primary provider failed", {
+						provider,
+						videoId,
+						requestId: effectiveRequestId,
+						error: String(error),
+					});
 					throw error;
 				}
 			}

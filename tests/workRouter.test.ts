@@ -28,7 +28,7 @@ test("auto route falls back to Gemini when LLM is unavailable", () => {
 	assert.equal(route.provider, "gemini");
 });
 
-test("native mode still requires Gemini", () => {
+test("native mode with auto still prioritizes LLM when both keys are available", () => {
 	const route = resolveSummarizationRoute({
 		requestedProvider: "auto",
 		requestedMode: "native",
@@ -37,7 +37,22 @@ test("native mode still requires Gemini", () => {
 		hasLlmKey: true,
 	});
 
+	assert.equal(route.provider, "llm");
+	assert.equal(route.modePreference, "validation");
+	assert.equal(route.llmMode, "react");
+});
+
+test("native mode stays native for explicit Gemini provider", () => {
+	const route = resolveSummarizationRoute({
+		requestedProvider: "gemini",
+		requestedMode: "native",
+		summarizerModel: "google/gemini-3-flash",
+		hasGeminiKey: true,
+		hasLlmKey: true,
+	});
+
 	assert.equal(route.provider, "gemini");
+	assert.equal(route.modePreference, "native");
 	assert.equal(route.llmMode, undefined);
 });
 

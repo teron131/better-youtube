@@ -63,18 +63,6 @@ export function resolveSummarizationRoute(
 ): ResolvedSummarizationRoute {
 	const requestedMode = input.requestedMode;
 
-	// Native mode uses Gemini unless the user explicitly selected LLM.
-	if (requestedMode === "native" && input.requestedProvider !== "llm") {
-		if (!input.hasGeminiKey) {
-			throw new Error("Native mode requires a Gemini API key");
-		}
-		return {
-			provider: "gemini",
-			modePreference: "native",
-		};
-	}
-
-	// Determine provider.
 	const provider = resolveProvider(
 		input.requestedProvider,
 		input.summarizerModel,
@@ -82,7 +70,14 @@ export function resolveSummarizationRoute(
 		input.hasLlmKey,
 	);
 
-	// Mode preference (non-native): default to validation unless explicitly fast.
+	if (provider === "gemini" && requestedMode === "native") {
+		return {
+			provider,
+			modePreference: "native",
+		};
+	}
+
+	// LLM has no native mode; use validation unless explicitly fast.
 	const modePreference: SummarizerModePreference =
 		requestedMode === "fast" ? "fast" : "validation";
 
