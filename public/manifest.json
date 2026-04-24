@@ -3,13 +3,7 @@
 	"name": "Better YouTube",
 	"version": "1.0.0",
 	"description": "YouTube caption refinement and AI-powered summarization",
-	"permissions": [
-		"activeTab",
-		"storage",
-		"scripting",
-		"sidePanel",
-		"permissions"
-	],
+	"permissions": ["activeTab", "storage", "scripting", "sidePanel"],
 	"host_permissions": [
 		"https://*.youtube.com/*",
 		"https://api.scrapecreators.com/*",
