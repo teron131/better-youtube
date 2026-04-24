@@ -35,9 +35,8 @@ function resolveProvider(
 		);
 	}
 
-	// Auto: prefer Gemini when the selected model is a Gemini model; otherwise use LLM if available.
-	if (canUseGemini) return "gemini";
 	if (canUseLlm) return "llm";
+	if (canUseGemini) return "gemini";
 
 	// Last chance: if Gemini key exists but model isn't a Gemini model, we can't call Gemini.
 	throw new Error("No valid summarizer provider available (missing API keys)");
@@ -64,8 +63,8 @@ export function resolveSummarizationRoute(
 ): ResolvedSummarizationRoute {
 	const requestedMode = input.requestedMode;
 
-	// Native mode always uses Gemini.
-	if (requestedMode === "native") {
+	// Native mode uses Gemini unless the user explicitly selected LLM.
+	if (requestedMode === "native" && input.requestedProvider !== "llm") {
 		if (!input.hasGeminiKey) {
 			throw new Error("Native mode requires a Gemini API key");
 		}
