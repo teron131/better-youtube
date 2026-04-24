@@ -5,6 +5,7 @@
 
 import type { FontSize } from "./constants.ts";
 import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
+import type { LlmModelPrefixMode } from "./llmModelPrefix.ts";
 import { getStorageValues } from "./storage.ts";
 
 // ============================================================================
@@ -18,6 +19,8 @@ export interface AppConfig {
 	// API Keys (nullable)
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
+	llmModelPrefixMode: LlmModelPrefixMode;
+	llmModelCustomPrefix: string | null;
 	geminiApiKey: string | null;
 
 	// Routing
@@ -42,6 +45,8 @@ export interface AppConfig {
 export interface ApiKeys {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
+	llmModelPrefixMode: LlmModelPrefixMode;
+	llmModelCustomPrefix: string | null;
 	geminiApiKey: string | null;
 }
 
@@ -63,6 +68,10 @@ function normalizeKey(value: unknown): string | null {
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
 	return trimmed ? trimmed : null;
+}
+
+function normalizeLlmModelPrefixMode(value: unknown): LlmModelPrefixMode {
+	return value === "none" || value === "custom" ? value : "provider";
 }
 
 export function normalizeModelCostLimit(value: unknown): number {
@@ -136,6 +145,8 @@ export async function loadConfig(): Promise<AppConfig> {
 	const keys = [
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
+		STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
+		STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX,
 		STORAGE_KEYS.GEMINI_API_KEY,
 		STORAGE_KEYS.SUMMARIZER_PROVIDER,
 		STORAGE_KEYS.SUMMARIZER_MODE,
@@ -183,6 +194,12 @@ export async function loadConfig(): Promise<AppConfig> {
 	return {
 		llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
 		llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
+		llmModelPrefixMode: normalizeLlmModelPrefixMode(
+			result[STORAGE_KEYS.LLM_MODEL_PREFIX_MODE],
+		),
+		llmModelCustomPrefix: normalizeKey(
+			result[STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX],
+		),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
 
 		summarizerProvider,
@@ -220,6 +237,8 @@ export async function getApiKeys(): Promise<ApiKeys> {
 	const keys = [
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
+		STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
+		STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX,
 		STORAGE_KEYS.GEMINI_API_KEY,
 	];
 
@@ -228,6 +247,12 @@ export async function getApiKeys(): Promise<ApiKeys> {
 	return {
 		llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
 		llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
+		llmModelPrefixMode: normalizeLlmModelPrefixMode(
+			result[STORAGE_KEYS.LLM_MODEL_PREFIX_MODE],
+		),
+		llmModelCustomPrefix: normalizeKey(
+			result[STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX],
+		),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
 	};
 }

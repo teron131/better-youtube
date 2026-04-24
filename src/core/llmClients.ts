@@ -4,6 +4,7 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 import { API_ENDPOINTS } from "./constants";
+import { resolveLlmRequestModel } from "./llmModelPrefix";
 import { loadRuntimeConfigSnapshot } from "./runtimeConfig";
 
 const BROWSER_BLOCKED_OPENAI_HEADERS = [
@@ -62,10 +63,15 @@ export async function createLlmClient(
 	if (!apiKey) throw new Error("LLM API key missing");
 
 	const llmBaseUrl = runtimeConfig.llmBaseUrl;
+	const requestModel = resolveLlmRequestModel(
+		model,
+		runtimeConfig.llmModelPrefixMode,
+		runtimeConfig.llmModelCustomPrefix,
+	);
 	const browserRuntime = isBrowserRuntime();
 
 	return new ChatOpenAI({
-		model,
+		model: requestModel,
 		apiKey,
 		configuration: {
 			baseURL: llmBaseUrl || API_ENDPOINTS.LLM_DEFAULT_BASE_URL,

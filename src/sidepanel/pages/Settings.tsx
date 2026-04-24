@@ -39,6 +39,10 @@ import {
 	TARGET_LANGUAGES,
 } from "@/core/constants";
 import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
+import {
+	type LlmModelPrefixMode,
+	resolveLlmRequestModel,
+} from "@/core/llmModelPrefix";
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 import { toModelComboboxOption } from "../lib/model-options";
@@ -49,6 +53,8 @@ type ModelCostLimitKey = "summarizerModelCostLimit" | "refinerModelCostLimit";
 const DEFAULT_SETTINGS = {
 	llmApiKey: "",
 	llmBaseUrl: "",
+	llmModelPrefixMode: "provider" as LlmModelPrefixMode,
+	llmModelCustomPrefix: "",
 	geminiApiKey: "",
 	summarizerProvider: "auto",
 	summarizerMode: "validation",
@@ -77,6 +83,14 @@ type ApiField = {
 };
 
 const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
+const LLM_MODEL_PREFIX_OPTIONS: Array<{
+	value: LlmModelPrefixMode;
+	label: string;
+}> = [
+	{ value: "provider", label: "provider/model" },
+	{ value: "none", label: "model" },
+	{ value: "custom", label: "custom/model" },
+];
 const SETTINGS_SECTION_CLASSNAME = "space-y-4 border-t border-border/70 pt-5";
 const API_KEY_FIELDS: ApiField[] = [
 	{
@@ -104,6 +118,8 @@ const API_KEY_FIELDS: ApiField[] = [
 const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
 	llmApiKey: STORAGE_KEYS.LLM_API_KEY,
 	llmBaseUrl: STORAGE_KEYS.LLM_BASE_URL,
+	llmModelPrefixMode: STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
+	llmModelCustomPrefix: STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX,
 	geminiApiKey: STORAGE_KEYS.GEMINI_API_KEY,
 	summarizerProvider: STORAGE_KEYS.SUMMARIZER_PROVIDER,
 	summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
@@ -246,6 +262,8 @@ const Settings = () => {
 				const nextSettings: typeof DEFAULT_SETTINGS = {
 					llmApiKey: config.llmApiKey ?? "",
 					llmBaseUrl: config.llmBaseUrl ?? "",
+					llmModelPrefixMode: config.llmModelPrefixMode,
+					llmModelCustomPrefix: config.llmModelCustomPrefix ?? "",
 					geminiApiKey: config.geminiApiKey ?? "",
 					summarizerProvider: config.summarizerProvider,
 					summarizerMode: config.summarizerMode,
@@ -572,6 +590,84 @@ const Settings = () => {
 		}
 	};
 
+	const renderLlmModelPrefixControls = () => {
+		const summaryPreview = resolveLlmRequestModel(
+			settings.summarizerModel,
+			settings.llmModelPrefixMode,
+			settings.llmModelCustomPrefix,
+		);
+		const refinerPreview = resolveLlmRequestModel(
+			settings.refinerModel,
+			settings.llmModelPrefixMode,
+			settings.llmModelCustomPrefix,
+		);
+
+		return (
+			<div className="space-y-2 pt-1">
+				<div className="space-y-2">
+					<Label className="text-sm font-semibold">LLM Model ID Format</Label>
+					<div className="grid grid-cols-3 rounded-md border border-border/70 bg-background p-1">
+						{LLM_MODEL_PREFIX_OPTIONS.map((option) => (
+							<button
+								key={option.value}
+								type="button"
+								onClick={() => handleChange("llmModelPrefixMode", option.value)}
+								className={`h-9 rounded-sm px-2 text-xs font-semibold transition-colors ${
+									settings.llmModelPrefixMode === option.value
+										? "bg-primary text-white"
+										: "text-muted-foreground hover:bg-muted hover:text-foreground"
+								}`}
+							>
+								{option.label}
+							</button>
+						))}
+					</div>
+				</div>
+
+				<div className="grid grid-cols-[minmax(9rem,0.42fr)_minmax(0,1fr)] overflow-hidden rounded-md border border-border/60 bg-muted/20">
+					<div className="grid content-center gap-0.5 border-r border-border/60 px-3 py-2">
+						<Label
+							htmlFor="llmModelCustomPrefix"
+							className="flex h-5 items-center text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+						>
+							Custom Prefix
+						</Label>
+						<Input
+							id="llmModelCustomPrefix"
+							type="text"
+							value={settings.llmModelCustomPrefix}
+							onChange={(event) =>
+								handleChange("llmModelCustomPrefix", event.target.value)
+							}
+							disabled={settings.llmModelPrefixMode !== "custom"}
+							className="h-5 rounded-none border-0 bg-transparent px-0 text-sm font-semibold leading-5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
+							placeholder="opencode"
+						/>
+					</div>
+
+					<div className="grid content-center gap-0.5 px-3 py-2 text-xs">
+						<div className="grid h-5 grid-cols-[3.75rem_minmax(0,1fr)] items-center gap-2">
+							<span className="font-semibold text-muted-foreground">
+								Summary
+							</span>
+							<code className="truncate text-right text-foreground">
+								{summaryPreview}
+							</code>
+						</div>
+						<div className="grid h-5 grid-cols-[3.75rem_minmax(0,1fr)] items-center gap-2">
+							<span className="font-semibold text-muted-foreground">
+								Refiner
+							</span>
+							<code className="truncate text-right text-foreground">
+								{refinerPreview}
+							</code>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	const renderFontSizeSelector = (
 		key: "captionFontSize" | "summaryFontSize",
 	) => (
@@ -676,6 +772,8 @@ const Settings = () => {
 										className="h-10 rounded-md border-border/70 bg-background"
 										placeholder={field.placeholder}
 									/>
+									{field.key === STORAGE_KEYS.LLM_BASE_URL &&
+										renderLlmModelPrefixControls()}
 								</div>
 							))}
 						</div>
