@@ -3,14 +3,23 @@
 	"name": "Better YouTube",
 	"version": "1.0.0",
 	"description": "YouTube caption refinement and AI-powered summarization",
-	"permissions": ["activeTab", "storage", "scripting", "sidePanel"],
+	"permissions": [
+		"activeTab",
+		"storage",
+		"scripting",
+		"sidePanel",
+		"permissions"
+	],
 	"host_permissions": [
 		"https://*.youtube.com/*",
 		"https://api.scrapecreators.com/*",
-		"https://openrouter.ai/*",
 		"https://models.dev/*",
-		"https://artificialanalysis.ai/*",
-		"https://vercel.com/*"
+		"https://artificialanalysis.ai/*"
+	],
+	"optional_host_permissions": [
+		"https://*/*",
+		"http://localhost/*",
+		"http://127.0.0.1/*"
 	],
 	"action": {
 		"default_title": "Better YouTube",

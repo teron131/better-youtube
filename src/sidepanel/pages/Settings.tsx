@@ -38,6 +38,7 @@ import {
 	STORAGE_KEYS,
 	TARGET_LANGUAGES,
 } from "@/core/constants";
+import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
 import { getStorageValue, setStorageValue } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 import { toModelComboboxOption } from "../lib/model-options";
@@ -541,6 +542,36 @@ const Settings = () => {
 		}
 	};
 
+	const ensureLlmBaseUrlPermission = async (baseUrl: string) => {
+		try {
+			const permissionStatus = await ensureLlmBaseUrlHostPermission(baseUrl);
+			if (permissionStatus === "denied") {
+				toast({
+					title: "LLM domain not allowed",
+					description:
+						"Allow this domain so the extension can call the custom LLM endpoint.",
+					variant: "destructive",
+				});
+			} else if (permissionStatus === "invalid") {
+				toast({
+					title: "Invalid LLM Base URL",
+					description: "Use a full URL like https://api.example.com/v1.",
+					variant: "destructive",
+				});
+			}
+		} catch (error) {
+			console.error("Failed to request LLM host permission:", error);
+			toast({
+				title: "Couldn't allow LLM domain",
+				description:
+					error instanceof Error
+						? error.message
+						: "The browser did not grant endpoint access.",
+				variant: "destructive",
+			});
+		}
+	};
+
 	const renderFontSizeSelector = (
 		key: "captionFontSize" | "summaryFontSize",
 	) => (
@@ -638,6 +669,10 @@ const Settings = () => {
 										type={field.type ?? "password"}
 										value={settings[field.key]}
 										onChange={(e) => handleChange(field.key, e.target.value)}
+										onBlur={(event) => {
+											if (field.key !== STORAGE_KEYS.LLM_BASE_URL) return;
+											void ensureLlmBaseUrlPermission(event.target.value);
+										}}
 										className="h-10 rounded-md border-border/70 bg-background"
 										placeholder={field.placeholder}
 									/>
