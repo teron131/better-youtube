@@ -20,7 +20,6 @@ export interface AppConfig {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	llmModelPrefixMode: LlmModelPrefixMode;
-	llmModelCustomPrefix: string | null;
 	geminiApiKey: string | null;
 
 	// Routing
@@ -46,7 +45,6 @@ export interface ApiKeys {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	llmModelPrefixMode: LlmModelPrefixMode;
-	llmModelCustomPrefix: string | null;
 	geminiApiKey: string | null;
 }
 
@@ -71,7 +69,7 @@ function normalizeKey(value: unknown): string | null {
 }
 
 function normalizeLlmModelPrefixMode(value: unknown): LlmModelPrefixMode {
-	return value === "none" || value === "custom" ? value : "provider";
+	return value === "none" || value === "custom" ? "none" : "provider";
 }
 
 export function normalizeModelCostLimit(value: unknown): number {
@@ -146,7 +144,6 @@ export async function loadConfig(): Promise<AppConfig> {
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
 		STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
-		STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX,
 		STORAGE_KEYS.GEMINI_API_KEY,
 		STORAGE_KEYS.SUMMARIZER_PROVIDER,
 		STORAGE_KEYS.SUMMARIZER_MODE,
@@ -197,9 +194,6 @@ export async function loadConfig(): Promise<AppConfig> {
 		llmModelPrefixMode: normalizeLlmModelPrefixMode(
 			result[STORAGE_KEYS.LLM_MODEL_PREFIX_MODE],
 		),
-		llmModelCustomPrefix: normalizeKey(
-			result[STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX],
-		),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
 
 		summarizerProvider,
@@ -238,7 +232,6 @@ export async function getApiKeys(): Promise<ApiKeys> {
 		STORAGE_KEYS.LLM_API_KEY,
 		STORAGE_KEYS.LLM_BASE_URL,
 		STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
-		STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX,
 		STORAGE_KEYS.GEMINI_API_KEY,
 	];
 
@@ -249,9 +242,6 @@ export async function getApiKeys(): Promise<ApiKeys> {
 		llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
 		llmModelPrefixMode: normalizeLlmModelPrefixMode(
 			result[STORAGE_KEYS.LLM_MODEL_PREFIX_MODE],
-		),
-		llmModelCustomPrefix: normalizeKey(
-			result[STORAGE_KEYS.LLM_MODEL_CUSTOM_PREFIX],
 		),
 		geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
 	};
