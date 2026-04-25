@@ -10,7 +10,6 @@ export interface RuntimeConfigSnapshot {
 	llmApiKey: string | null;
 	llmBaseUrl: string | null;
 	llmModelPrefixMode: LlmModelPrefixMode;
-	llmModelCustomPrefix: string | null;
 	geminiApiKey: string | null;
 	summarizerProvider: "auto" | "gemini" | "llm";
 	summarizerMode: "native" | "validation" | "fast";
@@ -28,7 +27,6 @@ function applySnapshot(config: RuntimeConfigSnapshot): void {
 	globalLlmApiKey = config.llmApiKey;
 	globalLlmBaseUrl = config.llmBaseUrl;
 	globalLlmModelPrefixMode = config.llmModelPrefixMode;
-	globalLlmModelCustomPrefix = config.llmModelCustomPrefix;
 	globalGeminiKey = config.geminiApiKey;
 	globalSummarizerProvider = config.summarizerProvider;
 	globalSummarizerMode = config.summarizerMode;
@@ -46,7 +44,6 @@ function applySnapshot(config: RuntimeConfigSnapshot): void {
 export let globalLlmApiKey: string | null = null;
 export let globalLlmBaseUrl: string | null = null;
 export let globalLlmModelPrefixMode: LlmModelPrefixMode = "provider";
-export let globalLlmModelCustomPrefix: string | null = null;
 export let globalGeminiKey: string | null = null;
 export let globalSummarizerModel: string = "";
 export let globalRefinerModel: string = "";
@@ -69,7 +66,6 @@ export async function loadRuntimeConfigSnapshot(): Promise<RuntimeConfigSnapshot
 		llmApiKey: config.llmApiKey,
 		llmBaseUrl: config.llmBaseUrl,
 		llmModelPrefixMode: config.llmModelPrefixMode,
-		llmModelCustomPrefix: config.llmModelCustomPrefix,
 		geminiApiKey: config.geminiApiKey,
 		summarizerProvider: config.summarizerProvider,
 		summarizerMode: config.summarizerMode,
@@ -106,7 +102,6 @@ export function clearConfigCache(): void {
 	globalLlmApiKey = null;
 	globalLlmBaseUrl = null;
 	globalLlmModelPrefixMode = "provider";
-	globalLlmModelCustomPrefix = null;
 	globalGeminiKey = null;
 	globalSummarizerModel = "";
 	globalRefinerModel = "";

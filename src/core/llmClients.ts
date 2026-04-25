@@ -66,7 +66,6 @@ export async function createLlmClient(
 	const requestModel = resolveLlmRequestModel(
 		model,
 		runtimeConfig.llmModelPrefixMode,
-		runtimeConfig.llmModelCustomPrefix,
 	);
 	const browserRuntime = isBrowserRuntime();
 

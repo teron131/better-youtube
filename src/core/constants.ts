@@ -8,7 +8,6 @@ export const STORAGE_KEYS = {
 	LLM_API_KEY: "llmApiKey",
 	LLM_BASE_URL: "llmBaseUrl",
 	LLM_MODEL_PREFIX_MODE: "llmModelPrefixMode",
-	LLM_MODEL_CUSTOM_PREFIX: "llmModelCustomPrefix",
 	GEMINI_API_KEY: "geminiApiKey",
 	SUMMARIZER_PROVIDER: "summarizerProvider",
 	SUMMARIZER_MODE: "summarizerMode",

@@ -13,7 +13,7 @@ import {
 	TooltipTrigger,
 } from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 type ModelSortMetric = "intelligence" | "speed" | "price";
 type SortDirection = "asc" | "desc";
@@ -122,16 +122,11 @@ export function ModelSelector({
 	const [sortDirection, setSortDirection] = useState<SortDirection>(
 		defaultSortDirection(defaultSortMetric),
 	);
-	const [stackControls, setStackControls] = useState(false);
-	const headerRef = useRef<HTMLDivElement>(null);
-	const controlsRef = useRef<HTMLDivElement>(null);
-	const titleRef = useRef<HTMLSpanElement>(null);
-	const availableSortOptions = MODEL_SORT_OPTIONS;
-	const effectiveSortMetric = availableSortOptions.some(
+	const effectiveSortMetric = MODEL_SORT_OPTIONS.some(
 		({ metric }) => metric === sortMetric,
 	)
 		? sortMetric
-		: (availableSortOptions[0]?.metric ?? sortMetric);
+		: (MODEL_SORT_OPTIONS[0]?.metric ?? sortMetric);
 	const effectiveSortDirection =
 		effectiveSortMetric === sortMetric
 			? sortDirection
@@ -154,59 +149,6 @@ export function ModelSelector({
 		[effectiveSortMetric, enableSorting, sortedOptions],
 	);
 	const selectedOption = findMatchingComboboxOption(visibleOptions, value);
-
-	useEffect(() => {
-		if (!enableSorting) {
-			setStackControls(false);
-			return;
-		}
-
-		const titleElement = titleRef.current;
-		const headerElement = headerRef.current;
-		const controlsElement = controlsRef.current;
-		if (!titleElement || !headerElement || !controlsElement) {
-			return;
-		}
-
-		const updateStackedLayout = () => {
-			const computedStyle = window.getComputedStyle(titleElement);
-			const canvas = document.createElement("canvas");
-			const context = canvas.getContext("2d");
-			if (!context) {
-				return;
-			}
-
-			context.font = computedStyle.font;
-			const letterSpacing =
-				Number.parseFloat(computedStyle.letterSpacing || "0") || 0;
-			const textWidth =
-				context.measureText(label).width +
-				Math.max(label.length - 1, 0) * letterSpacing;
-			const iconAndGapWidth = 24 + 8;
-			const controlsWidth = controlsElement.getBoundingClientRect().width;
-			const availableInlineWidth =
-				headerElement.getBoundingClientRect().width - controlsWidth - 12;
-			const estimatedLineCount =
-				availableInlineWidth > 0
-					? Math.ceil((textWidth + iconAndGapWidth) / availableInlineWidth)
-					: Number.POSITIVE_INFINITY;
-
-			setStackControls(estimatedLineCount > 1);
-		};
-
-		updateStackedLayout();
-
-		const resizeObserver = new ResizeObserver(() => {
-			updateStackedLayout();
-		});
-		resizeObserver.observe(headerElement);
-		resizeObserver.observe(controlsElement);
-		resizeObserver.observe(titleElement);
-
-		return () => {
-			resizeObserver.disconnect();
-		};
-	}, [enableSorting, label]);
 
 	const handleSortClick = (
 		event: React.MouseEvent<HTMLButtonElement>,
@@ -241,30 +183,17 @@ export function ModelSelector({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<div
-				ref={headerRef}
-				className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
-			>
+			<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
 				<div className="group relative flex min-h-9 min-w-0 flex-1 items-center gap-2">
 					<Icon className="h-4 w-4 shrink-0 text-primary" />
-					<span
-						ref={titleRef}
-						className="min-w-0 block text-sm font-semibold text-foreground"
-					>
+					<span className="min-w-0 block text-sm font-semibold text-foreground">
 						{label}
 					</span>
 				</div>
 
 				{enableSorting && (
-					<div
-						ref={controlsRef}
-						className={`flex shrink-0 items-center rounded-md border border-border/60 bg-background/80 p-0.5 ${
-							stackControls
-								? "ml-0 w-full basis-full justify-between gap-2"
-								: "ml-auto"
-						}`}
-					>
-						{availableSortOptions.map(({ metric, icon: MetricIcon, label }) => (
+					<div className="ml-auto flex shrink-0 items-center rounded-md border border-border/60 bg-background/80 p-0.5">
+						{MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
 							<Tooltip key={metric} delayDuration={0}>
 								<TooltipTrigger asChild>
 									<button
