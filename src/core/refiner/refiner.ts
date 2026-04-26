@@ -20,13 +20,6 @@ import { formatTimestamp } from "@/core/utils/date";
 
 const SYSTEM_PROMPT = `You are correcting segments of a YouTube video transcript. These segments could be from anywhere in the video (beginning, middle, or end). Use the video title and description for context.
 
-OUTPUT CONTRACT:
-- Return a JSON object with exactly one field: transcript.
-- The transcript field must be one newline-delimited string.
-- The transcript field must contain only corrected transcript lines.
-- Never include commentary, analysis, explanations, headings, greetings, apologies, markdown, bullets, labels, or code fences.
-- If you are unsure how to correct a line, copy that line unchanged.
-
 CRITICAL CONSTRAINTS:
 - Only fix typos and grammar. Do NOT change meaning or structure.
 - PRESERVE ALL NEWLINES: each line is a distinct transcript segment.
