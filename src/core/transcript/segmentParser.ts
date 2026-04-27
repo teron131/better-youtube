@@ -47,6 +47,22 @@ function normalizeLineToText(line: string): string {
 	return timestampMatch ? timestampMatch[1].trim() : normalized;
 }
 
+function isSuspiciouslyLongRefinement(
+	originalText: string,
+	refinedText: string,
+): boolean {
+	const originalLength = originalText.trim().length;
+	const refinedLength = refinedText.trim().length;
+	const { MAX_REFINED_LENGTH_RATIO, MAX_REFINED_LENGTH_EXTRA_CHARS } =
+		SEGMENT_PARSER_CONFIG;
+	const maxAllowedLength = Math.max(
+		originalLength * MAX_REFINED_LENGTH_RATIO,
+		originalLength + MAX_REFINED_LENGTH_EXTRA_CHARS,
+	);
+
+	return refinedLength > maxAllowedLength;
+}
+
 /** Align original segments to refined texts using dynamic programming */
 function dpAlignSegments(
 	origSegments: SubtitleSegment[],
@@ -130,7 +146,9 @@ function dpAlignSegments(
 			refIdx !== null && refIdx >= 0 && refIdx < nRef
 				? refTexts[refIdx]
 				: origSeg.text;
-		if (idx >= tailStart && text) {
+		if (text && isSuspiciouslyLongRefinement(origSeg.text, text)) {
+			text = origSeg.text;
+		} else if (idx >= tailStart && text) {
 			const origLen = origSeg.text.length || 1;
 			if (Math.abs(text.length - origLen) / origLen > LENGTH_TOLERANCE) {
 				text = origSeg.text;
