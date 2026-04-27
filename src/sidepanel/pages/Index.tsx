@@ -16,6 +16,7 @@ import {
 	type VideoProcessingState,
 } from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
+import { subscribeToStoredVideoState } from "@ui/lib/stored-video-state-sync";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import {
@@ -319,36 +320,18 @@ const Index = () => {
 		if (!videoId || typeof chrome === "undefined" || !chrome.storage?.onChanged)
 			return;
 
-		let cancelled = false;
-		const relevantKeys = getTrackedStorageKeys(videoId);
-
-		const syncStoredState = async () => {
-			try {
-				const cachedState = await loadCachedVideoState(videoId);
-				if (cancelled) return;
-				if (!cachedState) {
-					return;
-				}
-				updateState(cachedState);
-			} catch (error) {
+		return subscribeToStoredVideoState({
+			relevantKeys: getTrackedStorageKeys(videoId),
+			loadState: () => loadCachedVideoState(videoId),
+			updateState,
+			addStorageListener: (listener) =>
+				chrome.storage.onChanged.addListener(listener),
+			removeStorageListener: (listener) =>
+				chrome.storage.onChanged.removeListener(listener),
+			onError: (error) => {
 				console.error("Failed to sync stored video state:", error);
-			}
-		};
-
-		const handleStorageChange = (
-			changes: { [key: string]: chrome.storage.StorageChange },
-			areaName: string,
-		) => {
-			if (areaName !== "local") return;
-			if (!Object.keys(changes).some((key) => relevantKeys.has(key))) return;
-			void syncStoredState();
-		};
-
-		chrome.storage.onChanged.addListener(handleStorageChange);
-		return () => {
-			cancelled = true;
-			chrome.storage.onChanged.removeListener(handleStorageChange);
-		};
+			},
+		});
 	}, [initialUrl, isExampleMode, isLoading, lastProcessedUrl, updateState]);
 
 	const handleToggleSubtitles = async (nextState: boolean) => {
