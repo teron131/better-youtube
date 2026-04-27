@@ -17,8 +17,13 @@ import {
 } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
 import {
+	buildTranscriptWithMetadata,
+	type TranscriptCopyMetadata,
+} from "@ui/lib/transcript-copy";
+import {
 	ChevronDown,
 	ChevronUp,
+	ClipboardList,
 	Copy,
 	FileText,
 	Search,
@@ -36,9 +41,13 @@ import {
 
 interface TranscriptPanelProps {
 	transcript: string;
+	metadata?: TranscriptCopyMetadata | null;
 }
 
-export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
+export const TranscriptPanel = ({
+	transcript,
+	metadata,
+}: TranscriptPanelProps) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -46,7 +55,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 	const transcriptRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
 
-	const copyToClipboard = useCallback(async () => {
+	const copyPlainTranscript = useCallback(async () => {
 		try {
 			await navigator.clipboard.writeText(transcript);
 			toast({
@@ -61,6 +70,24 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 			});
 		}
 	}, [transcript, toast]);
+
+	const copyTranscriptWithDetails = useCallback(async () => {
+		try {
+			await navigator.clipboard.writeText(
+				buildTranscriptWithMetadata(transcript, metadata),
+			);
+			toast({
+				title: "Copied!",
+				description: "Transcript and video details copied to clipboard",
+			});
+		} catch {
+			toast({
+				title: "Copy failed",
+				description: "Unable to copy transcript details",
+				variant: "destructive",
+			});
+		}
+	}, [metadata, transcript, toast]);
 
 	const matchCount = useMemo(() => {
 		if (!deferredSearchQuery.trim()) return 0;
@@ -199,7 +226,7 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 				<CollapsibleContent className="px-6 pb-6">
 					<div className="space-y-6">
 						<div className="flex gap-3 items-center">
-							<div className="relative flex-1">
+							<div className="relative min-w-0 flex-1">
 								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 								<Input
 									type="text"
@@ -254,14 +281,32 @@ export const TranscriptPanel = ({ transcript }: TranscriptPanelProps) => {
 									<Button
 										variant="outline"
 										size="icon"
-										onClick={copyToClipboard}
+										aria-label="Copy transcript"
+										onClick={copyPlainTranscript}
 										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
 									>
 										<Copy className="w-4 h-4" />
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>
-									<p>Copy</p>
+									<p>Copy transcript</p>
+								</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="outline"
+										size="icon"
+										aria-label="Copy transcript with video details"
+										onClick={copyTranscriptWithDetails}
+										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+									>
+										<ClipboardList className="w-4 h-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Copy with details</p>
 								</TooltipContent>
 							</Tooltip>
 						</div>

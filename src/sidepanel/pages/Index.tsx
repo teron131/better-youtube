@@ -652,7 +652,9 @@ const Index = () => {
 							/>
 						)}
 
-						{transcript && <TranscriptPanel transcript={transcript} />}
+						{transcript && (
+							<TranscriptPanel transcript={transcript} metadata={videoInfo} />
+						)}
 
 						{summaryResult?.summary && (
 							<SummaryPanel
