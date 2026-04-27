@@ -18,7 +18,7 @@ import { formatTimestamp } from "@/core/utils/date";
 // Constants
 // ============================================================================
 
-const SYSTEM_PROMPT = `You are correcting segments of a YouTube video transcript. These segments could be from anywhere in the video (beginning, middle, or end). Use the video title and description for context.
+const SYSTEM_PROMPT = `Correct the segments of a YouTube video transcript. These segments could be from anywhere in the video (beginning, middle, or end). Use the video title and description for context.
 
 CRITICAL CONSTRAINTS:
 - Only fix typos and grammar. Do NOT change meaning or structure.
@@ -30,18 +30,10 @@ CRITICAL CONSTRAINTS:
 - Focus on minimal corrections: fix typos, correct grammar errors, but keep expansions/additions to an absolute minimum.
 
 EXAMPLES OF CORRECT BEHAVIOR:
-
-Input:
-up to 900. From 900 up to 1,100.
-If you sold at the reasonable
-valuations, when the gains that already
-been had, you missed out big time. I 
-
-Output:
-up to $900. From $900 up to $1,100.
-If you sold at the reasonable
-valuations, when the gains that already
-had been had, you missed out big time. I`;
+up to 900. From 900 up to 1,100. -> up to $900. From $900 up to $1,100.
+If you sold at the reasonable -> If you sold at the reasonable
+valuations, when the gains that already -> valuations, when the gains that already
+been had, you missed out big time. I -> had been had, you missed out big time. I`;
 
 const RefinedTranscriptSchema = z.object({
 	transcript: z
