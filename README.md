@@ -182,21 +182,21 @@ flowchart TD
 ## Development
 
 ```bash
-npm install
-npm run dev
-npm run build
+pnpm install
+pnpm run dev
+pnpm run build
 ```
 
 Useful extra commands:
 
 ```bash
-npm run lint
-npm run test:chrome-tab
+pnpm run lint
+pnpm run test:chrome-tab
 ```
 
 ## Load The Extension
 
-1. Run `npm run build`.
+1. Run `pnpm run build`.
 2. Open `chrome://extensions`.
 3. Enable `Developer mode`.
 4. Click `Load unpacked`.
@@ -204,7 +204,7 @@ npm run test:chrome-tab
 
 ## Build Output
 
-`npm run build` produces:
+`pnpm run build` produces:
 
 - `dist/sidepanel.html` and the React side panel bundle
 - `dist/background.js` for the MV3 service worker
