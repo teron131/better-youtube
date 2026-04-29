@@ -73,6 +73,6 @@ Key symbols surfaced by stats and module boundaries:
 ## Verification commands
 
 ```bash
-npm run build
+pnpm run build
 /Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
 ```

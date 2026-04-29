@@ -60,7 +60,7 @@ Primary stack: Vite + React + TypeScript + Tailwind/shadcn/ui, with shared AI wo
 ## Verification commands
 
 ```bash
-npm run build
+pnpm run build
 /Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
 ```
 

@@ -73,6 +73,6 @@ High-signal symbols:
 ## Verification commands
 
 ```bash
-npm run build
+pnpm run build
 /Users/teron/Projects/Agents-Config/.factory/hooks/formatter.sh
 ```

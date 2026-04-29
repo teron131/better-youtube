@@ -2,11 +2,12 @@
 	"name": "better-youtube",
 	"version": "1.0.0",
 	"description": "YouTube caption refinement and AI-powered summarization",
+	"packageManager": "pnpm@10.28.1",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "npm exec -- tsc && vite build && vite build --config vite.content.config.ts",
-		"build:demo": "npm exec -- tsc && VITE_DEMO_MODE=true VITE_ROUTER_MODE=hash vite build",
+		"build": "pnpm exec tsc && vite build && vite build --config vite.content.config.ts",
+		"build:demo": "pnpm exec tsc && VITE_DEMO_MODE=true VITE_ROUTER_MODE=hash vite build",
 		"preview": "vite preview",
 		"lint": "biome lint .",
 		"test:chrome-tab": "node --experimental-strip-types --test tests/chromeTabTranscript.test.ts"
