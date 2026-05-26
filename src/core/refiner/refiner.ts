@@ -28,6 +28,8 @@ CRITICAL CONSTRAINTS:
 - If a sentence is broken across lines, keep it broken the same way.
 - PRESERVE THE ORIGINAL LANGUAGE: output must be in the same language as the input transcript.
 - Focus on minimal corrections: fix typos, correct grammar errors, but keep expansions/additions to an absolute minimum.
+- If a line cannot be safely corrected or you are uncertain, copy that line unchanged.
+- Never refuse, apologize, explain, or return safety text.
 
 EXAMPLES OF CORRECT BEHAVIOR:
 up to 900. From 900 up to 1,100. -> up to $900. From $900 up to $1,100.
@@ -84,21 +86,6 @@ function buildUserPreamble(
 	].join("\n");
 }
 
-function extractResponseText(response: unknown): string {
-	const transcript = (response as Partial<RefinedTranscriptResponse> | null)
-		?.transcript;
-	if (typeof transcript === "string") return transcript;
-
-	const content = (response as any)?.content;
-	if (typeof content === "string") return content;
-	if (Array.isArray(content)) {
-		return content
-			.map((part) => (typeof part === "string" ? part : part?.text || ""))
-			.join("");
-	}
-	return content != null ? String(content) : "";
-}
-
 function normalizeRefinedOutputLines(text: string): string[] {
 	return text
 		.replace(/\r\n?/g, "\n")
@@ -121,13 +108,14 @@ async function runConcurrentBatch<T, R>(
 	items: T[],
 	concurrency: number,
 	fn: (item: T, index: number) => Promise<R>,
+	fallback: (item: T, index: number, error: unknown) => R,
 	onEachComplete?: (
-		result: R | null,
+		result: R,
 		index: number,
-		allResults: (R | null)[],
+		allResults: readonly (R | undefined)[],
 	) => void,
-): Promise<(R | null)[]> {
-	const results: (R | null)[] = new Array(items.length).fill(null);
+): Promise<R[]> {
+	const results = new Array<R | undefined>(items.length);
 	const queue = items.map((item, index) => ({ item, index }));
 
 	const workers = Array.from({
@@ -160,13 +148,15 @@ async function runConcurrentBatch<T, R>(
 					`Failed to process batch item ${index} after ${MAX_BATCH_RETRIES} attempts:`,
 					lastError,
 				);
-				onEachComplete?.(null, index, results);
+				const fallbackResult = fallback(item, index, lastError);
+				results[index] = fallbackResult;
+				onEachComplete?.(fallbackResult, index, results);
 			}
 		}
 	});
 
 	await Promise.all(workers);
-	return results;
+	return results as R[];
 }
 
 // ============================================================================
@@ -204,11 +194,11 @@ function calculatePriorityWindow(
  * Validate and extract refined text from response with line count checking
  */
 function validateAndExtractChunk(
-	response: unknown,
+	response: RefinedTranscriptResponse,
 	chunkIndex: number,
 	originalChunk: SubtitleSegment[],
 ): string {
-	const text = extractResponseText(response).trim();
+	const text = response.transcript.trim();
 	const normalizedLines = normalizeRefinedOutputLines(text);
 
 	if (!normalizedLines.length) {
@@ -229,7 +219,7 @@ function validateAndExtractChunk(
 
 function parseChunkResponses(
 	chunks: SegmentChunk[],
-	responses: (unknown | null)[],
+	responses: RefinedTranscriptResponse[],
 	segments: SubtitleSegment[],
 ): SubtitleSegment[] {
 	const refinedText = responses
@@ -255,7 +245,11 @@ function createPriorityHandler(
 	splitIndex: number,
 	chunks: SegmentChunk[],
 	onPriorityComplete?: (segments: SubtitleSegment[]) => void,
-): (result: unknown, index: number, allResults: (unknown | null)[]) => void {
+): (
+	result: RefinedTranscriptResponse,
+	index: number,
+	allResults: readonly (RefinedTranscriptResponse | undefined)[],
+) => void {
 	let completedPriorityChunks = 0;
 	let priorityReported = false;
 
@@ -277,7 +271,7 @@ function createPriorityHandler(
 		onPriorityComplete(
 			parseChunkResponses(
 				priorityChunks,
-				allResults.slice(0, priorityRangeCount),
+				allResults.slice(0, priorityRangeCount) as RefinedTranscriptResponse[],
 				prioritySegments,
 			).slice(0, splitIndex),
 		);
@@ -337,6 +331,9 @@ export async function refineTranscriptWithLLM(
 		async (messages) => {
 			return await structuredLlm.invoke(messages);
 		},
+		(_messages, idx) => ({
+			transcript: formatTranscriptSegments(chunks[idx].segments),
+		}),
 		(result, idx, allResults) => {
 			onProgress?.(idx + 1, batchMessages.length);
 			priorityHandler(result, idx, allResults);
