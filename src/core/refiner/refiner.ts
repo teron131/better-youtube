@@ -46,6 +46,9 @@ const RefinedTranscriptSchema = z.object({
 });
 
 type RefinedTranscriptResponse = z.infer<typeof RefinedTranscriptSchema>;
+type RefinedTranscriptRawResponse = {
+	parsed: RefinedTranscriptResponse | null;
+};
 
 const MAX_BATCH_RETRIES = 3;
 const TRANSCRIPT_LABEL_PATTERN =
@@ -99,6 +102,14 @@ function normalizeRefinedOutputLines(text: string): string[] {
 function isTransientBatchError(error: unknown): boolean {
 	const message = String(error);
 	return message.includes("401") || message.includes("429");
+}
+
+function createFallbackResponse(
+	originalChunk: SubtitleSegment[],
+): RefinedTranscriptResponse {
+	return {
+		transcript: formatTranscriptSegments(originalChunk),
+	};
 }
 
 /**
@@ -294,6 +305,7 @@ export async function refineTranscriptWithLLM(
 	const llm = await createLlmClient(model, "Better YouTube - Refiner");
 	const structuredLlm = llm.withStructuredOutput(RefinedTranscriptSchema, {
 		method: "jsonMode",
+		includeRaw: true,
 	});
 	const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
 		segments,
@@ -328,12 +340,13 @@ export async function refineTranscriptWithLLM(
 	const responses = await runConcurrentBatch(
 		batchMessages,
 		REFINER_CONFIG.CONCURRENCY_LIMIT,
-		async (messages) => {
-			return await structuredLlm.invoke(messages);
+		async (messages, idx) => {
+			const response = (await structuredLlm.invoke(
+				messages,
+			)) as RefinedTranscriptRawResponse;
+			return response.parsed ?? createFallbackResponse(chunks[idx].segments);
 		},
-		(_messages, idx) => ({
-			transcript: formatTranscriptSegments(chunks[idx].segments),
-		}),
+		(_messages, idx) => createFallbackResponse(chunks[idx].segments),
 		(result, idx, allResults) => {
 			onProgress?.(idx + 1, batchMessages.length);
 			priorityHandler(result, idx, allResults);
