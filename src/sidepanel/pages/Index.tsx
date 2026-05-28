@@ -519,13 +519,19 @@ const Index = () => {
 		const videoId = extractVideoId(videoUrl);
 		if (videoId) {
 			try {
-				const storedSubtitles = await getSubtitles(videoId);
+				const [storedSubtitles, storedVideoInfo] = await Promise.all([
+					getSubtitles(videoId),
+					getVideoMetadata(videoId),
+				]);
 				updateState({
-					...createTranscriptOnlyState(segmentsToTranscript(storedSubtitles)),
+					...createTranscriptOnlyState(
+						segmentsToTranscript(storedSubtitles),
+						storedVideoInfo,
+					),
 					currentStage: "",
 				});
 			} catch (error) {
-				console.error("Failed to load cached transcript for captions:", error);
+				console.error("Failed to load cached caption state:", error);
 			}
 		}
 
