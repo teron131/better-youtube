@@ -71,12 +71,15 @@ type RendererElement = Element & {
 	};
 };
 
-export type TitleLanguage = "en" | "zh" | "unknown";
-type ExtractedVideoData = Omit<VideoCardData, "titleLanguage">;
+export type TextLanguage = "en" | "zh" | "unknown";
+type ExtractedVideoData = Omit<
+	VideoCardData,
+	"titleLanguage" | "channelLanguage"
+>;
 
 export interface VideoCardData {
 	title: string | null;
-	titleLanguage: TitleLanguage;
+	titleLanguage: TextLanguage;
 	viewCount: string | null;
 	duration: string | null;
 	publishTime: string | null;
@@ -84,6 +87,7 @@ export interface VideoCardData {
 	isActiveLiveContent: boolean;
 	videoId: string | null;
 	channelName: string | null;
+	channelLanguage: TextLanguage;
 	channelId: string | null;
 	channelPath: string | null;
 }
@@ -719,7 +723,7 @@ function detectActiveLiveContentFromElement(videoElement: Element): boolean {
 
 function fillChannelInfoFromLink(
 	videoElement: Element,
-	videoData: Omit<VideoCardData, "titleLanguage">,
+	videoData: ExtractedVideoData,
 ) {
 	const channelLink = videoElement.querySelector(CHANNEL_LINK_SELECTOR);
 	if (!channelLink) {
@@ -743,7 +747,7 @@ function fillChannelInfoFromLink(
 
 function fillLockupChannelNameFromText(
 	videoElement: Element,
-	videoData: Omit<VideoCardData, "titleLanguage">,
+	videoData: ExtractedVideoData,
 ) {
 	if (
 		videoData.channelName ||
@@ -788,14 +792,14 @@ function getVideoCardFullText(videoElement: Element): string | null {
 	return normalizeText(videoElement.textContent);
 }
 
-function detectTitleLanguage(title: string | null): TitleLanguage {
-	if (!title) {
+function detectTextLanguage(text: string | null): TextLanguage {
+	if (!text) {
 		return "unknown";
 	}
 
-	const hanCharacterCount = title.match(HAN_CHARACTER_PATTERN)?.length || 0;
-	const latinLetterCount = title.match(LATIN_LETTER_PATTERN)?.length || 0;
-	const englishWordCount = title.match(ENGLISH_WORD_PATTERN)?.length || 0;
+	const hanCharacterCount = text.match(HAN_CHARACTER_PATTERN)?.length || 0;
+	const latinLetterCount = text.match(LATIN_LETTER_PATTERN)?.length || 0;
+	const englishWordCount = text.match(ENGLISH_WORD_PATTERN)?.length || 0;
 
 	if (hanCharacterCount === 0 && latinLetterCount === 0) {
 		return "unknown";
@@ -869,6 +873,7 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 
 	return {
 		...data,
-		titleLanguage: detectTitleLanguage(data.title),
+		titleLanguage: detectTextLanguage(data.title),
+		channelLanguage: detectTextLanguage(data.channelName),
 	};
 }
