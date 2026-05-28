@@ -313,6 +313,7 @@ function resetProcessedVideoCards(root: ParentNode = document): void {
 		videoElement.removeAttribute("data-filter-reason");
 		videoElement.removeAttribute("data-subscribed-channel");
 		delete (videoElement as HTMLElement).dataset.titleLanguage;
+		delete (videoElement as HTMLElement).dataset.channelLanguage;
 		delete (videoElement as HTMLElement).dataset.filterRetryCount;
 		(videoElement as HTMLElement).style.display = "";
 		(videoElement as HTMLElement).style.opacity = "";
@@ -354,6 +355,18 @@ function applyTitleLanguageState(
 	}
 
 	delete (videoElement as HTMLElement).dataset.titleLanguage;
+}
+
+function applyChannelLanguageState(
+	videoElement: Element,
+	channelLanguage: VideoCardData["channelLanguage"],
+): void {
+	if (channelLanguage && channelLanguage !== "unknown") {
+		(videoElement as HTMLElement).dataset.channelLanguage = channelLanguage;
+		return;
+	}
+
+	delete (videoElement as HTMLElement).dataset.channelLanguage;
 }
 
 function checkViewsFilter(
@@ -482,6 +495,18 @@ function checkLanguageFilter(
 			shouldFilter: true,
 			reason: "language",
 			details: `Title language: ${videoData.titleLanguage} (English only mode)`,
+		};
+	}
+
+	if (
+		videoData.channelLanguage &&
+		videoData.channelLanguage !== "unknown" &&
+		videoData.channelLanguage !== "en"
+	) {
+		return {
+			shouldFilter: true,
+			reason: "language",
+			details: `Channel language: ${videoData.channelLanguage} (English only mode)`,
 		};
 	}
 
@@ -776,6 +801,7 @@ class FeedFilterController {
 
 			applySubscribedChannelState(videoElement, isSubscribed);
 			applyTitleLanguageState(videoElement, videoData.titleLanguage);
+			applyChannelLanguageState(videoElement, videoData.channelLanguage);
 
 			const triggeredFilter = getTriggeredFilter(
 				videoData,
