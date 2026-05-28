@@ -3,9 +3,10 @@ import {
 	getRefinerWorkloadStats,
 	refineTranscriptWithLLM,
 } from "@/core/refiner";
-import { saveSubtitles } from "@/core/storage";
+import { saveSubtitles, saveVideoMetadata } from "@/core/storage";
 import {
 	clearTranscriptCache,
+	extractVideoInfo,
 	fetchTranscript,
 	toSubtitleSegments,
 } from "@/core/transcript";
@@ -105,6 +106,9 @@ export async function handleFetchSubtitles(
 			const data = await fetchTranscript(videoId, {
 				tabId,
 			});
+			if (data) {
+				await saveVideoMetadata(videoId, extractVideoInfo(data, videoId));
+			}
 			if (!data?.transcript?.length) {
 				sendSubtitlesToTab([], { noTranscript: true });
 				emitCaptionError("No transcript available for this video.");
