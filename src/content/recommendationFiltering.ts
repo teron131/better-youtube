@@ -16,6 +16,7 @@ import {
 } from "@/core/storage";
 import {
 	extractVideoData,
+	getContainingVideoCard,
 	getNormalizedChannelId,
 	normalizeChannelPath,
 	normalizeText,
@@ -31,6 +32,12 @@ const MAX_METADATA_RETRY_COUNT = 6;
 const METADATA_RETRY_DELAY_MS = 2000;
 const SETTLING_RESCAN_DELAYS_MS = [1500, 4000, 8000];
 const HISTORY_LIMIT = 100;
+const VIDEO_CARD_METADATA_ATTRIBUTES = [
+	"aria-label",
+	"data-video-id",
+	"href",
+	"title",
+];
 type FilterReason = "views" | "keywords" | "duration" | "age" | "language";
 
 type TriggeredFilter = {
@@ -622,11 +629,10 @@ class FeedFilterController {
 		}
 
 		this.contentObserver = new MutationObserver((mutations) => {
-			const queuedAny = mutations.some((mutation) =>
-				Array.from(mutation.addedNodes).some((node) =>
-					this.queueVideoCardsFromNode(node),
-				),
-			);
+			let queuedAny = false;
+			for (const mutation of mutations) {
+				queuedAny = this.queueVideoCardsFromMutation(mutation) || queuedAny;
+			}
 
 			if (!queuedAny) {
 				return;
@@ -636,7 +642,10 @@ class FeedFilterController {
 		});
 
 		this.contentObserver.observe(contentRoot, {
+			attributes: true,
+			attributeFilter: VIDEO_CARD_METADATA_ATTRIBUTES,
 			childList: true,
+			characterData: true,
 			subtree: true,
 		});
 	}
@@ -883,6 +892,24 @@ class FeedFilterController {
 		for (const videoCard of element.querySelectorAll(VIDEO_CARD_SELECTOR)) {
 			this.queueVideoCard(videoCard);
 			queuedAny = true;
+		}
+
+		return queuedAny;
+	}
+
+	private queueVideoCardsFromMutation(mutation: MutationRecord): boolean {
+		let queuedAny = false;
+
+		for (const node of mutation.addedNodes) {
+			queuedAny = this.queueVideoCardsFromNode(node) || queuedAny;
+		}
+
+		if (mutation.type === "attributes" || mutation.type === "characterData") {
+			const videoCard = getContainingVideoCard(mutation.target);
+			if (videoCard) {
+				this.queueVideoCard(videoCard);
+				queuedAny = true;
+			}
 		}
 
 		return queuedAny;
