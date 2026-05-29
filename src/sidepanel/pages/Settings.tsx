@@ -26,6 +26,7 @@ import {
 	Key,
 	Settings as SettingsIcon,
 	Sparkles,
+	Trash2,
 	Type,
 	Zap,
 } from "lucide-react";
@@ -43,7 +44,11 @@ import {
 	type LlmModelPrefixMode,
 	resolveLlmRequestModel,
 } from "@/core/llmModelPrefix";
-import { getStorageValue, setStorageValue } from "@/core/storage";
+import {
+	clearStoredDataExceptSettings,
+	getStorageValue,
+	setStorageValue,
+} from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
 import { toModelComboboxOption } from "../lib/model-options";
 import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
@@ -194,6 +199,7 @@ const Settings = () => {
 	const [modelCostLimitInputs, setModelCostLimitInputs] =
 		useState<ModelCostLimitInputs>(DEFAULT_MODEL_COST_LIMIT_INPUTS);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isClearingStorage, setIsClearingStorage] = useState(false);
 	const [hasLoadedStoredSettings, setHasLoadedStoredSettings] = useState(false);
 	const summarizerCostLimitBounds = modelCostLimitBounds(
 		summarizerModelPriceRange,
@@ -586,6 +592,38 @@ const Settings = () => {
 		}
 	};
 
+	const handleClearStoredData = async () => {
+		if (
+			!window.confirm(
+				"Clear saved transcripts, summaries, video details, and caches? API keys and settings will stay saved.",
+			)
+		) {
+			return;
+		}
+
+		setIsClearingStorage(true);
+		try {
+			const result = await clearStoredDataExceptSettings();
+			const totalRemoved = result.localKeysRemoved + result.sessionKeysRemoved;
+			toast({
+				title: "Storage cleared",
+				description: `${totalRemoved} cached item${totalRemoved === 1 ? "" : "s"} removed.`,
+			});
+		} catch (error) {
+			console.error("Failed to clear stored data:", error);
+			toast({
+				title: "Couldn't clear storage",
+				description:
+					error instanceof Error
+						? error.message
+						: "Cached data was not removed.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsClearingStorage(false);
+		}
+	};
+
 	const renderLlmModelPrefixControls = () => {
 		const modelPreviews = [
 			{ label: "Summary", model: settings.summarizerModel },
@@ -875,6 +913,34 @@ const Settings = () => {
 
 					{/* Appearance */}
 					<RecommendationFilterSettings />
+
+					<section className={SETTINGS_SECTION_CLASSNAME}>
+						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+							<Trash2 className="h-4 w-4 text-primary" />
+							<span>Storage</span>
+						</div>
+						<div className="flex items-center justify-between gap-4">
+							<div className="min-w-0">
+								<p className="text-sm font-semibold text-foreground">
+									Cached data
+								</p>
+								<p className="mt-1 text-xs text-muted-foreground">
+									Transcripts, summaries, video details, and temporary caches
+								</p>
+							</div>
+							<Button
+								type="button"
+								variant="default"
+								size="icon"
+								aria-label="Clear cached storage"
+								title="Clear cached storage"
+								onClick={() => void handleClearStoredData()}
+								disabled={isClearingStorage}
+							>
+								<Trash2 className="h-4 w-4" />
+							</Button>
+						</div>
+					</section>
 
 					<section className={SETTINGS_SECTION_CLASSNAME}>
 						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">

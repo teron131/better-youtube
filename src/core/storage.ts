@@ -49,6 +49,11 @@ export interface StorageUsage {
 	percentageUsed: number;
 }
 
+export interface ClearStoredDataResult {
+	localKeysRemoved: number;
+	sessionKeysRemoved: number;
+}
+
 interface VideoStorageMeta {
 	updatedAt: number;
 }
@@ -114,6 +119,42 @@ const METADATA_KEY_PREFIX = "video_info_";
 const SUMMARY_KEY_PREFIX = "summary_";
 const VIDEO_META_KEY_PREFIX = "video_meta_";
 const PROTECTED_STORAGE_KEYS = new Set(Object.values(STORAGE_KEYS));
+const SETTINGS_STORAGE_KEYS_TO_KEEP = new Set<string>([
+	STORAGE_KEYS.LLM_API_KEY,
+	STORAGE_KEYS.LLM_BASE_URL,
+	STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
+	STORAGE_KEYS.GEMINI_API_KEY,
+	STORAGE_KEYS.SUMMARIZER_PROVIDER,
+	STORAGE_KEYS.SUMMARIZER_MODE,
+	STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
+	STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+	STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
+	STORAGE_KEYS.REFINER_CUSTOM_MODEL,
+	STORAGE_KEYS.AUTO_GENERATE,
+	STORAGE_KEYS.SHOW_SUBTITLES,
+	STORAGE_KEYS.CAPTION_FONT_SIZE,
+	STORAGE_KEYS.SUMMARY_FONT_SIZE,
+	STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
+	STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
+	STORAGE_KEYS.QUALITY_MODEL,
+	STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
+	STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
+	STORAGE_KEYS.VIEWS_FILTER_ENABLED,
+	STORAGE_KEYS.DURATION_FILTER_ENABLED,
+	STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
+	STORAGE_KEYS.AGE_FILTER_ENABLED,
+	STORAGE_KEYS.ENGLISH_ONLY_TITLES,
+	STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
+	STORAGE_KEYS.MIN_VIEWS,
+	STORAGE_KEYS.MIN_DURATION,
+	STORAGE_KEYS.MAX_DURATION,
+	STORAGE_KEYS.MAX_AGE_YEARS,
+	STORAGE_KEYS.FILTER_KEYWORDS,
+]);
+const SESSION_DATA_KEYS_TO_CLEAR = [
+	STORAGE_KEYS.FILTERED_VIDEOS,
+	STORAGE_KEYS.FILTERED_VIDEO_KEYS,
+] as const;
 const VIDEO_STORAGE_BUDGET_BYTES = Math.min(
 	STORAGE.MAX_STORAGE_BYTES,
 	STORAGE.QUOTA_BYTES - PROTECTED_STORAGE_HEADROOM_BYTES,
@@ -296,6 +337,27 @@ async function sessionStorageGet<T>(key: string): Promise<T | null> {
 	});
 }
 
+async function sessionStorageGetMultiple<T extends Record<string, unknown>>(
+	keys: string[],
+): Promise<Partial<T>> {
+	if (!hasSessionStorageApi) {
+		const result: Partial<T> = {};
+		keys.forEach((key) => {
+			const item = sessionStorage.getItem(key);
+			if (item) {
+				(result as Record<string, unknown>)[key] = JSON.parse(item);
+			}
+		});
+		return result;
+	}
+
+	return new Promise((resolve) => {
+		chrome.storage.session.get(keys, (result) => {
+			resolve(result as Partial<T>);
+		});
+	});
+}
+
 async function sessionStorageRemove(keys: string[]): Promise<void> {
 	if (!hasSessionStorageApi) {
 		keys.forEach((key) => {
@@ -461,6 +523,30 @@ export async function getStorageUsage(): Promise<StorageUsage> {
 			});
 		});
 	});
+}
+
+export async function clearStoredDataExceptSettings(): Promise<ClearStoredDataResult> {
+	const allItems = await storageGetAll();
+	const localKeysToRemove = Object.keys(allItems).filter(
+		(key) => !SETTINGS_STORAGE_KEYS_TO_KEEP.has(key),
+	);
+
+	if (localKeysToRemove.length > 0) {
+		await storageRemove(localKeysToRemove);
+	}
+
+	const sessionItems = await sessionStorageGetMultiple<Record<string, unknown>>(
+		[...SESSION_DATA_KEYS_TO_CLEAR],
+	);
+	const sessionKeysToRemove = Object.keys(sessionItems);
+	if (sessionKeysToRemove.length > 0) {
+		await sessionStorageRemove(sessionKeysToRemove);
+	}
+
+	return {
+		localKeysRemoved: localKeysToRemove.length,
+		sessionKeysRemoved: sessionKeysToRemove.length,
+	};
 }
 
 type VideoStorageGroup = {
