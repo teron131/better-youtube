@@ -51,6 +51,14 @@ function segmentsToTranscript(
 
 type CachedVideoState = Partial<VideoProcessingState>;
 
+function isVideoInfoForVideo(
+	videoInfo: VideoProcessingState["scrapedVideoInfo"] | undefined,
+	videoId: string | null,
+): boolean {
+	if (!videoInfo || !videoId) return false;
+	return extractVideoId(videoInfo.url) === videoId;
+}
+
 function resolveSummaryProvider(
 	modelUsed?: string,
 ): "gemini" | "llm" | undefined {
@@ -199,7 +207,10 @@ const Index = () => {
 			changeInfo: chrome.tabs.TabChangeInfo,
 			tab: chrome.tabs.Tab,
 		) => {
-			if (changeInfo.url && tab.active) {
+			if (
+				tab.active &&
+				(changeInfo.url || changeInfo.title || changeInfo.status === "complete")
+			) {
 				loadCurrentTabUrl();
 			}
 		};
@@ -313,7 +324,7 @@ const Index = () => {
 	}, [cancelCurrentRun, initialUrl, isExampleMode, updateState]);
 
 	useEffect(() => {
-		const trackedUrl = lastProcessedUrl || initialUrl;
+		const trackedUrl = initialUrl || lastProcessedUrl;
 		if (!trackedUrl || isLoading || isExampleMode) return;
 
 		const videoId = extractVideoId(trackedUrl);
@@ -579,8 +590,20 @@ const Index = () => {
 		});
 	};
 
-	const videoInfo = summaryResult?.videoInfo || scrapedVideoInfo;
-	const transcript = summaryResult?.transcript || scrapedTranscript;
+	const activeVideoId = extractVideoId(initialUrl || lastProcessedUrl);
+	const summaryVideoInfo = isVideoInfoForVideo(
+		summaryResult?.videoInfo,
+		activeVideoId,
+	)
+		? summaryResult?.videoInfo
+		: null;
+	const cachedVideoInfo = isVideoInfoForVideo(scrapedVideoInfo, activeVideoId)
+		? scrapedVideoInfo
+		: null;
+	const videoInfo = summaryVideoInfo || cachedVideoInfo;
+	const transcript = summaryVideoInfo
+		? summaryResult?.transcript || scrapedTranscript
+		: scrapedTranscript;
 
 	return (
 		<div className="app-shell pb-10">
