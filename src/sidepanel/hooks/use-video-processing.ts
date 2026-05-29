@@ -152,6 +152,7 @@ export function useVideoProcessing() {
 	}, []);
 
 	const cancelCurrentRun = useCallback(() => {
+		runTokenRef.current += 1;
 		abortControllerRef.current?.abort();
 		abortControllerRef.current = null;
 	}, []);
