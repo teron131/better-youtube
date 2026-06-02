@@ -132,10 +132,6 @@ function hasConfiguredModels(config: ConfigurationResponse | null): boolean {
 	return Object.keys(config?.available_models ?? {}).length > 0;
 }
 
-function firstOpenRouterProvider(modelId: string): string {
-	return modelId.split("/")[0] || "";
-}
-
 function parseModelCostPerMillion(model: OpenRouterModel): number {
 	const inputCost = parseFloat(model.pricing?.prompt || "0");
 	const outputCost = parseFloat(model.pricing?.completion || "0");
@@ -170,7 +166,7 @@ function availableModelFromOpenRouterModel(
 	providerLogosByProvider: Record<string, string>,
 ): AvailableModel {
 	const blendedPrice = parseModelCostPerMillion(model);
-	const provider = firstOpenRouterProvider(model.id);
+	const provider = model.id.split("/")[0] || "";
 	const harnessModelMetadata =
 		harnessModelMetadataById[
 			model.id
@@ -202,10 +198,6 @@ function normalizeOptionalNumber(value: unknown): number | null | undefined {
 		: undefined;
 }
 
-function normalizeOptionalBoolean(value: unknown): boolean | undefined {
-	return typeof value === "boolean" ? value : undefined;
-}
-
 function normalizeAvailableModel(value: unknown): AvailableModel | null {
 	if (!value || typeof value !== "object") {
 		return null;
@@ -220,7 +212,8 @@ function normalizeAvailableModel(value: unknown): AvailableModel | null {
 		key: record.key,
 		label: record.label,
 		provider: normalizeOptionalString(record.provider),
-		recommended: normalizeOptionalBoolean(record.recommended),
+		recommended:
+			typeof record.recommended === "boolean" ? record.recommended : undefined,
 		logo: normalizeOptionalString(record.logo),
 		fallbackLogo: normalizeOptionalString(record.fallbackLogo),
 		intelligenceScore: normalizeOptionalNumber(record.intelligenceScore),

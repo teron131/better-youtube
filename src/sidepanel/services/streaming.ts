@@ -153,7 +153,7 @@ function createSummaryListener(
 		let settled = false;
 		const signal = control?.signal;
 		const runId = control?.runId;
-		let removeAbortListener = () => {};
+		let removeAbortListener: (() => void) | null = null;
 
 		const settle = (handler: () => void) => {
 			if (settled) return;
@@ -232,7 +232,7 @@ function createSummaryListener(
 		cleanup = () => {
 			chrome.runtime.onMessage.removeListener(listener);
 			clearTimeout(timeoutId);
-			removeAbortListener();
+			removeAbortListener?.();
 		};
 
 		if (signal) {
