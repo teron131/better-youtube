@@ -18,6 +18,7 @@ import {
 import {
 	fetchHarnessModelMetadataMap,
 	type HarnessModelMetadata,
+	type HarnessModelMetadataIndex,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -53,6 +54,7 @@ const PRICE_PER_MILLION_TOKENS = 1_000_000;
 const INPUT_PRICE_WEIGHT = 3;
 const OUTPUT_PRICE_WEIGHT = 1;
 const DYNAMIC_MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const OPTIONAL_STATS_METADATA_TIMEOUT_MS = 4_000;
 
 type OpenRouterModel = {
 	id: string;
@@ -67,6 +69,20 @@ type OpenRouterModel = {
 		completion?: string;
 	};
 };
+
+const FALLBACK_DYNAMIC_MODELS: AvailableModel[] = [
+	...new Set([DEFAULT_SUMMARY_MODEL, DEFAULT_QUALITY_MODEL]),
+].map((modelKey) => {
+	const separatorIndex = modelKey.indexOf("/");
+	return {
+		key: modelKey,
+		label: modelKey,
+		provider:
+			separatorIndex > 0 ? modelKey.slice(0, separatorIndex) : undefined,
+		recommended: false,
+		price: null,
+	};
+});
 
 let dynamicModelsPromise: Promise<AvailableModel[]> | null = null;
 
@@ -258,7 +274,7 @@ async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
 }
 
 async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
-	if (models.length === 0) {
+	if (models.length === 0 || !models.some((model) => model.recommended)) {
 		return;
 	}
 
@@ -273,18 +289,30 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 		if (!dynamicModelsPromise) {
 			dynamicModelsPromise = Promise.all([
 				fetch(OPENROUTER_MODELS_URL),
-				fetchHarnessModelMetadataMap(),
+				Promise.race([
+					fetchHarnessModelMetadataMap(),
+					new Promise<HarnessModelMetadataIndex>((resolve) => {
+						globalThis.setTimeout(
+							() =>
+								resolve({
+									modelsById: {},
+									providerLogosByProvider: {},
+								}),
+							OPTIONAL_STATS_METADATA_TIMEOUT_MS,
+						);
+					}),
+				]),
 			])
 				.then(async ([response, harnessMetadata]) => {
 					if (!response.ok) {
-						return [];
+						return FALLBACK_DYNAMIC_MODELS;
 					}
 
 					const data = (await response.json()) as {
 						data?: OpenRouterModel[];
 					};
 
-					return (data.data || [])
+					const models = (data.data || [])
 						.filter(isSupportedTextModel)
 						.map((model) =>
 							availableModelFromOpenRouterModel(
@@ -293,17 +321,17 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 								harnessMetadata.providerLogosByProvider,
 							),
 						);
+					return models.length > 0 ? models : FALLBACK_DYNAMIC_MODELS;
 				})
-				.catch((error) => {
+				.finally(() => {
 					dynamicModelsPromise = null;
-					throw error;
 				});
 		}
 
 		return await dynamicModelsPromise;
 	} catch (error) {
 		console.error("Failed to fetch dynamic models", error);
-		return [];
+		return FALLBACK_DYNAMIC_MODELS;
 	}
 }
 
