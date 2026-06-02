@@ -137,7 +137,8 @@ class SubtitleView {
 class SubtitleController {
 	private animationFrameId: number | null = null;
 	private videoPlayer: HTMLVideoElement;
-	private subtitles: SubtitleSegment[];
+	private subtitles: SubtitleSegment[] = [];
+	private maxEndTimeThroughIndex: number[] = [];
 	private view: SubtitleView;
 	private activeSubtitleIndex = -1;
 	private normalizedSubtitleCache = new Map<number, string>();
@@ -148,8 +149,8 @@ class SubtitleController {
 		view: SubtitleView,
 	) {
 		this.videoPlayer = videoPlayer;
-		this.subtitles = subtitles;
 		this.view = view;
+		this.replaceSubtitles(subtitles);
 	}
 
 	start(): void {
@@ -162,6 +163,23 @@ class SubtitleController {
 		this.stopFrameSync();
 		this.detachEventListeners();
 		this.view.hide();
+	}
+
+	updateSubtitles(subtitles: SubtitleSegment[]): void {
+		this.replaceSubtitles(subtitles);
+		this.activeSubtitleIndex = -1;
+		this.syncPlayback();
+		this.startFrameSync();
+	}
+
+	private replaceSubtitles(subtitles: SubtitleSegment[]): void {
+		this.subtitles = subtitles;
+		this.normalizedSubtitleCache.clear();
+		let maxEndTime = Number.NEGATIVE_INFINITY;
+		this.maxEndTimeThroughIndex = subtitles.map((subtitle) => {
+			maxEndTime = Math.max(maxEndTime, subtitle.endTime);
+			return maxEndTime;
+		});
 	}
 
 	private syncPlayback = (): void => {
@@ -212,37 +230,37 @@ class SubtitleController {
 	}
 
 	private findSubtitleIndex(timeMs: number): number {
-		const activeSubtitle = this.subtitles[this.activeSubtitleIndex];
-		if (
-			activeSubtitle &&
-			timeMs >= activeSubtitle.startTime &&
-			timeMs < activeSubtitle.endTime
-		) {
-			return this.activeSubtitleIndex;
-		}
+		// YouTube transcript ranges can overlap; prefer the latest started active segment.
+		const latestStartedIndex = this.findLatestStartedSubtitleIndex(timeMs);
 
-		let low =
-			activeSubtitle &&
-			this.activeSubtitleIndex >= 0 &&
-			timeMs >= activeSubtitle.endTime
-				? this.activeSubtitleIndex + 1
-				: 0;
-		let high = this.subtitles.length - 1;
+		for (let index = latestStartedIndex; index >= 0; index--) {
+			if (this.maxEndTimeThroughIndex[index] <= timeMs) {
+				return -1;
+			}
 
-		while (low <= high) {
-			const mid = Math.floor((low + high) / 2);
-			const subtitle = this.subtitles[mid];
-
+			const subtitle = this.subtitles[index];
 			if (timeMs >= subtitle.startTime && timeMs < subtitle.endTime) {
-				return mid;
-			} else if (timeMs < subtitle.startTime) {
-				high = mid - 1;
-			} else {
-				low = mid + 1;
+				return index;
 			}
 		}
 
 		return -1;
+	}
+
+	private findLatestStartedSubtitleIndex(timeMs: number): number {
+		let low = 0;
+		let high = this.subtitles.length;
+
+		while (low < high) {
+			const mid = Math.floor((low + high) / 2);
+			if (this.subtitles[mid].startTime <= timeMs) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
+		}
+
+		return low - 1;
 	}
 
 	private startFrameSync(): void {
@@ -364,6 +382,11 @@ export function startSubtitleDisplay(
 
 	if (!subtitleView) createSubtitleElements();
 	if (!subtitleView) return;
+
+	if (activeController && activeVideoId === videoId) {
+		activeController.updateSubtitles(currentSubtitles);
+		return;
+	}
 
 	stopSubtitleDisplay();
 	activeVideoId = videoId;
