@@ -99,10 +99,6 @@ function resolveVideoIdOrRespond(
 	return null;
 }
 
-function sendStarted(sendResponse: (response: any) => void): void {
-	sendResponse({ status: "started" });
-}
-
 function getActiveVideoId(state: ContentScriptState): string | null {
 	return state.currentVideoId || extractVideoId(window.location.href);
 }
@@ -130,7 +126,7 @@ function handleGenerateSummary(
 		console.error("Error sending generate summary message:", error.message);
 	});
 
-	sendStarted(sendResponse);
+	sendResponse({ status: "started" });
 }
 
 function handleGenerateSubtitles(
@@ -166,7 +162,7 @@ function handleGenerateSubtitles(
 			console.error("Error communicating with background:", error.message);
 		});
 
-	sendStarted(sendResponse);
+	sendResponse({ status: "started" });
 }
 
 function handleSubtitlesGenerated(

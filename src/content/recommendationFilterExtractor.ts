@@ -778,20 +778,6 @@ function getStructuredVideoData(
 	return null;
 }
 
-function needsMetadataFallback(videoData: ExtractedVideoData): boolean {
-	return (
-		!videoData.viewCount || !videoData.publishTime || !videoData.isLiveContent
-	);
-}
-
-function needsFullTextFallback(videoData: ExtractedVideoData): boolean {
-	return !videoData.viewCount || !videoData.publishTime;
-}
-
-function getVideoCardFullText(videoElement: Element): string | null {
-	return normalizeText(videoElement.textContent);
-}
-
 function detectTextLanguage(text: string | null): TextLanguage {
 	if (!text) {
 		return "unknown";
@@ -852,11 +838,11 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 			data.duration = extractDurationFromElement(videoElement);
 		}
 
-		if (needsMetadataFallback(data)) {
+		if (!data.viewCount || !data.publishTime || !data.isLiveContent) {
 			fillMetadataFromText(data, getMetadataText(videoElement));
 		}
-		if (needsFullTextFallback(data)) {
-			fillMetadataFromFullText(data, getVideoCardFullText(videoElement));
+		if (!data.viewCount || !data.publishTime) {
+			fillMetadataFromFullText(data, normalizeText(videoElement.textContent));
 		}
 		if (!data.isActiveLiveContent) {
 			data.isActiveLiveContent =
