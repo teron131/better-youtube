@@ -303,17 +303,13 @@ function mergeSubtitleSegments(
 		return existingSubtitles;
 	}
 
-	const updatedByRange = new Map(
-		updatedSubtitles.map((subtitle) => [
-			`${subtitle.startTime}:${subtitle.endTime}`,
-			subtitle,
-		]),
+	// Refinement preserves start times, but alignment may clamp end times to remove overlaps.
+	const updatedByStartTime = new Map(
+		updatedSubtitles.map((subtitle) => [subtitle.startTime, subtitle]),
 	);
 
 	return existingSubtitles.map((subtitle) => {
-		const updated = updatedByRange.get(
-			`${subtitle.startTime}:${subtitle.endTime}`,
-		);
+		const updated = updatedByStartTime.get(subtitle.startTime);
 		return updated ?? subtitle;
 	});
 }
