@@ -8,6 +8,10 @@ import { ELEMENT_IDS, FONT_SIZES, YOUTUBE } from "@/core/constants";
 import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
+const MIN_SUBTITLE_SYNC_DELAY_MS = 50;
+const MAX_SUBTITLE_SYNC_DELAY_MS = 1000;
+const SUBTITLE_SYNC_LOOKAHEAD_MS = 120;
+
 let videoPlayer: HTMLVideoElement | null = null;
 let videoContainer: HTMLElement | null = null;
 let activeVideoId: string | null = null;
@@ -135,7 +139,7 @@ class SubtitleView {
  * Controller for managing subtitle display and playback synchronization
  */
 class SubtitleController {
-	private animationFrameId: number | null = null;
+	private syncTimeoutId: number | null = null;
 	private videoPlayer: HTMLVideoElement;
 	private subtitles: SubtitleSegment[] = [];
 	private maxEndTimeThroughIndex: number[] = [];
@@ -156,11 +160,10 @@ class SubtitleController {
 	start(): void {
 		this.attachEventListeners();
 		this.syncPlayback();
-		this.startFrameSync();
 	}
 
 	stop(): void {
-		this.stopFrameSync();
+		this.stopScheduledSync();
 		this.detachEventListeners();
 		this.view.hide();
 	}
@@ -169,7 +172,6 @@ class SubtitleController {
 		this.replaceSubtitles(subtitles);
 		this.activeSubtitleIndex = -1;
 		this.syncPlayback();
-		this.startFrameSync();
 	}
 
 	private replaceSubtitles(subtitles: SubtitleSegment[]): void {
@@ -183,19 +185,24 @@ class SubtitleController {
 	}
 
 	private syncPlayback = (): void => {
+		this.stopScheduledSync();
+
 		if (activeVideoId && getCurrentPageVideoId() !== activeVideoId) {
 			stopSubtitleDisplay();
 			return;
 		}
 
 		if (Number.isNaN(this.videoPlayer.currentTime)) {
+			this.scheduleNextSync(MAX_SUBTITLE_SYNC_DELAY_MS);
 			return;
 		}
 
 		const currentTime = this.videoPlayer.currentTime * 1000;
 		const nextSubtitleIndex = this.findSubtitleIndex(currentTime);
+		const nextSyncDelay = this.getNextSyncDelay(currentTime, nextSubtitleIndex);
 
 		if (nextSubtitleIndex === this.activeSubtitleIndex) {
+			this.scheduleNextSync(nextSyncDelay);
 			return;
 		}
 
@@ -203,17 +210,20 @@ class SubtitleController {
 
 		if (nextSubtitleIndex < 0) {
 			this.view.hide();
+			this.scheduleNextSync(nextSyncDelay);
 			return;
 		}
 
 		const normalizedText = this.getNormalizedSubtitleText(nextSubtitleIndex);
 		if (!normalizedText) {
 			this.view.hide();
+			this.scheduleNextSync(nextSyncDelay);
 			return;
 		}
 
 		this.view.setText(normalizedText);
 		this.view.show();
+		this.scheduleNextSync(nextSyncDelay);
 	};
 
 	private getNormalizedSubtitleText(subtitleIndex: number): string {
@@ -263,49 +273,71 @@ class SubtitleController {
 		return low - 1;
 	}
 
-	private startFrameSync(): void {
-		if (this.animationFrameId !== null) {
-			return;
+	private getNextSyncDelay(
+		currentTimeMs: number,
+		activeSubtitleIndex: number,
+	): number {
+		const nextSubtitleStartMs =
+			this.subtitles[this.findLatestStartedSubtitleIndex(currentTimeMs) + 1]
+				?.startTime ?? null;
+		const activeSubtitle = this.subtitles[activeSubtitleIndex];
+		const activeSubtitleEndMs =
+			activeSubtitle && currentTimeMs < activeSubtitle.endTime
+				? activeSubtitle.endTime
+				: null;
+		const nextBoundaryMs =
+			nextSubtitleStartMs === null
+				? activeSubtitleEndMs
+				: activeSubtitleEndMs === null
+					? nextSubtitleStartMs
+					: Math.min(activeSubtitleEndMs, nextSubtitleStartMs);
+
+		if (nextBoundaryMs === null) {
+			return MAX_SUBTITLE_SYNC_DELAY_MS;
 		}
 
+		const playbackRate = Math.max(this.videoPlayer.playbackRate || 1, 0.25);
+		const mediaDelayMs = nextBoundaryMs - currentTimeMs;
+		const wallClockDelayMs =
+			(mediaDelayMs - SUBTITLE_SYNC_LOOKAHEAD_MS) / playbackRate;
+
+		return Math.max(
+			MIN_SUBTITLE_SYNC_DELAY_MS,
+			Math.min(MAX_SUBTITLE_SYNC_DELAY_MS, Math.ceil(wallClockDelayMs)),
+		);
+	}
+
+	private scheduleNextSync(delayMs: number): void {
 		if (this.videoPlayer.paused || this.videoPlayer.ended) {
 			return;
 		}
 
-		this.animationFrameId = window.requestAnimationFrame(this.runFrameSync);
+		this.syncTimeoutId = window.setTimeout(this.syncPlayback, delayMs);
 	}
 
-	private stopFrameSync(): void {
-		if (this.animationFrameId !== null) {
-			window.cancelAnimationFrame(this.animationFrameId);
-			this.animationFrameId = null;
+	private stopScheduledSync(): void {
+		if (this.syncTimeoutId !== null) {
+			window.clearTimeout(this.syncTimeoutId);
+			this.syncTimeoutId = null;
 		}
 	}
 
-	private runFrameSync = (): void => {
-		this.animationFrameId = null;
-		this.syncPlayback();
-		this.startFrameSync();
-	};
-
 	private handlePlay = (): void => {
 		this.syncPlayback();
-		this.startFrameSync();
 	};
 
 	private handlePause = (): void => {
-		this.stopFrameSync();
+		this.stopScheduledSync();
 	};
 
 	private handleEnded = (): void => {
-		this.stopFrameSync();
+		this.stopScheduledSync();
 		this.view.hide();
 	};
 
 	private handleSeeked = (): void => {
 		this.activeSubtitleIndex = -1;
 		this.syncPlayback();
-		this.startFrameSync();
 	};
 
 	private handleTimeUpdate = (): void => {
