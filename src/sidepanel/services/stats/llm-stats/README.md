@@ -58,7 +58,7 @@ The public payload also includes `metadata` so the chosen benchmark groups are v
 
 ## Scoring Inputs
 
-The current benchmark groups are configured in [llm-stats.ts](/Users/teron/Projects/llm-harness-js/src/stats/llm/llm-stats.ts:1).
+The current benchmark groups are configured in [llm-stats.ts](/Users/teron/Projects/llm-stats/src/llm-stats/llm/llm-stats.ts:1).
 
 Current intelligence benchmark keys:
 

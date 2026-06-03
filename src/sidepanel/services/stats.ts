@@ -1,5 +1,5 @@
 /**
- * Small orchestrator around the copied browser-safe harness stats modules.
+ * Small orchestrator around the copied browser-safe llm-stats modules.
  */
 
 import type { AvailableModel } from "./config";
@@ -17,13 +17,13 @@ import type {
 } from "./stats/llm-stats/types";
 import { asFiniteNumber, asRecord, type JsonObject } from "./stats/shared";
 
-export type HarnessModelMetadata = Pick<
+export type LlmStatsModelMetadata = Pick<
 	AvailableModel,
 	"intelligenceScore" | "speedMetric" | "logo" | "fallbackLogo"
 >;
 
-export type HarnessModelMetadataIndex = {
-	modelsById: Record<string, HarnessModelMetadata>;
+export type LlmStatsModelMetadataIndex = {
+	modelsById: Record<string, LlmStatsModelMetadata>;
 	providerLogosByProvider: Record<string, string>;
 };
 
@@ -70,7 +70,7 @@ const LLM_STATS_STAGE_CONFIG = {
 
 const MIN_REQUIRED_RELATIVE_SCORE = 10;
 
-let harnessModelMetadataPromise: Promise<HarnessModelMetadataIndex> | null =
+let llmStatsModelMetadataPromise: Promise<LlmStatsModelMetadataIndex> | null =
 	null;
 
 export function normalizeOpenRouterModelId(modelId: string): string {
@@ -177,7 +177,7 @@ function toProviderLogosByProvider(
 	return providerLogosByProvider;
 }
 
-async function buildHarnessModelMetadataIndex(): Promise<HarnessModelMetadataIndex> {
+async function buildLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMetadataIndex> {
 	const sourceData = await fetchSourceData();
 	const matchedRows = await buildMatchedRows(
 		sourceData,
@@ -271,20 +271,20 @@ async function buildHarnessModelMetadataIndex(): Promise<HarnessModelMetadataInd
 	};
 }
 
-export async function fetchHarnessModelMetadataMap(): Promise<HarnessModelMetadataIndex> {
+export async function fetchLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMetadataIndex> {
 	try {
-		if (!harnessModelMetadataPromise) {
-			harnessModelMetadataPromise = buildHarnessModelMetadataIndex().catch(
+		if (!llmStatsModelMetadataPromise) {
+			llmStatsModelMetadataPromise = buildLlmStatsModelMetadataIndex().catch(
 				(error) => {
-					harnessModelMetadataPromise = null;
+					llmStatsModelMetadataPromise = null;
 					throw error;
 				},
 			);
 		}
 
-		return await harnessModelMetadataPromise;
+		return await llmStatsModelMetadataPromise;
 	} catch (error) {
-		console.error("Failed to build harness model metadata", error);
+		console.error("Failed to build llm-stats model metadata", error);
 		return {
 			modelsById: {},
 			providerLogosByProvider: {},

@@ -16,9 +16,10 @@ import {
 	type SupportedLanguage,
 } from "@ui/services/config";
 import {
-	fetchHarnessModelMetadataMap,
-	type HarnessModelMetadata,
-	type HarnessModelMetadataIndex,
+	fetchLlmStatsModelMetadataIndex,
+	type LlmStatsModelMetadata,
+	type LlmStatsModelMetadataIndex,
+	normalizeOpenRouterModelId,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -162,18 +163,13 @@ function isSupportedTextModel(model: OpenRouterModel): boolean {
 
 function availableModelFromOpenRouterModel(
 	model: OpenRouterModel,
-	harnessModelMetadataById: Record<string, HarnessModelMetadata>,
+	llmStatsModelMetadataById: Record<string, LlmStatsModelMetadata>,
 	providerLogosByProvider: Record<string, string>,
 ): AvailableModel {
 	const blendedPrice = parseModelCostPerMillion(model);
 	const provider = model.id.split("/")[0] || "";
-	const harnessModelMetadata =
-		harnessModelMetadataById[
-			model.id
-				.trim()
-				.toLowerCase()
-				.replace(/:[a-z0-9._-]+$/i, "")
-		];
+	const llmStatsModelMetadata =
+		llmStatsModelMetadataById[normalizeOpenRouterModelId(model.id)];
 	const providerLogo = providerLogosByProvider[provider];
 
 	return {
@@ -182,9 +178,9 @@ function availableModelFromOpenRouterModel(
 		provider,
 		recommended: true,
 		price: blendedPrice,
-		...harnessModelMetadata,
-		logo: harnessModelMetadata?.logo ?? providerLogo,
-		fallbackLogo: harnessModelMetadata?.fallbackLogo ?? providerLogo,
+		...llmStatsModelMetadata,
+		logo: llmStatsModelMetadata?.logo ?? providerLogo,
+		fallbackLogo: llmStatsModelMetadata?.fallbackLogo ?? providerLogo,
 	};
 }
 
@@ -283,8 +279,8 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 			dynamicModelsPromise = Promise.all([
 				fetch(OPENROUTER_MODELS_URL),
 				Promise.race([
-					fetchHarnessModelMetadataMap(),
-					new Promise<HarnessModelMetadataIndex>((resolve) => {
+					fetchLlmStatsModelMetadataIndex(),
+					new Promise<LlmStatsModelMetadataIndex>((resolve) => {
 						globalThis.setTimeout(
 							() =>
 								resolve({
@@ -296,7 +292,7 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 					}),
 				]),
 			])
-				.then(async ([response, harnessMetadata]) => {
+				.then(async ([response, llmStatsMetadata]) => {
 					if (!response.ok) {
 						return FALLBACK_DYNAMIC_MODELS;
 					}
@@ -310,8 +306,8 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 						.map((model) =>
 							availableModelFromOpenRouterModel(
 								model,
-								harnessMetadata.modelsById,
-								harnessMetadata.providerLogosByProvider,
+								llmStatsMetadata.modelsById,
+								llmStatsMetadata.providerLogosByProvider,
 							),
 						);
 					return models.length > 0 ? models : FALLBACK_DYNAMIC_MODELS;
