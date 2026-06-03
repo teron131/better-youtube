@@ -1,4 +1,4 @@
-/** Browser-safe logo cache helpers for copied harness stats modules. */
+/** Browser-safe logo cache helpers for copied llm-stats modules. */
 
 export async function cacheStatsLogo(source: string): Promise<string> {
 	return source;
