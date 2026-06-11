@@ -2,6 +2,6 @@
 	path = llm-harness-js
 	url = https://github.com/teron131/llm-harness-js.git
 
-[submodule "llm-stats"]
-	path = llm-stats
-	url = https://github.com/teron131/llm-stats.git
+[submodule "model-atlas"]
+	path = model-atlas
+	url = https://github.com/teron131/model-atlas.git

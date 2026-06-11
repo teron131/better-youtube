@@ -1,21 +1,9 @@
 /**
- * Small orchestrator around the copied browser-safe llm-stats modules.
+ * Sidepanel metadata adapter for Model Atlas payloads.
  */
 
-import type { AvailableModel } from "./config";
-import { buildMatchedRows } from "./stats/llm-stats/match-stage";
-import { enrichRows } from "./stats/llm-stats/openrouter-stage";
-import {
-	attachRelativeScores,
-	blendedPriceValue,
-	buildScores,
-} from "./stats/llm-stats/scoring";
-import { fetchSourceData } from "./stats/llm-stats/source-stage";
-import type {
-	LlmStatsStageConfig,
-	ModelStatsSelectedModel,
-} from "./stats/llm-stats/types";
-import { asFiniteNumber, asRecord, type JsonObject } from "./stats/shared";
+import type { AvailableModel } from "./config.ts";
+import { asFiniteNumber, asRecord } from "./utils.ts";
 
 export type LlmStatsModelMetadata = Pick<
 	AvailableModel,
@@ -27,51 +15,25 @@ export type LlmStatsModelMetadataIndex = {
 	providerLogosByProvider: Record<string, string>;
 };
 
-const LLM_STATS_STAGE_CONFIG = {
-	matcher: {
-		variantTokens: [
-			"flash-lite",
-			"flash",
-			"pro",
-			"nano",
-			"mini",
-			"lite",
-			"max",
-		],
-	},
-	openrouter: {
-		speedConcurrency: 8,
-	},
-	final: {
-		nullFieldPruneThreshold: 0.5,
-		nullFieldPruneRecentLookbackDays: 90,
-	},
-	scoring: {
-		intelligenceBenchmarkKeys: [
-			"omniscience_accuracy",
-			"hle",
-			"lcr",
-			"scicode",
-		],
-		agenticBenchmarkKeys: [
-			"omniscience_nonhallucination_rate",
-			"gdpval_normalized",
-			"ifbench",
-			"terminalbench_hard",
-		],
-		defaultSpeedOutputTokenAnchors: [200, 500, 1_000, 2_000, 8_000],
-		speedOutputTokenRangeMin: 200,
-		speedOutputTokenRangeMax: 8_000,
-		speedAnchorQuantiles: [0.25, 0.5, 0.75],
-		weightedPriceInputRatio: 0.75,
-		weightedPriceOutputRatio: 0.25,
-	},
-} satisfies LlmStatsStageConfig;
-
 const MIN_REQUIRED_RELATIVE_SCORE = 10;
+const CACHE_TTL_SECONDS = 60 * 60 * 24;
+const MODEL_ATLAS_PAYLOAD_CACHE_KEY = "model-atlas:selected-payload:v1";
+const MODEL_ATLAS_STATS_URL = "https://llm-stats.vercel.app/api/llm-stats";
 
 let llmStatsModelMetadataPromise: Promise<LlmStatsModelMetadataIndex> | null =
 	null;
+
+type LlmStatsCachedModel = {
+	id: string | null;
+	provider?: string | null;
+	logo?: string | null;
+	relative_scores?: unknown;
+};
+
+type LlmStatsCachedPayload = {
+	fetched_at_epoch_seconds?: number | null;
+	models?: unknown;
+};
 
 export function normalizeOpenRouterModelId(modelId: string): string {
 	return modelId
@@ -91,61 +53,74 @@ function providerFromId(modelId: string | null | undefined): string | null {
 	return modelId.slice(0, separatorIndex).trim().toLowerCase();
 }
 
-function buildSpeed(
-	model: JsonObject,
-	modelId: string | null,
-	openRouterSpeedById: Map<string, JsonObject>,
-): JsonObject {
-	const openRouterSpeed = modelId ? openRouterSpeedById.get(modelId) : null;
-	return {
-		throughput_tokens_per_second_median:
-			asFiniteNumber(openRouterSpeed?.throughput_tokens_per_second_median) ??
-			asFiniteNumber(model.median_speed) ??
-			asFiniteNumber(model.median_output_tokens_per_second),
-		latency_seconds_median:
-			asFiniteNumber(openRouterSpeed?.latency_seconds_median) ??
-			asFiniteNumber(model.median_time) ??
-			asFiniteNumber(model.median_time_to_first_token_seconds),
-		e2e_latency_seconds_median:
-			asFiniteNumber(openRouterSpeed?.e2e_latency_seconds_median) ??
-			asFiniteNumber(model.median_time) ??
-			asFiniteNumber(model.median_time_to_first_answer_token) ??
-			asFiniteNumber(openRouterSpeed?.latency_seconds_median) ??
-			asFiniteNumber(model.median_time) ??
-			asFiniteNumber(model.median_time_to_first_token_seconds),
-	};
+function isFreshPayload(payload: LlmStatsCachedPayload): boolean {
+	const fetchedAt = payload.fetched_at_epoch_seconds;
+	if (typeof fetchedAt !== "number") {
+		return false;
+	}
+	const ageSeconds = Math.floor(Date.now() / 1000) - fetchedAt;
+	return ageSeconds >= 0 && ageSeconds <= CACHE_TTL_SECONDS;
 }
 
-function buildCost(
-	model: JsonObject,
-	openRouterPricing: JsonObject,
-): JsonObject | null {
-	const baseCost = asRecord(model.cost);
-	const cleanedCost: JsonObject = Object.fromEntries(
-		Object.entries(baseCost).filter(([, value]) => value != null),
-	);
-	const weightedInput = asFiniteNumber(openRouterPricing.weighted_input);
-	const weightedOutput = asFiniteNumber(openRouterPricing.weighted_output);
-
-	if (weightedInput != null) {
-		cleanedCost.weighted_input = weightedInput;
+function readCachedPayload(key: string): LlmStatsCachedPayload | null {
+	try {
+		const content = globalThis.localStorage?.getItem(key);
+		if (!content) return null;
+		const payload = JSON.parse(content) as LlmStatsCachedPayload;
+		if (!Array.isArray(payload.models) || !isFreshPayload(payload)) {
+			return null;
+		}
+		return payload;
+	} catch {
+		return null;
 	}
-	if (weightedOutput != null) {
-		cleanedCost.weighted_output = weightedOutput;
-	}
-
-	const blendedPrice = blendedPriceValue(
-		cleanedCost,
-		LLM_STATS_STAGE_CONFIG.scoring,
-	);
-	if (blendedPrice != null) {
-		cleanedCost.blended_price = blendedPrice;
-	}
-
-	return Object.keys(cleanedCost).length > 0 ? cleanedCost : null;
 }
 
-function hasMinimumScoreSignal(model: ModelStatsSelectedModel): boolean {
+function writeCachedPayload(key: string, payload: LlmStatsCachedPayload): void {
+	try {
+		globalThis.localStorage?.setItem(key, JSON.stringify(payload));
+	} catch {
+		// Metadata improves ranking, but cache write failures should not block UI.
+	}
+}
+
+function loadModelAtlasCachedPayload(): LlmStatsCachedPayload | null {
+	if (typeof globalThis.localStorage === "undefined") {
+		return null;
+	}
+	return readCachedPayload(MODEL_ATLAS_PAYLOAD_CACHE_KEY);
+}
+
+async function fetchModelAtlasPayload(): Promise<LlmStatsCachedPayload | null> {
+	const response = await fetch(MODEL_ATLAS_STATS_URL);
+	if (!response.ok) {
+		return null;
+	}
+	const payload = (await response.json()) as LlmStatsCachedPayload;
+	if (!Array.isArray(payload.models)) {
+		return null;
+	}
+	writeCachedPayload(MODEL_ATLAS_PAYLOAD_CACHE_KEY, payload);
+	return payload;
+}
+
+async function loadModelAtlasPayload(): Promise<LlmStatsCachedPayload | null> {
+	const cachedPayload = loadModelAtlasCachedPayload();
+	if (cachedPayload) {
+		return cachedPayload;
+	}
+	return fetchModelAtlasPayload();
+}
+
+function isCachedModel(value: unknown): value is LlmStatsCachedModel {
+	if (value == null || typeof value !== "object") {
+		return false;
+	}
+	const model = value as Partial<LlmStatsCachedModel>;
+	return typeof model.id === "string" || model.id === null;
+}
+
+function hasMinimumScoreSignal(model: LlmStatsCachedModel): boolean {
 	const relativeScores = asRecord(model.relative_scores);
 	return [
 		"overall_score",
@@ -158,9 +133,7 @@ function hasMinimumScoreSignal(model: ModelStatsSelectedModel): boolean {
 	});
 }
 
-function toProviderLogosByProvider(
-	rows: Record<string, unknown>[],
-): Record<string, string> {
+function toProviderLogosByProvider(rows: unknown[]): Record<string, string> {
 	const providerLogosByProvider: Record<string, string> = {};
 
 	for (const row of rows) {
@@ -178,69 +151,13 @@ function toProviderLogosByProvider(
 }
 
 async function buildLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMetadataIndex> {
-	const sourceData = await fetchSourceData();
-	const matchedRows = await buildMatchedRows(
-		sourceData,
-		LLM_STATS_STAGE_CONFIG.matcher,
+	const payload = await loadModelAtlasPayload();
+	const scoredModels = (
+		Array.isArray(payload?.models) ? payload.models : []
+	).filter(
+		(model): model is LlmStatsCachedModel =>
+			isCachedModel(model) && !!model.id && hasMinimumScoreSignal(model),
 	);
-	const enrichedRows = await enrichRows(
-		matchedRows,
-		LLM_STATS_STAGE_CONFIG.openrouter,
-		LLM_STATS_STAGE_CONFIG.scoring,
-	);
-
-	const scoredModels = attachRelativeScores(
-		enrichedRows.rows.map((row) => {
-			const rowRecord = asRecord(row);
-			const modelId = typeof rowRecord.id === "string" ? rowRecord.id : null;
-			const provider =
-				providerFromId(modelId) ??
-				(typeof rowRecord.provider_id === "string"
-					? rowRecord.provider_id
-					: null);
-			const speed = buildSpeed(
-				rowRecord,
-				modelId,
-				enrichedRows.openRouterSpeedById,
-			);
-			const cost = buildCost(
-				rowRecord,
-				modelId ? (enrichedRows.openRouterPricingById.get(modelId) ?? {}) : {},
-			);
-
-			return {
-				id: modelId,
-				name:
-					typeof rowRecord.name === "string"
-						? rowRecord.name
-						: (modelId ?? null),
-				provider,
-				logo: typeof rowRecord.logo === "string" ? rowRecord.logo : "",
-				attachment: null,
-				reasoning: null,
-				release_date:
-					typeof rowRecord.release_date === "string"
-						? rowRecord.release_date
-						: null,
-				modalities: null,
-				open_weights: null,
-				cost,
-				context_window: null,
-				speed,
-				intelligence: rowRecord.intelligence ?? null,
-				intelligence_index_cost: rowRecord.intelligence_index_cost ?? null,
-				evaluations: rowRecord.evaluations ?? null,
-				scores: buildScores(
-					rowRecord,
-					cost,
-					speed,
-					enrichedRows.speedOutputTokenAnchors,
-					LLM_STATS_STAGE_CONFIG.scoring,
-				),
-				relative_scores: null,
-			} satisfies ModelStatsSelectedModel;
-		}),
-	).filter((model) => model.id && hasMinimumScoreSignal(model));
 
 	return {
 		modelsById: Object.fromEntries(
@@ -267,7 +184,7 @@ async function buildLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMetadataI
 				];
 			}),
 		),
-		providerLogosByProvider: toProviderLogosByProvider(enrichedRows.rows),
+		providerLogosByProvider: toProviderLogosByProvider(scoredModels),
 	};
 }
 
@@ -284,7 +201,7 @@ export async function fetchLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMe
 
 		return await llmStatsModelMetadataPromise;
 	} catch (error) {
-		console.error("Failed to build llm-stats model metadata", error);
+		console.error("Failed to build model-atlas metadata", error);
 		return {
 			modelsById: {},
 			providerLogosByProvider: {},

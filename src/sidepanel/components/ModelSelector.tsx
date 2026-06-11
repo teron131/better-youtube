@@ -14,9 +14,13 @@ import {
 } from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-
-type ModelSortMetric = "intelligence" | "speed" | "price";
-type SortDirection = "asc" | "desc";
+import {
+	decorateModelSortLabel,
+	defaultModelSortDirection,
+	type ModelSortDirection,
+	type ModelSortMetric,
+	sortModelsByMetric,
+} from "../lib/model-sort";
 
 const MODEL_SORT_OPTIONS: Array<{
 	metric: ModelSortMetric;
@@ -27,72 +31,6 @@ const MODEL_SORT_OPTIONS: Array<{
 	{ metric: "speed", icon: Rocket, label: "Sort by speed" },
 	{ metric: "price", icon: DollarSign, label: "Sort by price" },
 ];
-
-function metricValue(option: ComboboxOption, metric: ModelSortMetric): number {
-	if (metric === "price") {
-		const value = option.price;
-		return typeof value === "number" ? value : Number.POSITIVE_INFINITY;
-	}
-
-	const value =
-		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
-	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
-}
-
-function defaultSortDirection(metric: ModelSortMetric): SortDirection {
-	return metric === "price" ? "asc" : "desc";
-}
-
-function formatMetricScore(
-	option: ComboboxOption,
-	metric: Exclude<ModelSortMetric, "price">,
-): string | null {
-	const rawValue =
-		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
-
-	if (typeof rawValue !== "number") {
-		return null;
-	}
-
-	if (metric === "speed") {
-		return `[${rawValue.toFixed(0)}]`;
-	}
-
-	const formattedValue = rawValue.toFixed(0);
-
-	return `[${formattedValue}]`;
-}
-
-function decorateOptionLabel(
-	option: ComboboxOption,
-	metric: ModelSortMetric,
-): string {
-	if (metric === "price") {
-		return option.label;
-	}
-
-	const scoreLabel = formatMetricScore(option, metric);
-	return scoreLabel ? `${option.label} ${scoreLabel}` : option.label;
-}
-
-function sortModelOptions(
-	options: ComboboxOption[],
-	metric: ModelSortMetric,
-	direction: SortDirection,
-): ComboboxOption[] {
-	return [...options].sort((left, right) => {
-		const leftValue = metricValue(left, metric);
-		const rightValue = metricValue(right, metric);
-
-		if (leftValue !== rightValue) {
-			const ascendingResult = leftValue - rightValue;
-			return direction === "asc" ? ascendingResult : -ascendingResult;
-		}
-
-		const labelComparison = left.label.localeCompare(right.label);
-		return direction === "asc" ? labelComparison : -labelComparison;
-	});
-}
 
 interface ModelSelectorProps {
 	label: string;
@@ -119,8 +57,8 @@ export function ModelSelector({
 }: ModelSelectorProps) {
 	const [sortMetric, setSortMetric] =
 		useState<ModelSortMetric>(defaultSortMetric);
-	const [sortDirection, setSortDirection] = useState<SortDirection>(
-		defaultSortDirection(defaultSortMetric),
+	const [sortDirection, setSortDirection] = useState<ModelSortDirection>(
+		defaultModelSortDirection(defaultSortMetric),
 	);
 	const effectiveSortMetric = MODEL_SORT_OPTIONS.some(
 		({ metric }) => metric === sortMetric,
@@ -130,11 +68,15 @@ export function ModelSelector({
 	const effectiveSortDirection =
 		effectiveSortMetric === sortMetric
 			? sortDirection
-			: defaultSortDirection(effectiveSortMetric);
+			: defaultModelSortDirection(effectiveSortMetric);
 	const sortedOptions = useMemo(
 		() =>
 			enableSorting
-				? sortModelOptions(options, effectiveSortMetric, effectiveSortDirection)
+				? sortModelsByMetric(
+						options,
+						effectiveSortMetric,
+						effectiveSortDirection,
+					)
 				: options,
 		[effectiveSortDirection, effectiveSortMetric, enableSorting, options],
 	);
@@ -143,7 +85,7 @@ export function ModelSelector({
 			enableSorting
 				? sortedOptions.map((option) => ({
 						...option,
-						label: decorateOptionLabel(option, effectiveSortMetric),
+						label: decorateModelSortLabel(option, effectiveSortMetric),
 					}))
 				: sortedOptions,
 		[effectiveSortMetric, enableSorting, sortedOptions],
@@ -165,7 +107,7 @@ export function ModelSelector({
 		}
 
 		setSortMetric(metric);
-		setSortDirection(defaultSortDirection(metric));
+		setSortDirection(defaultModelSortDirection(metric));
 	};
 
 	const renderModelOption = (option: ComboboxOption) => (

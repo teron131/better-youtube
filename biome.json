@@ -4,6 +4,9 @@
 		"clientKind": "git",
 		"useIgnoreFile": true
 	},
+	"files": {
+		"includes": ["**", "!!model-atlas", "!!llm-harness-js"]
+	},
 	"css": {
 		"parser": {
 			"tailwindDirectives": true

@@ -3,7 +3,6 @@ import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import {
-	type ComboboxOption,
 	EditableCombobox,
 	findMatchingComboboxOption,
 } from "@ui/components/ui/editable-combobox";
@@ -24,7 +23,13 @@ import {
 	Loader2,
 	Rocket,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+	type MouseEvent,
+	type PointerEvent,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { normalizeModelCostLimit } from "@/core/config";
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
 import { getStorageValue, setStorageValue } from "@/core/storage";
@@ -34,6 +39,12 @@ import {
 	validateYouTubeUrl,
 } from "@/core/utils/validation";
 import { toModelComboboxOption } from "../lib/model-options";
+import {
+	decorateModelSortLabel,
+	defaultModelSortDirection,
+	type ModelSortMetric,
+	sortModelsByMetric,
+} from "../lib/model-sort";
 
 interface VideoUrlFormProps {
 	onSubmit: (
@@ -49,9 +60,6 @@ interface VideoUrlFormProps {
 	initialUrl?: string;
 }
 
-type ModelSortMetric = "intelligence" | "speed" | "price";
-type SortDirection = "asc" | "desc";
-
 const MODEL_SORT_OPTIONS: Array<{
 	metric: ModelSortMetric;
 	icon: typeof Brain;
@@ -61,64 +69,6 @@ const MODEL_SORT_OPTIONS: Array<{
 	{ metric: "speed", icon: Rocket, label: "Sort by speed" },
 	{ metric: "price", icon: DollarSign, label: "Sort by price" },
 ];
-
-function metricValue(option: ComboboxOption, metric: ModelSortMetric): number {
-	if (metric === "price") {
-		const value = option.price;
-		return typeof value === "number" ? value : Number.POSITIVE_INFINITY;
-	}
-
-	const value =
-		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
-	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
-}
-
-function defaultSortDirection(metric: ModelSortMetric): SortDirection {
-	return metric === "price" ? "asc" : "desc";
-}
-
-function formatMetricScore(
-	option: ComboboxOption,
-	metric: Exclude<ModelSortMetric, "price">,
-): string | null {
-	const rawValue =
-		metric === "intelligence" ? option.intelligenceScore : option.speedMetric;
-	if (typeof rawValue !== "number") {
-		return null;
-	}
-	return `[${rawValue.toFixed(0)}]`;
-}
-
-function decorateOptionLabel(
-	option: ComboboxOption,
-	metric: ModelSortMetric,
-): string {
-	if (metric === "price") {
-		return option.label;
-	}
-
-	const scoreLabel = formatMetricScore(option, metric);
-	return scoreLabel ? `${option.label} ${scoreLabel}` : option.label;
-}
-
-function sortModelOptions(
-	options: ComboboxOption[],
-	metric: ModelSortMetric,
-	direction: SortDirection,
-): ComboboxOption[] {
-	return [...options].sort((left, right) => {
-		const leftValue = metricValue(left, metric);
-		const rightValue = metricValue(right, metric);
-
-		if (leftValue !== rightValue) {
-			const ascendingResult = leftValue - rightValue;
-			return direction === "asc" ? ascendingResult : -ascendingResult;
-		}
-
-		const labelComparison = left.label.localeCompare(right.label);
-		return direction === "asc" ? labelComparison : -labelComparison;
-	});
-}
 
 function clampModelCostLimit(
 	value: number,
@@ -193,11 +143,11 @@ export const VideoUrlForm = ({
 		[summarizerModels],
 	);
 	const visibleModelOptions = useMemo(() => {
-		const direction = defaultSortDirection(sortMetric);
-		return sortModelOptions(baseModelOptions, sortMetric, direction).map(
+		const direction = defaultModelSortDirection(sortMetric);
+		return sortModelsByMetric(baseModelOptions, sortMetric, direction).map(
 			(option) => ({
 				...option,
-				label: decorateOptionLabel(option, sortMetric),
+				label: decorateModelSortLabel(option, sortMetric),
 			}),
 		);
 	}, [baseModelOptions, sortMetric]);
@@ -206,6 +156,22 @@ export const VideoUrlForm = ({
 			findMatchingComboboxOption(visibleModelOptions, preferences.summaryModel),
 		[preferences.summaryModel, visibleModelOptions],
 	);
+
+	const handleModelSortClick = (
+		event: MouseEvent<HTMLButtonElement>,
+		metric: ModelSortMetric,
+	) => {
+		event.preventDefault();
+		event.stopPropagation();
+		setSortMetric(metric);
+	};
+
+	const handleModelSortPointerDown = (
+		event: PointerEvent<HTMLButtonElement>,
+	) => {
+		event.preventDefault();
+		event.stopPropagation();
+	};
 
 	useEffect(() => {
 		if (initialUrl) setUrl(initialUrl);
@@ -453,7 +419,8 @@ export const VideoUrlForm = ({
 									<TooltipTrigger asChild>
 										<button
 											type="button"
-											onClick={() => setSortMetric(metric)}
+											onPointerDown={handleModelSortPointerDown}
+											onClick={(event) => handleModelSortClick(event, metric)}
 											className={`flex h-8 w-8 items-center justify-center rounded-sm transition-colors ${
 												sortMetric === metric
 													? "bg-primary text-white"

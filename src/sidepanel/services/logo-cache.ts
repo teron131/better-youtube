@@ -1,4 +1,4 @@
-/** Browser-safe logo cache helpers for copied llm-stats modules. */
+/** Browser-safe logo cache helpers for stats metadata. */
 
 export async function cacheStatsLogo(source: string): Promise<string> {
 	return source;
