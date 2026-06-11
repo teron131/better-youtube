@@ -13,11 +13,16 @@ import {
 	TooltipTrigger,
 } from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import {
+	type MouseEvent,
+	type PointerEvent,
+	type ReactNode,
+	useMemo,
+	useState,
+} from "react";
 import {
 	decorateModelSortLabel,
 	defaultModelSortDirection,
-	type ModelSortDirection,
 	type ModelSortMetric,
 	sortModelsByMetric,
 } from "../lib/model-sort";
@@ -57,28 +62,21 @@ export function ModelSelector({
 }: ModelSelectorProps) {
 	const [sortMetric, setSortMetric] =
 		useState<ModelSortMetric>(defaultSortMetric);
-	const [sortDirection, setSortDirection] = useState<ModelSortDirection>(
-		defaultModelSortDirection(defaultSortMetric),
-	);
 	const effectiveSortMetric = MODEL_SORT_OPTIONS.some(
 		({ metric }) => metric === sortMetric,
 	)
 		? sortMetric
 		: (MODEL_SORT_OPTIONS[0]?.metric ?? sortMetric);
-	const effectiveSortDirection =
-		effectiveSortMetric === sortMetric
-			? sortDirection
-			: defaultModelSortDirection(effectiveSortMetric);
 	const sortedOptions = useMemo(
 		() =>
 			enableSorting
 				? sortModelsByMetric(
 						options,
 						effectiveSortMetric,
-						effectiveSortDirection,
+						defaultModelSortDirection(effectiveSortMetric),
 					)
 				: options,
-		[effectiveSortDirection, effectiveSortMetric, enableSorting, options],
+		[effectiveSortMetric, enableSorting, options],
 	);
 	const visibleOptions = useMemo(
 		() =>
@@ -93,21 +91,17 @@ export function ModelSelector({
 	const selectedOption = findMatchingComboboxOption(visibleOptions, value);
 
 	const handleSortClick = (
-		event: React.MouseEvent<HTMLButtonElement>,
+		event: MouseEvent<HTMLButtonElement>,
 		metric: ModelSortMetric,
 	) => {
 		event.preventDefault();
 		event.stopPropagation();
-
-		if (sortMetric === metric) {
-			setSortDirection((currentDirection) =>
-				currentDirection === "asc" ? "desc" : "asc",
-			);
-			return;
-		}
-
 		setSortMetric(metric);
-		setSortDirection(defaultModelSortDirection(metric));
+	};
+
+	const handleSortPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
 	};
 
 	const renderModelOption = (option: ComboboxOption) => (
@@ -140,6 +134,7 @@ export function ModelSelector({
 								<TooltipTrigger asChild>
 									<button
 										type="button"
+										onPointerDown={handleSortPointerDown}
 										onClick={(event) => handleSortClick(event, metric)}
 										className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors sm:h-7 sm:w-7 ${
 											effectiveSortMetric === metric

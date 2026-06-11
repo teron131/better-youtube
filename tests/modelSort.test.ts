@@ -21,6 +21,41 @@ test("model sort puts scored rows first and falls back to price", () => {
 	);
 });
 
+test("intelligence and speed sort by their own scores descending", () => {
+	const rows = [
+		{
+			key: "smart",
+			label: "Smart model",
+			intelligenceScore: 95,
+			speedMetric: 20,
+			price: 1,
+		},
+		{
+			key: "fast",
+			label: "Fast model",
+			intelligenceScore: 40,
+			speedMetric: 99,
+			price: 1,
+		},
+		{
+			key: "middle",
+			label: "Middle model",
+			intelligenceScore: 70,
+			speedMetric: 50,
+			price: 1,
+		},
+	];
+
+	assert.deepEqual(
+		sortModelsByMetric(rows, "intelligence").map((row) => row.key),
+		["smart", "middle", "fast"],
+	);
+	assert.deepEqual(
+		sortModelsByMetric(rows, "speed").map((row) => row.key),
+		["fast", "middle", "smart"],
+	);
+});
+
 test("rank-key sort uses the same score and fallback policy", () => {
 	const rows = [
 		{ key: "slow", label: "Slow model", speedMetric: 20, price: 0.1 },

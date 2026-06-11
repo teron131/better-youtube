@@ -56,7 +56,7 @@ const PRICE_PER_MILLION_TOKENS = 1_000_000;
 const INPUT_PRICE_WEIGHT = 3;
 const OUTPUT_PRICE_WEIGHT = 1;
 const DYNAMIC_MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const OPTIONAL_STATS_METADATA_TIMEOUT_MS = 4_000;
+const OPTIONAL_STATS_METADATA_TIMEOUT_MS = 8_000;
 
 type OpenRouterModel = {
 	id: string;
@@ -248,12 +248,21 @@ function normalizeDynamicModelsCache(
 	};
 }
 
-function isDynamicModelsCacheFresh(cache: DynamicModelsCache | null): boolean {
-	if (!cache) {
-		return false;
-	}
+function hasModelSortScores(models: AvailableModel[]): boolean {
+	return models.some(
+		(model) =>
+			typeof model.intelligenceScore === "number" ||
+			typeof model.speedMetric === "number",
+	);
+}
 
-	return Date.now() - cache.fetchedAtMs <= DYNAMIC_MODELS_CACHE_TTL_MS;
+function isDynamicModelsCacheUsable(cache: DynamicModelsCache | null): boolean {
+	return (
+		cache != null &&
+		cache.models.length > 0 &&
+		Date.now() - cache.fetchedAtMs <= DYNAMIC_MODELS_CACHE_TTL_MS &&
+		hasModelSortScores(cache.models)
+	);
 }
 
 async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
@@ -486,30 +495,18 @@ export function useConfig(): UseConfigReturn {
 
 			setConfig(configuration ?? DEFAULT_CONFIGURATION_RESPONSE);
 
-			if (cachedDynamicModels?.models.length) {
+			if (isDynamicModelsCacheUsable(cachedDynamicModels)) {
 				setDynamicModels(cachedDynamicModels.models);
-
-				if (!isDynamicModelsCacheFresh(cachedDynamicModels)) {
-					void fetchAndCacheDynamicModels()
-						.then((freshDynamicModels) => {
-							if (freshDynamicModels.length > 0) {
-								setDynamicModels(freshDynamicModels);
-							}
-						})
-						.catch((refreshError) => {
-							console.error(
-								"Failed to refresh cached dynamic models",
-								refreshError,
-							);
-						});
-				}
-
 				return;
 			}
 
 			const fetchedDynamicModels = await fetchAndCacheDynamicModels();
 			if (fetchedDynamicModels.length > 0 || !hasVisibleModels) {
-				setDynamicModels(fetchedDynamicModels);
+				setDynamicModels(
+					fetchedDynamicModels.length > 0
+						? fetchedDynamicModels
+						: (cachedDynamicModels?.models ?? []),
+				);
 			}
 		} catch (err) {
 			setError(
