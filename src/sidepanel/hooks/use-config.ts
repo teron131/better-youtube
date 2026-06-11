@@ -5,6 +5,7 @@
  * with backend synchronization and dynamic model loading.
  */
 
+import { sortModelsByRankKey } from "@ui/lib/model-sort";
 import { api } from "@ui/services/api";
 import {
 	type AvailableModel,
@@ -332,30 +333,6 @@ async function fetchAndCacheDynamicModels(): Promise<AvailableModel[]> {
 	return models;
 }
 
-function rankingValue(
-	model: AvailableModel,
-	key: "intelligenceScore" | "speedMetric",
-): number {
-	const value = model[key];
-	return typeof value === "number" ? value : Number.NEGATIVE_INFINITY;
-}
-
-function sortModelsByMetric(
-	models: AvailableModel[],
-	key: "intelligenceScore" | "speedMetric",
-): AvailableModel[] {
-	return [...models].sort((left, right) => {
-		const leftValue = rankingValue(left, key);
-		const rightValue = rankingValue(right, key);
-
-		if (leftValue !== rightValue) {
-			return rightValue - leftValue;
-		}
-
-		return (left.label || left.key).localeCompare(right.label || right.key);
-	});
-}
-
 function modelPriceRange(models: AvailableModel[]): {
 	min: number | null;
 	max: number | null;
@@ -589,11 +566,11 @@ export function useConfig(): UseConfigReturn {
 	const enrichedModels = useMemo(() => dynamicModels, [dynamicModels]);
 
 	const allSummarizerModels = useMemo(
-		() => sortModelsByMetric(enrichedModels, "intelligenceScore"),
+		() => sortModelsByRankKey(enrichedModels, "intelligenceScore"),
 		[enrichedModels],
 	);
 	const allRefinerModels = useMemo(
-		() => sortModelsByMetric(enrichedModels, "speedMetric"),
+		() => sortModelsByRankKey(enrichedModels, "speedMetric"),
 		[enrichedModels],
 	);
 	const summarizerModelPriceRange = useMemo(
