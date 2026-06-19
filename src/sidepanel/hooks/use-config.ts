@@ -116,6 +116,10 @@ interface UseConfigReturn {
 	refresh: () => Promise<void>;
 }
 
+interface UseConfigOptions {
+	loadDynamicModels?: boolean;
+}
+
 type UserPreferenceStorageResult = Record<string, unknown>;
 
 function stringValue(value: unknown): string | undefined {
@@ -464,9 +468,12 @@ function storageUpdatesFromPreferences(
 	return storageUpdates;
 }
 
-export function useConfig(): UseConfigReturn {
+export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
+	const shouldLoadDynamicModels = options.loadDynamicModels ?? true;
 	const [config, setConfig] = useState<ConfigurationResponse | null>(null);
-	const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>([]);
+	const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>(
+		FALLBACK_DYNAMIC_MODELS,
+	);
 	const [summarizerModelCostLimit, setSummarizerModelCostLimit] =
 		useState<number>(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT);
 	const [refinerModelCostLimit, setRefinerModelCostLimit] = useState<number>(
@@ -482,7 +489,17 @@ export function useConfig(): UseConfigReturn {
 
 	const loadConfig = useCallback(async () => {
 		try {
-			const hasVisibleModels = dynamicModelsRef.current.length > 0;
+			if (!shouldLoadDynamicModels) {
+				setConfig(DEFAULT_CONFIGURATION_RESPONSE);
+				setDynamicModels(FALLBACK_DYNAMIC_MODELS);
+				setError(null);
+				setIsLoading(false);
+				return;
+			}
+
+			const hasVisibleModels =
+				dynamicModelsRef.current.length > FALLBACK_DYNAMIC_MODELS.length ||
+				dynamicModelsRef.current.some((model) => model.recommended);
 			if (!hasVisibleModels) {
 				setIsLoading(true);
 			}
@@ -515,7 +532,7 @@ export function useConfig(): UseConfigReturn {
 		} finally {
 			setIsLoading(false);
 		}
-	}, []);
+	}, [shouldLoadDynamicModels]);
 
 	useEffect(() => {
 		loadConfig();
@@ -620,28 +637,37 @@ export function useConfig(): UseConfigReturn {
 		[allRefinerModels, refinerModelCostLimit],
 	);
 
-	const isValidSummarizerModel = (model: string) => {
-		if (dynamicModelKeys.has(model)) {
-			return summarizerCostLimitedModelKeys.has(model);
-		}
-		return hasConfiguredModels(config)
-			? model in (config?.available_models ?? {})
-			: model.length > 0;
-	};
+	const isValidSummarizerModel = useCallback(
+		(model: string) => {
+			if (dynamicModelKeys.has(model)) {
+				return summarizerCostLimitedModelKeys.has(model);
+			}
+			return hasConfiguredModels(config)
+				? model in (config?.available_models ?? {})
+				: model.length > 0;
+		},
+		[config, dynamicModelKeys, summarizerCostLimitedModelKeys],
+	);
 
-	const isValidRefinerModel = (model: string) => {
-		if (dynamicModelKeys.has(model)) {
-			return refinerCostLimitedModelKeys.has(model);
-		}
-		return hasConfiguredModels(config)
-			? model in (config?.available_models ?? {})
-			: model.length > 0;
-	};
+	const isValidRefinerModel = useCallback(
+		(model: string) => {
+			if (dynamicModelKeys.has(model)) {
+				return refinerCostLimitedModelKeys.has(model);
+			}
+			return hasConfiguredModels(config)
+				? model in (config?.available_models ?? {})
+				: model.length > 0;
+		},
+		[config, dynamicModelKeys, refinerCostLimitedModelKeys],
+	);
 
-	const isValidLanguage = (language: string) =>
-		config?.supported_languages
-			? language in config.supported_languages
-			: language in SUPPORTED_LANGUAGES;
+	const isValidLanguage = useCallback(
+		(language: string) =>
+			config?.supported_languages
+				? language in config.supported_languages
+				: language in SUPPORTED_LANGUAGES,
+		[config],
+	);
 
 	return {
 		config,
@@ -661,7 +687,7 @@ export function useConfig(): UseConfigReturn {
 	};
 }
 
-export function useModelSelection() {
+export function useModelSelection(options: UseConfigOptions = {}) {
 	const {
 		summarizerModels,
 		refinerModels,
@@ -671,7 +697,7 @@ export function useModelSelection() {
 		refinerModelPriceRange,
 		isValidSummarizerModel,
 		isValidRefinerModel,
-	} = useConfig();
+	} = useConfig(options);
 
 	return {
 		summarizerModels,
@@ -685,8 +711,8 @@ export function useModelSelection() {
 	};
 }
 
-export function useLanguageSelection() {
-	const { languages, isValidLanguage } = useConfig();
+export function useLanguageSelection(options: UseConfigOptions = {}) {
+	const { languages, isValidLanguage } = useConfig(options);
 
 	return {
 		languages,
@@ -708,7 +734,7 @@ const DEFAULT_USER_PREFERENCES: UserPreferences = {
 	summarizerMode: "validation",
 };
 
-export function useUserPreferences() {
+export function useUserPreferences(options: UseConfigOptions = {}) {
 	const [preferences, setPreferences] = useState<UserPreferences>(
 		DEFAULT_USER_PREFERENCES,
 	);
@@ -720,7 +746,7 @@ export function useUserPreferences() {
 		isValidLanguage,
 		summarizerModels,
 		refinerModels,
-	} = useConfig();
+	} = useConfig(options);
 	const validatedDefaultPreferences = useMemo(
 		() => ({
 			summaryModel: resolveFallbackModelKey(

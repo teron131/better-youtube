@@ -24,6 +24,7 @@ interface EditableComboboxProps {
 	contentClassName?: string;
 	renderOption?: (option: ComboboxOption) => React.ReactNode;
 	renderIcon?: (value: string) => React.ReactNode;
+	onOpen?: () => void;
 	type?: "text" | "url";
 }
 
@@ -232,6 +233,7 @@ export function EditableCombobox({
 	contentClassName,
 	renderOption,
 	renderIcon,
+	onOpen,
 	type = "text",
 }: EditableComboboxProps) {
 	const [open, setOpen] = React.useState(false);
@@ -308,30 +310,40 @@ export function EditableCombobox({
 		);
 	}, [isSelectedOptionQuery, options, providerPrefixes, searchText]);
 
+	const setOpenState = React.useCallback(
+		(nextOpen: boolean) => {
+			if (nextOpen && !open) {
+				onOpen?.();
+			}
+			setOpen(nextOpen);
+		},
+		[onOpen, open],
+	);
+
 	const openDropdown = () => {
 		setSearchText("");
-		setOpen(true);
+		setOpenState(true);
 	};
 
 	const closeDropdown = React.useCallback(() => {
-		setOpen(false);
+		setOpenState(false);
 		setSearchText(selectedOption?.label || value || "");
-	}, [selectedOption, value]);
+	}, [selectedOption, setOpenState, value]);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newValue = e.target.value;
 		setSearchText(newValue);
-		if (!open) setOpen(true);
+		if (!open) setOpenState(true);
 	};
 
 	const handleOptionSelect = (option: ComboboxOption) => {
 		onChange(option.value);
 		setSearchText(option.label);
-		setOpen(false);
+		setOpenState(false);
 	};
 
 	const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-		setOpen(true);
+		setOpenState(true);
 		// Don't clear search text immediately, let user see current value
 		// but select it so typing replaces it
 		e.target.select();
@@ -347,8 +359,8 @@ export function EditableCombobox({
 		const matchedOption = exactMatchingOption(options, trimmedSearchText);
 		onChange(matchedOption?.value ?? trimmedSearchText);
 		setSearchText(matchedOption?.label ?? trimmedSearchText);
-		setOpen(false);
-	}, [closeDropdown, onChange, options, searchText]);
+		setOpenState(false);
+	}, [closeDropdown, onChange, options, searchText, setOpenState]);
 
 	const toggleOpen = (e: React.MouseEvent) => {
 		e.preventDefault();
@@ -366,7 +378,11 @@ export function EditableCombobox({
 
 	return (
 		<div ref={containerRef} className={cn("relative w-full", className)}>
-			<PopoverPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+			<PopoverPrimitive.Root
+				open={open}
+				onOpenChange={setOpenState}
+				modal={false}
+			>
 				<PopoverPrimitive.Anchor asChild>
 					<div className="relative flex items-center">
 						{/* Render icon inside input if provided */}
@@ -382,7 +398,7 @@ export function EditableCombobox({
 							value={displayValue}
 							onChange={handleInputChange}
 							onFocus={handleInputFocus}
-							onClick={() => !open && setOpen(true)}
+							onClick={() => !open && setOpenState(true)}
 							onKeyDown={(event) => {
 								if (event.key === "Enter") {
 									event.preventDefault();
