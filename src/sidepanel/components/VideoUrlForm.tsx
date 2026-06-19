@@ -26,6 +26,7 @@ import {
 import {
 	type MouseEvent,
 	type PointerEvent,
+	useCallback,
 	useEffect,
 	useMemo,
 	useState,
@@ -125,9 +126,16 @@ export const VideoUrlForm = ({
 	const [url, setUrl] = useState(initialUrl || "");
 	const [validationError, setValidationError] = useState<string>("");
 	const [showExamples, setShowExamples] = useState(false);
+	const [shouldLoadModelOptions, setShouldLoadModelOptions] = useState(
+		() => !!initialUrl,
+	);
 	const { toast } = useToast();
-	const { preferences, updatePreferences, isLoaded } = useUserPreferences();
-	const { summarizerModels, summarizerModelPriceRange } = useModelSelection();
+	const { preferences, updatePreferences, isLoaded } = useUserPreferences({
+		loadDynamicModels: shouldLoadModelOptions,
+	});
+	const { summarizerModels, summarizerModelPriceRange } = useModelSelection({
+		loadDynamicModels: shouldLoadModelOptions,
+	});
 	const [sortMetric, setSortMetric] = useState<ModelSortMetric>("intelligence");
 	const [modelCostLimitInput, setModelCostLimitInput] = useState(
 		String(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
@@ -156,6 +164,9 @@ export const VideoUrlForm = ({
 			findMatchingComboboxOption(visibleModelOptions, preferences.summaryModel),
 		[preferences.summaryModel, visibleModelOptions],
 	);
+	const loadModelOptions = useCallback(() => {
+		setShouldLoadModelOptions(true);
+	}, []);
 
 	const handleModelSortClick = (
 		event: MouseEvent<HTMLButtonElement>,
@@ -163,6 +174,7 @@ export const VideoUrlForm = ({
 	) => {
 		event.preventDefault();
 		event.stopPropagation();
+		loadModelOptions();
 		setSortMetric(metric);
 	};
 
@@ -174,7 +186,9 @@ export const VideoUrlForm = ({
 	};
 
 	useEffect(() => {
-		if (initialUrl) setUrl(initialUrl);
+		if (!initialUrl) return;
+		setUrl(initialUrl);
+		setShouldLoadModelOptions(true);
 	}, [initialUrl]);
 
 	useEffect(() => {
@@ -397,6 +411,7 @@ export const VideoUrlForm = ({
 								className="w-full"
 								contentClassName="rounded-md"
 								renderIcon={() => selectedModelOption?.icon ?? null}
+								onOpen={loadModelOptions}
 								renderOption={(option) => (
 									<>
 										{option.icon && (
