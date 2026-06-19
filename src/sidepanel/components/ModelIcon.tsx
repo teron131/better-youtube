@@ -1,9 +1,9 @@
 /**
  * Model Icon component with fallback logic.
- * Relies on props provided by the caller, which should be enriched by the stats service.
+ * Resolves bundled provider logos from this extension before falling back to a badge.
  */
 
-import { resolveStatsLogo } from "@ui/services/logo";
+import { resolveModelLogo } from "@ui/services/logo";
 import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/core/utils/text";
 
@@ -45,7 +45,7 @@ export function ModelIcon({
 }: ModelIconProps) {
 	const resolvedProviderLogo = useMemo(
 		() =>
-			resolveStatsLogo({
+			resolveModelLogo({
 				provider,
 				explicitLogo: logo ?? fallbackLogo,
 			}) || undefined,
