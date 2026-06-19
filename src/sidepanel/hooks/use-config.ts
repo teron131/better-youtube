@@ -169,13 +169,11 @@ function isSupportedTextModel(model: OpenRouterModel): boolean {
 function availableModelFromOpenRouterModel(
 	model: OpenRouterModel,
 	llmStatsModelMetadataById: Record<string, LlmStatsModelMetadata>,
-	providerLogosByProvider: Record<string, string>,
 ): AvailableModel {
 	const blendedPrice = parseModelCostPerMillion(model);
 	const provider = model.id.split("/")[0] || "";
 	const llmStatsModelMetadata =
 		llmStatsModelMetadataById[normalizeOpenRouterModelId(model.id)];
-	const providerLogo = providerLogosByProvider[provider];
 
 	return {
 		key: model.id,
@@ -184,8 +182,6 @@ function availableModelFromOpenRouterModel(
 		recommended: true,
 		price: blendedPrice,
 		...llmStatsModelMetadata,
-		logo: llmStatsModelMetadata?.logo ?? providerLogo,
-		fallbackLogo: llmStatsModelMetadata?.fallbackLogo ?? providerLogo,
 	};
 }
 
@@ -215,8 +211,6 @@ function normalizeAvailableModel(value: unknown): AvailableModel | null {
 		provider: normalizeOptionalString(record.provider),
 		recommended:
 			typeof record.recommended === "boolean" ? record.recommended : undefined,
-		logo: normalizeOptionalString(record.logo),
-		fallbackLogo: normalizeOptionalString(record.fallbackLogo),
 		intelligenceScore: normalizeOptionalNumber(record.intelligenceScore),
 		speedMetric: normalizeOptionalNumber(record.speedMetric),
 		price: normalizeOptionalNumber(record.price),
@@ -299,7 +293,6 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 							() =>
 								resolve({
 									modelsById: {},
-									providerLogosByProvider: {},
 								}),
 							OPTIONAL_STATS_METADATA_TIMEOUT_MS,
 						);
@@ -321,7 +314,6 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 							availableModelFromOpenRouterModel(
 								model,
 								llmStatsMetadata.modelsById,
-								llmStatsMetadata.providerLogosByProvider,
 							),
 						);
 					return models.length > 0 ? models : FALLBACK_DYNAMIC_MODELS;

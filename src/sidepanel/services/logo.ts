@@ -1,68 +1,69 @@
-/** Shared Artificial Analysis provider-logo resolution helpers for stats payloads. */
+/** Shared bundled provider-logo resolution helpers for model options. */
 
 const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
 const BUNDLED_PROVIDER_LOGO_PATH = "provider-logos";
 
-const ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER: Record<string, string> = {
-	ai2: "ai2_small.svg",
-	ai21: "ai21_small.svg",
-	alibaba: "alibaba_small.svg",
-	allenai: "ai2_small.svg",
-	amazon: "aws_small.svg",
-	anthropic: "anthropic_small.svg",
-	arcee: "arcee_small.svg",
-	"arcee-ai": "arcee_small.svg",
-	aws: "aws_small.svg",
-	baidu: "baidu_small.svg",
-	bytedance: "bytedance_small.svg",
-	"bytedance-seed": "bytedance_small.svg",
-	cohere: "cohere_small.svg",
-	deepseek: "deepseek_small.svg",
-	google: "google_small.svg",
-	ibm: "ibm_small.svg",
-	"ibm-granite": "ibm_small.svg",
-	inception: "inceptionlabs_small.jpg",
-	kimi: "kimi_small.png",
-	liquid: "liquidai_small.svg",
-	"liquid-ai": "liquidai_small.svg",
-	meituan: "meituan_small.svg",
-	meta: "meta_small.svg",
-	"meta-llama": "meta_small.svg",
-	microsoft: "microsoft_small.svg",
-	"microsoft-azure": "microsoft_small.svg",
-	minimax: "minimax_small.svg",
-	mistral: "mistral_small.png",
-	mistralai: "mistral_small.png",
-	moonshotai: "kimi_small.png",
-	nvidia: "nvidia_small.svg",
-	openai: "openai_small.svg",
-	openrouter: "openrouter_small.svg",
-	perplexity: "perplexity_small.png",
-	"prime-intellect": "prime-intellect_small.svg",
-	qwen: "alibaba_small.svg",
-	stepfun: "stepfun_small.svg",
-	tencent: "tencent_small.svg",
-	upstage: "upstage_small.svg",
-	"x-ai": "xai.svg",
-	xai: "xai.svg",
-	xiaomi: "xiaomi_small.svg",
-	"z-ai": "zai_small.svg",
+const PROVIDER_LOGO_ASSET_BY_PROVIDER: Record<string, string> = {
+	ai2: "ai2.png",
+	ai21: "ai21.png",
+	alibaba: "alibaba.png",
+	anthropic: "anthropic.png",
+	"arcee-ai": "arcee-ai.png",
+	aws: "aws.png",
+	baidu: "baidu.png",
+	bytedance: "bytedance.png",
+	cohere: "cohere.png",
+	deepseek: "deepseek.png",
+	google: "google.png",
+	ibm: "ibm.png",
+	inception: "inception.png",
+	inclusionai: "inclusionai.png",
+	kimi: "kimi.png",
+	"liquid-ai": "liquid-ai.png",
+	meituan: "meituan.png",
+	meta: "meta.png",
+	microsoft: "microsoft.png",
+	minimax: "minimax.png",
+	mistral: "mistral.png",
+	mistralai: "mistralai.png",
+	moonshotai: "moonshotai.png",
+	nvidia: "nvidia.png",
+	openai: "openai.png",
+	openrouter: "openrouter.png",
+	perplexity: "perplexity.png",
+	"prime-intellect": "prime-intellect.png",
+	qwen: "qwen.png",
+	stepfun: "stepfun.png",
+	tencent: "tencent.png",
+	upstage: "upstage.png",
+	"x-ai": "x-ai.png",
+	xiaomi: "xiaomi.png",
+	"z-ai": "z-ai.png",
 };
 
 const PROVIDER_ALIAS_BY_PROVIDER: Record<string, string> = {
+	allenai: "ai2",
 	alibabacloud: "alibaba",
 	"alibaba-cloud": "alibaba",
+	amazon: "aws",
+	arcee: "arcee-ai",
 	"deep-seek": "deepseek",
+	"ibm-granite": "ibm",
+	liquid: "liquid-ai",
 	"mini-max": "minimax",
+	"meta-llama": "meta",
+	"microsoft-azure": "microsoft",
 	moonshot: "moonshotai",
 	"moonshot-ai": "moonshotai",
 	"open-ai": "openai",
 	"perplexity-ai": "perplexity",
 	qwenlm: "qwen",
 	tongyi: "qwen",
+	xai: "x-ai",
+	zai: "z-ai",
 };
 const BUNDLED_PROVIDER_LOGO_ASSETS = new Set(
-	Object.values(ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER),
+	Object.values(PROVIDER_LOGO_ASSET_BY_PROVIDER),
 );
 
 function nonEmptyString(value: string | null | undefined): string | null {
@@ -102,7 +103,7 @@ function toBundledProviderLogoUrl(
 		return chrome.runtime.getURL(bundledPath);
 	}
 
-	return `${import.meta.env.BASE_URL}${bundledPath}`;
+	return `${import.meta.env?.BASE_URL ?? "/"}${bundledPath}`;
 }
 
 function bundledLogoAssetFromUrl(
@@ -137,24 +138,14 @@ function toAbsoluteArtificialAnalysisLogoUrl(
 	return `${ARTIFICIAL_ANALYSIS_LOGO_URL}/${logoValue}`;
 }
 
-function buildArtificialAnalysisLogoUrl(
-	asset: string | null | undefined,
-): string | null {
-	const assetValue = nonEmptyString(asset);
-	if (!assetValue) {
-		return null;
-	}
-	return `${ARTIFICIAL_ANALYSIS_LOGO_URL}/${assetValue}`;
-}
-
-function artificialAnalysisLogoAsset(provider: string | null): string | null {
+function providerLogoAsset(provider: string | null): string | null {
 	if (!provider) {
 		return null;
 	}
-	return ARTIFICIAL_ANALYSIS_LOGO_ASSET_BY_PROVIDER[provider] ?? null;
+	return PROVIDER_LOGO_ASSET_BY_PROVIDER[provider] ?? null;
 }
 
-export function resolveStatsLogo(options: {
+export function resolveModelLogo(options: {
 	provider?: string | null;
 	explicitLogo?: string | null;
 }): string {
@@ -162,9 +153,8 @@ export function resolveStatsLogo(options: {
 	const explicitBundledAsset = bundledLogoAssetFromUrl(options.explicitLogo);
 	return (
 		toBundledProviderLogoUrl(explicitBundledAsset) ??
-		toBundledProviderLogoUrl(artificialAnalysisLogoAsset(provider)) ??
+		toBundledProviderLogoUrl(providerLogoAsset(provider)) ??
 		toAbsoluteArtificialAnalysisLogoUrl(options.explicitLogo) ??
-		buildArtificialAnalysisLogoUrl(artificialAnalysisLogoAsset(provider)) ??
 		""
 	);
 }
