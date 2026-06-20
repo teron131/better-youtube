@@ -13,7 +13,6 @@ import { useToast } from "@ui/hooks/use-toast";
 import {
 	useVideoProcessing,
 	type VideoProcessingOptions,
-	type VideoProcessingState,
 } from "@ui/hooks/use-video-processing";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { subscribeToStoredVideoState } from "@ui/lib/stored-video-state-sync";
@@ -27,140 +26,27 @@ import { triggerCaptionGeneration } from "@ui/services/streaming";
 import { Captions, ListFilter, Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
-import type { FeedFilterSettings } from "@/core/recommendationFilters";
 import {
 	getStorageValue,
 	getSubtitles,
-	getSubtitlesStorageKey,
-	getSummary,
-	getSummaryStorageKey,
 	getVideoMetadata,
-	getVideoMetadataStorageKey,
 	setStorageValue,
 } from "@/core/storage";
-import type { QualityData } from "@/core/types";
 import { extractVideoId } from "@/core/utils/url";
 import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
-
-function segmentsToTranscript(
-	segments?: Array<{ text: string }> | null,
-): string | null {
-	if (!segments?.length) return null;
-	return segments.map((segment) => segment.text).join(" ");
-}
-
-type CachedVideoState = Partial<VideoProcessingState>;
-
-function isVideoInfoForVideo(
-	videoInfo: VideoProcessingState["scrapedVideoInfo"] | undefined,
-	videoId: string | null,
-): boolean {
-	if (!videoInfo || !videoId) return false;
-	return extractVideoId(videoInfo.url) === videoId;
-}
-
-function resolveSummaryProvider(
-	modelUsed?: string,
-): "gemini" | "llm" | undefined {
-	if (modelUsed?.startsWith("gemini::")) return "gemini";
-	if (modelUsed?.startsWith("llm::")) return "llm";
-	return undefined;
-}
-
-const EMPTY_VIDEO_STATE: CachedVideoState = {
-	summaryResult: null,
-	scrapedVideoInfo: null,
-	scrapedTranscript: null,
-	currentStage: "",
-	currentStep: 0,
-	progressStates: [],
-	isLoading: false,
-	error: null,
-};
-
-function createTranscriptOnlyState(
-	transcript: string | null,
-	videoInfo: VideoProcessingState["scrapedVideoInfo"] = null,
-): CachedVideoState {
-	return {
-		...EMPTY_VIDEO_STATE,
-		scrapedVideoInfo: videoInfo,
-		scrapedTranscript: transcript,
-		currentStage: transcript
-			? "Loaded cached transcript"
-			: videoInfo
-				? "Loaded cached video info"
-				: "",
-	};
-}
-
-async function loadCachedVideoState(
-	videoId: string,
-): Promise<CachedVideoState | null> {
-	const [storedSummary, storedVideoInfo, storedSubtitles] = await Promise.all([
-		getSummary(videoId),
-		getVideoMetadata(videoId),
-		getSubtitles(videoId),
-	]);
-
-	const transcript = segmentsToTranscript(storedSubtitles);
-	if (!storedSummary && !storedVideoInfo && !transcript) {
-		return null;
-	}
-
-	if (!storedSummary) {
-		return createTranscriptOnlyState(transcript, storedVideoInfo ?? null);
-	}
-
-	return {
-		summaryResult: {
-			success: true,
-			summary: storedSummary.summary,
-			quality: (storedSummary.quality as unknown as QualityData) ?? undefined,
-			videoInfo: storedVideoInfo ?? undefined,
-			transcript: transcript ?? undefined,
-			provider: resolveSummaryProvider(storedSummary.modelUsed),
-			totalTime: "cached",
-			iterations: 0,
-			chunksProcessed: 0,
-		},
-		scrapedVideoInfo: storedVideoInfo ?? null,
-		scrapedTranscript: transcript ?? null,
-		currentStage: "Loaded cached summary",
-		currentStep: 4,
-		progressStates: [],
-		isLoading: false,
-		error: null,
-	};
-}
-
-function getTrackedStorageKeys(videoId: string): Set<string> {
-	return new Set([
-		getSubtitlesStorageKey(videoId),
-		getVideoMetadataStorageKey(videoId),
-		getSummaryStorageKey(videoId),
-	]);
-}
-
-const RECOMMENDATION_FILTER_TOGGLE_KEYS = [
-	"viewsFilterEnabled",
-	"durationFilterEnabled",
-	"keywordFilterEnabled",
-	"ageFilterEnabled",
-	"englishOnlyTitles",
-] as const;
-
-const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set<string>([
-	STORAGE_KEYS.VIEWS_FILTER_ENABLED,
-	STORAGE_KEYS.DURATION_FILTER_ENABLED,
-	STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
-	STORAGE_KEYS.AGE_FILTER_ENABLED,
-	STORAGE_KEYS.ENGLISH_ONLY_TITLES,
-]);
-
-function hasActiveRecommendationFilters(settings: FeedFilterSettings): boolean {
-	return RECOMMENDATION_FILTER_TOGGLE_KEYS.some((key) => settings[key]);
-}
+import {
+	createTranscriptOnlyState,
+	EMPTY_VIDEO_STATE,
+	getTrackedStorageKeys,
+	isVideoInfoForVideo,
+	loadCachedVideoState,
+	segmentsToTranscript,
+} from "./index/cachedVideoState";
+import {
+	hasActiveRecommendationFilters,
+	RECOMMENDATION_FILTER_STORAGE_KEYS,
+	RECOMMENDATION_FILTER_TOGGLE_KEYS,
+} from "./index/recommendationFilterState";
 
 const Index = () => {
 	const resultsRef = useRef<HTMLDivElement | null>(null);
