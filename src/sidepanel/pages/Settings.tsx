@@ -1,16 +1,4 @@
-import { ModelSelector } from "@ui/components/ModelSelector";
-import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
-import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
-import { Label } from "@ui/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/components/ui/select";
-import { Switch } from "@ui/components/ui/switch";
 import {
 	Tooltip,
 	TooltipContent,
@@ -18,174 +6,41 @@ import {
 } from "@ui/components/ui/tooltip";
 import { useModelSelection } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
-import {
-	ArrowLeft,
-	Bot,
-	Cpu,
-	Globe,
-	Key,
-	Settings as SettingsIcon,
-	Sparkles,
-	Trash2,
-	Type,
-	Zap,
-} from "lucide-react";
+import { Bot, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { loadConfig, normalizeModelCostLimit } from "@/core/config";
 import type { FontSize } from "@/core/constants";
-import {
-	DEFAULTS,
-	MESSAGE_ACTIONS,
-	STORAGE_KEYS,
-	TARGET_LANGUAGES,
-} from "@/core/constants";
+import { MESSAGE_ACTIONS } from "@/core/constants";
 import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
-import {
-	type LlmModelPrefixMode,
-	resolveLlmRequestModel,
-} from "@/core/llmModelPrefix";
 import {
 	clearStoredDataExceptSettings,
 	getStorageValue,
 	setStorageValue,
 } from "@/core/storage";
 import { applySummaryFontSize } from "../lib/font-size";
-import { toModelComboboxOption } from "../lib/model-options";
-import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
-
-type ModelCostLimitKey = "summarizerModelCostLimit" | "refinerModelCostLimit";
-
-const DEFAULT_SETTINGS = {
-	llmApiKey: "",
-	llmBaseUrl: "",
-	llmModelPrefixMode: "provider" as LlmModelPrefixMode,
-	geminiApiKey: "",
-	summarizerProvider: "auto",
-	summarizerMode: "validation",
-	summarizerModel: "google/gemini-3-flash-preview",
-	refinerModel: "google/gemini-2.5-flash-lite-preview-09-2025",
-	summarizerModelCostLimit: Number(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
-	refinerModelCostLimit: Number(DEFAULTS.REFINER_MODEL_COST_LIMIT),
-	targetLanguage: "auto",
-	captionFontSize: "M",
-	summaryFontSize: "M",
-	autoGenerate: false,
-};
-
-type SettingsState = typeof DEFAULT_SETTINGS;
-type ModelCostLimitInputs = Record<ModelCostLimitKey, string>;
-
-type ApiField = {
-	key:
-		| typeof STORAGE_KEYS.LLM_API_KEY
-		| typeof STORAGE_KEYS.LLM_BASE_URL
-		| typeof STORAGE_KEYS.GEMINI_API_KEY;
-	label: string;
-	href?: string;
-	placeholder: string;
-	type?: "password" | "url";
-};
-
-const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
-const LLM_MODEL_PREFIX_OPTIONS: Array<{
-	value: LlmModelPrefixMode;
-	label: string;
-}> = [
-	{ value: "provider", label: "provider/model" },
-	{ value: "none", label: "model" },
-];
-const SETTINGS_SECTION_CLASSNAME = "space-y-4 border-t border-border/70 pt-5";
-const API_KEY_FIELDS: ApiField[] = [
-	{
-		key: STORAGE_KEYS.LLM_API_KEY,
-		label: "LLM API Key",
-		placeholder: "sk-...",
-		type: "password",
-	},
-	{
-		key: STORAGE_KEYS.LLM_BASE_URL,
-		label: "LLM Base URL",
-		placeholder:
-			"Any OpenAI API compatible base URL, e.g. https://api.openai.com/v1",
-		type: "url",
-	},
-	{
-		key: STORAGE_KEYS.GEMINI_API_KEY,
-		label: "Gemini API Key",
-		href: "https://aistudio.google.com/api-keys",
-		placeholder: "...",
-		type: "password",
-	},
-] as const;
-
-const SETTINGS_STORAGE_KEYS: Record<keyof typeof DEFAULT_SETTINGS, string> = {
-	llmApiKey: STORAGE_KEYS.LLM_API_KEY,
-	llmBaseUrl: STORAGE_KEYS.LLM_BASE_URL,
-	llmModelPrefixMode: STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
-	geminiApiKey: STORAGE_KEYS.GEMINI_API_KEY,
-	summarizerProvider: STORAGE_KEYS.SUMMARIZER_PROVIDER,
-	summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
-	summarizerModel: STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-	refinerModel: STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-	summarizerModelCostLimit: STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
-	refinerModelCostLimit: STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
-	targetLanguage: STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-	captionFontSize: STORAGE_KEYS.CAPTION_FONT_SIZE,
-	summaryFontSize: STORAGE_KEYS.SUMMARY_FONT_SIZE,
-	autoGenerate: STORAGE_KEYS.AUTO_GENERATE,
-};
-
-const DEFAULT_MODEL_COST_LIMIT_INPUTS: ModelCostLimitInputs = {
-	summarizerModelCostLimit: String(DEFAULT_SETTINGS.summarizerModelCostLimit),
-	refinerModelCostLimit: String(DEFAULT_SETTINGS.refinerModelCostLimit),
-};
-
-function clampModelCostLimit(
-	value: number,
-	priceRange: { min: number | null; max: number | null },
-): number {
-	const minValue = priceRange.min;
-	const maxValue = priceRange.max;
-
-	if (minValue != null && value < minValue) {
-		return minValue;
-	}
-
-	if (maxValue != null && value > maxValue) {
-		return maxValue;
-	}
-
-	return value;
-}
-
-function resolveVisibleModelKey(
-	currentKey: string,
-	visibleModels: Array<{ key: string }>,
-	fallbackKey: string,
-): string {
-	if (visibleModels.some((model) => model.key === currentKey)) {
-		return currentKey;
-	}
-
-	if (visibleModels.some((model) => model.key === fallbackKey)) {
-		return fallbackKey;
-	}
-
-	return visibleModels[0]?.key ?? currentKey;
-}
-
-function modelCostLimitBounds(priceRange: {
-	min: number | null;
-	max: number | null;
-}): {
-	min: string;
-	max?: string;
-} {
-	return {
-		min: priceRange.min != null ? priceRange.min.toFixed(1) : "0.1",
-		max: priceRange.max != null ? priceRange.max.toFixed(1) : undefined,
-	};
-}
+import {
+	clampModelCostLimit,
+	modelCostLimitBounds,
+	resolveVisibleModelKey,
+} from "./settings/modelCostLimit";
+import {
+	ApiConfigurationSection,
+	AppearanceSettingsSection,
+	GenerationSettingsSection,
+	ModelConfigurationSection,
+	SettingsLoadingView,
+	SettingsTopbar,
+	StorageSettingsSection,
+} from "./settings/SettingsSections";
+import {
+	DEFAULT_MODEL_COST_LIMIT_INPUTS,
+	DEFAULT_SETTINGS,
+	type ModelCostLimitInputs,
+	type ModelCostLimitKey,
+	type ModelSelectorConfig,
+	SETTINGS_STORAGE_KEYS,
+	type SettingsState,
+} from "./settings/settingsTypes";
 
 const Settings = () => {
 	const { toast } = useToast();
@@ -359,37 +214,29 @@ const Settings = () => {
 		);
 	};
 
-	const renderModelCostLimitControl = (
-		key: ModelCostLimitKey,
-		priceRange: { min: number | null; max: number | null },
-		costLimitBounds: {
-			min: string;
-			max?: string;
-		},
-		ariaLabel: string,
-	) => (
+	const renderModelCostLimitControl = (selectorConfig: ModelSelectorConfig) => (
 		<>
 			<span className="text-[10px] font-semibold text-muted-foreground">≤</span>
 			<Tooltip delayDuration={0}>
 				<TooltipTrigger asChild>
 					<Input
 						type="number"
-						min={costLimitBounds.min}
-						max={costLimitBounds.max}
+						min={selectorConfig.costLimitBounds.min}
+						max={selectorConfig.costLimitBounds.max}
 						step="0.1"
-						value={modelCostLimitInputs[key]}
+						value={modelCostLimitInputs[selectorConfig.costLimitKey]}
 						onChange={(event) =>
 							handleModelCostLimitInputChange(
-								key,
+								selectorConfig.costLimitKey,
 								event.target.value,
-								priceRange,
+								selectorConfig.priceRange,
 							)
 						}
 						onBlur={() => {
 							void commitModelCostLimit(
-								key,
-								modelCostLimitInputs[key],
-								priceRange,
+								selectorConfig.costLimitKey,
+								modelCostLimitInputs[selectorConfig.costLimitKey],
+								selectorConfig.priceRange,
 							);
 						}}
 						onKeyDown={(event) => {
@@ -397,7 +244,7 @@ const Settings = () => {
 							event.currentTarget.blur();
 						}}
 						className="h-6 w-14 rounded-sm border-0 bg-transparent px-1 text-right text-xs shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-						aria-label={ariaLabel}
+						aria-label={selectorConfig.costLimitAriaLabel}
 					/>
 				</TooltipTrigger>
 				<TooltipContent>
@@ -624,344 +471,43 @@ const Settings = () => {
 		}
 	};
 
-	const renderLlmModelPrefixControls = () => {
-		const modelPreviews = [
-			{ label: "Summary", model: settings.summarizerModel },
-			{ label: "Refiner", model: settings.refinerModel },
-		].map(({ label, model }) => ({
-			label,
-			value: resolveLlmRequestModel(model, settings.llmModelPrefixMode),
-		}));
-
-		return (
-			<div className="space-y-1.5 pt-1">
-				<Label className="text-sm font-semibold">LLM Model ID Format</Label>
-				<div className="grid items-stretch gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_12rem]">
-					<div className="grid h-9 gap-px rounded-md border border-border/60 bg-muted/20 px-2.5 py-0.5 text-[11px]">
-						{modelPreviews.map((preview) => (
-							<div
-								key={preview.label}
-								className="grid min-h-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-2"
-							>
-								<span className="font-semibold text-muted-foreground">
-									{preview.label}
-								</span>
-								<code className="truncate text-right text-xs text-foreground">
-									{preview.value}
-								</code>
-							</div>
-						))}
-					</div>
-
-					<div className="grid h-9 grid-cols-2 rounded-md border border-border/70 bg-background p-0.5">
-						{LLM_MODEL_PREFIX_OPTIONS.map((option) => (
-							<button
-								key={option.value}
-								type="button"
-								onClick={() => handleChange("llmModelPrefixMode", option.value)}
-								className={`h-full rounded-sm px-1.5 text-[11px] font-semibold transition-colors ${
-									settings.llmModelPrefixMode === option.value
-										? "bg-primary text-white"
-										: "text-muted-foreground hover:bg-muted hover:text-foreground"
-								}`}
-							>
-								{option.label}
-							</button>
-						))}
-					</div>
-				</div>
-			</div>
-		);
-	};
-
-	const renderFontSizeSelector = (
-		key: "captionFontSize" | "summaryFontSize",
-	) => (
-		<div className="grid grid-cols-3 rounded-md border border-border/70 bg-background p-1">
-			{FONT_SIZE_OPTIONS.map((size) => (
-				<button
-					key={size}
-					type="button"
-					onClick={() => handleChange(key, size)}
-					className={`h-9 rounded-sm text-sm font-semibold transition-colors ${
-						settings[key] === size
-							? "bg-primary text-white"
-							: "text-muted-foreground hover:bg-muted hover:text-foreground"
-					}`}
-				>
-					{size}
-				</button>
-			))}
-		</div>
-	);
-
 	if (isLoading) {
-		return (
-			<div className="app-shell flex items-center justify-center">
-				<div className="animate-pulse flex flex-col items-center gap-4">
-					<div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
-						<SettingsIcon className="h-6 w-6 text-primary animate-spin-slow" />
-					</div>
-					<p className="text-muted-foreground font-medium">
-						Loading settings...
-					</p>
-				</div>
-			</div>
-		);
+		return <SettingsLoadingView />;
 	}
 
 	return (
 		<div className="app-shell pb-10">
-			<div className="absolute top-[var(--sidepanel-topbar-offset)] left-0 right-0 z-50">
-				<div className="sidepanel-container">
-					<div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
-						<div className="fade-in-up">
-							<h1 className="text-4xl font-black tracking-tight text-foreground">
-								Settings
-							</h1>
-						</div>
-						<Button
-							asChild
-							variant="ghost"
-							size="icon"
-							className="text-muted-foreground hover:text-foreground transition-all"
-						>
-							<a
-								aria-label="Back to main page"
-								href={SIDEPANEL_ROUTE_HREFS.home}
-							>
-								<ArrowLeft className="h-6 w-6" />
-							</a>
-						</Button>
-					</div>
-				</div>
-			</div>
+			<SettingsTopbar />
 
 			<div className="sidepanel-container pt-24">
 				<div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
-					{/* API Configuration */}
-					<section className={SETTINGS_SECTION_CLASSNAME}>
-						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-							<Key className="h-4 w-4 text-primary" />
-							<span>API Configuration</span>
-						</div>
-						<div className="space-y-4">
-							{API_KEY_FIELDS.map((field) => (
-								<div className="space-y-1.5" key={field.key}>
-									<div className="flex items-center justify-between gap-3">
-										<Label
-											htmlFor={field.key}
-											className="text-sm font-semibold"
-										>
-											{field.label}
-										</Label>
-										{"href" in field && field.href && (
-											<a
-												href={field.href}
-												target="_blank"
-												rel="noreferrer"
-												className="text-xs text-primary/80 hover:text-primary hover:underline"
-											>
-												Get key ↗
-											</a>
-										)}
-									</div>
-									<Input
-										id={field.key}
-										type={field.type ?? "password"}
-										value={settings[field.key]}
-										onChange={(e) => handleChange(field.key, e.target.value)}
-										onBlur={(event) => {
-											if (field.key !== STORAGE_KEYS.LLM_BASE_URL) return;
-											void ensureLlmBaseUrlPermission(event.target.value);
-										}}
-										className="h-10 rounded-md border-border/70 bg-background"
-										placeholder={field.placeholder}
-									/>
-									{field.key === STORAGE_KEYS.LLM_BASE_URL &&
-										renderLlmModelPrefixControls()}
-								</div>
-							))}
-						</div>
-					</section>
-
-					{/* Model Configuration */}
-					<section className={SETTINGS_SECTION_CLASSNAME}>
-						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-							<Cpu className="h-4 w-4 text-primary" />
-							<span>Model Configuration</span>
-						</div>
-						<div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
-							{selectorConfigs.map((selectorConfig) => (
-								<ModelSelector
-									key={selectorConfig.modelKey}
-									label={selectorConfig.label}
-									icon={selectorConfig.icon}
-									value={settings[selectorConfig.modelKey]}
-									onChange={(value) =>
-										handleChange(selectorConfig.modelKey, value)
-									}
-									options={selectorConfig.options.map((model) =>
-										toModelComboboxOption(model),
-									)}
-									placeholder="Select or type model..."
-									enableSorting
-									defaultSortMetric={selectorConfig.defaultSortMetric}
-									sortControlsTrailing={renderModelCostLimitControl(
-										selectorConfig.costLimitKey,
-										selectorConfig.priceRange,
-										selectorConfig.costLimitBounds,
-										selectorConfig.costLimitAriaLabel,
-									)}
-								/>
-							))}
-						</div>
-					</section>
-
-					{/* Generation */}
-					<section className={SETTINGS_SECTION_CLASSNAME}>
-						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-							<Zap className="h-4 w-4 text-primary" />
-							<span>Generation</span>
-						</div>
-						<div className="space-y-5">
-							<div className="space-y-2">
-								<div className="flex items-center gap-2 text-sm font-semibold">
-									<Globe className="h-4 w-4 text-primary" />
-									<span>Target Language</span>
-								</div>
-								<Select
-									value={settings.targetLanguage}
-									onValueChange={(val) => handleChange("targetLanguage", val)}
-								>
-									<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-										<SelectValue placeholder="Language" />
-									</SelectTrigger>
-									<SelectContent className="rounded-md">
-										{TARGET_LANGUAGES.map((lang) => (
-											<SelectItem key={lang.value} value={lang.value}>
-												{lang.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-								<div className="space-y-2">
-									<div className="flex items-center gap-2 text-sm font-semibold">
-										<Cpu className="h-4 w-4 text-primary" />
-										<span>Provider</span>
-									</div>
-									<Select
-										value={settings.summarizerProvider}
-										onValueChange={(val) =>
-											handleChange("summarizerProvider", val)
-										}
-									>
-										<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-											<SelectValue placeholder="Auto" />
-										</SelectTrigger>
-										<SelectContent className="rounded-md">
-											<SelectItem value="auto">Auto</SelectItem>
-											<SelectItem value="gemini">Gemini Native</SelectItem>
-											<SelectItem value="llm">LLM</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-
-								<div className="space-y-2">
-									<div className="flex items-center gap-2 text-sm font-semibold">
-										<Sparkles className="h-4 w-4 text-primary" />
-										<span>Mode</span>
-									</div>
-									<Select
-										value={settings.summarizerMode}
-										onValueChange={async (val) => {
-											await handleChange("summarizerMode", val);
-										}}
-									>
-										<SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-											<SelectValue placeholder="Select mode" />
-										</SelectTrigger>
-										<SelectContent className="rounded-md">
-											<SelectItem value="native">Gemini Native</SelectItem>
-											<SelectItem value="validation">
-												Validation Agent
-											</SelectItem>
-											<SelectItem value="fast">Fast Agent</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-
-							<div className="flex items-center justify-between gap-4 pt-1">
-								<div className="flex items-center gap-2 text-sm font-semibold">
-									<Sparkles className="h-4 w-4 text-primary" />
-									<span>Auto-Generate Caption</span>
-								</div>
-								<Switch
-									checked={settings.autoGenerate}
-									onCheckedChange={(checked) =>
-										handleChange("autoGenerate", checked)
-									}
-									className="scale-75 data-[state=checked]:bg-primary"
-								/>
-							</div>
-						</div>
-					</section>
-
-					{/* Appearance */}
-					<RecommendationFilterSettings />
-
-					<section className={SETTINGS_SECTION_CLASSNAME}>
-						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-							<Trash2 className="h-4 w-4 text-primary" />
-							<span>Storage</span>
-						</div>
-						<div className="flex items-center justify-between gap-4">
-							<div className="min-w-0">
-								<p className="text-sm font-semibold text-foreground">
-									Cached data
-								</p>
-								<p className="mt-1 text-xs text-muted-foreground">
-									Transcripts, summaries, video details, and temporary caches
-								</p>
-							</div>
-							<Button
-								type="button"
-								variant="default"
-								size="icon"
-								aria-label="Clear cached storage"
-								title="Clear cached storage"
-								onClick={() => void handleClearStoredData()}
-								disabled={isClearingStorage}
-							>
-								<Trash2 className="h-4 w-4" />
-							</Button>
-						</div>
-					</section>
-
-					<section className={SETTINGS_SECTION_CLASSNAME}>
-						<div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-							<Type className="h-4 w-4 text-primary" />
-							<span>Font Size</span>
-						</div>
-						<div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-							<div className="space-y-2">
-								<Label className="text-sm font-semibold text-foreground">
-									Caption Overlay
-								</Label>
-								{renderFontSizeSelector("captionFontSize")}
-							</div>
-							<div className="space-y-2">
-								<Label className="text-sm font-semibold text-foreground">
-									Summary Panel
-								</Label>
-								{renderFontSizeSelector("summaryFontSize")}
-							</div>
-						</div>
-					</section>
+					<ApiConfigurationSection
+						settings={settings}
+						onChange={handleChange}
+						onLlmBaseUrlBlur={(baseUrl) => {
+							void ensureLlmBaseUrlPermission(baseUrl);
+						}}
+					/>
+					<ModelConfigurationSection
+						settings={settings}
+						selectorConfigs={selectorConfigs}
+						renderModelCostLimitControl={renderModelCostLimitControl}
+						onChange={handleChange}
+					/>
+					<GenerationSettingsSection
+						settings={settings}
+						onChange={handleChange}
+					/>
+					<AppearanceSettingsSection
+						settings={settings}
+						onChange={handleChange}
+					/>
+					<StorageSettingsSection
+						isClearingStorage={isClearingStorage}
+						onClearStoredData={() => {
+							void handleClearStoredData();
+						}}
+					/>
 				</div>
 			</div>
 		</div>
