@@ -126,3 +126,27 @@ test("sidepanel model metadata reads scores but ignores model-atlas logos", asyn
 		speedMetric: 64,
 	});
 });
+
+test("sidepanel model metadata quietly falls back when optional score API fails", async () => {
+	installLocalStorage();
+	globalThis.fetch = async () => {
+		throw new Error("offline");
+	};
+	const errors: unknown[] = [];
+	const originalConsoleError = console.error;
+	console.error = (...args: unknown[]) => {
+		errors.push(args);
+	};
+
+	try {
+		const statsModule = await import(
+			`${STATS_SERVICE_PATH.href}?case=${Date.now()}`
+		);
+		const index = await statsModule.fetchLlmStatsModelMetadataIndex();
+
+		assert.deepEqual(index, { modelsById: {} });
+		assert.deepEqual(errors, []);
+	} finally {
+		console.error = originalConsoleError;
+	}
+});
