@@ -5,6 +5,7 @@
  * Handles communication with background script for video processing
  */
 
+import { loadConfig } from "@/core/config";
 import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
 import type {
@@ -18,7 +19,6 @@ import {
 	sendChromeMessage,
 } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
-import { getProcessingConfig } from "./configLoaders";
 
 /**
  * Handle scraping step
@@ -300,7 +300,7 @@ export async function triggerCaptionGeneration(
 	const videoId = extractVideoId(url);
 	if (!videoId) throw new Error("Invalid YouTube URL");
 
-	const { refinerModel } = await getProcessingConfig();
+	const { refinerModel } = await loadConfig();
 	const response = await requestCaptionGeneration(
 		videoId,
 		createRequestId("caption"),
@@ -351,7 +351,7 @@ export async function streamSummary(
 			showSubtitles,
 			summarizerProvider,
 			summarizerMode,
-		} = await withAbort(getProcessingConfig(), signal, runId);
+		} = await withAbort(loadConfig(), signal, runId);
 		throwIfAborted(signal, runId);
 		const activeTab = await withAbort(getCurrentTab(), signal, runId);
 		const activeTabId = activeTab?.id;

@@ -1,5 +1,8 @@
 /**
- * Sidepanel metadata adapter for Model Atlas payloads.
+ * Optional sidepanel score metadata from the public Model Atlas deployment.
+ *
+ * Model scores guide sorting/labels only. The extension must keep working when
+ * this endpoint, localStorage, or the payload shape is unavailable.
  */
 
 import type { AvailableModel } from "./config.ts";
@@ -202,8 +205,7 @@ export async function fetchLlmStatsModelMetadataIndex(): Promise<LlmStatsModelMe
 		}
 
 		return await llmStatsModelMetadataPromise;
-	} catch (error) {
-		console.error("Failed to build model-atlas metadata", error);
+	} catch {
 		return {
 			modelsById: {},
 		};

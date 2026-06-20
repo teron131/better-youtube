@@ -2,7 +2,6 @@
  * Root application component with routing and global providers.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as Sonner } from "@ui/components/ui/sonner";
 import { Toaster } from "@ui/components/ui/toaster";
 import { TooltipProvider } from "@ui/components/ui/tooltip";
@@ -12,8 +11,6 @@ import { getCurrentSidepanelPath } from "./lib/routes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
-
-const queryClient = new QueryClient();
 
 function AppRoutes() {
 	const [path, setPath] = useState(getCurrentSidepanelPath);
@@ -48,13 +45,11 @@ const App = () => {
 	}, []);
 
 	return (
-		<QueryClientProvider client={queryClient}>
-			<TooltipProvider>
-				<Toaster />
-				<Sonner />
-				<AppRoutes />
-			</TooltipProvider>
-		</QueryClientProvider>
+		<TooltipProvider>
+			<Toaster />
+			<Sonner />
+			<AppRoutes />
+		</TooltipProvider>
 	);
 };
 

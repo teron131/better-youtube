@@ -2,15 +2,7 @@
  * YouTube Summarizer API Service
  */
 
-import type {
-	ApiError,
-	ConfigurationResponse,
-	HealthCheckResponse,
-	ScrapRequest,
-	ScrapResponse,
-	SummarizeRequest,
-	SummarizeResponse,
-} from "@/core/types";
+import type { ApiError, ConfigurationResponse } from "@/core/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -60,17 +52,6 @@ export function handleApiError(error: unknown): ApiError {
 }
 
 export const api = {
-	healthCheck: () => request<HealthCheckResponse>("/health"),
 	getConfiguration: () => request<ConfigurationResponse>("/config"),
-	scrapVideo: (data: ScrapRequest) =>
-		request<ScrapResponse>("/scrap", {
-			method: "POST",
-			body: JSON.stringify(data),
-		}),
-	summarize: (data: SummarizeRequest) =>
-		request<SummarizeResponse>("/summarize", {
-			method: "POST",
-			body: JSON.stringify(data),
-		}),
 	baseUrl: API_BASE_URL,
 };

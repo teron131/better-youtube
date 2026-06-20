@@ -176,6 +176,8 @@ flowchart TD
 - Transcript fetches are cached and deduplicated before caption or summary work begins.
 - Caption refinement first saves raw subtitle segments, then pushes partial refined results as they become available.
 - Summary generation selects a provider and mode from runtime config, model choice, and available API keys.
+- Model selection can optionally fetch score metadata from the public Model Atlas API (`https://llm-stats.vercel.app/api/llm-stats?view=core`) to guide sorting and labels. Those scores are cached locally and are not required; if the API is unavailable, the extension keeps using the normal model list without score guidance.
+- Provider logos are bundled in this repo under `public/provider-logos/`; they do not depend on Model Atlas or the score API.
 - Long-running work is guarded by `requestId` and per-video workload tracking so stale responses are ignored.
 - Storage keys and cross-context actions are centralized in `src/core/constants.ts`.
 

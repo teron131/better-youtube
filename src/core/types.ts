@@ -54,49 +54,6 @@ export interface VideoInfoResponse {
 	likeCount?: number;
 }
 
-// Request Types
-export interface ScrapRequest {
-	url: string;
-}
-
-export interface SummarizeRequest {
-	content: string;
-	contentType?: "url" | "transcript";
-	summaryModel?: string;
-	qualityModel?: string;
-	targetLanguage?: string | null;
-}
-
-// Response Types
-export interface ScrapResponse {
-	status: string;
-	message: string;
-	timestamp: string;
-	transcript: string | null;
-	processingTime: string;
-	url?: string | null;
-	title?: string | null;
-	thumbnail?: string | null;
-	author?: string | null;
-	duration?: string | null;
-	uploadDate?: string | null;
-	viewCount?: number | null;
-	likeCount?: number | null;
-}
-
-export interface SummarizeResponse {
-	status: string;
-	message: string;
-	timestamp: string;
-	summary: Summary;
-	quality?: QualityData;
-	processingTime: string;
-	iterations: number;
-	summaryModel: string;
-	qualityModel: string;
-	targetLanguage?: string | null;
-}
-
 export interface ConfigurationResponse {
 	status: string;
 	message: string;
@@ -105,17 +62,6 @@ export interface ConfigurationResponse {
 	default_summary_model: string;
 	default_quality_model: string;
 	default_target_language: string;
-}
-
-export interface HealthCheckResponse {
-	status: "healthy";
-	message: string;
-	timestamp: string;
-	version: string;
-	environment: {
-		gemini_configured: boolean;
-		scrapecreators_configured: boolean;
-	};
 }
 
 // Summary Data Structures
