@@ -19,9 +19,19 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 
 - Extracts transcript and video metadata from the active YouTube watch tab.
 - Refines subtitle segments in the background and streams partial caption updates back to the player.
-- Generates video summaries with Gemini or an OpenAI-compatible LLM route.
-- Caches transcripts, subtitles, metadata, and summaries in extension storage to avoid repeated work.
+- Generates video summaries with Gemini or an OpenAI-compatible provider.
+- Caches transcripts, subtitles, metadata, and summaries in Chrome storage.
 - Filters recommendation feeds with saved rules such as views, duration, age, keywords, and subscription preservation.
+
+## Transcript Sources
+
+The extension reads captions and metadata from the active YouTube tab, then falls back to cached or stored transcript data before summary work runs.
+
+| Method | Type | Robustness | Speed | Notes |
+|--------|------|------------|-------|-------|
+| **Chrome Tab Captions** | **Direct** | ⭐⭐⭐⭐⭐ | ⚡ Fast | **Primary**. Extracts official/auto-captions from the active watch tab. |
+| **Pending or Cached Transcript** | **Reuse** | ⭐⭐⭐⭐ | ⚡ Fast | Reuses in-flight transcript work, memory cache, stored subtitles, and saved metadata. |
+| **Gemini URL Input** | **Native Summary** | ⭐⭐⭐ | ⚡ Fast | Used only for Gemini summaries when no side-panel transcript is supplied. |
 
 ## Architecture
 
@@ -79,9 +89,9 @@ flowchart LR
     SR --> LLM
 ```
 
-## Processing Flows
+## Core Flows
 
-### Caption Flow
+### Caption Refinement
 
 ```mermaid
 sequenceDiagram
@@ -116,7 +126,7 @@ sequenceDiagram
     CS->>CS: Render overlay
 ```
 
-### Summary Flow
+### Summary Generation
 
 ```mermaid
 sequenceDiagram
@@ -141,7 +151,7 @@ sequenceDiagram
     BG-->>UI: SUMMARY_GENERATED or SHOW_ERROR
 ```
 
-## Recommendation Filtering
+### Recommendation Filtering
 
 ```mermaid
 flowchart TD
@@ -155,7 +165,7 @@ flowchart TD
     SCAN --> EXTRACT["Extract title, channel, views, age, duration, and language hints"]
     EXTRACT --> SUBS{"Preserve subscribed channels?"}
     SUBS -->|Yes and channel matches| SHOW["Keep card visible"]
-    SUBS -->|No match| RULES{"Trips any active hide rule?"}
+    SUBS -->|No match| RULES{"Matches an active hide rule?"}
     RULES -->|No| SHOW
     RULES -->|Yes| HIDE["Hide card and record filter reason"]
     SHOW --> RESCAN["Observe DOM changes and queue rescans for new cards"]
@@ -163,7 +173,7 @@ flowchart TD
     SUBLOAD["Extract subscriptions from /feed/channels on demand"] --> READ
 ```
 
-## Runtime Design
+## Project Map
 
 - `public/manifest.json` wires the MV3 service worker, content script, side panel, and permissions.
 - `src/handlers/index.ts` is the background entrypoint and routes `MESSAGE_ACTIONS` requests.
@@ -171,12 +181,12 @@ flowchart TD
 - `src/sidepanel/main.tsx` boots the React side panel used in both extension and demo mode.
 - `src/core/*` contains shared contracts, transcript logic, refiner logic, summarizer logic, storage helpers, and runtime config.
 
-## Key Behaviors
+## Design Notes
 
-- Transcript fetches are cached and deduplicated before caption or summary work begins.
-- Caption refinement first saves raw subtitle segments, then pushes partial refined results as they become available.
+- Transcript fetches are cached and deduplicated before caption or summary work starts.
+- Caption refinement saves raw subtitle segments first, then sends partial refined updates as they arrive.
 - Summary generation selects a provider and mode from runtime config, model choice, and available API keys.
-- Model selection can optionally fetch score metadata from the public Model Atlas API (`https://llm-stats.vercel.app/api/llm-stats?view=core`) to guide sorting and labels. Those scores are cached locally and are not required; if the API is unavailable, the extension keeps using the normal model list without score guidance.
+- Model selection can optionally fetch score metadata from the public Model Atlas API (`https://llm-stats.vercel.app/api/llm-stats?view=core`) to guide sorting and labels. The scores are cached locally and optional; if the API is unavailable, the extension keeps using the normal model list.
 - Provider logos are bundled in this repo under `public/provider-logos/`; they do not depend on Model Atlas or the score API.
 - Long-running work is guarded by `requestId` and per-video workload tracking so stale responses are ignored.
 - Storage keys and cross-context actions are centralized in `src/core/constants.ts`.
