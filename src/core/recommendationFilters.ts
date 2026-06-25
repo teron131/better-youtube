@@ -3,7 +3,7 @@
  */
 
 import { DEFAULTS, STORAGE_KEYS } from "./constants";
-import { getStorageValue, getStorageValues } from "./storage";
+import { getStorageValues } from "./storage";
 
 export interface FeedFilterSettings {
 	viewsFilterEnabled: boolean;

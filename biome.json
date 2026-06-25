@@ -21,6 +21,7 @@
 				"noDocumentCookie": "off",
 				"noExplicitAny": "off",
 				"noUnknownAtRules": {
+					"level": "error",
 					"options": {
 						"ignore": ["tailwind"]
 					}
