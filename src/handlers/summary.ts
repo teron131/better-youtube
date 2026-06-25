@@ -41,14 +41,7 @@ import {
 	isGeminiModelSelection,
 	resolveSummarizationRoute,
 } from "@/core/workRouter";
-import {
-	cleanupRequestEntry,
-	getCurrentRequestId,
-	isCurrentWorkload,
-	pruneMapEntries,
-	runPendingJob,
-	setLatestWorkload,
-} from "./workflow";
+import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workflow";
 
 // ============================================================================
 // Types
@@ -408,21 +401,13 @@ interface SummaryMessage extends ChromeMessage {
 export async function handleGenerateSummary(
 	message: ChromeMessage,
 	ctx: {
-		summaryRequests: Map<string, string>;
-		latestSummaryWorkloads: Map<string, string>;
-		pendingSummaryJobs: Map<string, Promise<void>>;
+		summaryWorkloads: VideoWorkloadLifecycle;
 		config: RuntimeConfigSnapshot;
 		tabId?: number;
 	},
 	sendResponse: (response: unknown) => void,
 ): Promise<void> {
-	const {
-		summaryRequests,
-		latestSummaryWorkloads,
-		pendingSummaryJobs,
-		config,
-		tabId,
-	} = ctx;
+	const { summaryWorkloads, config, tabId } = ctx;
 	const {
 		videoId,
 		requestId,
@@ -438,13 +423,8 @@ export async function handleGenerateSummary(
 	} = message as unknown as SummaryMessage;
 	const transcriptFetchContext: TranscriptFetchContext = { tabId };
 
-	if (requestId) {
-		summaryRequests.set(videoId, String(requestId));
-	}
-
 	sendResponse({ status: "processing" });
 
-	const effectiveRequestId = requestId ? String(requestId) : "";
 	const providerPref = normalizeProviderPreference({
 		summarizerProvider,
 		summaryProvider,
@@ -469,240 +449,279 @@ export async function handleGenerateSummary(
 		forceRegenerate,
 		transcript: msgTranscript,
 	});
-	setLatestWorkload(latestSummaryWorkloads, videoId, workloadKey);
 
-	const isCurrent = () =>
-		isCurrentWorkload(latestSummaryWorkloads, videoId, workloadKey);
-	const resolveRequestId = () =>
-		getCurrentRequestId(summaryRequests, videoId, effectiveRequestId);
-	const transcriptContextOwnerId = `${workloadKey}:${effectiveRequestId}`;
-	const finalizeRequestState = () => {
-		cleanupRequestEntry(summaryRequests, videoId, effectiveRequestId);
-		pruneMapEntries(summaryRequests, 300);
-		pruneMapEntries(
-			latestSummaryWorkloads,
-			300,
-			(_videoId, latestWorkload) => !pendingSummaryJobs.has(latestWorkload),
-		);
-	};
+	const run = summaryWorkloads.begin({
+		videoId,
+		requestId,
+		workloadKey,
+	});
+	const transcriptContextOwnerId = `${workloadKey}:${run.effectiveRequestId}`;
 
-	if (pendingSummaryJobs.has(workloadKey)) {
-		console.log("[summary] dedupe join existing workload", {
-			videoId,
-			requestId: effectiveRequestId,
-			workloadKey,
-		});
-		await pendingSummaryJobs.get(workloadKey);
-		finalizeRequestState();
-		return;
-	}
-
-	const job = (async () => {
-		setTranscriptFetchContext(
-			videoId,
-			transcriptContextOwnerId,
-			transcriptFetchContext,
-		);
-		try {
-			const geminiKey = config.geminiApiKey;
-			const llmKey = config.llmApiKey;
-
-			const { provider } = resolveSummarizationRoute({
-				requestedProvider: providerPref,
-				requestedMode: modePref,
-				summarizerModel: String(modelSelection),
-				hasGeminiKey: !!geminiKey,
-				hasLlmKey: !!llmKey,
-			});
-
-			logSummaryConfig({
+	await run.runOrJoin(
+		() =>
+			runSummaryJob({
 				videoId,
-				requestId: effectiveRequestId,
-				modelSelection: String(modelSelection),
-				targetLanguage: String(targetLanguage),
-				providerPref,
-				modePref,
-				resolvedProvider: provider,
-				desiredLlmMode,
-				msgHasTranscript: Boolean(msgTranscript),
-				hasKeys: {
-					gemini: Boolean(geminiKey),
-					llm: Boolean(llmKey),
-				},
-			});
-
-			const modelUsedKey = `${provider}::${String(modelSelection)}`;
-
-			const storedSummary = await checkCachedSummary(
-				videoId,
-				modelUsedKey,
+				msgTranscript,
+				modelSelection,
+				qualityModel,
+				refinerModel,
 				targetLanguage,
 				forceRegenerate,
-			);
-			if (storedSummary) {
-				if (!isCurrent()) return;
-				await broadcastStoredSummary(
-					videoId,
-					storedSummary,
-					resolveRequestId(),
-				);
-				return;
-			}
-
-			// Lazy resolution: Gemini can use URL directly; LLM needs transcript_or_url.
-			const getVideoInfoLazy = async () =>
-				getVideoInfo(videoId, transcriptFetchContext);
-			const getLlmSourceLazy = async () =>
-				getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
-
-			type ConcreteProvider = "gemini" | "llm";
-
-			const tryGemini = async () => {
-				if (!geminiKey) throw new Error("Gemini API key missing");
-				const videoInfo = await getVideoInfoLazy();
-				const geminiModel = normalizeGeminiModel(String(modelSelection));
-
-				const gemini = msgTranscript
-					? await summarizeGemini(
-							{
-								kind: "transcript",
-								transcript: String(msgTranscript),
-								targetLanguage: targetLanguage,
-							},
-							{ model: geminiModel },
-						)
-					: await summarizeGemini(
-							{
-								kind: "youtube_url",
-								videoUrl: createYouTubeWatchUrl(videoId),
-								targetLanguage: targetLanguage,
-							},
-							{ model: geminiModel },
-						);
-
-				const summary = gemini.summary;
-				return {
-					summary,
-					quality: null,
-					iterations: 1,
-					qualityScore: 0,
-					summaryText: summaryToMarkdown(summary, videoInfo),
-				};
-			};
-
-			const tryLlm = async () => {
-				if (!llmKey) throw new Error("LLM API key missing");
-				const transcript_or_url = await getLlmSourceLazy();
-				const videoInfo = await getVideoInfoLazy();
-				const workflow = await summarizeWorkflow({
-					transcript_or_url,
-					videoId,
-					title: videoInfo?.title || undefined,
-					description: videoInfo?.description || undefined,
-					summaryModel: modelSelection,
-					qualityModel: qualityModel || modelSelection,
-					refinerModel: refinerModel,
-					targetLanguage: targetLanguage,
-					fastMode: desiredLlmMode === "fast",
-				});
-
-				const summary = parseLlmSummary(workflow.summary);
-				return {
-					summary,
-					quality: workflow.quality,
-					iterations: workflow.iterations,
-					qualityScore: workflow.qualityScore,
-					summaryText: summaryToMarkdown(summary, videoInfo),
-				};
-			};
-
-			const providerRunners: Record<
-				ConcreteProvider,
-				() => Promise<SummaryResult>
-			> = {
-				gemini: tryGemini,
-				llm: tryLlm,
-			};
-
-			const runProvider = async (selectedProvider: ConcreteProvider) => {
-				if (
-					selectedProvider === "gemini" &&
-					modePref !== "native" &&
-					!isGeminiModelSelection(String(modelSelection))
-				) {
-					throw new Error(
-						"Selected model is not a Gemini model; cannot use Gemini provider",
-					);
-				}
-				return providerRunners[selectedProvider]();
-			};
-
-			let finalProvider = provider as ConcreteProvider;
-			let result: SummaryResult;
-			try {
-				console.log("[summary] trying provider", {
-					provider: finalProvider,
-					videoId,
-					requestId: effectiveRequestId,
-				});
-				result = await runProvider(finalProvider);
-			} catch (error) {
-				if (provider === "gemini" && llmKey) {
-					console.warn("[summary] primary failed, trying fallback", {
-						provider,
-						fallbackProvider: "llm",
-						videoId,
-						requestId: effectiveRequestId,
-						error: String(error),
-					});
-					finalProvider = "llm";
-					result = await runProvider(finalProvider);
-				} else {
-					console.warn("[summary] primary provider failed", {
-						provider,
-						videoId,
-						requestId: effectiveRequestId,
-						error: String(error),
-					});
-					throw error;
-				}
-			}
-
-			if (!isCurrent()) return;
-
-			const videoInfo = await getVideoInfoLazy();
-			const transcript_or_url =
-				finalProvider === "gemini" && !msgTranscript
-					? createYouTubeWatchUrl(videoId)
-					: await getLlmSourceLazy();
-			await broadcastSummaryResult(
+				config,
+				modePref,
+				providerPref,
+				desiredLlmMode,
+				transcriptFetchContext,
+				transcriptContextOwnerId,
+				run,
+			}),
+		() => {
+			console.log("[summary] dedupe join existing workload", {
 				videoId,
-				result,
-				videoInfo,
-				transcript_or_url,
-				`${finalProvider}::${String(modelSelection)}`,
-				targetLanguage,
-				finalProvider,
-				resolveRequestId(),
-			);
-		} catch (error) {
-			if (!isCurrent()) return;
-			console.error("Summary error:", error);
-			chrome.runtime
-				.sendMessage({
-					action: MESSAGE_ACTIONS.SHOW_ERROR,
-					error: String(error),
-					requestId: resolveRequestId(),
-					videoId,
-				})
-				.catch(() => {});
-		} finally {
-			clearTranscriptFetchContext(videoId, transcriptContextOwnerId);
-		}
-	})();
+				requestId: run.effectiveRequestId,
+				workloadKey,
+			});
+		},
+	);
+}
 
-	await runPendingJob(pendingSummaryJobs, workloadKey, job);
-	finalizeRequestState();
+/**
+ * Runs one normalized summary generation job behind the lifecycle interface.
+ */
+async function runSummaryJob(input: {
+	videoId: string;
+	msgTranscript: string | undefined;
+	modelSelection: string | undefined;
+	qualityModel: string | undefined;
+	refinerModel: string | undefined;
+	targetLanguage: string | undefined;
+	forceRegenerate: boolean | undefined;
+	config: RuntimeConfigSnapshot;
+	modePref: SummarizerMode;
+	providerPref: ProviderPref;
+	desiredLlmMode: "react" | "fast";
+	transcriptFetchContext: TranscriptFetchContext;
+	transcriptContextOwnerId: string;
+	run: VideoWorkloadRun;
+}): Promise<void> {
+	const {
+		videoId,
+		msgTranscript,
+		modelSelection,
+		qualityModel,
+		refinerModel,
+		targetLanguage,
+		forceRegenerate,
+		config,
+		modePref,
+		providerPref,
+		desiredLlmMode,
+		transcriptFetchContext,
+		transcriptContextOwnerId,
+		run,
+	} = input;
+
+	setTranscriptFetchContext(
+		videoId,
+		transcriptContextOwnerId,
+		transcriptFetchContext,
+	);
+	try {
+		const geminiKey = config.geminiApiKey;
+		const llmKey = config.llmApiKey;
+
+		const { provider } = resolveSummarizationRoute({
+			requestedProvider: providerPref,
+			requestedMode: modePref,
+			summarizerModel: String(modelSelection),
+			hasGeminiKey: !!geminiKey,
+			hasLlmKey: !!llmKey,
+		});
+
+		logSummaryConfig({
+			videoId,
+			requestId: run.effectiveRequestId,
+			modelSelection: String(modelSelection),
+			targetLanguage: String(targetLanguage),
+			providerPref,
+			modePref,
+			resolvedProvider: provider,
+			desiredLlmMode,
+			msgHasTranscript: Boolean(msgTranscript),
+			hasKeys: {
+				gemini: Boolean(geminiKey),
+				llm: Boolean(llmKey),
+			},
+		});
+
+		const modelUsedKey = `${provider}::${String(modelSelection)}`;
+
+		const storedSummary = await checkCachedSummary(
+			videoId,
+			modelUsedKey,
+			targetLanguage,
+			forceRegenerate,
+		);
+		if (storedSummary) {
+			if (!run.isCurrent()) return;
+			await broadcastStoredSummary(
+				videoId,
+				storedSummary,
+				run.resolveRequestId(),
+			);
+			return;
+		}
+
+		// Lazy resolution: Gemini can use URL directly; LLM needs transcript_or_url.
+		const getVideoInfoLazy = async () =>
+			getVideoInfo(videoId, transcriptFetchContext);
+		const getLlmSourceLazy = async () =>
+			getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
+
+		type ConcreteProvider = "gemini" | "llm";
+
+		const tryGemini = async () => {
+			if (!geminiKey) throw new Error("Gemini API key missing");
+			const videoInfo = await getVideoInfoLazy();
+			const geminiModel = normalizeGeminiModel(String(modelSelection));
+
+			const gemini = msgTranscript
+				? await summarizeGemini(
+						{
+							kind: "transcript",
+							transcript: String(msgTranscript),
+							targetLanguage: targetLanguage,
+						},
+						{ model: geminiModel },
+					)
+				: await summarizeGemini(
+						{
+							kind: "youtube_url",
+							videoUrl: createYouTubeWatchUrl(videoId),
+							targetLanguage: targetLanguage,
+						},
+						{ model: geminiModel },
+					);
+
+			const summary = gemini.summary;
+			return {
+				summary,
+				quality: null,
+				iterations: 1,
+				qualityScore: 0,
+				summaryText: summaryToMarkdown(summary, videoInfo),
+			};
+		};
+
+		const tryLlm = async () => {
+			if (!llmKey) throw new Error("LLM API key missing");
+			const transcript_or_url = await getLlmSourceLazy();
+			const videoInfo = await getVideoInfoLazy();
+			const workflow = await summarizeWorkflow({
+				transcript_or_url,
+				videoId,
+				title: videoInfo?.title || undefined,
+				description: videoInfo?.description || undefined,
+				summaryModel: modelSelection,
+				qualityModel: qualityModel || modelSelection,
+				refinerModel: refinerModel,
+				targetLanguage: targetLanguage,
+				fastMode: desiredLlmMode === "fast",
+			});
+
+			const summary = parseLlmSummary(workflow.summary);
+			return {
+				summary,
+				quality: workflow.quality,
+				iterations: workflow.iterations,
+				qualityScore: workflow.qualityScore,
+				summaryText: summaryToMarkdown(summary, videoInfo),
+			};
+		};
+
+		const providerRunners: Record<
+			ConcreteProvider,
+			() => Promise<SummaryResult>
+		> = {
+			gemini: tryGemini,
+			llm: tryLlm,
+		};
+
+		const runProvider = async (selectedProvider: ConcreteProvider) => {
+			if (
+				selectedProvider === "gemini" &&
+				modePref !== "native" &&
+				!isGeminiModelSelection(String(modelSelection))
+			) {
+				throw new Error(
+					"Selected model is not a Gemini model; cannot use Gemini provider",
+				);
+			}
+			return providerRunners[selectedProvider]();
+		};
+
+		let finalProvider = provider as ConcreteProvider;
+		let result: SummaryResult;
+		try {
+			console.log("[summary] trying provider", {
+				provider: finalProvider,
+				videoId,
+				requestId: run.effectiveRequestId,
+			});
+			result = await runProvider(finalProvider);
+		} catch (error) {
+			if (provider === "gemini" && llmKey) {
+				console.warn("[summary] primary failed, trying fallback", {
+					provider,
+					fallbackProvider: "llm",
+					videoId,
+					requestId: run.effectiveRequestId,
+					error: String(error),
+				});
+				finalProvider = "llm";
+				result = await runProvider(finalProvider);
+			} else {
+				console.warn("[summary] primary provider failed", {
+					provider,
+					videoId,
+					requestId: run.effectiveRequestId,
+					error: String(error),
+				});
+				throw error;
+			}
+		}
+
+		if (!run.isCurrent()) return;
+
+		const videoInfo = await getVideoInfoLazy();
+		const transcript_or_url =
+			finalProvider === "gemini" && !msgTranscript
+				? createYouTubeWatchUrl(videoId)
+				: await getLlmSourceLazy();
+		await broadcastSummaryResult(
+			videoId,
+			result,
+			videoInfo,
+			transcript_or_url,
+			`${finalProvider}::${String(modelSelection)}`,
+			targetLanguage,
+			finalProvider,
+			run.resolveRequestId(),
+		);
+	} catch (error) {
+		if (!run.isCurrent()) return;
+		console.error("Summary error:", error);
+		chrome.runtime
+			.sendMessage({
+				action: MESSAGE_ACTIONS.SHOW_ERROR,
+				error: String(error),
+				requestId: run.resolveRequestId(),
+				videoId,
+			})
+			.catch(() => {});
+	} finally {
+		clearTranscriptFetchContext(videoId, transcriptContextOwnerId);
+	}
 }
 
 function normalizeGeminiModel(modelSelection: string): string {

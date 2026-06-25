@@ -15,13 +15,10 @@ import { handleFetchSubtitles } from "./refine";
 import { handleExtractSubscriptions } from "./subscriptions";
 import { handleGenerateSummary } from "./summary";
 import { handleScrapeVideo } from "./transcript";
+import { VideoWorkloadLifecycle } from "./workflow";
 
-const captionRequests = new Map<string, string>();
-const summaryRequests = new Map<string, string>();
-const latestCaptionWorkloads = new Map<string, string>();
-const latestSummaryWorkloads = new Map<string, string>();
-const pendingCaptionJobs = new Map<string, Promise<void>>();
-const pendingSummaryJobs = new Map<string, Promise<void>>();
+const captionWorkloads = new VideoWorkloadLifecycle();
+const summaryWorkloads = new VideoWorkloadLifecycle();
 
 registerContentScriptBootstrap();
 
@@ -70,9 +67,7 @@ createMessageListener((message, sender, sendResponse) => {
 				message,
 				{
 					tabId,
-					captionRequests,
-					latestCaptionWorkloads,
-					pendingCaptionJobs,
+					captionWorkloads,
 				},
 				sendResponse,
 			).catch((error) => {
@@ -99,9 +94,7 @@ createMessageListener((message, sender, sendResponse) => {
 						message,
 						{
 							tabId,
-							summaryRequests,
-							latestSummaryWorkloads,
-							pendingSummaryJobs,
+							summaryWorkloads,
 							config,
 						},
 						sendResponse,
