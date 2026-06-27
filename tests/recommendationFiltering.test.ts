@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import type { FeedFilterSettings } from "../src/core/recommendationFilters.ts";
 import type { VideoCardData } from "../src/content/recommendationFilterExtractor.ts";
 import { getTriggeredFilter } from "../src/content/recommendationFilterPolicy.ts";
+import type { FeedFilterSettings } from "../src/core/recommendationFilters.ts";
 
 const DEFAULT_SETTINGS: FeedFilterSettings = {
 	viewsFilterEnabled: false,
