@@ -4,6 +4,7 @@
 
 import { STORAGE_KEYS } from "@/core/constants";
 import {
+	FEED_FILTER_STORAGE_KEYS,
 	type FeedFilterSettings,
 	type FilteredVideoRecord,
 	loadFeedFilterSettings,
@@ -24,6 +25,11 @@ import {
 	VIDEO_CARD_SELECTOR,
 	type VideoCardData,
 } from "./recommendationFilterExtractor";
+import {
+	type FilterReason,
+	getTriggeredFilter,
+	hasIncompleteMetadata,
+} from "./recommendationFilterPolicy";
 
 const SUBSCRIPTIONS_PAGE_PATH = "/feed/channels";
 const HISTORY_PAGE_PATH = "/feed/history";
@@ -38,15 +44,9 @@ const VIDEO_CARD_METADATA_ATTRIBUTES = [
 	"href",
 	"title",
 ];
-type FilterReason = "views" | "keywords" | "duration" | "age" | "language";
-
-type TriggeredFilter = {
-	shouldFilter: true;
-	reason: FilterReason;
-	details: string;
-};
-
-type FilterResult = TriggeredFilter | { shouldFilter: false };
+const FEED_FILTER_STORAGE_KEY_SET = new Set<string>(
+	Object.values(FEED_FILTER_STORAGE_KEYS),
+);
 
 type SubscriptionLookup = {
 	ids: Set<string>;
@@ -76,89 +76,6 @@ function logFilteringError(action: string, error: unknown): void {
 	}
 
 	console.error(`[recommendation-filter] ${action} failed`, error);
-}
-
-function parseViewCount(text: string): number {
-	const cleaned = text
-		.replace(/views?/i, "")
-		.replace(/,/g, "")
-		.trim();
-	const match = cleaned.match(/([\d.]+)\s*([KMB]?)/i);
-
-	if (match) {
-		let number = parseFloat(match[1]);
-		const suffix = match[2].toUpperCase();
-		if (suffix === "K") number *= 1000;
-		else if (suffix === "M") number *= 1000000;
-		else if (suffix === "B") number *= 1000000000;
-		return number;
-	}
-
-	const directNumber = parseFloat(cleaned);
-	return Number.isNaN(directNumber) ? 0 : directNumber;
-}
-
-function parseDuration(text: string): number {
-	const cleaned = text.trim();
-
-	if (cleaned.includes(":")) {
-		const parts = cleaned.split(":").map((part) => parseInt(part.trim(), 10));
-		if (parts.some((part) => Number.isNaN(part))) {
-			return 0;
-		}
-
-		if (parts.length === 2) {
-			return parts[0] * 60 + parts[1];
-		}
-		if (parts.length === 3) {
-			return parts[0] * 3600 + parts[1] * 60 + parts[2];
-		}
-	}
-
-	let totalSeconds = 0;
-	const hourMatch = cleaned.match(/(\d+)\s*h(our)?s?/i);
-	const minMatch = cleaned.match(/(\d+)\s*m(in(ute)?)?s?/i);
-	const secMatch = cleaned.match(/(\d+)\s*s(ec(ond)?)?s?/i);
-
-	if (hourMatch) totalSeconds += parseInt(hourMatch[1], 10) * 3600;
-	if (minMatch) totalSeconds += parseInt(minMatch[1], 10) * 60;
-	if (secMatch) totalSeconds += parseInt(secMatch[1], 10);
-
-	return totalSeconds;
-}
-
-function parseVideoAgeYears(text: string): number {
-	const normalizedText = text.trim().toLowerCase();
-	if (
-		normalizedText.includes("today") ||
-		normalizedText.includes("yesterday") ||
-		normalizedText.includes("just now")
-	) {
-		return 0;
-	}
-
-	const match = normalizedText.match(/(\d+(?:\.\d+)?)\s+(year|month)/i);
-	if (!match) {
-		return 0;
-	}
-
-	const value = parseFloat(match[1]);
-	const unit = match[2].toLowerCase();
-
-	switch (unit) {
-		case "year":
-			return value;
-		case "month":
-			return value / 12;
-		default:
-			return 0;
-	}
-}
-
-function formatAgeYears(ageYears: number): string {
-	const roundedYears =
-		ageYears >= 10 ? Math.round(ageYears) : Math.round(ageYears * 10) / 10;
-	return `${roundedYears} year${roundedYears === 1 ? "" : "s"}`;
 }
 
 function createEmptySubscriptionLookup(): SubscriptionLookup {
@@ -294,6 +211,7 @@ function getFilteringSkipReason(pathname = location.pathname): string | null {
 function hasActiveHideFilters(settings: FeedFilterSettings): boolean {
 	return Boolean(
 		settings.viewsFilterEnabled ||
+			settings.liveViewerFilterEnabled ||
 			settings.durationFilterEnabled ||
 			settings.keywordFilterEnabled ||
 			settings.ageFilterEnabled ||
@@ -367,188 +285,6 @@ function applyChannelLanguageState(
 	}
 
 	delete (videoElement as HTMLElement).dataset.channelLanguage;
-}
-
-function checkViewsFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	if (
-		videoData.isActiveLiveContent ||
-		!settings.viewsFilterEnabled ||
-		settings.minViews <= 0 ||
-		!videoData.viewCount
-	) {
-		return { shouldFilter: false };
-	}
-
-	const viewCount = parseViewCount(videoData.viewCount);
-	if (viewCount < settings.minViews) {
-		return {
-			shouldFilter: true,
-			reason: "views",
-			details: `Low views: ${videoData.viewCount} (${viewCount})`,
-		};
-	}
-
-	return { shouldFilter: false };
-}
-
-function checkDurationFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	if (
-		videoData.isLiveContent ||
-		!settings.durationFilterEnabled ||
-		(!settings.minDuration && !settings.maxDuration) ||
-		!videoData.duration
-	) {
-		return { shouldFilter: false };
-	}
-
-	const durationSeconds = parseDuration(videoData.duration);
-	const minOk =
-		!settings.minDuration || durationSeconds >= settings.minDuration;
-	const maxOk =
-		!settings.maxDuration || durationSeconds <= settings.maxDuration;
-
-	if (!minOk || !maxOk) {
-		return {
-			shouldFilter: true,
-			reason: "duration",
-			details: `Duration: ${videoData.duration} (${durationSeconds}s) outside range [${settings.minDuration || 0}, ${settings.maxDuration || "∞"}]`,
-		};
-	}
-
-	return { shouldFilter: false };
-}
-
-function checkAgeFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	if (
-		!settings.ageFilterEnabled ||
-		settings.maxAgeYears <= 0 ||
-		!videoData.publishTime
-	) {
-		return { shouldFilter: false };
-	}
-
-	const videoAgeYears = parseVideoAgeYears(videoData.publishTime);
-	if (videoAgeYears >= settings.maxAgeYears) {
-		return {
-			shouldFilter: true,
-			reason: "age",
-			details: `Too old: ${videoData.publishTime} (${formatAgeYears(videoAgeYears)})`,
-		};
-	}
-
-	return { shouldFilter: false };
-}
-
-function checkKeywordsFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	if (
-		!settings.keywordFilterEnabled ||
-		settings.keywords.length === 0 ||
-		!videoData.title
-	) {
-		return { shouldFilter: false };
-	}
-
-	const titleLower = videoData.title.toLowerCase();
-	for (const keyword of settings.keywords) {
-		if (keyword && titleLower.includes(keyword.toLowerCase())) {
-			return {
-				shouldFilter: true,
-				reason: "keywords",
-				details: `Banned keyword: "${keyword}"`,
-			};
-		}
-	}
-
-	return { shouldFilter: false };
-}
-
-function checkLanguageFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	if (!settings.englishOnlyTitles) {
-		return { shouldFilter: false };
-	}
-
-	if (!videoData.titleLanguage || videoData.titleLanguage === "unknown") {
-		return {
-			shouldFilter: true,
-			reason: "language",
-			details: "Title language: unknown (English only mode)",
-		};
-	}
-
-	if (videoData.titleLanguage !== "en") {
-		return {
-			shouldFilter: true,
-			reason: "language",
-			details: `Title language: ${videoData.titleLanguage} (English only mode)`,
-		};
-	}
-
-	if (
-		videoData.channelLanguage &&
-		videoData.channelLanguage !== "unknown" &&
-		videoData.channelLanguage !== "en"
-	) {
-		return {
-			shouldFilter: true,
-			reason: "language",
-			details: `Channel language: ${videoData.channelLanguage} (English only mode)`,
-		};
-	}
-
-	return { shouldFilter: false };
-}
-
-function hasIncompleteMetadata(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): boolean {
-	return Boolean(
-		(settings.viewsFilterEnabled &&
-			!videoData.isActiveLiveContent &&
-			settings.minViews > 0 &&
-			!videoData.viewCount) ||
-			(settings.durationFilterEnabled &&
-				!videoData.isLiveContent &&
-				(settings.minDuration || settings.maxDuration) &&
-				!videoData.duration) ||
-			(settings.ageFilterEnabled &&
-				settings.maxAgeYears > 0 &&
-				!videoData.publishTime) ||
-			(settings.keywordFilterEnabled &&
-				settings.keywords.length > 0 &&
-				!videoData.title) ||
-			(settings.englishOnlyTitles && !videoData.title),
-	);
-}
-
-function getTriggeredFilter(
-	videoData: VideoCardData,
-	settings: FeedFilterSettings,
-): FilterResult {
-	return (
-		[
-			checkViewsFilter(videoData, settings),
-			checkDurationFilter(videoData, settings),
-			checkAgeFilter(videoData, settings),
-			checkLanguageFilter(videoData, settings),
-			checkKeywordsFilter(videoData, settings),
-		].find((result) => result.shouldFilter) ?? { shouldFilter: false }
-	);
 }
 
 class FeedFilterController {
@@ -980,23 +716,7 @@ class FeedFilterController {
 			}
 
 			const changedKeys = Object.keys(changes);
-			const filterKeys = new Set<string>(
-				Object.values({
-					viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
-					durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
-					keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
-					ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
-					englishOnlyTitles: STORAGE_KEYS.ENGLISH_ONLY_TITLES,
-					preserveSubscribedChannels: STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
-					minViews: STORAGE_KEYS.MIN_VIEWS,
-					minDuration: STORAGE_KEYS.MIN_DURATION,
-					maxDuration: STORAGE_KEYS.MAX_DURATION,
-					maxAgeYears: STORAGE_KEYS.MAX_AGE_YEARS,
-					keywords: STORAGE_KEYS.FILTER_KEYWORDS,
-				}),
-			);
-
-			if (!changedKeys.some((key) => filterKeys.has(key))) {
+			if (!changedKeys.some((key) => FEED_FILTER_STORAGE_KEY_SET.has(key))) {
 				return;
 			}
 

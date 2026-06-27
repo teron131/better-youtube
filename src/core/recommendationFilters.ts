@@ -7,12 +7,14 @@ import { getStorageValues } from "./storage";
 
 export interface FeedFilterSettings {
 	viewsFilterEnabled: boolean;
+	liveViewerFilterEnabled: boolean;
 	durationFilterEnabled: boolean;
 	keywordFilterEnabled: boolean;
 	ageFilterEnabled: boolean;
 	englishOnlyTitles: boolean;
 	preserveSubscribedChannels: boolean;
 	minViews: number;
+	minLiveViewers: number;
 	minDuration: number;
 	maxDuration: number;
 	maxAgeYears: number;
@@ -44,12 +46,14 @@ export interface StoredSubscriptions {
 
 export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
 	viewsFilterEnabled: DEFAULTS.VIEWS_FILTER_ENABLED,
+	liveViewerFilterEnabled: DEFAULTS.LIVE_VIEWER_FILTER_ENABLED,
 	durationFilterEnabled: DEFAULTS.DURATION_FILTER_ENABLED,
 	keywordFilterEnabled: DEFAULTS.KEYWORD_FILTER_ENABLED,
 	ageFilterEnabled: DEFAULTS.AGE_FILTER_ENABLED,
 	englishOnlyTitles: DEFAULTS.ENGLISH_ONLY_TITLES,
 	preserveSubscribedChannels: DEFAULTS.PRESERVE_SUBSCRIBED_CHANNELS,
 	minViews: DEFAULTS.MIN_VIEWS,
+	minLiveViewers: DEFAULTS.MIN_LIVE_VIEWERS,
 	minDuration: DEFAULTS.MIN_DURATION,
 	maxDuration: DEFAULTS.MAX_DURATION,
 	maxAgeYears: DEFAULTS.MAX_AGE_YEARS,
@@ -61,12 +65,14 @@ export const FEED_FILTER_STORAGE_KEYS: Record<
 	string
 > = {
 	viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
+	liveViewerFilterEnabled: STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED,
 	durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
 	keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
 	ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
 	englishOnlyTitles: STORAGE_KEYS.ENGLISH_ONLY_TITLES,
 	preserveSubscribedChannels: STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
 	minViews: STORAGE_KEYS.MIN_VIEWS,
+	minLiveViewers: STORAGE_KEYS.MIN_LIVE_VIEWERS,
 	minDuration: STORAGE_KEYS.MIN_DURATION,
 	maxDuration: STORAGE_KEYS.MAX_DURATION,
 	maxAgeYears: STORAGE_KEYS.MAX_AGE_YEARS,
@@ -82,6 +88,10 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 		viewsFilterEnabled:
 			(result[STORAGE_KEYS.VIEWS_FILTER_ENABLED] as boolean | undefined) ??
 			DEFAULT_FEED_FILTER_SETTINGS.viewsFilterEnabled,
+		liveViewerFilterEnabled:
+			(result[STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED] as
+				| boolean
+				| undefined) ?? DEFAULT_FEED_FILTER_SETTINGS.liveViewerFilterEnabled,
 		durationFilterEnabled:
 			(result[STORAGE_KEYS.DURATION_FILTER_ENABLED] as boolean | undefined) ??
 			DEFAULT_FEED_FILTER_SETTINGS.durationFilterEnabled,
@@ -101,6 +111,10 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 		minViews: normalizeNumber(
 			result[STORAGE_KEYS.MIN_VIEWS],
 			DEFAULT_FEED_FILTER_SETTINGS.minViews,
+		),
+		minLiveViewers: normalizeNumber(
+			result[STORAGE_KEYS.MIN_LIVE_VIEWERS],
+			DEFAULT_FEED_FILTER_SETTINGS.minLiveViewers,
 		),
 		minDuration: normalizeNumber(
 			result[STORAGE_KEYS.MIN_DURATION],

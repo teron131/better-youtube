@@ -16,23 +16,28 @@ import {
 	History,
 	Languages,
 	ListFilter,
+	Radio,
 	RefreshCw,
 	ShieldCheck,
 	TrendingDown,
 	Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "@/core/constants";
 import type {
 	FeedFilterSettings,
 	FilteredVideoRecord,
 	StoredSubscriptions,
 } from "@/core/recommendationFilters";
-import { DEFAULT_FEED_FILTER_SETTINGS } from "@/core/recommendationFilters";
+import {
+	DEFAULT_FEED_FILTER_SETTINGS,
+	FEED_FILTER_STORAGE_KEYS,
+} from "@/core/recommendationFilters";
 
 type ToggleConfig = {
 	key:
 		| "viewsFilterEnabled"
+		| "liveViewerFilterEnabled"
 		| "durationFilterEnabled"
 		| "keywordFilterEnabled"
 		| "ageFilterEnabled"
@@ -48,6 +53,12 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		key: "viewsFilterEnabled",
 		icon: TrendingDown,
 		title: "Low Views",
+		description: "",
+	},
+	{
+		key: "liveViewerFilterEnabled",
+		icon: Radio,
+		title: "Live Viewers",
 		description: "",
 	},
 	{
@@ -81,6 +92,9 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		description: "Subscriptions are immune to filters.",
 	},
 ];
+const RECOMMENDATION_SETTING_STORAGE_KEYS = new Set<string>(
+	Object.values(FEED_FILTER_STORAGE_KEYS),
+);
 
 export function RecommendationFilterSettings() {
 	const { toast } = useToast();
@@ -92,23 +106,6 @@ export function RecommendationFilterSettings() {
 		useState<StoredSubscriptions | null>(null);
 	const [newKeyword, setNewKeyword] = useState("");
 	const [isExtracting, setIsExtracting] = useState(false);
-	const recommendationSettingKeys = useMemo(
-		() =>
-			new Set<string>([
-				STORAGE_KEYS.VIEWS_FILTER_ENABLED,
-				STORAGE_KEYS.DURATION_FILTER_ENABLED,
-				STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
-				STORAGE_KEYS.AGE_FILTER_ENABLED,
-				STORAGE_KEYS.ENGLISH_ONLY_TITLES,
-				STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS,
-				STORAGE_KEYS.MIN_VIEWS,
-				STORAGE_KEYS.MIN_DURATION,
-				STORAGE_KEYS.MAX_DURATION,
-				STORAGE_KEYS.MAX_AGE_YEARS,
-				STORAGE_KEYS.FILTER_KEYWORDS,
-			]),
-		[],
-	);
 
 	const refresh = useCallback(async () => {
 		const [nextSettings, nextHistory, nextSubscriptions] = await Promise.all([
@@ -138,7 +135,9 @@ export function RecommendationFilterSettings() {
 			}
 
 			if (
-				Object.keys(changes).some((key) => recommendationSettingKeys.has(key))
+				Object.keys(changes).some((key) =>
+					RECOMMENDATION_SETTING_STORAGE_KEYS.has(key),
+				)
 			) {
 				void getRecommendationFilterSettings().then(setSettings);
 			}
@@ -150,7 +149,7 @@ export function RecommendationFilterSettings() {
 
 		chrome.storage.onChanged.addListener(listener);
 		return () => chrome.storage.onChanged.removeListener(listener);
-	}, [recommendationSettingKeys, refresh]);
+	}, [refresh]);
 
 	const handleSettingChange = async <K extends keyof FeedFilterSettings>(
 		key: K,
@@ -252,6 +251,32 @@ export function RecommendationFilterSettings() {
 								className="h-9 w-28 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
 							/>
 							<span>views.</span>
+						</span>
+					</label>
+				);
+			case "liveViewerFilterEnabled":
+				return (
+					<label
+						htmlFor="recommendation-filter-minLiveViewers"
+						className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-medium leading-6 text-foreground/95"
+					>
+						<span>Hide live streams under</span>
+						<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<Input
+								id="recommendation-filter-minLiveViewers"
+								type="number"
+								min={0}
+								inputMode="numeric"
+								value={settings.minLiveViewers}
+								onChange={(event) =>
+									void handleSettingChange(
+										"minLiveViewers",
+										Math.max(0, Number(event.target.value) || 0),
+									)
+								}
+								className="h-9 w-28 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
+							/>
+							<span>viewers.</span>
 						</span>
 					</label>
 				);
