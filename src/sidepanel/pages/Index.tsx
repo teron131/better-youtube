@@ -14,6 +14,10 @@ import {
 	useVideoProcessing,
 	type VideoProcessingOptions,
 } from "@ui/hooks/use-video-processing";
+import {
+	currentVideoUrlFromMessage,
+	fetchCurrentVideoState,
+} from "@ui/lib/current-video";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { subscribeToStoredVideoState } from "@ui/lib/stored-video-state-sync";
 import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
@@ -32,6 +36,7 @@ import {
 	getVideoMetadata,
 	setStorageValue,
 } from "@/core/storage";
+import type { ChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
 import {
@@ -120,6 +125,26 @@ const Index = () => {
 	}, []);
 
 	useEffect(() => {
+		if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) {
+			return;
+		}
+
+		const handleRuntimeMessage = (message: ChromeMessage) => {
+			const nextUrl = currentVideoUrlFromMessage(message);
+			if (!nextUrl) return false;
+
+			setIsExampleMode(false);
+			setInitialUrl((prev) => (prev === nextUrl ? prev : nextUrl));
+			return false;
+		};
+
+		chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+		return () => {
+			chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+		};
+	}, []);
+
+	useEffect(() => {
 		const loadShowSubtitles = async () => {
 			try {
 				const stored = await getStorageValue<boolean>(
@@ -197,8 +222,23 @@ const Index = () => {
 				setLastProcessedUrl(initialUrl);
 				setLastOptions(undefined);
 				updateState(cachedState ?? EMPTY_VIDEO_STATE);
+
+				const fetchedState = await fetchCurrentVideoState(nextVideoId);
+				if (
+					cancelled ||
+					currentUrlVideoIdRef.current !== nextVideoId ||
+					!fetchedState
+				) {
+					return;
+				}
+
+				updateState({
+					scrapedVideoInfo: fetchedState.videoInfo,
+					scrapedTranscript: fetchedState.transcript,
+					error: null,
+				});
 			} catch (error) {
-				console.error("Failed to load cached summary:", error);
+				console.error("Failed to sync current video state:", error);
 			}
 		};
 
@@ -219,7 +259,15 @@ const Index = () => {
 
 		return subscribeToStoredVideoState({
 			relevantKeys: getTrackedStorageKeys(videoId),
-			loadState: () => loadCachedVideoState(videoId),
+			loadState: async () => {
+				const cachedState = await loadCachedVideoState(videoId);
+				if (!cachedState || cachedState.scrapedTranscript !== null) {
+					return cachedState;
+				}
+
+				const { scrapedTranscript: _omittedTranscript, ...state } = cachedState;
+				return state;
+			},
 			updateState,
 			addStorageListener: (listener) =>
 				chrome.storage.onChanged.addListener(listener),
@@ -486,10 +534,8 @@ const Index = () => {
 	const cachedVideoInfo = isVideoInfoForVideo(scrapedVideoInfo, activeVideoId)
 		? scrapedVideoInfo
 		: null;
-	const videoInfo = summaryVideoInfo || cachedVideoInfo;
-	const transcript = summaryVideoInfo
-		? summaryResult?.transcript || scrapedTranscript
-		: scrapedTranscript;
+	const videoInfo = cachedVideoInfo || summaryVideoInfo;
+	const transcript = scrapedTranscript || summaryResult?.transcript;
 
 	return (
 		<div className="app-shell pb-10">
