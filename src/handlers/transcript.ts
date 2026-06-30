@@ -12,6 +12,7 @@ type ScrapeResponse = {
 	status: "success" | "error" | "skipped";
 	message?: string;
 	videoInfo?: ReturnType<typeof extractVideoInfo>;
+	transcript?: string | null;
 	hasTranscript?: boolean;
 };
 
@@ -60,6 +61,7 @@ export async function handleScrapeVideo(
 		sendResponse({
 			status: "success",
 			videoInfo,
+			transcript: transcriptText,
 			hasTranscript: !!transcriptText,
 		});
 

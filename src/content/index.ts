@@ -6,7 +6,12 @@
  */
 
 import type { FontSize } from "@/core/constants";
-import { DEFAULTS, STORAGE_KEYS, TIMING } from "@/core/constants";
+import {
+	DEFAULTS,
+	MESSAGE_ACTIONS,
+	STORAGE_KEYS,
+	TIMING,
+} from "@/core/constants";
 import { createRequestId } from "@/core/requestId";
 import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
@@ -68,6 +73,20 @@ function installHistoryChangeMonitoring(): void {
 
 	wrapHistoryMethod("pushState");
 	wrapHistoryMethod("replaceState");
+}
+
+function notifyCurrentVideoChanged(videoId: string | null, url: string): void {
+	if (!videoId || !isExtensionContextValid()) {
+		return;
+	}
+
+	chrome.runtime
+		.sendMessage({
+			action: MESSAGE_ACTIONS.CURRENT_VIDEO_CHANGED,
+			videoId,
+			url,
+		})
+		.catch(() => {});
 }
 
 /**
@@ -161,6 +180,7 @@ class ContentManager {
 		// Only trigger updates if the video ID actually changed
 		if (oldVideoId !== newVideoId) {
 			if (oldVideoId) clearAutoGenTrigger(oldVideoId);
+			notifyCurrentVideoChanged(newVideoId, newUrl);
 			this.onUrlChange();
 		}
 	}

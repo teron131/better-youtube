@@ -239,6 +239,7 @@ export const MESSAGE_ACTIONS = {
 	UPDATE_POPUP_STATUS: "updatePopupStatus",
 	TOGGLE_SUBTITLES: "toggleSubtitles",
 	GET_VIDEO_TITLE: "getVideoTitle",
+	CURRENT_VIDEO_CHANGED: "currentVideoChanged",
 	SHOW_ERROR: "showError",
 	UPDATE_CAPTION_FONT_SIZE: "updateCaptionFontSize",
 	EXTRACT_SUBSCRIPTIONS: "extractSubscriptions",
