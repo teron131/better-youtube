@@ -44,6 +44,8 @@ const VIDEO_CARD_METADATA_ATTRIBUTES = [
 	"href",
 	"title",
 ];
+const RECOMMENDATION_SECTION_SELECTOR = "ytd-rich-section-renderer";
+const FILTERED_RECOMMENDATION_SECTION_SELECTOR = `${RECOMMENDATION_SECTION_SELECTOR}[data-filtered-section]`;
 const FEED_FILTER_STORAGE_KEY_SET = new Set<string>(
 	Object.values(FEED_FILTER_STORAGE_KEYS),
 );
@@ -223,8 +225,23 @@ function markVideoCardProcessed(videoElement: Element): void {
 	videoElement.setAttribute("data-filter-processed", "true");
 }
 
+function setRecommendationSectionCollapsed(
+	sectionElement: Element,
+	isCollapsed: boolean,
+): void {
+	(sectionElement as HTMLElement).style.display = isCollapsed ? "none" : "";
+	if (isCollapsed) {
+		sectionElement.setAttribute("data-filtered-section", "true");
+		sectionElement.setAttribute("data-filter-reason", "section");
+		return;
+	}
+
+	sectionElement.removeAttribute("data-filtered-section");
+	sectionElement.removeAttribute("data-filter-reason");
+}
+
 function resetProcessedVideoCards(root: ParentNode = document): void {
-	const videoCards = root.querySelectorAll?.(VIDEO_CARD_SELECTOR) || [];
+	const videoCards = root.querySelectorAll(VIDEO_CARD_SELECTOR);
 	for (const videoElement of videoCards) {
 		videoElement.removeAttribute("data-filter-processed");
 		videoElement.removeAttribute("data-filtered");
@@ -236,6 +253,13 @@ function resetProcessedVideoCards(root: ParentNode = document): void {
 		(videoElement as HTMLElement).style.display = "";
 		(videoElement as HTMLElement).style.opacity = "";
 		(videoElement as HTMLElement).style.pointerEvents = "";
+	}
+
+	const filteredSections = root.querySelectorAll(
+		FILTERED_RECOMMENDATION_SECTION_SELECTOR,
+	);
+	for (const sectionElement of filteredSections) {
+		setRecommendationSectionCollapsed(sectionElement, false);
 	}
 }
 
@@ -249,6 +273,26 @@ function hideVideoCard(videoElement: Element, reason: string): void {
 	(videoElement as HTMLElement).style.display = "none";
 	videoElement.setAttribute("data-filtered", "true");
 	videoElement.setAttribute("data-filter-reason", reason);
+}
+
+function updateRecommendationSectionVisibility(
+	root: ParentNode = document,
+): void {
+	const sectionElements = root.querySelectorAll(
+		RECOMMENDATION_SECTION_SELECTOR,
+	);
+
+	for (const sectionElement of sectionElements) {
+		const videoCards = Array.from(
+			sectionElement.querySelectorAll(VIDEO_CARD_SELECTOR),
+		);
+		const allVideoCardsFiltered =
+			videoCards.length > 0 &&
+			videoCards.every((videoElement) =>
+				videoElement.hasAttribute("data-filtered"),
+			);
+		setRecommendationSectionCollapsed(sectionElement, allVideoCardsFiltered);
+	}
 }
 
 function applySubscribedChannelState(
@@ -610,6 +654,8 @@ class FeedFilterController {
 				this.persistRecordedFilterKeys(),
 			]);
 		}
+
+		updateRecommendationSectionVisibility();
 
 		this.metadataRetryVideoCards = nextMetadataRetryVideoCards;
 		this.clearMetadataRetryTimeout();
