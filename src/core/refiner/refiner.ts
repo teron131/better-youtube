@@ -304,7 +304,7 @@ export async function refineTranscriptWithLLM(
 
 	const llm = await createLlmClient(model, "Better YouTube - Refiner");
 	const structuredLlm = llm.withStructuredOutput(RefinedTranscriptSchema, {
-		method: "jsonMode",
+		method: "jsonSchema",
 		includeRaw: true,
 	});
 	const { splitIndex, priorityRangeCount } = calculatePriorityWindow(
