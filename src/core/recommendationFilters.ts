@@ -8,6 +8,7 @@ import { getStorageValues } from "./storage";
 export interface FeedFilterSettings {
 	viewsFilterEnabled: boolean;
 	liveViewerFilterEnabled: boolean;
+	mixFilterEnabled: boolean;
 	durationFilterEnabled: boolean;
 	keywordFilterEnabled: boolean;
 	ageFilterEnabled: boolean;
@@ -47,6 +48,7 @@ export interface StoredSubscriptions {
 export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
 	viewsFilterEnabled: DEFAULTS.VIEWS_FILTER_ENABLED,
 	liveViewerFilterEnabled: DEFAULTS.LIVE_VIEWER_FILTER_ENABLED,
+	mixFilterEnabled: DEFAULTS.MIX_FILTER_ENABLED,
 	durationFilterEnabled: DEFAULTS.DURATION_FILTER_ENABLED,
 	keywordFilterEnabled: DEFAULTS.KEYWORD_FILTER_ENABLED,
 	ageFilterEnabled: DEFAULTS.AGE_FILTER_ENABLED,
@@ -66,6 +68,7 @@ export const FEED_FILTER_STORAGE_KEYS: Record<
 > = {
 	viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
 	liveViewerFilterEnabled: STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED,
+	mixFilterEnabled: STORAGE_KEYS.MIX_FILTER_ENABLED,
 	durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
 	keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
 	ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
@@ -92,6 +95,9 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
 			(result[STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED] as
 				| boolean
 				| undefined) ?? DEFAULT_FEED_FILTER_SETTINGS.liveViewerFilterEnabled,
+		mixFilterEnabled:
+			(result[STORAGE_KEYS.MIX_FILTER_ENABLED] as boolean | undefined) ??
+			DEFAULT_FEED_FILTER_SETTINGS.mixFilterEnabled,
 		durationFilterEnabled:
 			(result[STORAGE_KEYS.DURATION_FILTER_ENABLED] as boolean | undefined) ??
 			DEFAULT_FEED_FILTER_SETTINGS.durationFilterEnabled,

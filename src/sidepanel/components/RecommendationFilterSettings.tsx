@@ -19,6 +19,7 @@ import {
 	Radio,
 	RefreshCw,
 	ShieldCheck,
+	Shuffle,
 	TrendingDown,
 	Users,
 } from "lucide-react";
@@ -38,6 +39,7 @@ type ToggleConfig = {
 	key:
 		| "viewsFilterEnabled"
 		| "liveViewerFilterEnabled"
+		| "mixFilterEnabled"
 		| "durationFilterEnabled"
 		| "keywordFilterEnabled"
 		| "ageFilterEnabled"
@@ -90,6 +92,12 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
 		icon: ShieldCheck,
 		title: "Keep Subscriptions",
 		description: "Subscriptions are immune to filters.",
+	},
+	{
+		key: "mixFilterEnabled",
+		icon: Shuffle,
+		title: "YouTube Mixes",
+		description: "Remove YouTube-generated Mix recommendation cards.",
 	},
 ];
 const RECOMMENDATION_SETTING_STORAGE_KEYS = new Set<string>(

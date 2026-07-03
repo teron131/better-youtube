@@ -214,6 +214,7 @@ function hasActiveHideFilters(settings: FeedFilterSettings): boolean {
 	return Boolean(
 		settings.viewsFilterEnabled ||
 			settings.liveViewerFilterEnabled ||
+			settings.mixFilterEnabled ||
 			settings.durationFilterEnabled ||
 			settings.keywordFilterEnabled ||
 			settings.ageFilterEnabled ||
@@ -275,6 +276,15 @@ function hideVideoCard(videoElement: Element, reason: string): void {
 	videoElement.setAttribute("data-filter-reason", reason);
 }
 
+function isYouTubePremiumPromoSection(sectionElement: Element): boolean {
+	const sectionText = normalizeText(sectionElement.textContent)?.toLowerCase();
+	return Boolean(
+		sectionText?.includes("youtube featured") &&
+			(sectionText.includes("youtube premium") ||
+				sectionText.includes("try 1 month")),
+	);
+}
+
 function updateRecommendationSectionVisibility(
 	root: ParentNode = document,
 ): void {
@@ -291,7 +301,10 @@ function updateRecommendationSectionVisibility(
 			videoCards.every((videoElement) =>
 				videoElement.hasAttribute("data-filtered"),
 			);
-		setRecommendationSectionCollapsed(sectionElement, allVideoCardsFiltered);
+		setRecommendationSectionCollapsed(
+			sectionElement,
+			isYouTubePremiumPromoSection(sectionElement) || allVideoCardsFiltered,
+		);
 	}
 }
 

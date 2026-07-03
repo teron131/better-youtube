@@ -7,6 +7,7 @@ import type { FeedFilterSettings } from "../src/core/recommendationFilters.ts";
 const DEFAULT_SETTINGS: FeedFilterSettings = {
 	viewsFilterEnabled: false,
 	liveViewerFilterEnabled: false,
+	mixFilterEnabled: false,
 	durationFilterEnabled: false,
 	keywordFilterEnabled: false,
 	ageFilterEnabled: false,
@@ -36,6 +37,7 @@ function videoData(overrides: Partial<VideoCardData>): VideoCardData {
 		publishTime: null,
 		isLiveContent: false,
 		isActiveLiveContent: false,
+		isGeneratedMix: false,
 		videoId: "video-id",
 		channelName: "Example channel",
 		channelLanguage: "en",
@@ -147,4 +149,31 @@ test("does not hide ordinary videos only because view metadata is missing", () =
 	);
 
 	assert.equal(result.shouldFilter, false);
+});
+
+test("does not filter generated YouTube Mix cards when mix filter is disabled", () => {
+	const result = getTriggeredFilter(
+		videoData({
+			title: "Mix - THE SCOTTS, Travis Scott, Kid Cudi - THE SCOTTS",
+			isGeneratedMix: true,
+		}),
+		settings({}),
+	);
+
+	assert.equal(result.shouldFilter, false);
+});
+
+test("filters generated YouTube Mix cards when mix filter is enabled", () => {
+	const result = getTriggeredFilter(
+		videoData({
+			title: "Mix - THE SCOTTS, Travis Scott, Kid Cudi - THE SCOTTS",
+			isGeneratedMix: true,
+		}),
+		settings({ mixFilterEnabled: true }),
+	);
+
+	assert.equal(result.shouldFilter, true);
+	if (result.shouldFilter) {
+		assert.equal(result.reason, "mix");
+	}
 });
