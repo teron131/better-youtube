@@ -42,6 +42,15 @@ const METADATA_TEXT_SELECTORS = [
 	"ytd-video-meta-block",
 	"#channel-info",
 ];
+const MIX_BADGE_SELECTORS = [
+	"a#thumbnail span",
+	"badge-shape",
+	"yt-thumbnail-badge-view-model",
+	"ytd-thumbnail-overlay-time-status-renderer",
+	"ytd-thumbnail-overlay-bottom-panel-renderer",
+	".yt-badge-shape__text",
+	"[aria-label]",
+];
 const LIVE_INDICATOR_SELECTOR =
 	"badge-shape .yt-badge-shape__text, .yt-badge-shape__text, yt-thumbnail-badge-view-model, [overlay-style='LIVE'], [aria-label]";
 const CHANNEL_PATH_PREFIXES = ["/@", "/channel/"];
@@ -85,6 +94,7 @@ export interface VideoCardData {
 	publishTime: string | null;
 	isLiveContent: boolean;
 	isActiveLiveContent: boolean;
+	isGeneratedMix: boolean;
 	videoId: string | null;
 	channelName: string | null;
 	channelLanguage: TextLanguage;
@@ -514,6 +524,7 @@ function extractSearchVideo(
 			hasLiveMetadata({ publishTime, viewCount }) || hasActiveLiveOverlay,
 		isActiveLiveContent:
 			hasActiveLiveMetadata({ viewCount }) || hasActiveLiveOverlay,
+		isGeneratedMix: false,
 		channelName: firstNonEmpty(
 			textFromNode(rendererData.ownerText),
 			textFromNode(rendererData.longBylineText),
@@ -574,6 +585,7 @@ function extractLockupVideo(
 		isLiveContent:
 			hasLiveMetadata({ publishTime, viewCount: null }) || hasActiveLiveOverlay,
 		isActiveLiveContent: hasActiveLiveOverlay,
+		isGeneratedMix: false,
 		channelName: metadataTexts[0] || null,
 		channelId: homeChannelInfo.channelId,
 		channelPath: homeChannelInfo.channelPath,
@@ -721,6 +733,31 @@ function detectActiveLiveContentFromElement(videoElement: Element): boolean {
 	return false;
 }
 
+function isYouTubeGeneratedMixCard(
+	videoElement: Element,
+	title: string | null,
+): boolean {
+	if (!title || !/^mix\s*-/i.test(title)) {
+		return false;
+	}
+
+	const linkHref = videoElement
+		.querySelector(WATCH_LINK_SELECTOR)
+		?.getAttribute("href");
+	if (linkHref?.includes("list=RD") || linkHref?.includes("start_radio=1")) {
+		return true;
+	}
+
+	return MIX_BADGE_SELECTORS.some((selector) =>
+		Array.from(videoElement.querySelectorAll(selector)).some((element) => {
+			const text = normalizeText(
+				element.getAttribute("aria-label") || element.textContent,
+			);
+			return text === "Mix";
+		}),
+	);
+}
+
 function fillChannelInfoFromLink(
 	videoElement: Element,
 	videoData: ExtractedVideoData,
@@ -812,6 +849,7 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 		publishTime: structuredData?.publishTime || null,
 		isLiveContent: structuredData?.isLiveContent || false,
 		isActiveLiveContent: structuredData?.isActiveLiveContent || false,
+		isGeneratedMix: structuredData?.isGeneratedMix || false,
 		videoId: structuredData?.videoId || null,
 		channelName: structuredData?.channelName || null,
 		channelId: structuredData?.channelId || null,
@@ -850,6 +888,9 @@ export function extractVideoData(videoElement: Element): VideoCardData {
 		}
 		if (data.isActiveLiveContent) {
 			data.isLiveContent = true;
+		}
+		if (!data.isGeneratedMix) {
+			data.isGeneratedMix = isYouTubeGeneratedMixCard(videoElement, data.title);
 		}
 		fillChannelInfoFromLink(videoElement, data);
 		fillLockupChannelNameFromText(videoElement, data);

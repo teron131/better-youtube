@@ -8,6 +8,7 @@ import type { VideoCardData } from "./recommendationFilterExtractor";
 export type FilterReason =
 	| "views"
 	| "live-viewers"
+	| "mix"
 	| "keywords"
 	| "duration"
 	| "age"
@@ -127,6 +128,21 @@ function checkViewsFilter(
 	}
 
 	return { shouldFilter: false };
+}
+
+function checkMixFilter(
+	videoData: VideoCardData,
+	settings: FeedFilterSettings,
+): FilterResult {
+	if (!settings.mixFilterEnabled || !videoData.isGeneratedMix) {
+		return { shouldFilter: false };
+	}
+
+	return {
+		shouldFilter: true,
+		reason: "mix",
+		details: "YouTube Mix card",
+	};
 }
 
 function checkLiveViewerFilter(
@@ -308,6 +324,7 @@ export function getTriggeredFilter(
 ): FilterResult {
 	return (
 		[
+			checkMixFilter(videoData, settings),
 			checkLiveViewerFilter(videoData, settings),
 			checkViewsFilter(videoData, settings),
 			checkDurationFilter(videoData, settings),
