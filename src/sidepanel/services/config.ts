@@ -16,13 +16,12 @@ export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
 // ================================
 
 export const SUPPORTED_LANGUAGES = {
-	auto: "🌐 Auto",
-	en: "🇺🇸 English",
-	"zh-TW": "🇭🇰 Chinese",
+  auto: "🌐 Auto",
+  en: "🇺🇸 English",
+  "zh-TW": "🇭🇰 Chinese",
 } as const;
 
-export const DEFAULT_TARGET_LANGUAGE =
-	DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
+export const DEFAULT_TARGET_LANGUAGE = DEFAULTS.TARGET_LANGUAGE_RECOMMENDED || null;
 
 // ================================
 // TYPE DEFINITIONS
@@ -31,21 +30,21 @@ export const DEFAULT_TARGET_LANGUAGE =
 export type LanguageKey = keyof typeof SUPPORTED_LANGUAGES;
 
 export type AvailableModel = {
-	key: string;
-	label: string;
-	provider?: string;
-	recommended?: boolean;
-	logo?: string;
-	fallbackLogo?: string;
-	intelligenceScore?: number | null;
-	speedMetric?: number | null;
-	price?: number | null;
+  key: string;
+  label: string;
+  provider?: string;
+  recommended?: boolean;
+  logo?: string;
+  fallbackLogo?: string;
+  intelligenceScore?: number | null;
+  speedMetric?: number | null;
+  price?: number | null;
 };
 
 export type SupportedLanguage = {
-	key: LanguageKey;
-	label: string;
-	flag?: string;
+  key: LanguageKey;
+  label: string;
+  flag?: string;
 };
 
 // ================================
@@ -53,16 +52,16 @@ export type SupportedLanguage = {
 // ================================
 
 export const SUPPORTED_LANGUAGES_LIST: SupportedLanguage[] = Object.entries(
-	SUPPORTED_LANGUAGES,
+  SUPPORTED_LANGUAGES,
 ).map(([key, label]) => {
-	const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
-	const flagMatch = label.match(flagRegex);
-	const flag = flagMatch ? flagMatch[1] : "";
-	const cleanLabel = label.replace(flag, "").trim();
+  const flagRegex = /^([\u{1F1E6}-\u{1F1FF}🌐]+)/u;
+  const flagMatch = label.match(flagRegex);
+  const flag = flagMatch ? flagMatch[1] : "";
+  const cleanLabel = label.replace(flag, "").trim();
 
-	return {
-		key: key as LanguageKey,
-		label: cleanLabel,
-		flag,
-	};
+  return {
+    key: key as LanguageKey,
+    label: cleanLabel,
+    flag,
+  };
 });

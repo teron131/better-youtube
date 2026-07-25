@@ -6,50 +6,50 @@
  * Format milliseconds as MM:SS timestamp
  */
 export function formatTimestamp(ms: number): string {
-	const totalSeconds = Math.floor(ms / 1000);
-	const minutes = Math.floor(totalSeconds / 60);
-	const seconds = totalSeconds % 60;
-	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 /**
  * Format date string to readable format
  */
 export function formatDate(dateStr?: string | null): string | null {
-	if (!dateStr) return null;
+  if (!dateStr) return null;
 
-	// Handle YYYYMMDD format
-	if (/^\d{8}$/.test(dateStr)) {
-		const year = dateStr.substring(0, 4);
-		const month = dateStr.substring(4, 6);
-		const day = dateStr.substring(6, 8);
-		try {
-			return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, {
-				year: "numeric",
-				month: "long",
-				day: "numeric",
-			});
-		} catch {
-			return dateStr;
-		}
-	}
+  // Handle YYYYMMDD format
+  if (/^\d{8}$/.test(dateStr)) {
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
+    const day = dateStr.substring(6, 8);
+    try {
+      return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  }
 
-	// Handle ISO 8601 or other standard date strings
-	try {
-		return new Date(dateStr).toLocaleDateString(undefined, {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		});
-	} catch {
-		return dateStr;
-	}
+  // Handle ISO 8601 or other standard date strings
+  try {
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 /**
  * Trim leading zeros from duration string (e.g. 00:45:30 -> 0:45:30)
  */
 export function trimLeadingZeros(duration?: string | null): string | null {
-	if (!duration) return null;
-	return duration.replace(/^0{1,2}:/, "");
+  if (!duration) return null;
+  return duration.replace(/^0{1,2}:/, "");
 }

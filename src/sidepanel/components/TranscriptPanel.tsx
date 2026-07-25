@@ -4,324 +4,286 @@
 
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "@ui/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@ui/components/ui/collapsible";
 import { Input } from "@ui/components/ui/input";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@ui/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
+import { buildTranscriptWithMetadata, type TranscriptCopyMetadata } from "@ui/lib/transcript-copy";
+import { ChevronDown, ChevronUp, ClipboardList, Copy, FileText, Search, X } from "lucide-react";
 import {
-	buildTranscriptWithMetadata,
-	type TranscriptCopyMetadata,
-} from "@ui/lib/transcript-copy";
-import {
-	ChevronDown,
-	ChevronUp,
-	ClipboardList,
-	Copy,
-	FileText,
-	Search,
-	X,
-} from "lucide-react";
-import {
-	type ReactNode,
-	useCallback,
-	useDeferredValue,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
+  type ReactNode,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 
 interface TranscriptPanelProps {
-	transcript: string;
-	metadata?: TranscriptCopyMetadata | null;
+  transcript: string;
+  metadata?: TranscriptCopyMetadata | null;
 }
 
-export const TranscriptPanel = ({
-	transcript,
-	metadata,
-}: TranscriptPanelProps) => {
-	const [isOpen, setIsOpen] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	const deferredSearchQuery = useDeferredValue(searchQuery);
-	const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-	const transcriptRef = useRef<HTMLDivElement>(null);
-	const { toast } = useToast();
+export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-	const copyPlainTranscript = useCallback(async () => {
-		try {
-			await navigator.clipboard.writeText(transcript);
-			toast({
-				title: "Copied!",
-				description: "Transcript copied to clipboard",
-			});
-		} catch {
-			toast({
-				title: "Copy failed",
-				description: "Unable to copy transcript",
-				variant: "destructive",
-			});
-		}
-	}, [transcript, toast]);
+  const copyPlainTranscript = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(transcript);
+      toast({
+        title: "Copied!",
+        description: "Transcript copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy transcript",
+        variant: "destructive",
+      });
+    }
+  }, [transcript, toast]);
 
-	const copyTranscriptWithDetails = useCallback(async () => {
-		try {
-			await navigator.clipboard.writeText(
-				buildTranscriptWithMetadata(transcript, metadata),
-			);
-			toast({
-				title: "Copied!",
-				description: "Transcript and video details copied to clipboard",
-			});
-		} catch {
-			toast({
-				title: "Copy failed",
-				description: "Unable to copy transcript details",
-				variant: "destructive",
-			});
-		}
-	}, [metadata, transcript, toast]);
+  const copyTranscriptWithDetails = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(buildTranscriptWithMetadata(transcript, metadata));
+      toast({
+        title: "Copied!",
+        description: "Transcript and video details copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy transcript details",
+        variant: "destructive",
+      });
+    }
+  }, [metadata, transcript, toast]);
 
-	const matchCount = useMemo(() => {
-		if (!deferredSearchQuery.trim()) return 0;
-		try {
-			const regex = new RegExp(
-				deferredSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-				"gi",
-			);
-			const matches = transcript.match(regex);
-			return matches ? matches.length : 0;
-		} catch {
-			return 0;
-		}
-	}, [transcript, deferredSearchQuery]);
+  const matchCount = useMemo(() => {
+    if (!deferredSearchQuery.trim()) return 0;
+    try {
+      const regex = new RegExp(deferredSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      const matches = transcript.match(regex);
+      return matches ? matches.length : 0;
+    } catch {
+      return 0;
+    }
+  }, [transcript, deferredSearchQuery]);
 
-	const highlightedContent = useMemo(() => {
-		const query = deferredSearchQuery;
-		if (!transcript) return "";
-		if (!query.trim()) return transcript;
+  const highlightedContent = useMemo(() => {
+    const query = deferredSearchQuery;
+    if (!transcript) return "";
+    if (!query.trim()) return transcript;
 
-		try {
-			const regex = new RegExp(
-				`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-				"gi",
-			);
-			const parts = transcript.split(regex);
+    try {
+      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      const parts = transcript.split(regex);
 
-			let matchIndex = 0;
-			let textOffset = 0;
-			return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
-				if (!part) return nodes;
+      let matchIndex = 0;
+      let textOffset = 0;
+      return parts.reduce<ReactNode[]>((nodes, part, partIndex) => {
+        if (!part) return nodes;
 
-				const segmentOffset = textOffset;
-				textOffset += part.length;
+        const segmentOffset = textOffset;
+        textOffset += part.length;
 
-				if (partIndex % 2 === 1) {
-					const currentMatch = matchIndex;
-					matchIndex += 1;
-					const isCurrent = currentMatch === currentMatchIndex;
-					nodes.push(
-						<mark
-							key={`mark-${segmentOffset}-${part}-${currentMatch}`}
-							className={
-								isCurrent
-									? "bg-primary text-primary-foreground"
-									: "bg-yellow-500/30"
-							}
-						>
-							{part}
-						</mark>,
-					);
-				} else {
-					nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
-				}
-				return nodes;
-			}, []);
-		} catch {
-			return transcript;
-		}
-	}, [transcript, deferredSearchQuery, currentMatchIndex]);
+        if (partIndex % 2 === 1) {
+          const currentMatch = matchIndex;
+          matchIndex += 1;
+          const isCurrent = currentMatch === currentMatchIndex;
+          nodes.push(
+            <mark
+              key={`mark-${segmentOffset}-${part}-${currentMatch}`}
+              className={isCurrent ? "bg-primary text-primary-foreground" : "bg-yellow-500/30"}
+            >
+              {part}
+            </mark>,
+          );
+        } else {
+          nodes.push(<span key={`text-${segmentOffset}-${part}`}>{part}</span>);
+        }
+        return nodes;
+      }, []);
+    } catch {
+      return transcript;
+    }
+  }, [transcript, deferredSearchQuery, currentMatchIndex]);
 
-	const handleSearch = useCallback((query: string) => {
-		setSearchQuery(query);
-		setCurrentMatchIndex(0);
-	}, []);
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    setCurrentMatchIndex(0);
+  }, []);
 
-	const navigateMatches = useCallback(
-		(direction: "next" | "prev") => {
-			if (matchCount === 0) return;
+  const navigateMatches = useCallback(
+    (direction: "next" | "prev") => {
+      if (matchCount === 0) return;
 
-			if (direction === "next") {
-				setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
-			} else {
-				setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
-			}
-		},
-		[matchCount],
-	);
+      if (direction === "next") {
+        setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
+      } else {
+        setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+      }
+    },
+    [matchCount],
+  );
 
-	const clearSearch = useCallback(() => {
-		setSearchQuery("");
-		setCurrentMatchIndex(0);
-	}, []);
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    setCurrentMatchIndex(0);
+  }, []);
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent<HTMLInputElement>) => {
-			if (e.key === "Enter" && matchCount > 0) {
-				e.preventDefault();
-				navigateMatches("next");
-			}
-		},
-		[matchCount, navigateMatches],
-	);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && matchCount > 0) {
+        e.preventDefault();
+        navigateMatches("next");
+      }
+    },
+    [matchCount, navigateMatches],
+  );
 
-	useEffect(() => {
-		if (transcriptRef.current && deferredSearchQuery.trim()) {
-			const marks = transcriptRef.current.querySelectorAll("mark");
-			if (marks[currentMatchIndex]) {
-				marks[currentMatchIndex].scrollIntoView({
-					behavior: "smooth",
-					block: "center",
-				});
-			}
-		}
-	}, [currentMatchIndex, deferredSearchQuery]);
+  useEffect(() => {
+    if (transcriptRef.current && deferredSearchQuery.trim()) {
+      const marks = transcriptRef.current.querySelectorAll("mark");
+      if (marks[currentMatchIndex]) {
+        marks[currentMatchIndex].scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }
+  }, [currentMatchIndex, deferredSearchQuery]);
 
-	return (
-		<Card className="p-0 contain-layout">
-			<Collapsible open={isOpen} onOpenChange={setIsOpen}>
-				<CollapsibleTrigger asChild>
-					<Button
-						variant="ghost"
-						className="w-full p-6 h-auto justify-between hover:bg-transparent transition-all duration-300"
-					>
-						<div className="flex items-center gap-4">
-							<div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
-								<FileText className="w-6 h-6" />
-							</div>
-							<div className="text-left">
-								<span className="text-2xl font-black tracking-tight text-foreground block">
-									Transcript
-								</span>
-								<span className="text-muted-foreground text-sm">
-									Complete video transcription
-								</span>
-							</div>
-						</div>
-						{isOpen ? (
-							<ChevronUp className="h-6 w-6 text-primary" />
-						) : (
-							<ChevronDown className="h-6 w-6 text-primary" />
-						)}
-					</Button>
-				</CollapsibleTrigger>
+  return (
+    <Card className="p-0 contain-layout">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full p-6 h-auto justify-between hover:bg-transparent transition-all duration-300"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <span className="text-2xl font-black tracking-tight text-foreground block">
+                  Transcript
+                </span>
+                <span className="text-muted-foreground text-sm">Complete video transcription</span>
+              </div>
+            </div>
+            {isOpen ? (
+              <ChevronUp className="h-6 w-6 text-primary" />
+            ) : (
+              <ChevronDown className="h-6 w-6 text-primary" />
+            )}
+          </Button>
+        </CollapsibleTrigger>
 
-				<CollapsibleContent className="px-6 pb-6">
-					<div className="space-y-6">
-						<div className="flex gap-3 items-center">
-							<div className="relative min-w-0 flex-1">
-								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-								<Input
-									type="text"
-									placeholder="Search"
-									value={searchQuery}
-									onChange={(e) => handleSearch(e.target.value)}
-									onKeyDown={handleKeyDown}
-									className="pl-10 pr-24 h-9 text-sm border-border/60 focus:border-primary/50"
-								/>
-								{searchQuery && (
-									<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-										<span className="text-xs text-muted-foreground">
-											{matchCount > 0
-												? `${currentMatchIndex + 1}/${matchCount}`
-												: "No matches"}
-										</span>
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={clearSearch}
-											className="h-6 w-6 p-0 hover:bg-primary/10"
-										>
-											<X className="w-4 h-4" />
-										</Button>
-									</div>
-								)}
-							</div>
+        <CollapsibleContent className="px-6 pb-6">
+          <div className="space-y-6">
+            <div className="flex gap-3 items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="pl-10 pr-24 h-9 text-sm border-border/60 focus:border-primary/50"
+                />
+                {searchQuery && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : "No matches"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSearch}
+                      className="h-6 w-6 p-0 hover:bg-primary/10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
 
-							{searchQuery && matchCount > 0 && (
-								<div className="flex gap-2">
-									<Button
-										variant="outline"
-										size="icon"
-										onClick={() => navigateMatches("prev")}
-										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
-									>
-										<ChevronUp className="w-4 h-4" />
-									</Button>
-									<Button
-										variant="outline"
-										size="icon"
-										onClick={() => navigateMatches("next")}
-										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
-									>
-										<ChevronDown className="w-4 h-4" />
-									</Button>
-								</div>
-							)}
+              {searchQuery && matchCount > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigateMatches("prev")}
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigateMatches("next")}
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
 
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										variant="outline"
-										size="icon"
-										aria-label="Copy transcript"
-										onClick={copyPlainTranscript}
-										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
-									>
-										<Copy className="w-4 h-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>Copy transcript</p>
-								</TooltipContent>
-							</Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy transcript"
+                    onClick={copyPlainTranscript}
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy transcript</p>
+                </TooltipContent>
+              </Tooltip>
 
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										variant="outline"
-										size="icon"
-										aria-label="Copy transcript with video details"
-										onClick={copyTranscriptWithDetails}
-										className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
-									>
-										<ClipboardList className="w-4 h-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>Copy with details</p>
-								</TooltipContent>
-							</Tooltip>
-						</div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy transcript with video details"
+                    onClick={copyTranscriptWithDetails}
+                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy with details</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-						<div
-							ref={transcriptRef}
-							className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10 contain-layout"
-						>
-							<div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
-								{highlightedContent}
-							</div>
-						</div>
-					</div>
-				</CollapsibleContent>
-			</Collapsible>
-		</Card>
-	);
+            <div
+              ref={transcriptRef}
+              className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10 contain-layout"
+            >
+              <div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
+                {highlightedContent}
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
 };

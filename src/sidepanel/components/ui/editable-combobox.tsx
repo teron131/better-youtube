@@ -3,509 +3,480 @@ import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Check, ChevronDown } from "lucide-react";
 import * as React from "react";
+
 import { cn } from "@/core/utils/text";
 
 export interface ComboboxOption {
-	value: string;
-	label: string;
-	icon?: React.ReactNode;
-	intelligenceScore?: number | null;
-	speedMetric?: number | null;
-	price?: number | null;
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  intelligenceScore?: number | null;
+  speedMetric?: number | null;
+  price?: number | null;
 }
 
 interface EditableComboboxProps {
-	value: string;
-	onChange: (value: string) => void;
-	options: ComboboxOption[];
-	placeholder?: string;
-	className?: string;
-	inputClassName?: string;
-	contentClassName?: string;
-	renderOption?: (option: ComboboxOption) => React.ReactNode;
-	renderIcon?: (value: string) => React.ReactNode;
-	onOpen?: () => void;
-	type?: "text" | "url";
+  value: string;
+  onChange: (value: string) => void;
+  options: ComboboxOption[];
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+  contentClassName?: string;
+  renderOption?: (option: ComboboxOption) => React.ReactNode;
+  renderIcon?: (value: string) => React.ReactNode;
+  onOpen?: () => void;
+  type?: "text" | "url";
 }
 
-function exactMatchingOption(
-	options: ComboboxOption[],
-	value: string,
-): ComboboxOption | null {
-	const trimmedValue = value.trim();
-	if (!trimmedValue) {
-		return null;
-	}
+function exactMatchingOption(options: ComboboxOption[], value: string): ComboboxOption | null {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
 
-	return (
-		options.find(
-			(option) =>
-				option.value === trimmedValue || option.label === trimmedValue,
-		) ?? null
-	);
+  return (
+    options.find((option) => option.value === trimmedValue || option.label === trimmedValue) ?? null
+  );
 }
 
 function normalizeSearchValue(value: string): string {
-	return value
-		.toLowerCase()
-		.normalize("NFKD")
-		.replace(/[^\p{L}\p{N}]+/gu, " ")
-		.trim()
-		.replace(/\s+/g, " ");
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function compactSearchValue(value: string): string {
-	return normalizeSearchValue(value).replace(/\s+/g, "");
+  return normalizeSearchValue(value).replace(/\s+/g, "");
 }
 
 function stripTrailingScoreSuffix(value: string): string {
-	return value.replace(/\s+\[[^\]]+\]$/, "").trim();
+  return value.replace(/\s+\[[^\]]+\]$/, "").trim();
 }
 
 function stripProviderPrefix(value: string): string {
-	if (value.includes(":")) {
-		return value.split(":").slice(1).join(":").trim();
-	}
+  if (value.includes(":")) {
+    return value.split(":").slice(1).join(":").trim();
+  }
 
-	if (value.includes("/")) {
-		return value.split("/").slice(1).join("/").trim();
-	}
+  if (value.includes("/")) {
+    return value.split("/").slice(1).join("/").trim();
+  }
 
-	return value;
+  return value;
 }
 
 function extractProviderPrefixes(option: ComboboxOption): string[] {
-	const providers = new Set<string>();
-	const labelProvider = option.label.split(":")[0]?.trim();
-	const valueProvider = option.value.split("/")[0]?.trim();
+  const providers = new Set<string>();
+  const labelProvider = option.label.split(":")[0]?.trim();
+  const valueProvider = option.value.split("/")[0]?.trim();
 
-	if (labelProvider && labelProvider !== option.label) {
-		providers.add(normalizeSearchValue(labelProvider));
-	}
+  if (labelProvider && labelProvider !== option.label) {
+    providers.add(normalizeSearchValue(labelProvider));
+  }
 
-	if (valueProvider && valueProvider !== option.value) {
-		providers.add(normalizeSearchValue(valueProvider));
-	}
+  if (valueProvider && valueProvider !== option.value) {
+    providers.add(normalizeSearchValue(valueProvider));
+  }
 
-	return [...providers].filter(Boolean);
+  return [...providers].filter(Boolean);
 }
 
 function providerPrefixesFromOptions(options: ComboboxOption[]): string[] {
-	return [
-		...new Set(options.flatMap((option) => extractProviderPrefixes(option))),
-	].sort((left, right) => right.length - left.length);
+  return [...new Set(options.flatMap((option) => extractProviderPrefixes(option)))].sort(
+    (left, right) => right.length - left.length,
+  );
 }
 
 function searchVariants(value: string, providerPrefixes: string[]): string[] {
-	const normalizedValue = normalizeSearchValue(value);
-	if (!normalizedValue) return [];
+  const normalizedValue = normalizeSearchValue(value);
+  if (!normalizedValue) return [];
 
-	const variants = new Set<string>([normalizedValue]);
+  const variants = new Set<string>([normalizedValue]);
 
-	for (const providerPrefix of providerPrefixes) {
-		if (!providerPrefix) continue;
-		if (!normalizedValue.startsWith(`${providerPrefix} `)) continue;
+  for (const providerPrefix of providerPrefixes) {
+    if (!providerPrefix) continue;
+    if (!normalizedValue.startsWith(`${providerPrefix} `)) continue;
 
-		const withoutProvider = normalizedValue.slice(providerPrefix.length).trim();
-		if (withoutProvider.length > 0) {
-			variants.add(withoutProvider);
-		}
-	}
+    const withoutProvider = normalizedValue.slice(providerPrefix.length).trim();
+    if (withoutProvider.length > 0) {
+      variants.add(withoutProvider);
+    }
+  }
 
-	return [...variants].filter(Boolean);
+  return [...variants].filter(Boolean);
 }
 
 function matchesNormalizedSearch(
-	option: ComboboxOption,
-	searchText: string,
-	providerPrefixes: string[],
+  option: ComboboxOption,
+  searchText: string,
+  providerPrefixes: string[],
 ): boolean {
-	const queryVariants = searchVariants(searchText, providerPrefixes);
-	if (queryVariants.length === 0) return true;
+  const queryVariants = searchVariants(searchText, providerPrefixes);
+  if (queryVariants.length === 0) return true;
 
-	const searchCandidates = [
-		option.label,
-		option.value,
-		stripProviderPrefix(option.label),
-		stripProviderPrefix(option.value),
-	];
+  const searchCandidates = [
+    option.label,
+    option.value,
+    stripProviderPrefix(option.label),
+    stripProviderPrefix(option.value),
+  ];
 
-	const normalizedCandidates = searchCandidates.map(normalizeSearchValue);
-	const compactCandidates = searchCandidates.map(compactSearchValue);
+  const normalizedCandidates = searchCandidates.map(normalizeSearchValue);
+  const compactCandidates = searchCandidates.map(compactSearchValue);
 
-	return queryVariants.some((variant) => {
-		const compactVariant = variant.replace(/\s+/g, "");
+  return queryVariants.some((variant) => {
+    const compactVariant = variant.replace(/\s+/g, "");
 
-		return (
-			normalizedCandidates.some((candidate) => candidate.includes(variant)) ||
-			compactCandidates.some(
-				(candidate) =>
-					compactVariant.length > 0 && candidate.includes(compactVariant),
-			)
-		);
-	});
+    return (
+      normalizedCandidates.some((candidate) => candidate.includes(variant)) ||
+      compactCandidates.some(
+        (candidate) => compactVariant.length > 0 && candidate.includes(compactVariant),
+      )
+    );
+  });
 }
 
 function optionMatchScore(
-	option: ComboboxOption,
-	value: string,
-	providerPrefixes: string[],
+  option: ComboboxOption,
+  value: string,
+  providerPrefixes: string[],
 ): number {
-	const queryVariants = searchVariants(value, providerPrefixes);
-	if (queryVariants.length === 0) return 0;
+  const queryVariants = searchVariants(value, providerPrefixes);
+  if (queryVariants.length === 0) return 0;
 
-	const searchCandidates = [
-		option.value,
-		option.label,
-		stripProviderPrefix(option.value),
-		stripProviderPrefix(option.label),
-	];
+  const searchCandidates = [
+    option.value,
+    option.label,
+    stripProviderPrefix(option.value),
+    stripProviderPrefix(option.label),
+  ];
 
-	let bestScore = 0;
+  let bestScore = 0;
 
-	for (const variant of queryVariants) {
-		const compactVariant = variant.replace(/\s+/g, "");
+  for (const variant of queryVariants) {
+    const compactVariant = variant.replace(/\s+/g, "");
 
-		for (const candidate of searchCandidates) {
-			const normalizedCandidate = normalizeSearchValue(candidate);
-			const compactCandidate = compactSearchValue(candidate);
+    for (const candidate of searchCandidates) {
+      const normalizedCandidate = normalizeSearchValue(candidate);
+      const compactCandidate = compactSearchValue(candidate);
 
-			if (
-				normalizedCandidate === variant ||
-				compactCandidate === compactVariant
-			) {
-				bestScore = Math.max(bestScore, 4);
-				continue;
-			}
+      if (normalizedCandidate === variant || compactCandidate === compactVariant) {
+        bestScore = Math.max(bestScore, 4);
+        continue;
+      }
 
-			if (
-				normalizedCandidate.startsWith(variant) ||
-				(compactVariant.length > 0 &&
-					compactCandidate.startsWith(compactVariant))
-			) {
-				bestScore = Math.max(bestScore, 3);
-				continue;
-			}
+      if (
+        normalizedCandidate.startsWith(variant) ||
+        (compactVariant.length > 0 && compactCandidate.startsWith(compactVariant))
+      ) {
+        bestScore = Math.max(bestScore, 3);
+        continue;
+      }
 
-			if (
-				normalizedCandidate.includes(variant) ||
-				(compactVariant.length > 0 && compactCandidate.includes(compactVariant))
-			) {
-				bestScore = Math.max(bestScore, 2);
-			}
-		}
-	}
+      if (
+        normalizedCandidate.includes(variant) ||
+        (compactVariant.length > 0 && compactCandidate.includes(compactVariant))
+      ) {
+        bestScore = Math.max(bestScore, 2);
+      }
+    }
+  }
 
-	return bestScore;
+  return bestScore;
 }
 
 export function findMatchingComboboxOption(
-	options: ComboboxOption[],
-	value: string,
+  options: ComboboxOption[],
+  value: string,
 ): ComboboxOption | null {
-	const exactMatch = options.find((option) => option.value === value);
-	if (exactMatch) {
-		return exactMatch;
-	}
+  const exactMatch = options.find((option) => option.value === value);
+  if (exactMatch) {
+    return exactMatch;
+  }
 
-	const providerPrefixes = providerPrefixesFromOptions(options);
-	let bestMatch: ComboboxOption | null = null;
-	let bestScore = 0;
+  const providerPrefixes = providerPrefixesFromOptions(options);
+  let bestMatch: ComboboxOption | null = null;
+  let bestScore = 0;
 
-	for (const option of options) {
-		const score = optionMatchScore(option, value, providerPrefixes);
-		if (score > bestScore) {
-			bestMatch = option;
-			bestScore = score;
-		}
-	}
+  for (const option of options) {
+    const score = optionMatchScore(option, value, providerPrefixes);
+    if (score > bestScore) {
+      bestMatch = option;
+      bestScore = score;
+    }
+  }
 
-	return bestMatch;
+  return bestMatch;
 }
 
 export function EditableCombobox({
-	value,
-	onChange,
-	options,
-	placeholder,
-	className,
-	inputClassName,
-	contentClassName,
-	renderOption,
-	renderIcon,
-	onOpen,
-	type = "text",
+  value,
+  onChange,
+  options,
+  placeholder,
+  className,
+  inputClassName,
+  contentClassName,
+  renderOption,
+  renderIcon,
+  onOpen,
+  type = "text",
 }: EditableComboboxProps) {
-	const [open, setOpen] = React.useState(false);
-	const [searchText, setSearchText] = React.useState("");
-	const [triggerWidth, setTriggerWidth] = React.useState<number | undefined>(
-		undefined,
-	);
-	const containerRef = React.useRef<HTMLDivElement>(null);
-	const inputRef = React.useRef<HTMLInputElement>(null);
-	const selectedOption = React.useMemo(
-		() => findMatchingComboboxOption(options, value),
-		[options, value],
-	);
-	const providerPrefixes = React.useMemo(
-		() => providerPrefixesFromOptions(options),
-		[options],
-	);
-	const matchesSelectedOptionQuery = React.useCallback(
-		(query: string) => {
-			if (!selectedOption) {
-				return false;
-			}
+  const [open, setOpen] = React.useState(false);
+  const [searchText, setSearchText] = React.useState("");
+  const [triggerWidth, setTriggerWidth] = React.useState<number | undefined>(undefined);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const selectedOption = React.useMemo(
+    () => findMatchingComboboxOption(options, value),
+    [options, value],
+  );
+  const providerPrefixes = React.useMemo(() => providerPrefixesFromOptions(options), [options]);
+  const matchesSelectedOptionQuery = React.useCallback(
+    (query: string) => {
+      if (!selectedOption) {
+        return false;
+      }
 
-			const normalizedQuery = normalizeSearchValue(
-				stripTrailingScoreSuffix(query),
-			);
-			if (!normalizedQuery) {
-				return false;
-			}
+      const normalizedQuery = normalizeSearchValue(stripTrailingScoreSuffix(query));
+      if (!normalizedQuery) {
+        return false;
+      }
 
-			const normalizedOptionLabel = normalizeSearchValue(
-				stripTrailingScoreSuffix(selectedOption.label),
-			);
-			const normalizedOptionValue = normalizeSearchValue(selectedOption.value);
+      const normalizedOptionLabel = normalizeSearchValue(
+        stripTrailingScoreSuffix(selectedOption.label),
+      );
+      const normalizedOptionValue = normalizeSearchValue(selectedOption.value);
 
-			return (
-				normalizedQuery === normalizedOptionLabel ||
-				normalizedQuery === normalizedOptionValue
-			);
-		},
-		[selectedOption],
-	);
+      return normalizedQuery === normalizedOptionLabel || normalizedQuery === normalizedOptionValue;
+    },
+    [selectedOption],
+  );
 
-	// Sync searchText with value when value changes externally (only when closed)
-	React.useEffect(() => {
-		if (!open) {
-			setSearchText(selectedOption?.label || value || "");
-		}
-	}, [value, open, selectedOption]);
+  // Sync searchText with value when value changes externally (only when closed)
+  React.useEffect(() => {
+    if (!open) {
+      setSearchText(selectedOption?.label || value || "");
+    }
+  }, [value, open, selectedOption]);
 
-	React.useEffect(() => {
-		if (open && matchesSelectedOptionQuery(searchText)) {
-			setSearchText(selectedOption?.label || value || "");
-		}
-	}, [matchesSelectedOptionQuery, open, searchText, selectedOption, value]);
+  React.useEffect(() => {
+    if (open && matchesSelectedOptionQuery(searchText)) {
+      setSearchText(selectedOption?.label || value || "");
+    }
+  }, [matchesSelectedOptionQuery, open, searchText, selectedOption, value]);
 
-	// Measure trigger width for the portal content
-	React.useEffect(() => {
-		if (open && containerRef.current) {
-			setTriggerWidth(containerRef.current.offsetWidth);
-		}
-	}, [open]);
+  // Measure trigger width for the portal content
+  React.useEffect(() => {
+    if (open && containerRef.current) {
+      setTriggerWidth(containerRef.current.offsetWidth);
+    }
+  }, [open]);
 
-	const isSelectedOptionQuery = matchesSelectedOptionQuery(searchText);
+  const isSelectedOptionQuery = matchesSelectedOptionQuery(searchText);
 
-	// Filter options: show all when searchText is empty or matches current value, otherwise filter
-	const filteredOptions = React.useMemo(() => {
-		if (!searchText) return options;
+  // Filter options: show all when searchText is empty or matches current value, otherwise filter
+  const filteredOptions = React.useMemo(() => {
+    if (!searchText) return options;
 
-		if (isSelectedOptionQuery) return options;
+    if (isSelectedOptionQuery) return options;
 
-		return options.filter((option) =>
-			matchesNormalizedSearch(option, searchText, providerPrefixes),
-		);
-	}, [isSelectedOptionQuery, options, providerPrefixes, searchText]);
+    return options.filter((option) =>
+      matchesNormalizedSearch(option, searchText, providerPrefixes),
+    );
+  }, [isSelectedOptionQuery, options, providerPrefixes, searchText]);
 
-	const setOpenState = React.useCallback(
-		(nextOpen: boolean) => {
-			if (nextOpen && !open) {
-				onOpen?.();
-			}
-			setOpen(nextOpen);
-		},
-		[onOpen, open],
-	);
+  const setOpenState = React.useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen && !open) {
+        onOpen?.();
+      }
+      setOpen(nextOpen);
+    },
+    [onOpen, open],
+  );
 
-	const openDropdown = () => {
-		setSearchText("");
-		setOpenState(true);
-	};
+  const openDropdown = () => {
+    setSearchText("");
+    setOpenState(true);
+  };
 
-	const closeDropdown = React.useCallback(() => {
-		setOpenState(false);
-		setSearchText(selectedOption?.label || value || "");
-	}, [selectedOption, setOpenState, value]);
+  const closeDropdown = React.useCallback(() => {
+    setOpenState(false);
+    setSearchText(selectedOption?.label || value || "");
+  }, [selectedOption, setOpenState, value]);
 
-	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const newValue = e.target.value;
-		setSearchText(newValue);
-		if (!open) setOpenState(true);
-	};
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setSearchText(newValue);
+    if (!open) setOpenState(true);
+  };
 
-	const handleOptionSelect = (option: ComboboxOption) => {
-		onChange(option.value);
-		setSearchText(option.label);
-		setOpenState(false);
-	};
+  const handleOptionSelect = (option: ComboboxOption) => {
+    onChange(option.value);
+    setSearchText(option.label);
+    setOpenState(false);
+  };
 
-	const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-		setOpenState(true);
-		// Don't clear search text immediately, let user see current value
-		// but select it so typing replaces it
-		e.target.select();
-	};
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setOpenState(true);
+    // Don't clear search text immediately, let user see current value
+    // but select it so typing replaces it
+    e.target.select();
+  };
 
-	const commitInputValue = React.useCallback(() => {
-		const trimmedSearchText = searchText.trim();
-		if (!trimmedSearchText) {
-			closeDropdown();
-			return;
-		}
+  const commitInputValue = React.useCallback(() => {
+    const trimmedSearchText = searchText.trim();
+    if (!trimmedSearchText) {
+      closeDropdown();
+      return;
+    }
 
-		const matchedOption = exactMatchingOption(options, trimmedSearchText);
-		onChange(matchedOption?.value ?? trimmedSearchText);
-		setSearchText(matchedOption?.label ?? trimmedSearchText);
-		setOpenState(false);
-	}, [closeDropdown, onChange, options, searchText, setOpenState]);
+    const matchedOption = exactMatchingOption(options, trimmedSearchText);
+    onChange(matchedOption?.value ?? trimmedSearchText);
+    setSearchText(matchedOption?.label ?? trimmedSearchText);
+    setOpenState(false);
+  }, [closeDropdown, onChange, options, searchText, setOpenState]);
 
-	const toggleOpen = (e: React.MouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		if (open) {
-			closeDropdown();
-		} else {
-			openDropdown();
-		}
-	};
+  const toggleOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (open) {
+      closeDropdown();
+    } else {
+      openDropdown();
+    }
+  };
 
-	const displayValue = open
-		? searchText || selectedOption?.label || value || ""
-		: selectedOption?.label || value || "";
+  const displayValue = open
+    ? searchText || selectedOption?.label || value || ""
+    : selectedOption?.label || value || "";
 
-	return (
-		<div ref={containerRef} className={cn("relative w-full", className)}>
-			<PopoverPrimitive.Root
-				open={open}
-				onOpenChange={setOpenState}
-				modal={false}
-			>
-				<PopoverPrimitive.Anchor asChild>
-					<div className="relative flex items-center">
-						{/* Render icon inside input if provided */}
-						{renderIcon && (
-							<div className="absolute left-3 z-10 flex h-5 w-5 items-center justify-center overflow-hidden pointer-events-none [&_img]:h-full [&_img]:w-full [&_img]:object-contain">
-								{renderIcon(value)}
-							</div>
-						)}
+  return (
+    <div ref={containerRef} className={cn("relative w-full", className)}>
+      <PopoverPrimitive.Root open={open} onOpenChange={setOpenState} modal={false}>
+        <PopoverPrimitive.Anchor asChild>
+          <div className="relative flex items-center">
+            {/* Render icon inside input if provided */}
+            {renderIcon && (
+              <div className="absolute left-3 z-10 flex h-5 w-5 items-center justify-center overflow-hidden pointer-events-none [&_img]:h-full [&_img]:w-full [&_img]:object-contain">
+                {renderIcon(value)}
+              </div>
+            )}
 
-						<Input
-							ref={inputRef}
-							type={type}
-							value={displayValue}
-							onChange={handleInputChange}
-							onFocus={handleInputFocus}
-							onClick={() => !open && setOpenState(true)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") {
-									event.preventDefault();
-									commitInputValue();
-									return;
-								}
+            <Input
+              ref={inputRef}
+              type={type}
+              value={displayValue}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              onClick={() => !open && setOpenState(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitInputValue();
+                  return;
+                }
 
-								if (event.key === "Escape") {
-									event.preventDefault();
-									closeDropdown();
-								}
-							}}
-							placeholder={placeholder}
-							className={cn(
-								"pr-10 transition-all duration-200",
-								renderIcon ? "pl-10" : "pl-3",
-								open
-									? "ring-1 ring-primary/20 border-primary/25"
-									: "border-border/50",
-								inputClassName,
-							)}
-							autoComplete="off"
-						/>
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeDropdown();
+                }
+              }}
+              placeholder={placeholder}
+              className={cn(
+                "pr-10 transition-all duration-200",
+                renderIcon ? "pl-10" : "pl-3",
+                open ? "ring-1 ring-primary/20 border-primary/25" : "border-border/50",
+                inputClassName,
+              )}
+              autoComplete="off"
+            />
 
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:text-foreground hover:bg-transparent"
-							onClick={toggleOpen}
-							aria-label="Toggle options"
-						>
-							<ChevronDown
-								className={cn(
-									"h-4 w-4 transition-transform duration-200",
-									open && "rotate-180",
-								)}
-							/>
-						</Button>
-					</div>
-				</PopoverPrimitive.Anchor>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:text-foreground hover:bg-transparent"
+              onClick={toggleOpen}
+              aria-label="Toggle options"
+            >
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
+              />
+            </Button>
+          </div>
+        </PopoverPrimitive.Anchor>
 
-				<PopoverPrimitive.Portal>
-					<PopoverPrimitive.Content
-						className={cn(
-							"z-[9999] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95",
-							contentClassName,
-						)}
-						style={{ width: triggerWidth }}
-						align="start"
-						sideOffset={4}
-						onOpenAutoFocus={(e) => e.preventDefault()}
-						onInteractOutside={(e) => {
-							// Prevent closing when clicking the input or container
-							if (containerRef.current?.contains(e.target as Node)) {
-								e.preventDefault();
-							}
-						}}
-					>
-						<div className="max-h-60 overflow-y-auto p-1 bg-popover border-border/60">
-							{filteredOptions.length === 0 ? (
-								<div className="py-6 text-center text-sm text-muted-foreground">
-									No options found. Type a custom value.
-								</div>
-							) : (
-								<div className="flex flex-col gap-0.5">
-									{filteredOptions.map((option) => (
-										<button
-											type="button"
-											key={option.value}
-											className={cn(
-												"relative flex w-full min-w-0 cursor-default select-none items-start justify-start rounded-sm py-1.5 pl-8 pr-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
-											)}
-											onMouseDown={(e) => {
-												e.preventDefault(); // Prevent focus loss from input
-												handleOptionSelect(option);
-											}}
-										>
-											{value === option.value && (
-												<span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-													<Check className="h-4 w-4" />
-												</span>
-											)}
-											<div className="flex w-full items-start gap-2 text-left">
-												{renderOption ? (
-													renderOption(option)
-												) : (
-													<>
-														{option.icon && (
-															<span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-																{option.icon}
-															</span>
-														)}
-														<span className="min-w-0 flex-1 whitespace-normal text-left">
-															{option.label}
-														</span>
-													</>
-												)}
-											</div>
-										</button>
-									))}
-								</div>
-							)}
-						</div>
-					</PopoverPrimitive.Content>
-				</PopoverPrimitive.Portal>
-			</PopoverPrimitive.Root>
-		</div>
-	);
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            className={cn(
+              "z-[9999] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95",
+              contentClassName,
+            )}
+            style={{ width: triggerWidth }}
+            align="start"
+            sideOffset={4}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onInteractOutside={(e) => {
+              // Prevent closing when clicking the input or container
+              if (containerRef.current?.contains(e.target as Node)) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <div className="max-h-60 overflow-y-auto p-1 bg-popover border-border/60">
+              {filteredOptions.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No options found. Type a custom value.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-0.5">
+                  {filteredOptions.map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      className={cn(
+                        "relative flex w-full min-w-0 cursor-default select-none items-start justify-start rounded-sm py-1.5 pl-8 pr-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors",
+                      )}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevent focus loss from input
+                        handleOptionSelect(option);
+                      }}
+                    >
+                      {value === option.value && (
+                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                          <Check className="h-4 w-4" />
+                        </span>
+                      )}
+                      <div className="flex w-full items-start gap-2 text-left">
+                        {renderOption ? (
+                          renderOption(option)
+                        ) : (
+                          <>
+                            {option.icon && (
+                              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                                {option.icon}
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1 whitespace-normal text-left">
+                              {option.label}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
+    </div>
+  );
 }

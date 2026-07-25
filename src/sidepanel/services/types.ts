@@ -3,14 +3,14 @@
  */
 
 export type {
-	ApiError,
-	Chapter,
-	ConfigurationResponse,
-	QualityData,
-	QualityRate,
-	StreamingChunk,
-	StreamingProcessingResult,
-	StreamingProgressState,
-	Summary,
-	VideoInfoResponse,
+  ApiError,
+  Chapter,
+  ConfigurationResponse,
+  QualityData,
+  QualityRate,
+  StreamingChunk,
+  StreamingProcessingResult,
+  StreamingProgressState,
+  Summary,
+  VideoInfoResponse,
 } from "@/core/types";

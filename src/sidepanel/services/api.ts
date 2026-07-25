@@ -6,52 +6,48 @@ import type { ApiError, ConfigurationResponse } from "@/core/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
-async function request<T>(
-	endpoint: string,
-	options: RequestInit = {},
-): Promise<T> {
-	const url = `${API_BASE_URL}${endpoint}`;
-	const headers = {
-		"Content-Type": "application/json",
-		...options.headers,
-	};
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
 
-	try {
-		const response = await fetch(url, { ...options, headers });
+  try {
+    const response = await fetch(url, { ...options, headers });
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			const error: ApiError = {
-				message:
-					errorData.detail || `Request failed with status ${response.status}`,
-				status: response.status,
-				details: JSON.stringify(errorData),
-				type: response.status >= 500 ? "server" : "validation",
-			};
-			throw error;
-		}
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error: ApiError = {
+        message: errorData.detail || `Request failed with status ${response.status}`,
+        status: response.status,
+        details: JSON.stringify(errorData),
+        type: response.status >= 500 ? "server" : "validation",
+      };
+      throw error;
+    }
 
-		return await response.json();
-	} catch (error) {
-		if ((error as ApiError).status) throw error;
-		throw {
-			message: error instanceof Error ? error.message : "Unknown network error",
-			type: "network",
-		} as ApiError;
-	}
+    return await response.json();
+  } catch (error) {
+    if ((error as ApiError).status) throw error;
+    throw {
+      message: error instanceof Error ? error.message : "Unknown network error",
+      type: "network",
+    } as ApiError;
+  }
 }
 
 export function handleApiError(error: unknown): ApiError {
-	if ((error as ApiError).message && (error as ApiError).type) {
-		return error as ApiError;
-	}
-	return {
-		message: error instanceof Error ? error.message : "Unknown error",
-		type: "unknown",
-	};
+  if ((error as ApiError).message && (error as ApiError).type) {
+    return error as ApiError;
+  }
+  return {
+    message: error instanceof Error ? error.message : "Unknown error",
+    type: "unknown",
+  };
 }
 
 export const api = {
-	getConfiguration: () => request<ConfigurationResponse>("/config"),
-	baseUrl: API_BASE_URL,
+  getConfiguration: () => request<ConfigurationResponse>("/config"),
+  baseUrl: API_BASE_URL,
 };
