@@ -3,85 +3,81 @@
 /** Shared LLM client helpers. */
 
 import { ChatOpenAI } from "@langchain/openai";
+
 import { API_ENDPOINTS } from "./constants";
 import { resolveLlmRequestModel } from "./llmModelPrefix";
 import { loadRuntimeConfigSnapshot } from "./runtimeConfig";
 
 const BROWSER_BLOCKED_OPENAI_HEADERS = [
-	"user-agent",
-	"x-stainless-arch",
-	"x-stainless-lang",
-	"x-stainless-os",
-	"x-stainless-package-version",
-	"x-stainless-retry-count",
-	"x-stainless-runtime",
-	"x-stainless-runtime-version",
-	"x-stainless-timeout",
+  "user-agent",
+  "x-stainless-arch",
+  "x-stainless-lang",
+  "x-stainless-os",
+  "x-stainless-package-version",
+  "x-stainless-retry-count",
+  "x-stainless-runtime",
+  "x-stainless-runtime-version",
+  "x-stainless-timeout",
 ] as const;
 
 function isBrowserRuntime(): boolean {
-	if (typeof fetch !== "function") return false;
-	if (typeof navigator !== "undefined") return true;
-	return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
+  if (typeof fetch !== "function") return false;
+  if (typeof navigator !== "undefined") return true;
+  return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
 }
 
 function createBrowserSafeOpenAiFetch(): typeof fetch {
-	return async (input, init) => {
-		const headers =
-			input instanceof Request ? new Headers(input.headers) : new Headers();
-		const overrideHeaders = new Headers(init?.headers);
+  return async (input, init) => {
+    const headers = input instanceof Request ? new Headers(input.headers) : new Headers();
+    const overrideHeaders = new Headers(init?.headers);
 
-		overrideHeaders.forEach((value, key) => {
-			headers.set(key, value);
-		});
+    overrideHeaders.forEach((value, key) => {
+      headers.set(key, value);
+    });
 
-		for (const headerName of BROWSER_BLOCKED_OPENAI_HEADERS) {
-			headers.delete(headerName);
-		}
+    for (const headerName of BROWSER_BLOCKED_OPENAI_HEADERS) {
+      headers.delete(headerName);
+    }
 
-		const nextInit: RequestInit = {
-			...init,
-			headers,
-		};
+    const nextInit: RequestInit = {
+      ...init,
+      headers,
+    };
 
-		if (input instanceof Request) {
-			return fetch(new Request(input, nextInit));
-		}
+    if (input instanceof Request) {
+      return fetch(new Request(input, nextInit));
+    }
 
-		return fetch(input, nextInit);
-	};
+    return fetch(input, nextInit);
+  };
 }
 
 export async function createLlmClient(
-	model: string,
-	title: string = "Better YouTube",
+  model: string,
+  title: string = "Better YouTube",
 ): Promise<ChatOpenAI> {
-	const runtimeConfig = await loadRuntimeConfigSnapshot();
-	const apiKey =
-		runtimeConfig.llmApiKey ||
-		(typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
-	if (!apiKey) throw new Error("LLM API key missing");
+  const runtimeConfig = await loadRuntimeConfigSnapshot();
+  const apiKey =
+    runtimeConfig.llmApiKey || (typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
+  if (!apiKey) throw new Error("LLM API key missing");
 
-	const llmBaseUrl = runtimeConfig.llmBaseUrl;
-	const requestModel = resolveLlmRequestModel(
-		model,
-		runtimeConfig.llmModelPrefixMode,
-	);
-	const browserRuntime = isBrowserRuntime();
+  const llmBaseUrl = runtimeConfig.llmBaseUrl;
+  const requestModel = resolveLlmRequestModel(model, runtimeConfig.llmModelPrefixMode);
+  const browserRuntime = isBrowserRuntime();
 
-	return new ChatOpenAI({
-		model: requestModel,
-		apiKey,
-		configuration: {
-			baseURL: llmBaseUrl || API_ENDPOINTS.LLM_DEFAULT_BASE_URL,
-			...(browserRuntime
-				? { fetch: createBrowserSafeOpenAiFetch() }
-				: {
-						defaultHeaders: {
-							"X-Title": title,
-						},
-					}),
-		},
-		temperature: 0.0,
-	});
+  return new ChatOpenAI({
+    model: requestModel,
+    apiKey,
+    configuration: {
+      baseURL: llmBaseUrl || API_ENDPOINTS.LLM_DEFAULT_BASE_URL,
+      ...(browserRuntime
+        ? { fetch: createBrowserSafeOpenAiFetch() }
+        : {
+            defaultHeaders: {
+              "X-Title": title,
+            },
+          }),
+    },
+    temperature: 0.0,
+  });
 }
