@@ -1,4 +1,6 @@
-const ROOT_PATHS = new Set(["", "#", "/", "/index.html", "/sidepanel.html"]);
+/** Normalizes hash-based routes for the extension side panel. */
+
+const ROOT_PATHS = new Set(["", "#", "/", "/sidepanel.html"]);
 
 export const SIDEPANEL_ROUTE_HREFS = {
   home: "#/",

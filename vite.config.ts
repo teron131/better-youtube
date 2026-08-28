@@ -1,26 +1,13 @@
+/** Builds the extension side panel and background worker with browser-compatible aliases. */
+
 import path from "node:path";
 
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
-  const base = env.VITE_BASE_PATH || (mode === "extension" ? "./" : "/");
-  const isDemoMode = env.VITE_DEMO_MODE === "true";
-  const input = isDemoMode
-    ? {
-        index: path.resolve(__dirname, "index.html"),
-      }
-    : {
-        index: path.resolve(__dirname, "index.html"),
-        sidepanel: path.resolve(__dirname, "sidepanel.html"),
-        background: path.resolve(__dirname, "src/handlers/index.ts"),
-      };
-
+export default defineConfig(() => {
   return {
-    base,
-    publicDir: isDemoMode ? false : "public",
     plugins: [react(), nodePolyfills()],
     resolve: {
       alias: [
@@ -39,7 +26,10 @@ export default defineConfig(({ mode }) => {
       outDir: "dist",
       sourcemap: true,
       rollupOptions: {
-        input,
+        input: {
+          sidepanel: path.resolve(__dirname, "sidepanel.html"),
+          background: path.resolve(__dirname, "src/handlers/index.ts"),
+        },
         output: {
           entryFileNames: (chunkInfo) => {
             // Output background script to root of dist
