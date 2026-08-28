@@ -13,8 +13,6 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
   <img src="static/ui4.png" alt="ui4" width="49.5%" />
 </p>
 
-[Static Demo](https://teron131.github.io/better-youtube)
-
 ## What It Does
 
 - Extracts transcript and video metadata from the active YouTube watch tab.
