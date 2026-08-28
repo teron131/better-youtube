@@ -7,9 +7,12 @@
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://api.scrapecreators.com/*",
-    "https://llm-stats.vercel.app/*",
     "https://models.dev/*",
-    "https://artificialanalysis.ai/*"
+    "https://artificialanalysis.ai/*",
+    "https://www.vals.ai/*",
+    "https://epoch.ai/*",
+    "https://surgehq.ai/*",
+    "https://openrouter.ai/*"
   ],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "action": {

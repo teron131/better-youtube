@@ -1,9 +1,4 @@
-/**
- * Configuration Hook for YouTube Summarizer
- *
- * Provides centralized access to application configuration
- * with backend synchronization and dynamic model loading.
- */
+/** Centralize application configuration, backend synchronization, and dynamic model loading for the sidepanel. */
 
 import { sortModelsByRankKey } from "@ui/lib/model-sort";
 import { api } from "@ui/services/api";
@@ -17,9 +12,8 @@ import {
   type SupportedLanguage,
 } from "@ui/services/config";
 import {
-  fetchLlmStatsModelMetadataIndex,
-  type LlmStatsModelMetadata,
-  type LlmStatsModelMetadataIndex,
+  fetchModelScoreMetadataIndex,
+  type ModelScoreMetadata,
   normalizeOpenRouterModelId,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
@@ -53,7 +47,6 @@ const PRICE_PER_MILLION_TOKENS = 1_000_000;
 const INPUT_PRICE_WEIGHT = 3;
 const OUTPUT_PRICE_WEIGHT = 1;
 const DYNAMIC_MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const OPTIONAL_STATS_METADATA_TIMEOUT_MS = 8_000;
 
 type OpenRouterModel = {
   id: string;
@@ -85,6 +78,7 @@ const FALLBACK_DYNAMIC_MODELS: AvailableModel[] = [
 let dynamicModelsPromise: Promise<AvailableModel[]> | null = null;
 
 type DynamicModelsCache = {
+  source: "aggregate";
   fetchedAtMs: number;
   models: AvailableModel[];
 };
@@ -160,11 +154,11 @@ function isSupportedTextModel(model: OpenRouterModel): boolean {
 
 function availableModelFromOpenRouterModel(
   model: OpenRouterModel,
-  llmStatsModelMetadataById: Record<string, LlmStatsModelMetadata>,
+  modelScoreMetadataById: Record<string, ModelScoreMetadata>,
 ): AvailableModel {
   const blendedPrice = parseModelCostPerMillion(model);
   const provider = model.id.split("/")[0] || "";
-  const llmStatsModelMetadata = llmStatsModelMetadataById[normalizeOpenRouterModelId(model.id)];
+  const modelScoreMetadata = modelScoreMetadataById[normalizeOpenRouterModelId(model.id)];
 
   return {
     key: model.id,
@@ -172,7 +166,7 @@ function availableModelFromOpenRouterModel(
     provider,
     recommended: true,
     price: blendedPrice,
-    ...llmStatsModelMetadata,
+    ...modelScoreMetadata,
   };
 }
 
@@ -211,6 +205,9 @@ function normalizeDynamicModelsCache(value: unknown): DynamicModelsCache | null 
   }
 
   const record = value as Record<string, unknown>;
+  if (record.source !== "aggregate") {
+    return null;
+  }
   if (typeof record.fetchedAtMs !== "number" || !Number.isFinite(record.fetchedAtMs)) {
     return null;
   }
@@ -224,23 +221,17 @@ function normalizeDynamicModelsCache(value: unknown): DynamicModelsCache | null 
     .filter((model): model is AvailableModel => model !== null);
 
   return {
+    source: "aggregate",
     fetchedAtMs: record.fetchedAtMs,
     models,
   };
-}
-
-function hasModelSortScores(models: AvailableModel[]): boolean {
-  return models.some(
-    (model) => typeof model.intelligenceScore === "number" || typeof model.speedMetric === "number",
-  );
 }
 
 function isDynamicModelsCacheUsable(cache: DynamicModelsCache | null): boolean {
   return (
     cache != null &&
     cache.models.length > 0 &&
-    Date.now() - cache.fetchedAtMs <= DYNAMIC_MODELS_CACHE_TTL_MS &&
-    hasModelSortScores(cache.models)
+    Date.now() - cache.fetchedAtMs <= DYNAMIC_MODELS_CACHE_TTL_MS
   );
 }
 
@@ -255,6 +246,7 @@ async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
   }
 
   await setStorageValue<DynamicModelsCache>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE, {
+    source: "aggregate",
     fetchedAtMs: Date.now(),
     models,
   });
@@ -263,22 +255,8 @@ async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
 async function fetchDynamicModels(): Promise<AvailableModel[]> {
   try {
     if (!dynamicModelsPromise) {
-      dynamicModelsPromise = Promise.all([
-        fetch(OPENROUTER_MODELS_URL),
-        Promise.race([
-          fetchLlmStatsModelMetadataIndex(),
-          new Promise<LlmStatsModelMetadataIndex>((resolve) => {
-            globalThis.setTimeout(
-              () =>
-                resolve({
-                  modelsById: {},
-                }),
-              OPTIONAL_STATS_METADATA_TIMEOUT_MS,
-            );
-          }),
-        ]),
-      ])
-        .then(async ([response, llmStatsMetadata]) => {
+      dynamicModelsPromise = fetch(OPENROUTER_MODELS_URL)
+        .then(async (response) => {
           if (!response.ok) {
             return FALLBACK_DYNAMIC_MODELS;
           }
@@ -287,9 +265,13 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
             data?: OpenRouterModel[];
           };
 
-          const models = (data.data || [])
-            .filter(isSupportedTextModel)
-            .map((model) => availableModelFromOpenRouterModel(model, llmStatsMetadata.modelsById));
+          const supportedModels = (data.data || []).filter(isSupportedTextModel);
+          const modelScoreMetadata = await fetchModelScoreMetadataIndex(
+            supportedModels.map((model) => model.id),
+          );
+          const models = supportedModels.map((model) =>
+            availableModelFromOpenRouterModel(model, modelScoreMetadata.modelsById),
+          );
           return models.length > 0 ? models : FALLBACK_DYNAMIC_MODELS;
         })
         .finally(() => {

@@ -1,5 +1,5 @@
 {
-  "ignorePatterns": ["model-atlas/**", "llm-harness-js/**"],
+  "ignorePatterns": ["llm-harness-js/**"],
   "categories": {
     "correctness": "error",
     "suspicious": "off"
