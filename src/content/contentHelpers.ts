@@ -31,26 +31,3 @@ export function triggerCaptionRefinement(
       onError?.(videoId);
     });
 }
-
-export function triggerSummaryGeneration(
-  videoId: string,
-  requestId: RequestId,
-  m: {
-    summarizerModel: string;
-    qualityModel: string;
-    targetLanguage: string;
-    summarizerMode: "native" | "validation" | "fast";
-  },
-): void {
-  sendChromeMessage({
-    action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-    videoId,
-    requestId,
-    modelSelection: m.summarizerModel,
-    qualityModel: m.qualityModel,
-    targetLanguage: m.targetLanguage,
-    summarizerMode: m.summarizerMode,
-  })
-    .then((r) => console.log("[Auto-gen] Summary generation triggered:", r))
-    .catch((e) => console.error("Error triggering summary auto-gen:", e.message));
-}

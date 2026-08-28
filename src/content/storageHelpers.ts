@@ -24,21 +24,6 @@ export async function getRefinerModel(): Promise<string> {
   return (await loadConfig()).refinerModel;
 }
 
-export async function getAutoGenModels(): Promise<{
-  summarizerModel: string;
-  qualityModel: string;
-  targetLanguage: string;
-  summarizerMode: "native" | "validation" | "fast";
-}> {
-  const config = await loadConfig();
-  return {
-    summarizerModel: config.summarizerModel,
-    qualityModel: config.qualityModel,
-    targetLanguage: config.targetLanguage,
-    summarizerMode: config.summarizerMode,
-  };
-}
-
 export function getToggleStorageKeys(): string[] {
   return [
     STORAGE_KEYS.AUTO_GENERATE,

@@ -5,8 +5,8 @@
  * Handles summary generation requests with caching and workflow orchestration
  */
 
+import type { AppConfig } from "@/core/config";
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import type { RuntimeConfigSnapshot } from "@/core/runtimeConfig";
 import {
   getSubtitles,
   getSummary,
@@ -384,7 +384,7 @@ export async function handleGenerateSummary(
   message: ChromeMessage,
   ctx: {
     summaryWorkloads: VideoWorkloadLifecycle;
-    config: RuntimeConfigSnapshot;
+    config: AppConfig;
     tabId?: number;
   },
   sendResponse: (response: unknown) => void,
@@ -404,6 +404,7 @@ export async function handleGenerateSummary(
     summarizerProvider,
   } = message as unknown as SummaryMessage;
   const transcriptFetchContext: TranscriptFetchContext = { tabId };
+  const selectedModel = modelSelection || config.summarizerModel;
 
   sendResponse({ status: "processing" });
 
@@ -424,7 +425,7 @@ export async function handleGenerateSummary(
     videoId,
     providerPref,
     modePref,
-    modelSelection,
+    modelSelection: selectedModel,
     targetLanguage,
     qualityModel,
     refinerModel,
@@ -444,7 +445,7 @@ export async function handleGenerateSummary(
       runSummaryJob({
         videoId,
         msgTranscript,
-        modelSelection,
+        modelSelection: selectedModel,
         qualityModel,
         refinerModel,
         targetLanguage,
@@ -473,12 +474,12 @@ export async function handleGenerateSummary(
 async function runSummaryJob(input: {
   videoId: string;
   msgTranscript: string | undefined;
-  modelSelection: string | undefined;
+  modelSelection: string;
   qualityModel: string | undefined;
   refinerModel: string | undefined;
   targetLanguage: string | undefined;
   forceRegenerate: boolean | undefined;
-  config: RuntimeConfigSnapshot;
+  config: AppConfig;
   modePref: SummarizerMode;
   providerPref: ProviderPref;
   desiredLlmMode: "react" | "fast";
@@ -547,9 +548,16 @@ async function runSummaryJob(input: {
     }
 
     // Lazy resolution: Gemini can use URL directly; LLM needs transcript_or_url.
-    const getVideoInfoLazy = async () => getVideoInfo(videoId, transcriptFetchContext);
-    const getLlmSourceLazy = async () =>
-      getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
+    let videoInfoPromise: Promise<VideoMetadata> | undefined;
+    let llmSourcePromise: Promise<string> | undefined;
+    const getVideoInfoLazy = () => {
+      videoInfoPromise ??= getVideoInfo(videoId, transcriptFetchContext);
+      return videoInfoPromise;
+    };
+    const getLlmSourceLazy = () => {
+      llmSourcePromise ??= getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
+      return llmSourcePromise;
+    };
 
     type ConcreteProvider = "gemini" | "llm";
 
@@ -565,7 +573,7 @@ async function runSummaryJob(input: {
               transcript: String(msgTranscript),
               targetLanguage: targetLanguage,
             },
-            { model: geminiModel },
+            { apiKey: geminiKey, model: geminiModel },
           )
         : await summarizeGemini(
             {
@@ -573,7 +581,7 @@ async function runSummaryJob(input: {
               videoUrl: createYouTubeWatchUrl(videoId),
               targetLanguage: targetLanguage,
             },
-            { model: geminiModel },
+            { apiKey: geminiKey, model: geminiModel },
           );
 
       const summary = gemini.summary;
@@ -695,5 +703,5 @@ async function runSummaryJob(input: {
 function normalizeGeminiModel(modelSelection: string): string {
   if (modelSelection.startsWith("google/")) return modelSelection.slice("google/".length);
   if (modelSelection.startsWith("gemini-")) return modelSelection;
-  return "gemini-3-flash-preview";
+  throw new Error(`Selected model is not a Gemini model: ${modelSelection}`);
 }

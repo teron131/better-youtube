@@ -8,4 +8,4 @@ export { ChapterSchema, GraphStateSchema, QualitySchema, SummarySchema } from ".
 export type { SummarizationInput } from "./summarizer";
 export { summarizeWorkflow } from "./summarizer";
 
-export { isSummary, parseGeminiSummary, parseLlmSummary, summaryToMarkdown } from "./summaryParser";
+export { parseLlmSummary, summaryToMarkdown } from "./summaryParser";

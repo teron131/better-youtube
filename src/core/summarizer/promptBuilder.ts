@@ -1,3 +1,5 @@
+/** Owns the grounded summary, refinement, and quality prompts shared by model providers. */
+
 const LANGUAGE_DESCRIPTIONS: Record<string, string> = {
   auto: "Use the same language as the transcript, or English if the transcript language is unclear",
   en: "English (US)",
@@ -23,8 +25,6 @@ function getLanguageInstruction(targetLanguage: string, isRefinement = false): s
 }
 
 export class PromptBuilder {
-  static LANGUAGE_DESCRIPTIONS = LANGUAGE_DESCRIPTIONS;
-
   /**
    * Gemini prompt (supports youtube_url input with visuals)
    */
@@ -62,35 +62,6 @@ export class PromptBuilder {
       "- Chapters must be chronological and non-overlapping",
       "- Avoid meta-language (no 'this video...' framing)",
       "- Exclude sponsors/promos/calls to action entirely",
-    ].join("\n");
-  }
-
-  /**
-   * Build prompt for initial summary generation (Gemini / time-aware)
-   */
-  static getSummaryPrompt(targetLanguage = "auto", title?: string, description?: string): string {
-    const languageInstruction = getLanguageInstruction(targetLanguage);
-    const metadataParts = [];
-    if (title) metadataParts.push(`Video Title: ${title}`);
-    if (description) metadataParts.push(`Video Description: ${description}`);
-    const metadata =
-      metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n` : "";
-
-    return [
-      "Create a grounded, chronological summary.",
-      metadata,
-      languageInstruction,
-      "",
-      "Return JSON only with overview + chapters.",
-      "- overview: string",
-      "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
-      "(startTime/endTime are optional MM:SS; omit if unsure)",
-      "",
-      "Rules:",
-      "- Every claim must be supported by the transcript",
-      "- Chapters must be chronological and non-overlapping",
-      "- Avoid meta-language",
-      "- Exclude sponsors/promos/calls to action",
     ].join("\n");
   }
 
@@ -141,27 +112,6 @@ export class PromptBuilder {
   }
 
   /**
-   * Build prompt for summary improvement
-   */
-  static getRefinePrompt(targetLanguage = "auto", title?: string, description?: string): string {
-    const languageInstruction = getLanguageInstruction(targetLanguage, true);
-    const metadataParts = [];
-    if (title) metadataParts.push(`Video Title: ${title}`);
-    if (description) metadataParts.push(`Video Description: ${description}`);
-    const metadata =
-      metadataParts.length > 0 ? `\n# CONTEXTUAL INFORMATION:\n${metadataParts.join("\n")}\n` : "";
-
-    return [
-      "Improve the summary based on quality feedback while staying transcript-grounded.",
-      metadata,
-      languageInstruction,
-      "",
-      "Return JSON only with overview + chapters.",
-      "Rules: remove promos, avoid meta-language, keep chronology.",
-    ].join("\n");
-  }
-
-  /**
    * Build LLM prompt for summary improvement (no timestamps)
    */
   static getLlmRefinePrompt(targetLanguage = "auto", title?: string, description?: string): string {
@@ -180,12 +130,5 @@ export class PromptBuilder {
       "Return JSON only with overview + chapters.",
       "Rules: remove promos, avoid meta-language, keep chronology.",
     ].join("\n");
-  }
-
-  /**
-   * Get language instruction (exposed for external use)
-   */
-  static _getLanguageInstruction(targetLanguage: string, isRefinement = false): string {
-    return getLanguageInstruction(targetLanguage, isRefinement);
   }
 }

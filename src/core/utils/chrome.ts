@@ -65,13 +65,6 @@ export async function sendChromeMessage<T = any>(
 }
 
 /**
- * Send a message to a specific tab
- */
-export async function sendTabMessage<T = any>(tabId: number, message: ChromeMessage): Promise<T> {
-  return sendMessageInternal<T>((callback) => chrome.tabs.sendMessage(tabId, message, callback));
-}
-
-/**
  * Create a message listener with automatic cleanup
  */
 export function createMessageListener(
@@ -105,11 +98,4 @@ export async function getCurrentTab(): Promise<chrome.tabs.Tab | null> {
       resolve(tabs[0] || null);
     });
   });
-}
-
-/**
- * Open the extension settings page
- */
-export function openSettings(): void {
-  chrome.runtime.openOptionsPage();
 }

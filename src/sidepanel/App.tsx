@@ -2,7 +2,6 @@
  * Root application component with routing and global providers.
  */
 
-import { Toaster as Sonner } from "@ui/components/ui/sonner";
 import { Toaster } from "@ui/components/ui/toaster";
 import { TooltipProvider } from "@ui/components/ui/tooltip";
 import { useEffect, useState } from "react";
@@ -48,7 +47,6 @@ const App = () => {
   return (
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <AppRoutes />
     </TooltipProvider>
   );

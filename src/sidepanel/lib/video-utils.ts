@@ -14,8 +14,6 @@ const STEP_ORDER = [
   "complete",
 ] as const;
 type NormalizedStep = (typeof STEP_ORDER)[number];
-const MILLION = 1000000;
-const THOUSAND = 1000;
 
 export const PROGRESS_STEPS = [
   {
@@ -107,36 +105,6 @@ export function sortProgressStates(states: StreamingProgressState[]): StreamingP
     const stepB = normalizeStepName(b.step);
     return STEP_ORDER.indexOf(stepA) - STEP_ORDER.indexOf(stepB);
   });
-}
-
-/**
- * Check if a step is completed in progress states
- */
-export function isStepCompleted(
-  states: StreamingProgressState[],
-  step: StreamingProgressState["step"],
-): boolean {
-  return states.some((s) => s.step === step && s.status === "completed");
-}
-
-/**
- * Check if a step is processing in progress states
- */
-export function isStepProcessing(
-  states: StreamingProgressState[],
-  step: StreamingProgressState["step"],
-): boolean {
-  return states.some((s) => s.step === step && s.status === "processing");
-}
-
-/**
- * Format view count (e.g. 1000000 -> 1M)
- */
-export function formatViewCount(count: number): string {
-  if (!count) return "0";
-  if (count >= MILLION) return `${(count / MILLION).toFixed(1)}M`;
-  if (count >= THOUSAND) return `${(count / THOUSAND).toFixed(1)}K`;
-  return count.toString();
 }
 
 /**
