@@ -1,3 +1,7 @@
+/**
+ * Owns transcript fetching, request deduplication, runtime caching, and conversion into shared video data contracts.
+ */
+
 import type { SubtitleSegment, VideoMetadata } from "../storage.ts";
 import type { ApiTranscriptSegment, TranscriptResponse } from "../types.ts";
 import { formatTimestamp } from "../utils/date.ts";
@@ -14,6 +18,7 @@ import { fetchTranscriptFromChromeTab } from "./chromeTab.ts";
 export { clearTranscriptCache, getCachedTranscript } from "./cache.ts";
 export type TranscriptFetchContext = {
   tabId?: number;
+  forceRefresh?: boolean;
 };
 export { getPendingTranscript } from "./cache.ts";
 
@@ -91,16 +96,23 @@ export async function fetchTranscript(
   videoId: string,
   context?: TranscriptFetchContext,
 ): Promise<TranscriptResponse | null> {
-  const cached = getCachedTranscript(videoId);
-  if (cached) return cached;
-
   const scopedContext = resolveFetchContext(videoId, context);
   const tabId = scopedContext?.tabId;
+  const forceRefresh = scopedContext?.forceRefresh === true;
 
-  const pending = getPendingTranscript(videoId, tabId);
-  if (pending) return pending;
+  if (!forceRefresh) {
+    const cached = getCachedTranscript(videoId);
+    if (cached) return cached;
+
+    const pending = getPendingTranscript(videoId, tabId);
+    if (pending) return pending;
+  }
 
   const fetchPromise = fetchTranscriptForTab(videoId, tabId, Boolean(scopedContext));
+
+  if (forceRefresh) {
+    return fetchPromise;
+  }
 
   setPendingTranscript(videoId, fetchPromise, tabId);
   try {
