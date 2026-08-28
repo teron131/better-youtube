@@ -4,9 +4,9 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 
+import { loadConfig } from "./config";
 import { API_ENDPOINTS } from "./constants";
 import { resolveLlmRequestModel } from "./llmModelPrefix";
-import { loadRuntimeConfigSnapshot } from "./runtimeConfig";
 
 const BROWSER_BLOCKED_OPENAI_HEADERS = [
   "user-agent",
@@ -56,13 +56,13 @@ export async function createLlmClient(
   model: string,
   title: string = "Better YouTube",
 ): Promise<ChatOpenAI> {
-  const runtimeConfig = await loadRuntimeConfigSnapshot();
+  const config = await loadConfig();
   const apiKey =
-    runtimeConfig.llmApiKey || (typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
+    config.llmApiKey || (typeof process !== "undefined" ? process.env.LLM_API_KEY : null);
   if (!apiKey) throw new Error("LLM API key missing");
 
-  const llmBaseUrl = runtimeConfig.llmBaseUrl;
-  const requestModel = resolveLlmRequestModel(model, runtimeConfig.llmModelPrefixMode);
+  const llmBaseUrl = config.llmBaseUrl;
+  const requestModel = resolveLlmRequestModel(model, config.llmModelPrefixMode);
   const browserRuntime = isBrowserRuntime();
 
   return new ChatOpenAI({

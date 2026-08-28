@@ -3,9 +3,8 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
-import { MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
-import { loadRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "@/core/runtimeConfig";
-import { removeStorageValue } from "@/core/storage";
+import { type AppConfig, loadConfig } from "@/core/config";
+import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createMessageListener } from "@/core/utils/chrome";
 
 import { registerContentScriptBootstrap } from "./contentScriptBootstrap";
@@ -30,10 +29,6 @@ if (chrome.storage.session) {
       console.error("[handlers] failed to expose session storage", error);
     });
 }
-
-void removeStorageValue(STORAGE_KEYS.FILTERED_VIDEOS).catch((error) => {
-  console.error("[handlers] failed to clear legacy filtered history", error);
-});
 
 /**
  * Main message listener
@@ -70,11 +65,11 @@ createMessageListener((message, sender, sendResponse) => {
 
     case MESSAGE_ACTIONS.GENERATE_SUMMARY: {
       (async () => {
-        let config: RuntimeConfigSnapshot;
+        let config: AppConfig;
         try {
-          config = await loadRuntimeConfigSnapshot();
+          config = await loadConfig();
         } catch (error) {
-          console.error("[handlers] failed to load runtime config", error);
+          console.error("[handlers] failed to load configuration", error);
           sendResponse({
             status: "error",
             message: "Failed to load configuration",

@@ -1,3 +1,5 @@
+/** Validates summary-shaped values and renders the shared persisted summary contract as Markdown. */
+
 import type { VideoMetadata } from "@/core/storage";
 import type { Summary } from "@/core/types";
 
@@ -15,33 +17,10 @@ function coerceSummary(value: unknown): Summary | null {
   return null;
 }
 
-export function toSummaryFromGemini(summary: unknown): Summary {
-  const coerced = coerceSummary(summary);
-  if (coerced) return coerced;
-  throw new Error("Invalid summary shape from Gemini");
-}
-
-export function toSummaryFromLlm(summary: unknown): Summary {
-  const coerced = coerceSummary(summary);
-  if (coerced) return coerced;
-  throw new Error("Invalid summary shape from LLM");
-}
-
-export function parseGeminiSummary(summary: unknown): Summary {
-  const coerced = coerceSummary(summary);
-  if (coerced) return coerced;
-  throw new Error("Invalid summary shape from Gemini");
-}
-
 export function parseLlmSummary(summary: unknown): Summary {
   const coerced = coerceSummary(summary);
   if (coerced) return coerced;
   throw new Error("Invalid summary shape from LLM");
-}
-
-export function isSummary(value: unknown): value is Summary {
-  const coerced = coerceSummary(value);
-  return !!coerced && typeof coerced.overview === "string";
 }
 
 export function summaryToMarkdown(summary: Summary, videoInfo?: VideoMetadata | null): string {

@@ -30,37 +30,12 @@ export function extractVideoId(url: string): string | null {
 }
 
 /**
- * Clean YouTube URL to extract only video ID and essential parameters
- */
-export function cleanYouTubeUrl(originalUrl: string): string {
-  try {
-    const url = new URL(originalUrl);
-    const videoId = url.searchParams.get("v");
-    if (videoId) {
-      return `${url.protocol}//${url.hostname}${url.pathname}?v=${videoId}`;
-    }
-  } catch (e) {
-    console.error("Error parsing URL:", originalUrl, e);
-  }
-  return originalUrl;
-}
-
-/**
  * Validate YouTube URL format
  */
 export function isValidYouTubeUrl(url: string): boolean {
   if (!url) return false;
   const trimmed = url.trim();
   return trimmed.length === 0 || trimmed.includes("youtube.com") || trimmed.includes("youtu.be");
-}
-
-/**
- * Clean and normalize YouTube URL
- */
-export function cleanVideoUrl(input?: string | null): string | null {
-  if (!input) return null;
-  const videoId = extractVideoId(input);
-  return videoId ? createYouTubeWatchUrl(videoId) : input;
 }
 
 export function createYouTubeWatchUrl(videoId: string): string {

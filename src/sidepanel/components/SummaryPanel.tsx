@@ -5,7 +5,6 @@
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
-import { SectionHeader } from "@ui/components/ui/list-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useToast } from "@ui/hooks/use-toast";
 import {
@@ -40,6 +39,15 @@ interface SummaryPanelProps {
   provider?: "gemini" | "llm";
   onRegenerate?: () => void;
   isRegenerating?: boolean;
+}
+
+function SummarySectionHeader({ icon, title }: { icon: ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="text-primary">{icon}</div>
+      <h4 className="text-xs font-bold uppercase tracking-widest text-primary">{title}</h4>
+    </div>
+  );
 }
 
 export const SummaryPanel = ({
@@ -337,7 +345,7 @@ export const SummaryPanel = ({
           {/* Summary Section */}
           {convertedSummary.overview && (
             <div className="space-y-2.5">
-              <SectionHeader
+              <SummarySectionHeader
                 icon={<Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
                 title="Summary"
               />
@@ -350,7 +358,7 @@ export const SummaryPanel = ({
           {/* Video Chapters Section */}
           {renderedContent.highlightedChapters.length > 0 && (
             <div className="space-y-2.5">
-              <SectionHeader
+              <SummarySectionHeader
                 icon={<BookOpen className="w-4 h-4 md:w-5 md:h-5" />}
                 title="Video Chapters"
               />

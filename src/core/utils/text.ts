@@ -3,7 +3,7 @@ import * as OpenCC from "opencc-js";
 import { twMerge } from "tailwind-merge";
 
 import type { SubtitleSegment } from "@/core/storage";
-import type { Summary, VideoInfoResponse } from "@/core/types";
+import type { Summary } from "@/core/types";
 
 const converterCN2TW = OpenCC.Converter({ from: "cn", to: "tw" });
 const CHINESE_CHAR_REGEX = /[\u4E00-\u9FFF]/;
@@ -112,16 +112,4 @@ export function toChineseSummary(summary: Summary): Summary {
   });
 
   return converted;
-}
-
-/**
- * Convert video info text fields to traditional Chinese (Taiwan variant)
- * Only converts the final display fields
- */
-export function toChineseVideoInfo(videoInfo: VideoInfoResponse): VideoInfoResponse {
-  return {
-    ...videoInfo,
-    title: videoInfo.title ? s2tw(videoInfo.title) : videoInfo.title,
-    author: videoInfo.author ? s2tw(videoInfo.author) : videoInfo.author,
-  };
 }

@@ -49,5 +49,4 @@ export function handleApiError(error: unknown): ApiError {
 
 export const api = {
   getConfiguration: () => request<ConfigurationResponse>("/config"),
-  baseUrl: API_BASE_URL,
 };

@@ -1,7 +1,4 @@
-/**
- * Centralized Configuration Module
- * Single source of truth for all application configuration
- */
+/** Owns validation and storage-backed loading for extension configuration across browser contexts. */
 
 import type { FontSize } from "./constants.ts";
 import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
@@ -39,21 +36,6 @@ export interface AppConfig {
   showSubtitles: boolean;
   captionFontSize: FontSize;
   summaryFontSize: FontSize;
-}
-
-export interface ApiKeys {
-  llmApiKey: string | null;
-  llmBaseUrl: string | null;
-  llmModelPrefixMode: LlmModelPrefixMode;
-  geminiApiKey: string | null;
-}
-
-export interface ModelConfig {
-  summarizerModel: string;
-  refinerModel: string;
-  qualityModel: string;
-  summarizerModelCostLimit: number;
-  refinerModelCostLimit: number;
 }
 
 type StoredValues = Record<string, any>;
@@ -94,7 +76,7 @@ function resolveModelCostLimit(value: unknown, defaultValue: number): number {
 /**
  * Resolve model from custom/recommended/default hierarchy
  */
-export function resolveModel(
+function resolveModel(
   customModel: string | null | undefined,
   recommendedModel: string | null | undefined,
   defaultModel: string,
@@ -115,7 +97,7 @@ function resolveQualityModel(
 
 function resolveStoredModelCostLimits(
   result: StoredValues,
-): Pick<ModelConfig, "summarizerModelCostLimit" | "refinerModelCostLimit"> {
+): Pick<AppConfig, "summarizerModelCostLimit" | "refinerModelCostLimit"> {
   return {
     summarizerModelCostLimit: resolveModelCostLimit(
       result[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT],
@@ -213,65 +195,5 @@ export async function loadConfig(): Promise<AppConfig> {
     showSubtitles: result[STORAGE_KEYS.SHOW_SUBTITLES] ?? DEFAULTS.SHOW_SUBTITLES,
     captionFontSize: result[STORAGE_KEYS.CAPTION_FONT_SIZE] ?? DEFAULTS.CAPTION_FONT_SIZE,
     summaryFontSize: result[STORAGE_KEYS.SUMMARY_FONT_SIZE] ?? DEFAULTS.SUMMARY_FONT_SIZE,
-  };
-}
-
-/**
- * Load only API keys from storage
- */
-export async function getApiKeys(): Promise<ApiKeys> {
-  const keys = [
-    STORAGE_KEYS.LLM_API_KEY,
-    STORAGE_KEYS.LLM_BASE_URL,
-    STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
-    STORAGE_KEYS.GEMINI_API_KEY,
-  ];
-
-  const result = await getStorageValues<StoredValues>(keys);
-
-  return {
-    llmApiKey: normalizeKey(result[STORAGE_KEYS.LLM_API_KEY]),
-    llmBaseUrl: normalizeKey(result[STORAGE_KEYS.LLM_BASE_URL]),
-    llmModelPrefixMode: normalizeLlmModelPrefixMode(result[STORAGE_KEYS.LLM_MODEL_PREFIX_MODE]),
-    geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
-  };
-}
-
-/**
- * Load only model configuration from storage
- */
-export async function getModelConfig(): Promise<ModelConfig> {
-  const keys = [
-    STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
-    STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-    STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
-    STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-    STORAGE_KEYS.QUALITY_MODEL,
-    STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
-    STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
-  ];
-
-  const result = await getStorageValues<StoredValues>(keys);
-
-  const summarizerModel = resolveModel(
-    result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],
-    result[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL],
-    DEFAULTS.MODEL_SUMMARIZER,
-  );
-
-  return {
-    summarizerModel,
-    refinerModel: resolveModel(
-      result[STORAGE_KEYS.REFINER_CUSTOM_MODEL],
-      result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
-      DEFAULTS.MODEL_REFINER,
-    ),
-    qualityModel: resolveQualityModel(
-      result[STORAGE_KEYS.QUALITY_MODEL],
-      result[STORAGE_KEYS.REFINER_CUSTOM_MODEL],
-      result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
-      summarizerModel,
-    ),
-    ...resolveStoredModelCostLimits(result),
   };
 }

@@ -1,7 +1,8 @@
+/** Runs native Gemini summaries against either a YouTube URL or a provided transcript. */
+
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-import { getGeminiApiKey } from "@/core/runtimeConfig";
 import type { Summary } from "@/core/types";
 
 import { PromptBuilder } from "./promptBuilder";
@@ -21,19 +22,16 @@ export type GeminiInput =
 
 export async function summarizeGemini(
   input: GeminiInput,
-  options?: {
-    model?: string;
+  options: {
+    apiKey: string;
+    model: string;
     thinkingLevel?: ThinkingLevel;
     timeoutMs?: number;
   },
 ): Promise<{ summary: Summary; usage?: unknown }> {
-  const geminiApiKey = await getGeminiApiKey();
-  if (!geminiApiKey) throw new Error("Gemini API key missing");
-
-  const client = new GoogleGenAI({ apiKey: geminiApiKey });
-  const model = options?.model ?? "gemini-3-flash-preview";
-  const thinkingLevel = options?.thinkingLevel ?? ThinkingLevel.MEDIUM;
-  const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
+  const client = new GoogleGenAI({ apiKey: options.apiKey });
+  const thinkingLevel = options.thinkingLevel ?? ThinkingLevel.MEDIUM;
+  const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
 
   const prompt = PromptBuilder.getGeminiSummaryPrompt(input.targetLanguage ?? "auto", input.kind);
 
@@ -43,7 +41,7 @@ export async function summarizeGemini(
       : ([{ text: `${prompt}\n\nTranscript:\n${input.transcript}` }] as const);
 
   const response = await client.models.generateContent({
-    model,
+    model: options.model,
     contents: contents as unknown as Parameters<
       typeof client.models.generateContent
     >[0]["contents"],
