@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Better YouTube",
-  "version": "1.0.0",
+  "version": "0.12.2",
   "description": "YouTube caption refinement and AI-powered summarization",
   "permissions": ["activeTab", "storage", "scripting", "sidePanel"],
   "host_permissions": [

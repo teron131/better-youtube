@@ -1,6 +1,6 @@
 {
   "name": "better-youtube",
-  "version": "1.0.0",
+  "version": "0.12.2",
   "description": "YouTube caption refinement and AI-powered summarization",
   "packageManager": "pnpm@10.28.1",
   "type": "module",
