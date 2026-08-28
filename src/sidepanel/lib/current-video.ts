@@ -2,7 +2,7 @@
  * Side panel helpers for active YouTube video navigation and fetching.
  */
 
-import { MESSAGE_ACTIONS } from "../../core/constants.ts";
+import { MESSAGE_ACTIONS, TIMING } from "../../core/constants.ts";
 import type { VideoInfoResponse } from "../../core/types.ts";
 import type { ChromeMessage } from "../../core/utils/chrome.ts";
 import { getCurrentTab, sendChromeMessage } from "../../core/utils/chrome.ts";
@@ -19,7 +19,8 @@ type ScrapeVideoResponse = {
   transcript?: string | null;
 };
 
-interface CurrentVideoFetchDependencies {
+interface CurrentVideoFetchOptions {
+  forceRefresh?: boolean;
   getCurrentTab?: typeof getCurrentTab;
   sendMessage?: typeof sendChromeMessage;
 }
@@ -39,17 +40,21 @@ export function currentVideoUrlFromMessage(message: ChromeMessage): string | nul
 
 export async function fetchCurrentVideoState(
   videoId: string,
-  dependencies: CurrentVideoFetchDependencies = {},
+  options: CurrentVideoFetchOptions = {},
 ): Promise<CurrentVideoFetchState | null> {
-  const resolveCurrentTab = dependencies.getCurrentTab ?? getCurrentTab;
-  const sendMessage = dependencies.sendMessage ?? sendChromeMessage;
+  const resolveCurrentTab = options.getCurrentTab ?? getCurrentTab;
+  const sendMessage = options.sendMessage ?? sendChromeMessage;
   const activeTab = await resolveCurrentTab();
-  const response = await sendMessage<ScrapeVideoResponse>({
-    action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
-    videoId,
-    tabId: activeTab?.id,
-    suppressErrors: true,
-  });
+  const response = await sendMessage<ScrapeVideoResponse>(
+    {
+      action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
+      videoId,
+      tabId: activeTab?.id,
+      suppressErrors: true,
+      ...(options.forceRefresh ? { forceRefresh: true } : {}),
+    },
+    TIMING.SCRAPING_TIMEOUT_MS,
+  );
 
   if (response.status !== "success") {
     return null;

@@ -1,3 +1,7 @@
+/**
+ * Background handler for transcript-backed video preview requests from extension surfaces.
+ */
+
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { saveVideoMetadata } from "@/core/storage";
 import { extractVideoInfo, fetchTranscript, getTranscriptText } from "@/core/transcript";
@@ -30,15 +34,19 @@ export async function handleScrapeVideo(
   ctx: { tabId?: number },
   sendResponse: (response: ScrapeResponse) => void,
 ): Promise<void> {
-  const { videoId, suppressErrors } = message as unknown as {
+  const { videoId, suppressErrors, forceRefresh } = message as unknown as {
     videoId: string;
     suppressErrors?: boolean;
+    forceRefresh?: boolean;
   };
 
   try {
     const { tabId } = ctx;
 
-    const data = await fetchTranscript(videoId, { tabId });
+    const data = await fetchTranscript(videoId, {
+      tabId,
+      forceRefresh: forceRefresh === true,
+    });
     if (!data) {
       sendScrapeFailure(
         sendResponse,

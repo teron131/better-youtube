@@ -14,14 +14,14 @@ import { useVideoProcessing, type VideoProcessingOptions } from "@ui/hooks/use-v
 import { currentVideoUrlFromMessage, fetchCurrentVideoState } from "@ui/lib/current-video";
 import { loadExampleData } from "@ui/lib/example-data-loader";
 import { subscribeToStoredVideoState } from "@ui/lib/stored-video-state-sync";
-import { getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
+import { getCurrentVideoTab, getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
 import { handleApiError } from "@ui/services/api";
 import {
   getRecommendationFilterSettings,
   setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Captions, ListFilter, Settings as SettingsIcon } from "lucide-react";
+import { Captions, ListFilter, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
@@ -44,10 +44,24 @@ import {
   RECOMMENDATION_FILTER_TOGGLE_KEYS,
 } from "./index/recommendationFilterState";
 
+interface VideoSyncRequest {
+  revision: number;
+  kind: "navigation" | "retry" | "manual";
+}
+
+type CurrentVideoLoadResult = "started" | "superseded" | "unavailable";
+
 const Index = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const currentUrlVideoIdRef = useRef<string | null>(null);
+  const activeTabLookupRef = useRef(0);
+  const videoSyncSequenceRef = useRef(0);
   const [initialUrl, setInitialUrl] = useState<string>("");
+  const [videoSyncRequest, setVideoSyncRequest] = useState<VideoSyncRequest>({
+    revision: 0,
+    kind: "navigation",
+  });
+  const [isRefreshingVideo, setIsRefreshingVideo] = useState(false);
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
@@ -69,16 +83,33 @@ const Index = () => {
     processVideo,
   } = useVideoProcessing();
 
+  const requestVideoSync = useCallback((kind: VideoSyncRequest["kind"] = "navigation") => {
+    setVideoSyncRequest((current) => ({
+      revision: current.revision + 1,
+      kind,
+    }));
+  }, []);
+
+  const loadCurrentTabUrl = useCallback(
+    async (kind: VideoSyncRequest["kind"] = "navigation"): Promise<CurrentVideoLoadResult> => {
+      const lookupSequence = activeTabLookupRef.current + 1;
+      activeTabLookupRef.current = lookupSequence;
+      const url = await getVideoIdFromCurrentTab();
+      if (lookupSequence !== activeTabLookupRef.current) return "superseded";
+      if (!url) return "unavailable";
+
+      setIsExampleMode(false);
+      setInitialUrl((previousUrl) => (previousUrl === url ? previousUrl : url));
+      requestVideoSync(kind);
+      return "started";
+    },
+    [requestVideoSync],
+  );
+
   // Get current tab URL on mount and when tab changes
   useEffect(() => {
-    const loadCurrentTabUrl = async () => {
-      const url = await getVideoIdFromCurrentTab();
-      if (!url) return;
-      setInitialUrl((prev) => (prev === url ? prev : url));
-    };
-
     // Load initial URL
-    loadCurrentTabUrl();
+    void loadCurrentTabUrl();
 
     // Listen for tab updates
     const handleTabUpdate = (
@@ -87,12 +118,12 @@ const Index = () => {
       tab: chrome.tabs.Tab,
     ) => {
       if (tab.active && (changeInfo.url || changeInfo.title || changeInfo.status === "complete")) {
-        loadCurrentTabUrl();
+        void loadCurrentTabUrl(changeInfo.url ? "navigation" : "retry");
       }
     };
 
     const handleTabActivated = () => {
-      loadCurrentTabUrl();
+      void loadCurrentTabUrl();
     };
 
     if (typeof chrome !== "undefined" && chrome.tabs) {
@@ -107,19 +138,33 @@ const Index = () => {
         chrome.tabs.onActivated.removeListener(handleTabActivated);
       }
     };
-  }, []);
+  }, [loadCurrentTabUrl]);
 
   useEffect(() => {
     if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) {
       return;
     }
 
-    const handleRuntimeMessage = (message: ChromeMessage) => {
+    const handleRuntimeMessage = (message: ChromeMessage, sender: chrome.runtime.MessageSender) => {
       const nextUrl = currentVideoUrlFromMessage(message);
       if (!nextUrl) return false;
 
-      setIsExampleMode(false);
-      setInitialUrl((prev) => (prev === nextUrl ? prev : nextUrl));
+      void (async () => {
+        const activeTab = await getCurrentVideoTab();
+        const nextVideoId = extractVideoId(nextUrl);
+        if (
+          !sender.tab?.id ||
+          sender.tab.id !== activeTab?.id ||
+          nextVideoId !== extractVideoId(activeTab?.url ?? "")
+        ) {
+          return;
+        }
+
+        activeTabLookupRef.current += 1;
+        setIsExampleMode(false);
+        setInitialUrl((previousUrl) => (previousUrl === nextUrl ? previousUrl : nextUrl));
+        requestVideoSync();
+      })();
       return false;
     };
 
@@ -127,7 +172,7 @@ const Index = () => {
     return () => {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
     };
-  }, []);
+  }, [requestVideoSync]);
 
   useEffect(() => {
     const loadShowSubtitles = async () => {
@@ -183,25 +228,53 @@ const Index = () => {
     const nextVideoId = extractVideoId(initialUrl);
     if (!nextVideoId) return;
 
-    if (currentUrlVideoIdRef.current === nextVideoId) {
-      return;
-    }
-
     let cancelled = false;
+    const syncSequence = videoSyncSequenceRef.current + 1;
+    videoSyncSequenceRef.current = syncSequence;
 
     const syncStateForVideoChange = async () => {
       try {
+        const videoChanged = currentUrlVideoIdRef.current !== nextVideoId;
+        const isManualRefresh = videoSyncRequest.kind === "manual";
+        const forceRefresh = videoSyncRequest.kind !== "navigation";
         currentUrlVideoIdRef.current = nextVideoId;
-        cancelCurrentRun();
-        const cachedState = await loadCachedVideoState(nextVideoId);
-        if (cancelled) return;
-
+        if (videoChanged || isManualRefresh) {
+          cancelCurrentRun();
+        }
         setLastProcessedUrl(initialUrl);
-        setLastOptions(undefined);
-        updateState(cachedState ?? EMPTY_VIDEO_STATE);
+        if (videoChanged) {
+          setLastOptions(undefined);
+          updateState(EMPTY_VIDEO_STATE);
+        } else if (isManualRefresh) {
+          updateState(EMPTY_VIDEO_STATE);
+        }
 
-        const fetchedState = await fetchCurrentVideoState(nextVideoId);
-        if (cancelled || currentUrlVideoIdRef.current !== nextVideoId || !fetchedState) {
+        if (!forceRefresh) {
+          const cachedState = await loadCachedVideoState(nextVideoId);
+          if (cancelled || syncSequence !== videoSyncSequenceRef.current) return;
+          updateState(cachedState ?? EMPTY_VIDEO_STATE);
+        }
+
+        const fetchedState = await fetchCurrentVideoState(nextVideoId, {
+          forceRefresh,
+        });
+        if (
+          cancelled ||
+          syncSequence !== videoSyncSequenceRef.current ||
+          currentUrlVideoIdRef.current !== nextVideoId
+        ) {
+          return;
+        }
+
+        if (!fetchedState) {
+          if (isManualRefresh) {
+            toast({
+              title: "Refresh Failed",
+              description:
+                "Couldn't read the active video yet. Try again after the page finishes loading.",
+              variant: "destructive",
+            });
+          }
           return;
         }
 
@@ -212,15 +285,26 @@ const Index = () => {
         });
       } catch (error) {
         console.error("Failed to sync current video state:", error);
+        if (videoSyncRequest.kind === "manual" && syncSequence === videoSyncSequenceRef.current) {
+          toast({
+            title: "Refresh Failed",
+            description: "Couldn't refresh the active video.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (syncSequence === videoSyncSequenceRef.current) {
+          setIsRefreshingVideo(false);
+        }
       }
     };
 
-    syncStateForVideoChange();
+    void syncStateForVideoChange();
 
     return () => {
       cancelled = true;
     };
-  }, [cancelCurrentRun, initialUrl, isExampleMode, updateState]);
+  }, [cancelCurrentRun, initialUrl, isExampleMode, toast, updateState, videoSyncRequest]);
 
   useEffect(() => {
     const trackedUrl = initialUrl || lastProcessedUrl;
@@ -475,6 +559,23 @@ const Index = () => {
     });
   };
 
+  const handleRefreshCurrentVideo = async () => {
+    if (isRefreshingVideo) return;
+
+    setIsRefreshingVideo(true);
+    const result = await loadCurrentTabUrl("manual");
+    if (result === "started") return;
+
+    setIsRefreshingVideo(false);
+    if (result === "superseded") return;
+
+    toast({
+      title: "Refresh Failed",
+      description: "Open a YouTube video in the active tab, then try again.",
+      variant: "destructive",
+    });
+  };
+
   const activeVideoId = extractVideoId(initialUrl || lastProcessedUrl);
   const summaryVideoInfo = isVideoInfoForVideo(summaryResult?.videoInfo, activeVideoId)
     ? summaryResult?.videoInfo
@@ -522,16 +623,30 @@ const Index = () => {
                 <span>Filters</span>
               </Button>
             </div>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground transition-all"
-            >
-              <a aria-label="Open settings" href={SIDEPANEL_ROUTE_HREFS.settings}>
-                <SettingsIcon className="h-6 w-6" />
-              </a>
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                onClick={() => void handleRefreshCurrentVideo()}
+                disabled={isRefreshingVideo}
+                aria-label="Refresh active video"
+                title="Refresh active video"
+                className="text-muted-foreground hover:text-foreground transition-all"
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshingVideo ? "animate-spin" : ""}`} />
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground transition-all"
+              >
+                <a aria-label="Open settings" href={SIDEPANEL_ROUTE_HREFS.settings}>
+                  <SettingsIcon className="h-6 w-6" />
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
