@@ -1,3 +1,5 @@
+/** Normalize provider icons originally sourced from Artificial Analysis small-logo assets into consistent bundled PNGs. */
+
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 

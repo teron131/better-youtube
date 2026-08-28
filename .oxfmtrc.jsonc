@@ -9,5 +9,5 @@
       }
     }
   ],
-  "ignorePatterns": ["*.md", "*.markdown", "*.mdx", "model-atlas/**", "llm-harness-js/**"]
+  "ignorePatterns": ["*.md", "*.markdown", "*.mdx", "llm-harness-js/**"]
 }

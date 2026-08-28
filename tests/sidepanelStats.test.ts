@@ -1,126 +1,113 @@
+/** Verify aggregate model scoring through the same metadata boundary used by the sidepanel. */
+
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const STATS_SERVICE_PATH = new URL("../src/sidepanel/services/stats.ts", import.meta.url);
+import {
+  fetchModelScoreMetadataIndex,
+  normalizeOpenRouterModelId,
+} from "../src/sidepanel/services/stats.ts";
 
-test("sidepanel model metadata does not import live model-atlas stages", async () => {
-  const source = await readFile(STATS_SERVICE_PATH, "utf8");
+const EPOCH_URL = "https://epoch.ai/data/eci_scores.csv";
+const SURGE_URL = "https://surgehq.ai/benchmarks";
+const OPENROUTER_CATALOG_URL = "https://openrouter.ai/api/frontend/v1/catalog/models";
+const MODEL_A = "openai/model-a";
+const MODEL_B = "openai/model-b";
 
-  assert.match(source, /model-atlas:core-payload:v1/);
-  assert.match(source, /https:\/\/llm-stats\.vercel\.app\/api\/llm-stats\?view=core/);
-  assert.doesNotMatch(source, /from "\.\/stats\//);
-  assert.doesNotMatch(source, new RegExp(["get", "ModelStatsSelected"].join("")));
-  assert.doesNotMatch(source, new RegExp(["better", "youtube", "llm", "stats", "cache"].join("_")));
+test("normalizes OpenRouter variants and the xAI provider alias", () => {
+  assert.equal(normalizeOpenRouterModelId(" OpenAI/GPT-5:free "), "openai/gpt-5");
+  assert.equal(normalizeOpenRouterModelId("xai/grok-4"), "x-ai/grok-4");
 });
 
-function installLocalStorage() {
-  const storedValues = new Map<string, string>();
-  globalThis.localStorage = {
-    getItem: (key: string) => storedValues.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      storedValues.set(key, value);
-    },
-    removeItem: (key: string) => {
-      storedValues.delete(key);
-    },
-    clear: () => {
-      storedValues.clear();
-    },
-    key: (index: number) => [...storedValues.keys()][index] ?? null,
-    get length() {
-      return storedValues.size;
-    },
-  } as Storage;
-  return storedValues;
-}
-
-test("sidepanel model metadata reads model-atlas core API payload shape", async () => {
-  const storedValues = installLocalStorage();
+test("builds intelligence and speed metadata from aggregate public evidence", async () => {
   const requestedUrls: string[] = [];
   globalThis.fetch = async (input) => {
-    requestedUrls.push(String(input));
-    return Response.json({
-      schema: "model_atlas.core",
-      fetched_at_epoch_seconds: Math.floor(Date.now() / 1000),
-      score_scale: "percentage",
-      methodology: "test",
-      columns: ["id", "provider", "overall_score", "intelligence_score", "speed_score"],
-      models: [
-        {
-          id: "openai/gpt-5.4-nano",
-          provider: "openai",
-          overall_score: 75,
-          intelligence_score: 82,
-          speed_score: 64,
-        },
-      ],
-    });
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url === EPOCH_URL) {
+      return new Response(
+        "Model,Display name,eci\nopenai/model-a,Model A,100\nopenai/model-b,Model B,0\n",
+      );
+    }
+    if (url === SURGE_URL) {
+      return new Response(
+        '<article id="intelligence-index"><div data-ii-item><span data-ii-model-bound>model-a</span><span data-ii-score-paragraph>0</span></div><div data-ii-item><span data-ii-model-bound>model-b</span><span data-ii-score-paragraph>100</span></div><div data-ii-status></div></article>',
+      );
+    }
+    if (url === OPENROUTER_CATALOG_URL) {
+      return Response.json({
+        data: [
+          { slug: MODEL_A, permaslug: MODEL_A },
+          { slug: MODEL_B, permaslug: MODEL_B },
+        ],
+      });
+    }
+    if (url.includes("openrouter.ai/api/frontend/v1/stats/")) {
+      return openRouterStatsResponse(url);
+    }
+    return new Response("");
   };
 
-  const statsModule = await import(`${STATS_SERVICE_PATH.href}?case=${Date.now()}`);
-  const index = await statsModule.fetchLlmStatsModelMetadataIndex();
+  const index = await fetchModelScoreMetadataIndex([MODEL_A, MODEL_B]);
 
-  assert.deepEqual(requestedUrls, ["https://llm-stats.vercel.app/api/llm-stats?view=core"]);
-  assert.deepEqual(index.modelsById["openai/gpt-5.4-nano"], {
-    intelligenceScore: 82,
-    speedMetric: 64,
+  assert.deepEqual(index.modelsById[MODEL_A], {
+    intelligenceScore: 51.61,
+    speedMetric: 100,
   });
-  assert.ok(storedValues.has("model-atlas:core-payload:v1"));
+  assert.deepEqual(index.modelsById[MODEL_B], {
+    intelligenceScore: 48.39,
+    speedMetric: 0,
+  });
+  assert.ok(requestedUrls.some((url) => url.includes("artificialanalysis.ai")));
+  assert.ok(requestedUrls.some((url) => url.includes("vals.ai")));
+  assert.ok(requestedUrls.some((url) => url.includes("surgehq.ai")));
+  assert.ok(requestedUrls.some((url) => url.includes("throughput-comparison")));
 });
 
-test("sidepanel model metadata reads scores but ignores model-atlas logos", async () => {
-  const storedValues = installLocalStorage();
-  storedValues.set(
-    "model-atlas:core-payload:v1",
-    JSON.stringify({
-      fetched_at_epoch_seconds: Math.floor(Date.now() / 1000),
-      models: [
-        {
-          id: "openai/gpt-5.4-nano",
-          logo: "https://example.test/openai.png",
-          relative_scores: {
-            overall_score: 75,
-            intelligence_score: 82,
-            speed_score: 64,
-          },
-        },
-      ],
-    }),
-  );
-  globalThis.fetch = async () =>
-    Response.json({
-      fetched_at_epoch_seconds: null,
-      models: [],
-    }) as Promise<Response>;
-
-  const statsModule = await import(`${STATS_SERVICE_PATH.href}?case=${Date.now()}`);
-  const index = await statsModule.fetchLlmStatsModelMetadataIndex();
-
-  assert.deepEqual(index.modelsById["openai/gpt-5.4-nano"], {
-    intelligenceScore: 82,
-    speedMetric: 64,
-  });
-});
-
-test("sidepanel model metadata quietly falls back when optional score API fails", async () => {
-  installLocalStorage();
+test("quietly falls back when every optional score source fails", async () => {
   globalThis.fetch = async () => {
     throw new Error("offline");
   };
-  const errors: unknown[] = [];
-  const originalConsoleError = console.error;
-  console.error = (...args: unknown[]) => {
-    errors.push(args);
-  };
 
-  try {
-    const statsModule = await import(`${STATS_SERVICE_PATH.href}?case=${Date.now()}`);
-    const index = await statsModule.fetchLlmStatsModelMetadataIndex();
+  const index = await fetchModelScoreMetadataIndex([MODEL_A]);
 
-    assert.deepEqual(index, { modelsById: {} });
-    assert.deepEqual(errors, []);
-  } finally {
-    console.error = originalConsoleError;
-  }
+  assert.deepEqual(index, { modelsById: {} });
 });
+
+function openRouterStatsResponse(url: string): Response {
+  const modelId = new URL(url).searchParams.get("permaslug");
+  const isFastModel = modelId === MODEL_A;
+  const endpointId = isFastModel ? "endpoint-a" : "endpoint-b";
+  if (url.includes("effective-pricing")) {
+    return Response.json({
+      data: {
+        providerSummaries: [
+          {
+            providerName: "Provider",
+            totalTokens: 100,
+            effectiveInputPrice: 1,
+            effectiveOutputPrice: 2,
+          },
+        ],
+      },
+    });
+  }
+  if (url.includes("/endpoint?")) {
+    return Response.json({
+      data: [
+        {
+          id: endpointId,
+          provider_display_name: "Provider",
+          stats: {
+            p50_throughput: isFastModel ? 100 : 10,
+            p50_latency: isFastModel ? 100 : 1000,
+            request_count: 10,
+          },
+        },
+      ],
+    });
+  }
+  const highIsFavorable = url.includes("throughput-comparison");
+  const value = isFastModel === highIsFavorable ? 100 : 10;
+  return Response.json({ data: [{ y: { [`${endpointId}::default`]: value } }] });
+}
