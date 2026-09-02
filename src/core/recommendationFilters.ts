@@ -62,6 +62,16 @@ export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
   keywords: [...DEFAULTS.FILTER_KEYWORDS],
 };
 
+export const FEED_HIDE_FILTER_KEYS = [
+  "viewsFilterEnabled",
+  "liveViewerFilterEnabled",
+  "mixFilterEnabled",
+  "durationFilterEnabled",
+  "keywordFilterEnabled",
+  "ageFilterEnabled",
+  "englishOnlyTitles",
+] as const satisfies readonly (keyof FeedFilterSettings)[];
+
 export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> = {
   viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
   liveViewerFilterEnabled: STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED,
@@ -78,6 +88,10 @@ export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> 
   maxAgeYears: STORAGE_KEYS.MAX_AGE_YEARS,
   keywords: STORAGE_KEYS.FILTER_KEYWORDS,
 };
+
+export function hasActiveHideFilters(settings: FeedFilterSettings): boolean {
+  return FEED_HIDE_FILTER_KEYS.some((key) => settings[key]);
+}
 
 export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
   const result = await getStorageValues<Record<string, unknown>>(

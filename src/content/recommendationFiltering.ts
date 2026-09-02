@@ -7,6 +7,7 @@ import {
   FEED_FILTER_STORAGE_KEYS,
   type FeedFilterSettings,
   type FilteredVideoRecord,
+  hasActiveHideFilters,
   loadFeedFilterSettings,
   type StoredSubscriptions,
 } from "@/core/recommendationFilters";
@@ -176,18 +177,6 @@ function getFilteringSkipReason(pathname = location.pathname): string | null {
     return "channel page";
   }
   return null;
-}
-
-function hasActiveHideFilters(settings: FeedFilterSettings): boolean {
-  return Boolean(
-    settings.viewsFilterEnabled ||
-    settings.liveViewerFilterEnabled ||
-    settings.mixFilterEnabled ||
-    settings.durationFilterEnabled ||
-    settings.keywordFilterEnabled ||
-    settings.ageFilterEnabled ||
-    settings.englishOnlyTitles,
-  );
 }
 
 function markVideoCardProcessed(videoElement: Element): void {
