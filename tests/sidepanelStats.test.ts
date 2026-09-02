@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  fetchModelScoreMetadataIndex,
+  fetchModelSelectorMetadataIndex,
   normalizeOpenRouterModelId,
 } from "../src/sidepanel/services/stats.ts";
 
@@ -19,7 +19,7 @@ test("normalizes OpenRouter variants and the xAI provider alias", () => {
   assert.equal(normalizeOpenRouterModelId("xai/grok-4"), "x-ai/grok-4");
 });
 
-test("builds intelligence and speed metadata from aggregate public evidence", async () => {
+test("builds selector scores and effective prices from aggregate public evidence", async () => {
   const requestedUrls: string[] = [];
   globalThis.fetch = async (input) => {
     const url = String(input);
@@ -48,15 +48,17 @@ test("builds intelligence and speed metadata from aggregate public evidence", as
     return new Response("");
   };
 
-  const index = await fetchModelScoreMetadataIndex([MODEL_A, MODEL_B]);
+  const index = await fetchModelSelectorMetadataIndex([MODEL_A, MODEL_B]);
 
   assert.deepEqual(index.modelsById[MODEL_A], {
     intelligenceScore: 51.61,
     speedMetric: 100,
+    price: 1.5,
   });
   assert.deepEqual(index.modelsById[MODEL_B], {
     intelligenceScore: 48.39,
     speedMetric: 0,
+    price: 1.5,
   });
   assert.ok(requestedUrls.some((url) => url.includes("artificialanalysis.ai")));
   assert.ok(requestedUrls.some((url) => url.includes("vals.ai")));
@@ -69,7 +71,7 @@ test("quietly falls back when every optional score source fails", async () => {
     throw new Error("offline");
   };
 
-  const index = await fetchModelScoreMetadataIndex([MODEL_A]);
+  const index = await fetchModelSelectorMetadataIndex([MODEL_A]);
 
   assert.deepEqual(index, { modelsById: {} });
 });

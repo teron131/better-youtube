@@ -1,3 +1,4 @@
+/** Extracts captions and matching video metadata from the active YouTube tab. */
 /// <reference types="chrome" />
 
 import { ERROR_MESSAGES } from "../constants.ts";
@@ -418,6 +419,9 @@ async function executeChromeTabExtraction(
       .filter((track): track is ChromeTabCaptionTrack => Boolean(track));
   };
 
+  const isRequestedPlayerResponse = (response: any): boolean =>
+    response?.videoDetails?.videoId === requestedVideoId;
+
   const getCaptionSources = () => {
     const player = document.getElementById("movie_player") as
       | (HTMLElement & {
@@ -445,7 +449,7 @@ async function executeChromeTabExtraction(
             ? player.getPlayerResponse()
             : null,
       },
-    ];
+    ].filter((source) => isRequestedPlayerResponse(source.response));
   };
 
   const getAnyPlayerResponse = () =>
@@ -499,22 +503,6 @@ async function executeChromeTabExtraction(
         (leftTrack, rightTrack) => getTrackPriority(leftTrack) - getTrackPriority(rightTrack),
       )[0];
   };
-
-  const createSuccessResult = (
-    captionStateForPayload: ChromeTabCaptionState,
-    selectedTrack: ChromeTabCaptionTrack,
-    payload: { fmt: ChromeCaptionFormat; text: string },
-    attempts: ChromeTabCaptionAttempt[],
-  ): ChromeTabMainWorldResult => ({
-    ...baseResult,
-    ok: true,
-    source: captionStateForPayload.sourceName,
-    captionTracks: captionStateForPayload.captionTracks,
-    language: selectedTrack.languageCode,
-    selectedTrack,
-    payload,
-    attempts,
-  });
 
   const fetchCaptionAttempt = async (
     baseUrl: string,
@@ -653,6 +641,10 @@ async function executeChromeTabExtraction(
     }
 
     const playerResponse = await response.json();
+    if (!isRequestedPlayerResponse(playerResponse)) {
+      return null;
+    }
+
     const captionTracks = readCaptionTracks(playerResponse);
     if (!captionTracks.length) {
       return null;
@@ -724,6 +716,27 @@ async function executeChromeTabExtraction(
   ) as HTMLAnchorElement | null;
   const ownerText = normalizeText(ownerAnchor?.textContent ?? "");
 
+  const readPlayerMetadata = (response: any) => {
+    const videoDetails = response?.videoDetails ?? {};
+    const microformat = response?.microformat?.playerMicroformatRenderer ?? {};
+    const durationSeconds = Number(videoDetails.lengthSeconds ?? microformat.lengthSeconds ?? 0);
+    const viewCount = Number(videoDetails.viewCount ?? microformat.viewCount ?? 0);
+    const publishDate = normalizeText(microformat.publishDate ?? microformat.uploadDate ?? "");
+
+    return {
+      title: String(videoDetails.title ?? document.title),
+      description: String(videoDetails.shortDescription ?? ""),
+      author: normalizeText(videoDetails.author ?? microformat.ownerChannelName ?? ownerText),
+      channelUrl: ownerAnchor?.href,
+      channelHandle: ownerAnchor?.pathname || undefined,
+      publishDate: publishDate || undefined,
+      durationSeconds:
+        Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : undefined,
+      viewCount: Number.isFinite(viewCount) && viewCount > 0 ? viewCount : undefined,
+      likeCount: parseLikeCount(),
+    };
+  };
+
   if (!pageUrl.includes("youtube.com/watch")) {
     return createResult({
       error: "Target tab is not a YouTube watch page.",
@@ -743,29 +756,27 @@ async function executeChromeTabExtraction(
   }
 
   const playerResponse = captionState?.response ?? getAnyPlayerResponse();
-  const videoDetails = playerResponse?.videoDetails ?? {};
-  const microformat = playerResponse?.microformat?.playerMicroformatRenderer ?? {};
-  const title = String(videoDetails.title ?? document.title);
-  const description = String(videoDetails.shortDescription ?? "");
-  const author = normalizeText(videoDetails.author ?? microformat.ownerChannelName ?? ownerText);
-  const durationSeconds = Number(videoDetails.lengthSeconds ?? microformat.lengthSeconds ?? 0);
-  const viewCount = Number(videoDetails.viewCount ?? microformat.viewCount ?? 0);
-  const publishDate = normalizeText(microformat.publishDate ?? microformat.uploadDate ?? "");
-  const likeCount = parseLikeCount();
   const captionTracks = captionState?.captionTracks ?? [];
   const baseResult = createResult({
-    title,
-    description,
-    author,
-    channelUrl: ownerAnchor?.href,
-    channelHandle: ownerAnchor?.pathname || undefined,
-    publishDate: publishDate || undefined,
-    durationSeconds:
-      Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : undefined,
-    viewCount: Number.isFinite(viewCount) && viewCount > 0 ? viewCount : undefined,
-    likeCount,
+    ...readPlayerMetadata(playerResponse),
     source: captionState?.sourceName,
     captionTracks,
+  });
+
+  const createSuccessResult = (
+    captionStateForPayload: ChromeTabCaptionState,
+    selectedTrack: ChromeTabCaptionTrack,
+    payload: { fmt: ChromeCaptionFormat; text: string },
+    attempts: ChromeTabCaptionAttempt[],
+  ): ChromeTabMainWorldResult => ({
+    ...createResult(readPlayerMetadata(captionStateForPayload.response)),
+    ok: true,
+    source: captionStateForPayload.sourceName,
+    captionTracks: captionStateForPayload.captionTracks,
+    language: selectedTrack.languageCode,
+    selectedTrack,
+    payload,
+    attempts,
   });
 
   const attempts: ChromeTabCaptionAttempt[] = [];

@@ -1,3 +1,5 @@
+/** Owns loading, editing, and persistence for Better YouTube settings. */
+
 import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useModelSelection } from "@ui/hooks/use-config";
@@ -5,18 +7,14 @@ import { useToast } from "@ui/hooks/use-toast";
 import { Bot, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { loadConfig, normalizeModelCostLimit } from "@/core/config";
+import { loadConfig, normalizeModelCostLimit, normalizeModelSelection } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
 import { clearStoredDataExceptSettings, getStorageValue, setStorageValue } from "@/core/storage";
 
 import { applySummaryFontSize } from "../lib/font-size";
-import {
-  clampModelCostLimit,
-  modelCostLimitBounds,
-  resolveVisibleModelKey,
-} from "./settings/modelCostLimit";
+import { clampModelCostLimit, modelCostLimitBounds } from "./settings/modelCostLimit";
 import {
   ApiConfigurationSection,
   AppearanceSettingsSection,
@@ -50,7 +48,6 @@ const Settings = () => {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isClearingStorage, setIsClearingStorage] = useState(false);
-  const [hasLoadedStoredSettings, setHasLoadedStoredSettings] = useState(false);
   const summarizerCostLimitBounds = modelCostLimitBounds(summarizerModelPriceRange);
   const refinerCostLimitBounds = modelCostLimitBounds(refinerModelPriceRange);
   const visibleSummarizerModels = useMemo(
@@ -129,7 +126,6 @@ const Settings = () => {
           refinerModelCostLimit: String(nextSettings.refinerModelCostLimit),
         });
         applySummaryFontSize(nextSettings.summaryFontSize as FontSize);
-        setHasLoadedStoredSettings(true);
       } catch (error) {
         console.error("Failed to load settings:", error);
         toast({
@@ -285,68 +281,23 @@ const Settings = () => {
     }));
   }, [refinerModelPriceRange, summarizerModelPriceRange]);
 
-  useEffect(() => {
-    if (!hasLoadedStoredSettings) {
-      return;
-    }
-    if (selectorConfigs.some((selectorConfig) => selectorConfig.options.length === 0)) {
-      return;
-    }
-
-    const nextModelSettings = selectorConfigs.reduce<Partial<SettingsState>>(
-      (updates, selectorConfig) => {
-        const nextModel = resolveVisibleModelKey(
-          settings[selectorConfig.modelKey],
-          selectorConfig.options,
-          DEFAULT_SETTINGS[selectorConfig.modelKey],
-        );
-        if (nextModel !== settings[selectorConfig.modelKey]) {
-          updates[selectorConfig.modelKey] = nextModel;
-        }
-        return updates;
-      },
-      {},
-    );
-
-    if (Object.keys(nextModelSettings).length === 0) {
-      return;
-    }
-
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      ...nextModelSettings,
-    }));
-
-    void Promise.all(
-      selectorConfigs.flatMap((selectorConfig) => {
-        const nextModel = nextModelSettings[selectorConfig.modelKey];
-        return nextModel
-          ? [setStorageValue(SETTINGS_STORAGE_KEYS[selectorConfig.modelKey], nextModel)]
-          : [];
-      }),
-    ).catch((error) => {
-      console.error("Failed to sync model selections after cost-limit change:", error);
-      toast({
-        title: "Couldn't update model selection",
-        description: "A hidden model stayed selected after the cost limit changed.",
-        variant: "destructive",
-      });
-    });
-  }, [hasLoadedStoredSettings, selectorConfigs, settings, toast]);
-
   const handleChange = async <K extends keyof typeof DEFAULT_SETTINGS>(
     key: K,
     value: (typeof DEFAULT_SETTINGS)[K],
   ) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    const nextValue =
+      (key === "summarizerModel" || key === "refinerModel") && typeof value === "string"
+        ? (normalizeModelSelection(value) ?? DEFAULT_SETTINGS[key])
+        : value;
+    setSettings((prev) => ({ ...prev, [key]: nextValue }));
     try {
-      await setStorageValue(SETTINGS_STORAGE_KEYS[key], value);
+      await setStorageValue(SETTINGS_STORAGE_KEYS[key], nextValue);
       if (key === "summarizerModelCostLimit" || key === "refinerModelCostLimit") {
         const storedValue = await getStorageValue<number>(SETTINGS_STORAGE_KEYS[key]);
         const priceRange =
           key === "summarizerModelCostLimit" ? summarizerModelPriceRange : refinerModelPriceRange;
         const resolvedValue = clampModelCostLimit(
-          normalizeModelCostLimit(storedValue ?? value),
+          normalizeModelCostLimit(storedValue ?? nextValue),
           priceRange,
         );
         setSettings((currentSettings) => ({
@@ -355,11 +306,11 @@ const Settings = () => {
         }));
         setModelCostLimitInput(key, String(resolvedValue));
       }
-      console.log(`Auto-saved ${key}:`, value);
+      console.log(`Auto-saved ${key}:`, nextValue);
       if (key === "summaryFontSize") {
-        applySummaryFontSize(value as FontSize);
+        applySummaryFontSize(nextValue as FontSize);
       } else if (key === "captionFontSize") {
-        notifyCaptionFontSizeChange(value as FontSize);
+        notifyCaptionFontSizeChange(nextValue as FontSize);
       }
     } catch (error) {
       console.error(`Failed to auto-save setting ${key}:`, error);

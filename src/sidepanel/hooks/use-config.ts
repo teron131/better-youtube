@@ -12,14 +12,18 @@ import {
   type SupportedLanguage,
 } from "@ui/services/config";
 import {
-  fetchModelScoreMetadataIndex,
-  type ModelScoreMetadata,
+  fetchModelSelectorMetadataIndex,
+  type ModelSelectorMetadata,
   normalizeOpenRouterModelId,
 } from "@ui/services/stats";
 import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { normalizeModelCostLimit } from "@/core/config";
+import {
+  isBatchModelVariant,
+  normalizeModelCostLimit,
+  normalizeModelSelection,
+} from "@/core/config";
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
 import { getStorageValue, getStorageValues, setStorageValue } from "@/core/storage";
 
@@ -43,10 +47,8 @@ const USER_PREFERENCE_STORAGE_KEYS = [
 ] as const;
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
-const PRICE_PER_MILLION_TOKENS = 1_000_000;
-const INPUT_PRICE_WEIGHT = 3;
-const OUTPUT_PRICE_WEIGHT = 1;
 const DYNAMIC_MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const DYNAMIC_MODELS_CACHE_SOURCE = "openrouter-effective-pricing" as const;
 
 type OpenRouterModel = {
   id: string;
@@ -64,21 +66,23 @@ type OpenRouterModel = {
 
 const FALLBACK_DYNAMIC_MODELS: AvailableModel[] = [
   ...new Set([DEFAULT_SUMMARY_MODEL, DEFAULT_QUALITY_MODEL]),
-].map((modelKey) => {
-  const separatorIndex = modelKey.indexOf("/");
-  return {
-    key: modelKey,
-    label: modelKey,
-    provider: separatorIndex > 0 ? modelKey.slice(0, separatorIndex) : undefined,
-    recommended: false,
-    price: null,
-  };
-});
+]
+  .filter((modelKey) => !isBatchModelVariant(modelKey))
+  .map((modelKey) => {
+    const separatorIndex = modelKey.indexOf("/");
+    return {
+      key: modelKey,
+      label: modelKey,
+      provider: separatorIndex > 0 ? modelKey.slice(0, separatorIndex) : undefined,
+      recommended: false,
+      price: null,
+    };
+  });
 
 let dynamicModelsPromise: Promise<AvailableModel[]> | null = null;
 
 type DynamicModelsCache = {
-  source: "aggregate";
+  source: typeof DYNAMIC_MODELS_CACHE_SOURCE;
   fetchedAtMs: number;
   models: AvailableModel[];
 };
@@ -100,8 +104,6 @@ interface UseConfigReturn {
   languages: SupportedLanguage[];
   isLoading: boolean;
   error: string | null;
-  isValidSummarizerModel: (model: string) => boolean;
-  isValidRefinerModel: (model: string) => boolean;
   isValidLanguage: (language: string) => boolean;
   refresh: () => Promise<void>;
 }
@@ -120,18 +122,14 @@ function summarizerModeValue(value: unknown): UserPreferences["summarizerMode"] 
   return value === "native" || value === "validation" || value === "fast" ? value : undefined;
 }
 
-function hasConfiguredModels(config: ConfigurationResponse | null): boolean {
-  return Object.keys(config?.available_models ?? {}).length > 0;
+function modelPreferenceValue(value: unknown, fallback: string): string {
+  return normalizeModelSelection(value) || fallback;
 }
 
-function parseModelCostPerMillion(model: OpenRouterModel): number {
-  const inputCost = parseFloat(model.pricing?.prompt || "0");
-  const outputCost = parseFloat(model.pricing?.completion || "0");
-  return (
-    ((inputCost * INPUT_PRICE_WEIGHT + outputCost * OUTPUT_PRICE_WEIGHT) /
-      (INPUT_PRICE_WEIGHT + OUTPUT_PRICE_WEIGHT)) *
-    PRICE_PER_MILLION_TOKENS
-  );
+function hasPaidTokenPricing(model: OpenRouterModel): boolean {
+  const inputCost = Number.parseFloat(model.pricing?.prompt || "0");
+  const outputCost = Number.parseFloat(model.pricing?.completion || "0");
+  return [inputCost, outputCost].some((price) => Number.isFinite(price) && price > 0);
 }
 
 function outputsImages(model: OpenRouterModel): boolean {
@@ -145,28 +143,24 @@ function outputsImages(model: OpenRouterModel): boolean {
 }
 
 function isSupportedTextModel(model: OpenRouterModel): boolean {
-  if (outputsImages(model)) {
-    return false;
-  }
-
-  return parseModelCostPerMillion(model) > 0;
+  return !outputsImages(model) && hasPaidTokenPricing(model);
 }
 
 function availableModelFromOpenRouterModel(
   model: OpenRouterModel,
-  modelScoreMetadataById: Record<string, ModelScoreMetadata>,
+  modelMetadataById: Record<string, ModelSelectorMetadata>,
 ): AvailableModel {
-  const blendedPrice = parseModelCostPerMillion(model);
   const provider = model.id.split("/")[0] || "";
-  const modelScoreMetadata = modelScoreMetadataById[normalizeOpenRouterModelId(model.id)];
+  const modelMetadata = modelMetadataById[normalizeOpenRouterModelId(model.id)];
+  const effectivePrice = modelMetadata?.price ?? null;
 
   return {
     key: model.id,
-    label: `${model.name} ($${blendedPrice.toFixed(2)})`,
+    label: effectivePrice == null ? model.name : `${model.name} ($${effectivePrice.toFixed(2)})`,
     provider,
     recommended: true,
-    price: blendedPrice,
-    ...modelScoreMetadata,
+    ...modelMetadata,
+    price: effectivePrice,
   };
 }
 
@@ -205,7 +199,7 @@ function normalizeDynamicModelsCache(value: unknown): DynamicModelsCache | null 
   }
 
   const record = value as Record<string, unknown>;
-  if (record.source !== "aggregate") {
+  if (record.source !== DYNAMIC_MODELS_CACHE_SOURCE) {
     return null;
   }
   if (typeof record.fetchedAtMs !== "number" || !Number.isFinite(record.fetchedAtMs)) {
@@ -218,10 +212,10 @@ function normalizeDynamicModelsCache(value: unknown): DynamicModelsCache | null 
 
   const models = record.models
     .map((model) => normalizeAvailableModel(model))
-    .filter((model): model is AvailableModel => model !== null);
+    .filter((model): model is AvailableModel => model !== null && !isBatchModelVariant(model.key));
 
   return {
-    source: "aggregate",
+    source: DYNAMIC_MODELS_CACHE_SOURCE,
     fetchedAtMs: record.fetchedAtMs,
     models,
   };
@@ -237,7 +231,19 @@ function isDynamicModelsCacheUsable(cache: DynamicModelsCache | null): boolean {
 
 async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
   const cachedValue = await getStorageValue<unknown>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE);
-  return normalizeDynamicModelsCache(cachedValue);
+  const cache = normalizeDynamicModelsCache(cachedValue);
+  const cachedModels =
+    cachedValue && typeof cachedValue === "object"
+      ? (cachedValue as Record<string, unknown>).models
+      : undefined;
+
+  if (cache && Array.isArray(cachedModels) && cache.models.length !== cachedModels.length) {
+    await setStorageValue(STORAGE_KEYS.DYNAMIC_MODELS_CACHE, cache).catch((error) => {
+      console.error("Failed to remove batch variants from the dynamic model cache", error);
+    });
+  }
+
+  return cache;
 }
 
 async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
@@ -246,7 +252,7 @@ async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
   }
 
   await setStorageValue<DynamicModelsCache>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE, {
-    source: "aggregate",
+    source: DYNAMIC_MODELS_CACHE_SOURCE,
     fetchedAtMs: Date.now(),
     models,
   });
@@ -265,12 +271,14 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
             data?: OpenRouterModel[];
           };
 
-          const supportedModels = (data.data || []).filter(isSupportedTextModel);
-          const modelScoreMetadata = await fetchModelScoreMetadataIndex(
+          const supportedModels = (data.data || []).filter(
+            (model) => isSupportedTextModel(model) && !isBatchModelVariant(model.id),
+          );
+          const modelMetadata = await fetchModelSelectorMetadataIndex(
             supportedModels.map((model) => model.id),
           );
           const models = supportedModels.map((model) =>
-            availableModelFromOpenRouterModel(model, modelScoreMetadata.modelsById),
+            availableModelFromOpenRouterModel(model, modelMetadata.modelsById),
           );
           return models.length > 0 ? models : FALLBACK_DYNAMIC_MODELS;
         })
@@ -316,14 +324,6 @@ function isModelWithinCostLimit(model: AvailableModel, modelCostLimit: number): 
   return typeof model.price !== "number" || model.price <= modelCostLimit;
 }
 
-function resolveFallbackModelKey(preferredKey: string, models: AvailableModel[]): string {
-  if (models.some((model) => model.key === preferredKey)) {
-    return preferredKey;
-  }
-
-  return models[0]?.key ?? preferredKey;
-}
-
 async function getStoredModelCostLimits(): Promise<{
   summarizerModelCostLimit: number;
   refinerModelCostLimit: number;
@@ -352,34 +352,6 @@ function storagePreferences(result: UserPreferenceStorageResult): Partial<UserPr
     summarizerMode: summarizerModeValue(result[STORAGE_KEYS.SUMMARIZER_MODE]),
     qualityModel: stringValue(result[STORAGE_KEYS.QUALITY_MODEL]),
   };
-}
-
-function storagePreferenceUpdates(
-  changes: Record<string, chrome.storage.StorageChange>,
-): Partial<UserPreferences> {
-  const summaryModelChange =
-    changes[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL] ||
-    changes[STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL];
-  const targetLanguageChange =
-    changes[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] ||
-    changes[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED];
-
-  const updates: Partial<UserPreferences> = {};
-
-  if (summaryModelChange) {
-    updates.summaryModel = summaryModelChange.newValue;
-  }
-  if (targetLanguageChange) {
-    updates.targetLanguage = targetLanguageChange.newValue;
-  }
-  if (changes[STORAGE_KEYS.SUMMARIZER_MODE]) {
-    updates.summarizerMode = changes[STORAGE_KEYS.SUMMARIZER_MODE].newValue;
-  }
-  if (changes[STORAGE_KEYS.QUALITY_MODEL]) {
-    updates.qualityModel = changes[STORAGE_KEYS.QUALITY_MODEL].newValue;
-  }
-
-  return updates;
 }
 
 function storageUpdatesFromPreferences(updates: Partial<UserPreferences>): Record<string, unknown> {
@@ -518,26 +490,6 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
     () => modelPriceRange(allRefinerModels),
     [allRefinerModels],
   );
-  const summarizerCostLimitedModels = useMemo(
-    () => enrichedModels.filter((model) => isModelWithinCostLimit(model, summarizerModelCostLimit)),
-    [enrichedModels, summarizerModelCostLimit],
-  );
-  const summarizerCostLimitedModelKeys = useMemo(
-    () => new Set(summarizerCostLimitedModels.map((model) => model.key)),
-    [summarizerCostLimitedModels],
-  );
-  const refinerCostLimitedModels = useMemo(
-    () => enrichedModels.filter((model) => isModelWithinCostLimit(model, refinerModelCostLimit)),
-    [enrichedModels, refinerModelCostLimit],
-  );
-  const refinerCostLimitedModelKeys = useMemo(
-    () => new Set(refinerCostLimitedModels.map((model) => model.key)),
-    [refinerCostLimitedModels],
-  );
-  const dynamicModelKeys = useMemo(
-    () => new Set(dynamicModels.map((model) => model.key)),
-    [dynamicModels],
-  );
   const summarizerModels = useMemo(
     () =>
       allSummarizerModels.filter((model) =>
@@ -549,30 +501,6 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
   const refinerModels = useMemo(
     () => allRefinerModels.filter((model) => isModelWithinCostLimit(model, refinerModelCostLimit)),
     [allRefinerModels, refinerModelCostLimit],
-  );
-
-  const isValidSummarizerModel = useCallback(
-    (model: string) => {
-      if (dynamicModelKeys.has(model)) {
-        return summarizerCostLimitedModelKeys.has(model);
-      }
-      return hasConfiguredModels(config)
-        ? model in (config?.available_models ?? {})
-        : model.length > 0;
-    },
-    [config, dynamicModelKeys, summarizerCostLimitedModelKeys],
-  );
-
-  const isValidRefinerModel = useCallback(
-    (model: string) => {
-      if (dynamicModelKeys.has(model)) {
-        return refinerCostLimitedModelKeys.has(model);
-      }
-      return hasConfiguredModels(config)
-        ? model in (config?.available_models ?? {})
-        : model.length > 0;
-    },
-    [config, dynamicModelKeys, refinerCostLimitedModelKeys],
   );
 
   const isValidLanguage = useCallback(
@@ -594,8 +522,6 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
     languages: SUPPORTED_LANGUAGES_LIST,
     isLoading,
     error,
-    isValidSummarizerModel,
-    isValidRefinerModel,
     isValidLanguage,
     refresh: loadConfig,
   };
@@ -609,8 +535,6 @@ export function useModelSelection(options: UseConfigOptions = {}) {
     allRefinerModels,
     summarizerModelPriceRange,
     refinerModelPriceRange,
-    isValidSummarizerModel,
-    isValidRefinerModel,
   } = useConfig(options);
 
   return {
@@ -620,8 +544,6 @@ export function useModelSelection(options: UseConfigOptions = {}) {
     allRefinerModels,
     summarizerModelPriceRange,
     refinerModelPriceRange,
-    isValidSummarizerModel,
-    isValidRefinerModel,
   };
 }
 
@@ -650,83 +572,87 @@ const DEFAULT_USER_PREFERENCES: UserPreferences = {
 
 export function useUserPreferences(options: UseConfigOptions = {}) {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
-  const [isLoaded, setIsLoaded] = useState(false);
   const hasLocalEditsRef = useRef(false);
-  const {
-    isValidSummarizerModel,
-    isValidRefinerModel,
-    isValidLanguage,
-    summarizerModels,
-    refinerModels,
-  } = useConfig(options);
-  const validatedDefaultPreferences = useMemo(
-    () => ({
-      summaryModel: resolveFallbackModelKey(
-        DEFAULT_USER_PREFERENCES.summaryModel,
-        summarizerModels,
-      ),
-      qualityModel: resolveFallbackModelKey(DEFAULT_USER_PREFERENCES.qualityModel, refinerModels),
-      targetLanguage: DEFAULT_USER_PREFERENCES.targetLanguage,
-      summarizerMode: DEFAULT_USER_PREFERENCES.summarizerMode,
-    }),
-    [refinerModels, summarizerModels],
-  );
+  const { isValidLanguage } = useConfig(options);
 
   const validatePreferences = useCallback(
-    (prefs: Partial<UserPreferences>, defaults: UserPreferences) => {
+    (prefs: Partial<UserPreferences>) => {
       return {
-        summaryModel:
-          prefs.summaryModel && isValidSummarizerModel(prefs.summaryModel)
-            ? prefs.summaryModel
-            : defaults.summaryModel,
-        qualityModel:
-          prefs.qualityModel && isValidRefinerModel(prefs.qualityModel)
-            ? prefs.qualityModel
-            : defaults.qualityModel,
+        summaryModel: modelPreferenceValue(
+          prefs.summaryModel,
+          DEFAULT_USER_PREFERENCES.summaryModel,
+        ),
+        qualityModel: modelPreferenceValue(
+          prefs.qualityModel,
+          DEFAULT_USER_PREFERENCES.qualityModel,
+        ),
         targetLanguage:
           prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
             ? prefs.targetLanguage
-            : defaults.targetLanguage,
+            : DEFAULT_USER_PREFERENCES.targetLanguage,
         summarizerMode:
           prefs.summarizerMode === "native" ||
           prefs.summarizerMode === "validation" ||
           prefs.summarizerMode === "fast"
             ? prefs.summarizerMode
-            : defaults.summarizerMode,
+            : DEFAULT_USER_PREFERENCES.summarizerMode,
       };
     },
-    [isValidLanguage, isValidRefinerModel, isValidSummarizerModel],
+    [isValidLanguage],
   );
 
   useEffect(() => {
+    let isActive = true;
+
     chrome.storage.local.get(USER_PREFERENCE_STORAGE_KEYS, (result) => {
+      if (!isActive) return;
       if (!hasLocalEditsRef.current) {
-        setPreferences(
-          validatePreferences(storagePreferences(result), validatedDefaultPreferences),
-        );
+        setPreferences(validatePreferences(storagePreferences(result)));
       }
-      setIsLoaded(true);
     });
 
-    const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
-      const updates = storagePreferenceUpdates(changes);
-      if (Object.keys(updates).length > 0) {
-        setPreferences((prev) =>
-          validatePreferences({ ...prev, ...updates }, validatedDefaultPreferences),
-        );
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      if (areaName !== "local" || !USER_PREFERENCE_STORAGE_KEYS.some((key) => changes[key])) {
+        return;
       }
+
+      chrome.storage.local.get(USER_PREFERENCE_STORAGE_KEYS, (result) => {
+        if (!isActive) return;
+        setPreferences(validatePreferences(storagePreferences(result)));
+      });
     };
 
     chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
-  }, [validatePreferences, validatedDefaultPreferences]);
+    return () => {
+      isActive = false;
+      chrome.storage.onChanged.removeListener(listener);
+    };
+  }, [validatePreferences]);
 
-  const updatePreferences = (updates: Partial<UserPreferences>) => {
+  const updatePreferences = useCallback((updates: Partial<UserPreferences>) => {
     hasLocalEditsRef.current = true;
-    const newPrefs = { ...preferences, ...updates };
-    setPreferences(newPrefs);
+    const normalizedUpdates: Partial<UserPreferences> = {
+      ...updates,
+      ...(updates.summaryModel !== undefined
+        ? {
+            summaryModel: modelPreferenceValue(
+              updates.summaryModel,
+              DEFAULT_USER_PREFERENCES.summaryModel,
+            ),
+          }
+        : {}),
+      ...(updates.qualityModel !== undefined
+        ? {
+            qualityModel: modelPreferenceValue(
+              updates.qualityModel,
+              DEFAULT_USER_PREFERENCES.qualityModel,
+            ),
+          }
+        : {}),
+    };
+    setPreferences((currentPreferences) => ({ ...currentPreferences, ...normalizedUpdates }));
 
-    const storageUpdates = storageUpdatesFromPreferences(updates);
+    const storageUpdates = storageUpdatesFromPreferences(normalizedUpdates);
     const writeEntries = Object.entries(storageUpdates);
     if (writeEntries.length === 0) return;
 
@@ -735,10 +661,10 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
         console.error("Failed to sync user preferences:", error);
       },
     );
-  };
+  }, []);
 
   const resetPreferences = () => {
-    setPreferences(validatedDefaultPreferences);
+    setPreferences(DEFAULT_USER_PREFERENCES);
     chrome.storage.local.remove([
       STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
@@ -751,6 +677,5 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
     preferences,
     updatePreferences,
     resetPreferences,
-    isLoaded,
   };
 }

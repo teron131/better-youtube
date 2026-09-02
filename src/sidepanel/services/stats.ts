@@ -1,21 +1,24 @@
-/** Expose extension-owned aggregate model scores through the small selector metadata contract. */
+/** Expose extension-owned aggregate model scores and effective prices through the selector metadata contract. */
 
 import type { AvailableModel } from "./config.ts";
 import { fetchAggregateStats } from "./model-stats/aggregate.ts";
 import { normalizeOpenRouterModelId } from "./model-stats/openrouter.ts";
 
-export type ModelScoreMetadata = Pick<AvailableModel, "intelligenceScore" | "speedMetric">;
+export type ModelSelectorMetadata = Pick<
+  AvailableModel,
+  "intelligenceScore" | "speedMetric" | "price"
+>;
 
-export type ModelScoreMetadataIndex = {
-  modelsById: Record<string, ModelScoreMetadata>;
+export type ModelSelectorMetadataIndex = {
+  modelsById: Record<string, ModelSelectorMetadata>;
 };
 
 const MIN_REQUIRED_RELATIVE_SCORE = 10;
 
 /** Build selector metadata from the complete aggregate scoring pipeline and quietly degrade on source failure. */
-export async function fetchModelScoreMetadataIndex(
+export async function fetchModelSelectorMetadataIndex(
   modelIds: readonly string[],
-): Promise<ModelScoreMetadataIndex> {
+): Promise<ModelSelectorMetadataIndex> {
   try {
     const scoredModels = (await fetchAggregateStats(modelIds)).filter((model) =>
       [model.intelligenceScore, model.speedScore].some(
@@ -29,6 +32,7 @@ export async function fetchModelScoreMetadataIndex(
           {
             intelligenceScore: model.intelligenceScore ?? null,
             speedMetric: model.speedScore ?? null,
+            price: model.blendedPrice ?? null,
           },
         ]),
       ),

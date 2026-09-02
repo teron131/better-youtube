@@ -1,8 +1,10 @@
+/** Owns the sidepanel video URL form and its explicit summary-model choice. */
+
 import { ExampleUrls } from "@ui/components/ExampleUrls";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
-import { EditableCombobox, findMatchingComboboxOption } from "@ui/components/ui/editable-combobox";
+import { EditableCombobox, findExactComboboxOption } from "@ui/components/ui/editable-combobox";
 import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useModelSelection, useUserPreferences } from "@ui/hooks/use-config";
@@ -72,22 +74,6 @@ function clampModelCostLimit(
   return value;
 }
 
-function resolveVisibleModelKey(
-  currentKey: string,
-  visibleModels: Array<{ key: string }>,
-  fallbackKey: string,
-): string {
-  if (visibleModels.some((model) => model.key === currentKey)) {
-    return currentKey;
-  }
-
-  if (visibleModels.some((model) => model.key === fallbackKey)) {
-    return fallbackKey;
-  }
-
-  return visibleModels[0]?.key ?? currentKey;
-}
-
 function modelCostLimitBounds(priceRange: { min: number | null; max: number | null }): {
   min: string;
   max?: string;
@@ -104,7 +90,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
   const [showExamples, setShowExamples] = useState(false);
   const [shouldLoadModelOptions, setShouldLoadModelOptions] = useState(() => !!initialUrl);
   const { toast } = useToast();
-  const { preferences, updatePreferences, isLoaded } = useUserPreferences({
+  const { preferences, updatePreferences } = useUserPreferences({
     loadDynamicModels: shouldLoadModelOptions,
   });
   const { summarizerModels, summarizerModelPriceRange } = useModelSelection({
@@ -130,7 +116,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     }));
   }, [baseModelOptions, sortMetric]);
   const selectedModelOption = useMemo(
-    () => findMatchingComboboxOption(visibleModelOptions, preferences.summaryModel),
+    () => findExactComboboxOption(visibleModelOptions, preferences.summaryModel),
     [preferences.summaryModel, visibleModelOptions],
   );
   const loadModelOptions = useCallback(() => {
@@ -187,22 +173,6 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
       chrome.storage.onChanged.removeListener(listener);
     };
   }, [summarizerModelPriceRange]);
-
-  useEffect(() => {
-    if (!isLoaded || summarizerModels.length === 0) {
-      return;
-    }
-
-    const nextModelKey = resolveVisibleModelKey(
-      preferences.summaryModel,
-      summarizerModels,
-      DEFAULTS.MODEL_SUMMARIZER,
-    );
-
-    if (nextModelKey !== preferences.summaryModel) {
-      updatePreferences({ summaryModel: nextModelKey });
-    }
-  }, [isLoaded, preferences.summaryModel, summarizerModels, updatePreferences]);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newUrl = e.target.value;

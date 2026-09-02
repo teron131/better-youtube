@@ -3,7 +3,7 @@
 import type { FontSize } from "./constants.ts";
 import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
 import type { LlmModelPrefixMode } from "./llmModelPrefix.ts";
-import { getStorageValues } from "./storage.ts";
+import { getStorageValues, setStorageValue } from "./storage.ts";
 
 // ============================================================================
 // Types
@@ -40,6 +40,15 @@ export interface AppConfig {
 
 type StoredValues = Record<string, any>;
 
+const MODEL_SELECTION_STORAGE_KEYS = [
+  STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
+  STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
+  STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
+  STORAGE_KEYS.REFINER_CUSTOM_MODEL,
+  STORAGE_KEYS.QUALITY_MODEL,
+] as const;
+const BATCH_MODEL_SUFFIX = ":batch";
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -48,6 +57,21 @@ function normalizeKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function hasBatchModelSuffix(model: string): boolean {
+  return model.toLowerCase().endsWith(BATCH_MODEL_SUFFIX);
+}
+
+export function isBatchModelVariant(value: unknown): boolean {
+  const model = normalizeKey(value);
+  return model != null && hasBatchModelSuffix(model);
+}
+
+export function normalizeModelSelection(value: unknown): string | null {
+  const model = normalizeKey(value);
+  if (!model || !hasBatchModelSuffix(model)) return model;
+  return model.slice(0, -BATCH_MODEL_SUFFIX.length);
 }
 
 function normalizeLlmModelPrefixMode(value: unknown): LlmModelPrefixMode {
@@ -81,7 +105,11 @@ function resolveModel(
   recommendedModel: string | null | undefined,
   defaultModel: string,
 ): string {
-  return customModel || recommendedModel || defaultModel;
+  return (
+    normalizeModelSelection(customModel) ||
+    normalizeModelSelection(recommendedModel) ||
+    defaultModel
+  );
 }
 
 function resolveQualityModel(
@@ -91,8 +119,23 @@ function resolveQualityModel(
   defaultModel: string,
 ): string {
   return (
-    storedQualityModel || resolveModel(refinerCustomModel, refinerRecommendedModel, defaultModel)
+    normalizeModelSelection(storedQualityModel) ||
+    resolveModel(refinerCustomModel, refinerRecommendedModel, defaultModel)
   );
+}
+
+async function migrateStoredBatchModelSelections(result: StoredValues): Promise<void> {
+  const writes: Array<Promise<void>> = [];
+  for (const key of MODEL_SELECTION_STORAGE_KEYS) {
+    const storedModel = normalizeKey(result[key]);
+    const normalizedModel = normalizeModelSelection(storedModel);
+    if (!storedModel || !normalizedModel || storedModel === normalizedModel) continue;
+
+    result[key] = normalizedModel;
+    writes.push(setStorageValue(key, normalizedModel));
+  }
+
+  await Promise.allSettled(writes);
 }
 
 function resolveStoredModelCostLimits(
@@ -142,6 +185,7 @@ export async function loadConfig(): Promise<AppConfig> {
   ];
 
   const result = await getStorageValues<StoredValues>(keys);
+  await migrateStoredBatchModelSelections(result);
 
   const providerRaw = String(
     result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ?? DEFAULTS.SUMMARIZER_PROVIDER,
@@ -186,11 +230,10 @@ export async function loadConfig(): Promise<AppConfig> {
     ),
     ...resolveStoredModelCostLimits(result),
 
-    targetLanguage: resolveModel(
-      result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM],
-      result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED],
+    targetLanguage:
+      normalizeKey(result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM]) ||
+      normalizeKey(result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]) ||
       DEFAULTS.TARGET_LANGUAGE_RECOMMENDED,
-    ),
     autoGenerate: result[STORAGE_KEYS.AUTO_GENERATE] ?? DEFAULTS.AUTO_GENERATE,
     showSubtitles: result[STORAGE_KEYS.SHOW_SUBTITLES] ?? DEFAULTS.SHOW_SUBTITLES,
     captionFontSize: result[STORAGE_KEYS.CAPTION_FONT_SIZE] ?? DEFAULTS.CAPTION_FONT_SIZE,
