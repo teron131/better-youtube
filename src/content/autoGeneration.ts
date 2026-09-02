@@ -1,6 +1,5 @@
 /**
- * Auto-Generation Utilities
- * Handles automatic subtitle generation logic
+ * Owns automatic subtitle generation eligibility, scheduling, and visibility-aware cancellation.
  */
 
 import { STORAGE_KEYS, TIMING } from "@/core/constants";
@@ -15,6 +14,12 @@ export { isExtensionContextValid };
 const autoGenTriggered = new Set<string>();
 const autoGenVisibilityWaiters = new Map<string, () => void>();
 const TAB_VISIBLE_STATE = "visible";
+
+export const AUTO_GENERATION_STORAGE_KEYS = [
+  STORAGE_KEYS.AUTO_GENERATE,
+  STORAGE_KEYS.LLM_API_KEY,
+  STORAGE_KEYS.GEMINI_API_KEY,
+] as const;
 
 /**
  * Check if auto-generation has been triggered for a video

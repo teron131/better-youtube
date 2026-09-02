@@ -1,5 +1,5 @@
 /**
- * Message Handler for Content Script
+ * Routes content-script messages into subtitle generation, rendering, and persisted toggle behavior.
  */
 
 import type { FontSize } from "@/core/constants";
@@ -10,9 +10,12 @@ import { sendChromeMessage } from "@/core/utils/chrome";
 import { toTraditionalChinese } from "@/core/utils/text";
 import { extractVideoId } from "@/core/utils/url";
 
-import { clearAutoGenTrigger, markAutoGenTriggered } from "./autoGeneration";
+import {
+  AUTO_GENERATION_STORAGE_KEYS,
+  clearAutoGenTrigger,
+  markAutoGenTriggered,
+} from "./autoGeneration";
 import type { ContentScriptState } from "./contentHelpers";
-import { getToggleStorageKeys } from "./storageHelpers";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -338,7 +341,7 @@ function triggerAutoGenOnToggle(
   const videoId = extractVideoId(window.location.href);
   if (!videoId) return;
 
-  const keysToFetch = [videoId, ...getToggleStorageKeys()];
+  const keysToFetch = [videoId, ...AUTO_GENERATION_STORAGE_KEYS];
   chrome.storage.local.get(keysToFetch, (result) => {
     // Verify we are still on the same video
     if (!isCurrentVideo(videoId)) {

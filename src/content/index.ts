@@ -1,10 +1,10 @@
 /// <reference types="chrome" />
 
 /**
- * Content Script for Better YouTube Chrome Extension
- * Handles subtitle display, auto-generation, and communication with background script
+ * Coordinates the YouTube content-script lifecycle, subtitle display, auto-generation, and background communication.
  */
 
+import { loadConfig } from "@/core/config";
 import type { FontSize } from "@/core/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/core/constants";
 import { createRequestId } from "@/core/requestId";
@@ -12,6 +12,7 @@ import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
 import {
+  AUTO_GENERATION_STORAGE_KEYS,
   clearAutoGenTrigger,
   isExtensionContextValid,
   scheduleAutoGen,
@@ -20,7 +21,6 @@ import {
 import { type ContentScriptState, triggerCaptionRefinement } from "./contentHelpers";
 import { setupMessageListener } from "./messageHandler";
 import { startRecommendationFiltering } from "./recommendationFiltering";
-import { getRefinerModel, getVideoStorageKeys } from "./storageHelpers";
 import {
   applyCaptionFontSize,
   clearRenderer,
@@ -31,6 +31,11 @@ import {
 import { executeScrapeForAutoGen, isCurrentVideo, validateLoadContext } from "./videoHelpers";
 
 const HISTORY_CHANGE_EVENT = "better-youtube:history-change";
+const CAPTION_BOOTSTRAP_STORAGE_KEYS = [
+  STORAGE_KEYS.CAPTION_FONT_SIZE,
+  STORAGE_KEYS.SHOW_SUBTITLES,
+  ...AUTO_GENERATION_STORAGE_KEYS,
+] as const;
 let historyChangeMonitoringInstalled = false;
 
 function dispatchHistoryChangeEvent(): void {
@@ -118,7 +123,6 @@ class ContentManager {
 
     createSubtitleElements();
     this.loadStoredSubtitles();
-    this.loadCaptionFontSize();
   }
 
   /**
@@ -184,7 +188,7 @@ class ContentManager {
 
     const videoId = validation.videoId;
     this.state.currentVideoId = videoId;
-    const keysToFetch = [videoId, STORAGE_KEYS.CAPTION_FONT_SIZE, ...getVideoStorageKeys()];
+    const keysToFetch = [videoId, ...CAPTION_BOOTSTRAP_STORAGE_KEYS];
 
     chrome.storage.local.get(keysToFetch, (result) => {
       if (
@@ -213,10 +217,6 @@ class ContentManager {
         this.checkAndTriggerAutoGeneration(videoId, result, true, true);
       }
     });
-  }
-
-  private loadCaptionFontSize(): void {
-    // Font size is now loaded in loadStoredSubtitles() for better performance
   }
 
   public clearSubtitles(): void {
@@ -265,7 +265,7 @@ class ContentManager {
 
     if (await executeScrapeForAutoGen(videoId)) {
       if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
-        const refinerModel = await getRefinerModel();
+        const refinerModel = (await loadConfig()).refinerModel;
         const requestId = createRequestId("caption");
         this.state.currentCaptionRequestId = requestId;
         triggerCaptionRefinement(videoId, requestId, refinerModel, clearAutoGenTrigger);

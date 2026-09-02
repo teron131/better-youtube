@@ -25,6 +25,11 @@ import { Captions, ListFilter, RefreshCw, Settings as SettingsIcon } from "lucid
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
+import {
+  FEED_FILTER_STORAGE_KEYS,
+  FEED_HIDE_FILTER_KEYS,
+  hasActiveHideFilters,
+} from "@/core/recommendationFilters";
 import { getStorageValue, getSubtitles, getVideoMetadata, setStorageValue } from "@/core/storage";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
@@ -38,11 +43,6 @@ import {
   loadCachedVideoState,
   segmentsToTranscript,
 } from "./index/cachedVideoState";
-import {
-  hasActiveRecommendationFilters,
-  RECOMMENDATION_FILTER_STORAGE_KEYS,
-  RECOMMENDATION_FILTER_TOGGLE_KEYS,
-} from "./index/recommendationFilterState";
 
 interface VideoSyncRequest {
   revision: number;
@@ -50,6 +50,10 @@ interface VideoSyncRequest {
 }
 
 type CurrentVideoLoadResult = "started" | "superseded" | "unavailable";
+
+const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set(
+  FEED_HIDE_FILTER_KEYS.map((key) => FEED_FILTER_STORAGE_KEYS[key]),
+);
 
 const Index = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
@@ -192,7 +196,7 @@ const Index = () => {
     const loadRecommendationFilterState = async () => {
       try {
         const settings = await getRecommendationFilterSettings();
-        setRecommendationFiltersEnabled(hasActiveRecommendationFilters(settings));
+        setRecommendationFiltersEnabled(hasActiveHideFilters(settings));
       } catch (error) {
         console.error("Failed to load recommendation filter settings:", error);
       }
@@ -357,15 +361,13 @@ const Index = () => {
 
     try {
       await Promise.all(
-        RECOMMENDATION_FILTER_TOGGLE_KEYS.map((key) =>
-          setRecommendationFilterSetting(key, nextState),
-        ),
+        FEED_HIDE_FILTER_KEYS.map((key) => setRecommendationFilterSetting(key, nextState)),
       );
     } catch (error) {
       console.error("Failed to save recommendation filter settings:", error);
       try {
         const settings = await getRecommendationFilterSettings();
-        setRecommendationFiltersEnabled(hasActiveRecommendationFilters(settings));
+        setRecommendationFiltersEnabled(hasActiveHideFilters(settings));
       } catch (reloadError) {
         console.error("Failed to reload recommendation filter settings:", reloadError);
         setRecommendationFiltersEnabled(!nextState);
