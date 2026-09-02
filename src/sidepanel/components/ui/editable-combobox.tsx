@@ -1,3 +1,5 @@
+/** Provides an editable combobox with exact selection display and fuzzy option filtering. */
+
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
@@ -29,7 +31,10 @@ interface EditableComboboxProps {
   type?: "text" | "url";
 }
 
-function exactMatchingOption(options: ComboboxOption[], value: string): ComboboxOption | null {
+export function findExactComboboxOption(
+  options: ComboboxOption[],
+  value: string,
+): ComboboxOption | null {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
     return null;
@@ -140,79 +145,6 @@ function matchesNormalizedSearch(
   });
 }
 
-function optionMatchScore(
-  option: ComboboxOption,
-  value: string,
-  providerPrefixes: string[],
-): number {
-  const queryVariants = searchVariants(value, providerPrefixes);
-  if (queryVariants.length === 0) return 0;
-
-  const searchCandidates = [
-    option.value,
-    option.label,
-    stripProviderPrefix(option.value),
-    stripProviderPrefix(option.label),
-  ];
-
-  let bestScore = 0;
-
-  for (const variant of queryVariants) {
-    const compactVariant = variant.replace(/\s+/g, "");
-
-    for (const candidate of searchCandidates) {
-      const normalizedCandidate = normalizeSearchValue(candidate);
-      const compactCandidate = compactSearchValue(candidate);
-
-      if (normalizedCandidate === variant || compactCandidate === compactVariant) {
-        bestScore = Math.max(bestScore, 4);
-        continue;
-      }
-
-      if (
-        normalizedCandidate.startsWith(variant) ||
-        (compactVariant.length > 0 && compactCandidate.startsWith(compactVariant))
-      ) {
-        bestScore = Math.max(bestScore, 3);
-        continue;
-      }
-
-      if (
-        normalizedCandidate.includes(variant) ||
-        (compactVariant.length > 0 && compactCandidate.includes(compactVariant))
-      ) {
-        bestScore = Math.max(bestScore, 2);
-      }
-    }
-  }
-
-  return bestScore;
-}
-
-export function findMatchingComboboxOption(
-  options: ComboboxOption[],
-  value: string,
-): ComboboxOption | null {
-  const exactMatch = options.find((option) => option.value === value);
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const providerPrefixes = providerPrefixesFromOptions(options);
-  let bestMatch: ComboboxOption | null = null;
-  let bestScore = 0;
-
-  for (const option of options) {
-    const score = optionMatchScore(option, value, providerPrefixes);
-    if (score > bestScore) {
-      bestMatch = option;
-      bestScore = score;
-    }
-  }
-
-  return bestMatch;
-}
-
 export function EditableCombobox({
   value,
   onChange,
@@ -232,7 +164,7 @@ export function EditableCombobox({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const selectedOption = React.useMemo(
-    () => findMatchingComboboxOption(options, value),
+    () => findExactComboboxOption(options, value),
     [options, value],
   );
   const providerPrefixes = React.useMemo(() => providerPrefixesFromOptions(options), [options]);
@@ -336,7 +268,7 @@ export function EditableCombobox({
       return;
     }
 
-    const matchedOption = exactMatchingOption(options, trimmedSearchText);
+    const matchedOption = findExactComboboxOption(options, trimmedSearchText);
     onChange(matchedOption?.value ?? trimmedSearchText);
     setSearchText(matchedOption?.label ?? trimmedSearchText);
     setOpenState(false);

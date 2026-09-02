@@ -5,7 +5,7 @@
 import {
   type ComboboxOption,
   EditableCombobox,
-  findMatchingComboboxOption,
+  findExactComboboxOption,
 } from "@ui/components/ui/editable-combobox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { Brain, DollarSign, type LucideIcon, Rocket } from "lucide-react";
@@ -76,7 +76,7 @@ export function ModelSelector({
         : sortedOptions,
     [effectiveSortMetric, enableSorting, sortedOptions],
   );
-  const selectedOption = findMatchingComboboxOption(visibleOptions, value);
+  const selectedOption = findExactComboboxOption(visibleOptions, value);
 
   const handleSortClick = (event: MouseEvent<HTMLButtonElement>, metric: ModelSortMetric) => {
     event.preventDefault();
