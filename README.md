@@ -13,6 +13,20 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
   <img src="static/ui4.png" alt="Expanded recommendation filters" width="49.5%" />
 </p>
 
+## Installation
+
+Download `better-youtube-<version>.zip` from [Releases](https://github.com/teron131/better-youtube/releases) when a packaged release is available.
+Choose the extension ZIP under **Assets**, not GitHub's automatic source-code archives.
+
+1. Extract the ZIP into a folder you intend to keep.
+2. Open `chrome://extensions` and enable **Developer mode**.
+3. Click **Load unpacked** and select the extracted folder containing `manifest.json`.
+4. Open a YouTube video and click the extension icon to open the side panel.
+5. Open Settings and configure your API key and model.
+
+For updates, extract the new ZIP into the same folder and click **Reload** on the extension's card in `chrome://extensions`.
+Until the first packaged release is published, build from source using the commands below and load the resulting `dist/` folder instead.
+
 ## What It Does
 
 - Extracts transcript and video metadata from the active YouTube watch tab.
@@ -132,13 +146,13 @@ pnpm run test:chrome-tab
 For a layout preview, run `pnpm dev` and open `/sidepanel.html?example=1`.
 Real video processing requires the installed extension and a configured API key.
 
-## Load The Extension
+## Packaging and Releases
 
-1. Run `pnpm run build`.
-2. Open `chrome://extensions`.
-3. Enable `Developer mode`.
-4. Click `Load unpacked`.
-5. Select the repo's `dist/` directory.
+Run `pnpm run package` to build the extension and create a ZIP with its SHA-256 checksum in `.cache/releases/`.
+Packaging requires the `zip` and `unzip` commands and includes the built extension without source maps.
+
+The release workflow runs only when a `v<version>` tag is pushed.
+The tag, `package.json`, and extension manifest must agree on the version; the workflow checks the code, builds the ZIP, and publishes it as a GitHub Release asset.
 
 ## Build Output
 
