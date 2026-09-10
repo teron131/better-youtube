@@ -270,7 +270,7 @@ export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) 
             </div>
 
             <div ref={transcriptRef} className="py-3 max-h-96 overflow-y-auto contain-layout">
-              <div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
+              <div className="text-sm leading-6 text-foreground whitespace-pre-wrap break-words font-mono">
                 {highlightedContent}
               </div>
             </div>

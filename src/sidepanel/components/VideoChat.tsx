@@ -117,8 +117,12 @@ export function VideoChat({
   }, [messages, pending]);
   useEffect(() => {
     if (!textarea.current) return;
-    textarea.current.style.height = "auto";
-    textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, 160)}px`;
+    // Placeholder wrapping must not determine the height of an empty or hidden composer.
+    textarea.current.style.height = "";
+    if (draft) {
+      textarea.current.style.height = "auto";
+      textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, 160)}px`;
+    }
   }, [draft]);
 
   async function send(prompt: string) {
@@ -260,7 +264,7 @@ export function VideoChat({
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               disabled={working || contextLoading || !canChat}
-              className="block min-h-12 w-full resize-none bg-transparent px-1 py-2 text-[15px] leading-6 outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              className="block h-16 min-h-16 w-full resize-none bg-transparent px-1 py-2 text-[15px] leading-6 outline-none placeholder:text-muted-foreground disabled:opacity-60"
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();

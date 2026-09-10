@@ -142,7 +142,7 @@ export function ApiConfigurationSection({
   onLlmBaseUrlBlur: (baseUrl: string) => void;
 }) {
   return (
-    <section className={SETTINGS_SECTION_CLASSNAME}>
+    <section className="space-y-4 pt-5">
       <h2 className="flex items-center gap-2 text-base font-semibold">
         <Key className="h-4 w-4 text-primary" />
         <span>Connection</span>
