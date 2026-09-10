@@ -1,11 +1,9 @@
 /** Executes the native Gemini summary path against either a YouTube URL or a provided transcript. */
 
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { z } from "zod";
 
-import type { Summary } from "@/core/types";
-
-import { SummaryArtifactSchema } from "../core/agent/artifact.ts";
+import { SummaryTextSchema } from "../core/agent/artifact.ts";
+import { SKILLS } from "../core/agent/skills.ts";
 import type { AppConfig } from "../core/config.ts";
 
 export type GeminiInput =
@@ -26,9 +24,11 @@ export async function summarizeGemini(
     model: string;
     thinkingLevel?: ThinkingLevel;
     timeoutMs?: number;
+    signal?: AbortSignal;
   },
   config: Pick<AppConfig, "geminiApiKey">,
-): Promise<{ summary: Summary; usage?: unknown }> {
+): Promise<{ summary: string; usage?: unknown }> {
+  options.signal?.throwIfAborted();
   if (!config.geminiApiKey) throw new Error("Gemini API key missing");
   const client = new GoogleGenAI({ apiKey: config.geminiApiKey });
   const thinkingLevel = options.thinkingLevel ?? ThinkingLevel.MEDIUM;
@@ -48,16 +48,15 @@ export async function summarizeGemini(
     >[0]["contents"],
     config: {
       httpOptions: { timeout: timeoutMs },
+      abortSignal: options.signal,
       thinkingConfig: { thinkingLevel },
-      responseMimeType: "application/json",
-      responseJsonSchema: z.toJSONSchema(SummaryArtifactSchema),
     },
   });
 
   const raw = response.text;
   if (!raw) throw new Error("Gemini returned empty response");
 
-  const parsed = SummaryArtifactSchema.parse(JSON.parse(raw)) as Summary;
+  const parsed = SummaryTextSchema.parse(raw);
   return { summary: parsed, usage: response.usageMetadata };
 }
 
@@ -78,20 +77,13 @@ function summaryPrompt(targetLanguage: string, kind: GeminiInput["kind"]): strin
       ? "You are given the full video. Use BOTH spoken content and visuals (on-screen text/slides/charts/code/UI). Do not invent details that are not clearly supported by what you can see/hear."
       : "You are given a transcript only. Ground the summary ONLY in the transcript text and do not add visual-only details.";
   return [
-    "Create a grounded, chronological summary.",
+    "Write a grounded Markdown summary directly in your response.",
     "",
     `- OUTPUT LANGUAGE (REQUIRED): ${instruction}`,
     "",
     `SOURCE: ${sourceRule}`,
     "",
-    "Return JSON only (no extra text) with:",
-    "- overview: string",
-    "- chapters: array of { title: string, description: string, startTime?: string, endTime?: string }",
-    "(startTime/endTime are optional MM:SS; omit if unsure)",
-    "",
-    "Rules:",
-    "- Chapters must be chronological and non-overlapping",
-    "- Avoid meta-language (no 'this video...' framing)",
-    "- Exclude sponsors/promos/calls to action entirely",
+    SKILLS.find((skill) => skill.name === "summary")!.content,
+    "For this direct response, return the final Markdown text without tool calls or a surrounding code fence.",
   ].join("\n");
 }

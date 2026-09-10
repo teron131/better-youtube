@@ -5,16 +5,13 @@ import type { AppConfig } from "../core/config.ts";
 import type { VideoMetadata } from "../core/storage.ts";
 import type { TranscriptFetchContext } from "../core/transcript/index.ts";
 import { resolveTranscriptText } from "../core/transcript/text.ts";
-import type { Summary } from "../core/types.ts";
-import { summaryToMarkdown } from "../core/utils/summaryMarkdown.ts";
 import { createYouTubeWatchUrl } from "../core/utils/url.ts";
 import { getTranscriptSource, getVideoInfo } from "../core/videoContext.ts";
 import { isGeminiModelSelection } from "../core/workRouter.ts";
 import { summarizeGemini } from "./nativeSummary.ts";
 
 export type SummaryResult = {
-  summary: Summary;
-  summaryText?: string;
+  summary: string;
   iterations?: number;
 };
 
@@ -30,6 +27,7 @@ export async function generateSummary(
     requestId: string;
   },
   config: AppConfig,
+  signal?: AbortSignal,
 ) {
   const {
     videoId,
@@ -55,11 +53,12 @@ export async function generateSummary(
   };
 
   const tryGemini = async () => {
+    signal?.throwIfAborted();
     if (!isGeminiModelSelection(modelSelection)) {
       throw new Error("Selected model is not a Gemini model; cannot use Gemini provider");
     }
     if (!geminiKey) throw new Error("Gemini API key missing");
-    const videoInfo = await getVideoInfoLazy();
+    await getVideoInfoLazy();
     const geminiModel = normalizeGeminiModel(String(modelSelection));
 
     const gemini = msgTranscript
@@ -69,7 +68,7 @@ export async function generateSummary(
             transcript: String(msgTranscript),
             targetLanguage: targetLanguage,
           },
-          { model: geminiModel },
+          { model: geminiModel, signal },
           config,
         )
       : await summarizeGemini(
@@ -78,7 +77,7 @@ export async function generateSummary(
             videoUrl: createYouTubeWatchUrl(videoId),
             targetLanguage: targetLanguage,
           },
-          { model: geminiModel },
+          { model: geminiModel, signal },
           config,
         );
 
@@ -86,11 +85,11 @@ export async function generateSummary(
     return {
       summary,
       iterations: 1,
-      summaryText: summaryToMarkdown(summary, videoInfo),
     };
   };
 
   const tryLlm = async () => {
+    signal?.throwIfAborted();
     if (!llmKey) throw new Error("LLM API key missing");
     const transcript = await resolveTranscriptText(
       await getLlmSourceLazy(),
@@ -108,10 +107,11 @@ export async function generateSummary(
         model: modelSelection,
         summary: null,
         messages: [],
-        prompt:
-          "Create the summary artifact for this video. Load the summary skill, write the draft, and inspect it against the source before finishing.",
+        task: "summary",
+        prompt: "Summarize this video using the supplied skill. Return the summary as Markdown.",
       },
       config,
+      signal,
     );
 
     if (!result.summary)
@@ -120,7 +120,6 @@ export async function generateSummary(
     return {
       summary,
       iterations: 1,
-      summaryText: summaryToMarkdown(summary, videoInfo),
     };
   };
 
@@ -134,6 +133,7 @@ export async function generateSummary(
     });
     result = await (provider === "gemini" ? tryGemini() : tryLlm());
   } catch (error) {
+    signal?.throwIfAborted();
     if (provider === "gemini" && llmKey) {
       console.warn("[summary] primary failed, trying fallback", {
         provider,

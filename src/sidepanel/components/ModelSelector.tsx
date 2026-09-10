@@ -102,14 +102,14 @@ export function ModelSelector({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-col items-start gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:justify-between">
         <div className="group relative flex min-h-9 min-w-0 flex-1 items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-primary" />
           <span className="min-w-0 block text-sm font-semibold text-foreground">{label}</span>
         </div>
 
         {enableSorting && (
-          <div className="ml-auto flex shrink-0 items-center rounded-md border border-border/60 bg-background/80 p-0.5">
+          <div className="flex shrink-0 items-center rounded-md min-[480px]:ml-auto border border-border/60 bg-background/80 p-0.5">
             {MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
               <Tooltip key={metric} delayDuration={0}>
                 <TooltipTrigger asChild>

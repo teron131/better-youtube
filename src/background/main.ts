@@ -9,7 +9,7 @@ import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createMessageListener } from "@/core/utils/chrome";
 
 import { handleFetchSubtitles } from "./captions";
-import { handleVideoChat } from "./chat";
+import { cancelVideoChat, handleVideoChat } from "./chat";
 import { registerContentScriptBootstrap } from "./contentScripts";
 import { handleExtractSubscriptions } from "./subscriptions";
 import { handleGenerateSummary } from "./summary";
@@ -39,6 +39,13 @@ createMessageListener((message, sender, sendResponse) => {
   const tabId = typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
 
   switch (message.action) {
+    case MESSAGE_ACTIONS.CANCEL_VIDEO_REQUEST:
+      if (typeof message.videoId === "string" && typeof message.requestId === "string") {
+        if (message.kind === "chat") cancelVideoChat(message.videoId, message.requestId);
+        if (message.kind === "summary") summaryWorkloads.cancel(message.videoId, message.requestId);
+      }
+      sendResponse({ status: "cancelled" });
+      return false;
     case CHAT_ACTION:
       void handleVideoChat(message).then(sendResponse, (error) => {
         sendResponse({

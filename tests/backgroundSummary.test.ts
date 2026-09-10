@@ -11,7 +11,7 @@ const local: Record<string, any> = {};
 const session: Record<string, any> = {};
 const notifications: any[] = [];
 let bytesUsed = 0;
-const summary = { overview: "Grounded overview", chapters: [] };
+const summary = "Grounded **summary**.";
 let agentCalls = 0;
 let nativeCalls = 0;
 let agentReply = async () => ({ summary });
@@ -96,7 +96,7 @@ registerHooks({
 });
 
 const { handleGenerateSummary } = await import("../src/background/summary.ts");
-const { clearStoredDataExceptSettings, setStorageValue, saveSummary } =
+const { clearStoredDataExceptSettings, setStorageValue, saveSummary, getSummary } =
   await import("../src/core/storage.ts");
 const videoId = "abcdefghijk";
 const config = {
@@ -171,7 +171,7 @@ test("native Gemini failure falls back to the agent and records the actual provi
 
 test("provider failure emits an error and leaves the existing summary intact", async () => {
   const previous = {
-    summary: { overview: "Previous", chapters: [] },
+    summary: "Previous",
     timestamp: 1,
     modelUsed: "old-model",
   };
@@ -237,4 +237,112 @@ test("clear saved data retains settings and clears only owned session data", asy
   assert.deepEqual(session, { unrelated: "keep" });
   assert.equal(result.localKeysRemoved, 3);
   assert.equal(result.sessionKeysRemoved, 1);
+});
+
+test("stored structured summaries migrate to Markdown without changing cache identity", async () => {
+  const old = {
+    summary: {
+      overview: "Original overview",
+      chapters: [
+        { title: "Details", startTime: "00:01", endTime: "00:10", description: "Important facts." },
+      ],
+    },
+    timestamp: 12,
+    modelUsed: "llm::test-model",
+    targetLanguage: "English",
+  };
+  local[`summary_${videoId}`] = old;
+  const migrated = await getSummary(videoId);
+  assert.deepEqual(migrated, {
+    ...old,
+    summary: "Original overview\n\n## Details (00:01–00:10)\n\nImportant facts.",
+  });
+  assert.deepEqual(local[`summary_${videoId}`], migrated);
+  assert.deepEqual(await getSummary(videoId), migrated);
+});
+
+test("cancelled summary inference cannot save or broadcast a late result", async () => {
+  let release!: () => void;
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const wait = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  agentReply = async () => {
+    entered();
+    await wait;
+    return { summary };
+  };
+  const workloads = new VideoWorkloadLifecycle();
+  const running = request({}, workloads);
+  await started;
+  workloads.cancel(videoId, "request");
+  release();
+  await running;
+  assert.equal(local[`summary_${videoId}`], undefined);
+  assert.equal(notifications.length, 0);
+});
+
+test("cancelling chat prevents late edits and cannot clear a newer pending turn", async () => {
+  const { handleVideoChat, cancelVideoChat } = await import("../src/background/chat.ts");
+  let releaseFirst!: () => void;
+  let releaseSecond!: () => void;
+  let entered!: () => void;
+  let started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const firstWait = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  agentReply = async () => {
+    entered();
+    await firstWait;
+    return { summary, summaryChanged: true };
+  };
+  const first = handleVideoChat({
+    videoId,
+    requestId: "first",
+    transcript: "Source",
+    prompt: "Edit summary",
+  });
+  const rejected = assert.rejects(first, /abort/i);
+  await started;
+  cancelVideoChat(videoId, "first");
+  started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const secondWait = new Promise<void>((resolve) => {
+    releaseSecond = resolve;
+  });
+  agentReply = async () => {
+    entered();
+    await secondWait;
+    return { summary, summaryChanged: false };
+  };
+  const second = handleVideoChat({
+    videoId,
+    requestId: "second",
+    transcript: "Source",
+    prompt: "Question",
+  });
+  await started;
+  releaseFirst();
+  await rejected;
+  assert.equal(local[`summary_${videoId}`], undefined);
+  await assert.rejects(
+    handleVideoChat({ videoId, requestId: "third", transcript: "Source", prompt: "Question" }),
+    /already has an answer/,
+  );
+  releaseSecond();
+  await second;
+});
+
+test("aborted writes leave stored summaries untouched", async () => {
+  local[`summary_${videoId}`] = { summary: "Previous", timestamp: 1, modelUsed: "old" };
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(saveSummary(videoId, "New", "new", "English", controller.signal), /abort/i);
+  assert.equal(local[`summary_${videoId}`].summary, "Previous");
 });

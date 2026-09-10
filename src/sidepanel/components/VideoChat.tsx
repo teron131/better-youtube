@@ -1,7 +1,7 @@
-/** Owns the current video's chat UI and session history; summary edits are committed by the background agent. */
+/** Owns the video conversation and bottom composer; successful summary edits are committed by the background agent. */
 
-import { MessageCircle, Send, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowUp, FileText, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
   CHAT_ACTION,
@@ -10,17 +10,29 @@ import {
   type ChatMessage,
   type ChatResponse,
 } from "@/core/agent/conversation";
+import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
+import { createRequestId } from "@/core/requestId";
 import { sendChromeMessage } from "@/core/utils/chrome";
 
+import { useModelSelection, useUserPreferences } from "../hooks/use-config";
+import { toModelComboboxOption } from "../lib/model-options";
+import { Markdown } from "./Markdown";
+import { ModelIcon } from "./ModelIcon";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
+import { EditableCombobox } from "./ui/editable-combobox";
 
 interface VideoChatProps {
   videoId: string;
   transcript: string;
-  model?: string;
   disabled?: boolean;
+  videoReady: boolean;
+  contextLoading: boolean;
+  onBusyChange: (busy: boolean) => void;
   preview?: boolean;
+  hasSummary: boolean;
+  onSummary: (model: string, language: string) => Promise<void>;
+  onCaptions: () => Promise<void>;
+  children: ReactNode;
 }
 
 function loadMessages(key: string): ChatMessage[] {
@@ -39,35 +51,86 @@ function loadMessages(key: string): ChatMessage[] {
   }
 }
 
-export function VideoChat({ videoId, transcript, model, disabled, preview }: VideoChatProps) {
+/** Keeps the composer visible while video content and conversation share a single scroll area. */
+export function VideoChat({
+  videoId,
+  transcript,
+  disabled,
+  videoReady,
+  contextLoading,
+  onBusyChange,
+  preview,
+  hasSummary,
+  onSummary,
+  onCaptions,
+  children,
+}: VideoChatProps) {
   const storageKey = `video-chat:${videoId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages(storageKey));
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { preferences, updatePreferences } = useUserPreferences({ loadDynamicModels: false });
+  const { summarizerModels } = useModelSelection();
+  const modelOptions = summarizerModels.map((model) => ({
+    ...toModelComboboxOption(model),
+    label: model.label.replace(/^[^/:]+[/:]\s*/, ""),
+  }));
+  if (!modelOptions.some((option) => option.value === preferences.summaryModel)) {
+    const value = preferences.summaryModel;
+    modelOptions.unshift({
+      value,
+      label: value.slice(value.indexOf("/") + 1),
+      icon: <ModelIcon provider={value.includes("/") ? value.split("/")[0] : undefined} />,
+    });
+  }
+  const selectedModelIcon = modelOptions.find(
+    (option) => option.value === preferences.summaryModel,
+  )?.icon;
   const active = useRef(true);
   const busy = useRef(false);
+  const requestRef = useRef<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const canChat = Boolean(videoReady && videoId && transcript.trim()) || preview;
+  const canSummarize = Boolean(videoReady && videoId) || Boolean(preview && hasSummary);
+  const working = Boolean(disabled || pending || actionPending);
 
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
+      onBusyChange(false);
+      if (requestRef.current) {
+        void sendChromeMessage({
+          action: MESSAGE_ACTIONS.CANCEL_VIDEO_REQUEST,
+          kind: "chat",
+          videoId,
+          requestId: requestRef.current,
+        }).catch(() => {});
+      }
     };
-  }, []);
+  }, [onBusyChange, videoId]);
   useEffect(() => {
     if (messages.length || pending) bottom.current?.scrollIntoView({ block: "nearest" });
   }, [messages, pending]);
+  useEffect(() => {
+    if (!textarea.current) return;
+    textarea.current.style.height = "auto";
+    textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, 160)}px`;
+  }, [draft]);
 
   async function send(prompt: string) {
-    if (!prompt.trim() || disabled || busy.current) return;
+    if (!prompt.trim() || disabled || contextLoading || busy.current) return;
+    if (!canChat) return;
     if (preview) {
-      setError(
-        "This is an example video. Open the extension on a YouTube video to use the assistant.",
-      );
+      setError("This is a preview. Open the extension on a YouTube video to chat.");
       return;
     }
     busy.current = true;
+    onBusyChange(true);
+    requestRef.current = createRequestId("chat");
     setPending(true);
     setError(null);
     setDraft("");
@@ -78,12 +141,13 @@ export function VideoChat({ videoId, transcript, model, disabled, preview }: Vid
         {
           action: CHAT_ACTION,
           videoId,
+          requestId: requestRef.current,
           transcript,
-          model,
+          model: preferences.summaryModel,
           prompt,
           messages: previous.slice(-CHAT_CONTEXT_MESSAGES),
         },
-        190_000,
+        TIMING.PROCESSING_TIMEOUT_MS,
       );
       if (!response) throw new Error("The video assistant is unavailable.");
       if (response.success === false) throw new Error(response.error);
@@ -92,7 +156,7 @@ export function VideoChat({ videoId, transcript, model, disabled, preview }: Vid
       try {
         sessionStorage.setItem(storageKey, JSON.stringify(response.messages));
       } catch {
-        /* The current conversation remains available in memory when browser storage is full. */
+        /* Keep the conversation in memory when browser storage is full. */
       }
     } catch (cause) {
       if (!active.current) return;
@@ -101,127 +165,216 @@ export function VideoChat({ videoId, transcript, model, disabled, preview }: Vid
       setError(cause instanceof Error ? cause.message : "Could not answer. Please retry.");
     } finally {
       busy.current = false;
-      if (active.current) setPending(false);
+      requestRef.current = null;
+      if (active.current) {
+        setPending(false);
+        onBusyChange(false);
+      }
+    }
+  }
+
+  async function openSummary() {
+    if (disabled || busy.current || !canSummarize) return;
+    busy.current = true;
+    setActionPending(true);
+    setError(null);
+    try {
+      await onSummary(preferences.summaryModel, preferences.targetLanguage);
+    } catch (cause) {
+      if (active.current)
+        setError(cause instanceof Error ? cause.message : "Could not open the summary.");
+    } finally {
+      busy.current = false;
+      if (active.current) setActionPending(false);
     }
   }
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/60 bg-card/90">
-      <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold">Chat with this video</h3>
-        </div>
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={pending}
-            aria-label="Clear video chat"
-            onClick={() => {
-              setMessages([]);
-              sessionStorage.removeItem(storageKey);
-              setError(null);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-      <div
-        className="max-h-[28rem] space-y-4 overflow-y-auto px-5 py-4"
-        role="log"
-        aria-label="Video conversation"
-        aria-live="polite"
+    <>
+      <main
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        aria-label="Video workspace"
       >
-        {messages.length === 0 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Ask a question, explore a detail, or ask me to edit the summary.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                "What is the main argument?",
-                "Explain the key ideas simply",
-                "Make the summary more concise",
-              ].map((prompt) => (
-                <Button
-                  key={prompt}
-                  variant="outline"
-                  size="sm"
-                  className="h-auto whitespace-normal text-left"
-                  disabled={disabled || pending}
-                  onClick={() => void send(prompt)}
-                >
-                  {prompt}
-                </Button>
-              ))}
-            </div>
+        <div className="sidepanel-container space-y-5 py-3">
+          {children}
+          <div className="space-y-6" role="log" aria-label="Video conversation" aria-live="polite">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={
+                  message.role === "user"
+                    ? "ml-auto w-fit max-w-[90%] rounded-2xl bg-muted px-4 py-3"
+                    : "summary-text min-w-0 py-1"
+                }
+              >
+                <span className="sr-only">
+                  {message.role === "user" ? "You" : "Video assistant"}
+                </span>
+                {message.role === "assistant" ? (
+                  <Markdown>{message.content}</Markdown>
+                ) : (
+                  <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                    {message.content}
+                  </div>
+                )}
+              </div>
+            ))}
+            {pending && (
+              <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Thinking…
+              </p>
+            )}
+            <div ref={bottom} />
           </div>
-        ) : (
-          messages.map((message, index) => (
-            <div
-              key={index}
-              className={message.role === "user" ? "ml-8 rounded-xl bg-muted/60 px-4 py-3" : "pr-4"}
-            >
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
-                {message.role === "user" ? "You" : "Video assistant"}
+        </div>
+      </main>
+      <footer className="shrink-0 bg-background pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="sidepanel-container">
+          {error && (
+            <p role="alert" className="mb-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <form
+            className="rounded-2xl border border-border bg-card p-3 shadow-sm focus-within:border-primary/40"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void send(draft);
+            }}
+          >
+            <textarea
+              ref={textarea}
+              aria-label="Message the video assistant"
+              placeholder={
+                contextLoading
+                  ? "Loading video context…"
+                  : canChat
+                    ? "Ask about this video…"
+                    : videoReady
+                      ? "No transcript available for this video"
+                      : "Open a YouTube video to start chatting…"
+              }
+              rows={2}
+              maxLength={CHAT_PROMPT_LIMIT}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={working || contextLoading || !canChat}
+              className="block min-h-12 w-full resize-none bg-transparent px-1 py-2 text-[15px] leading-6 outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  void send(draft);
+                }
+              }}
+            />
+            <div className="mt-1 flex flex-col gap-1">
+              <div className="min-w-0 w-full">
+                <EditableCombobox
+                  value={preferences.summaryModel}
+                  onChange={(model) => updatePreferences({ summaryModel: model })}
+                  options={modelOptions}
+                  renderIcon={() => selectedModelIcon}
+                  placeholder="Choose model"
+                  inputClassName="h-9 border-0 bg-transparent text-sm shadow-none"
+                  contentClassName="max-w-[calc(100vw-2rem)]"
+                />
               </div>
-              <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {message.content}
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 gap-1.5 px-2 text-[13px]"
+                  disabled={working || !canSummarize}
+                  onClick={() => void openSummary()}
+                  title={
+                    !canSummarize
+                      ? contextLoading
+                        ? "Loading video context"
+                        : "Open a YouTube video to generate a summary"
+                      : hasSummary
+                        ? "Jump to summary"
+                        : "Generate summary"
+                  }
+                >
+                  <FileText className="h-4 w-4" />
+                  Summary
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 gap-1.5 px-2 text-[13px]"
+                  aria-label="Caption"
+                  title="Caption"
+                  disabled={working || !videoReady || preview}
+                  onClick={() => {
+                    if (busy.current) return;
+                    busy.current = true;
+                    setActionPending(true);
+                    void onCaptions()
+                      .catch((cause) => {
+                        if (active.current)
+                          setError(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Could not regenerate captions.",
+                          );
+                      })
+                      .finally(() => {
+                        busy.current = false;
+                        if (active.current) setActionPending(false);
+                      });
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Caption
+                </Button>
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                  {messages.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      disabled={pending}
+                      aria-label="Clear video chat"
+                      onClick={() => {
+                        try {
+                          sessionStorage.removeItem(storageKey);
+                        } catch {
+                          /* In-memory clearing is still available. */
+                        }
+                        setMessages([]);
+                        setError(null);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    aria-label="Send message"
+                    disabled={!draft.trim() || working || contextLoading || !canChat}
+                  >
+                    {working ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          ))
-        )}
-        {pending && (
-          <p role="status" className="text-sm text-muted-foreground">
-            Working with the video context…
+          </form>
+          <p className="mt-2 text-balance text-center text-xs text-muted-foreground">
+            {preview ? "Example preview" : "Grounded in this video"} · Shift+Enter for a new line
           </p>
-        )}
-        <div ref={bottom} />
-      </div>
-      <form
-        className="space-y-2 border-t border-border/50 p-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send(draft);
-        }}
-      >
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="flex items-end gap-2">
-          <textarea
-            aria-label="Message the video assistant"
-            placeholder="Ask about this video…"
-            rows={2}
-            maxLength={CHAT_PROMPT_LIMIT}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={pending || disabled}
-            className="min-w-0 flex-1 resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                void send(draft);
-              }
-            }}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            aria-label="Send message"
-            disabled={!draft.trim() || pending || disabled}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Answers use this video’s transcript. Shift+Enter adds a new line.
-        </p>
-      </form>
-    </Card>
+      </footer>
+    </>
   );
 }

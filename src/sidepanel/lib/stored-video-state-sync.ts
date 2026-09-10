@@ -1,3 +1,5 @@
+/** Synchronizes video content while ignoring stale reads and updates after unsubscription. */
+
 export type StorageChangeListener = (changes: Record<string, unknown>, areaName: string) => void;
 
 interface StoredVideoStateSyncOptions<State> {
@@ -18,14 +20,16 @@ export function subscribeToStoredVideoState<State>({
   onError,
 }: StoredVideoStateSyncOptions<State>): () => void {
   let active = true;
+  let sequence = 0;
 
   const syncStoredState = async () => {
+    const read = ++sequence;
     try {
       const cachedState = await loadState();
-      if (!active || !cachedState) return;
+      if (!active || read !== sequence || !cachedState) return;
       updateState(cachedState);
     } catch (error) {
-      if (active) onError?.(error);
+      if (active && read === sequence) onError?.(error);
     }
   };
 

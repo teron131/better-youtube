@@ -11,6 +11,7 @@ import {
   SUPPORTED_LANGUAGES_LIST,
   type SupportedLanguage,
 } from "@ui/services/config";
+import { modelModalities, supportsTextResponse } from "@ui/services/model-modalities";
 import {
   fetchModelSelectorMetadataIndex,
   type ModelSelectorMetadata,
@@ -84,6 +85,9 @@ type DynamicModelsCache = {
   models: AvailableModel[];
 };
 
+// Keep the last catalog available when the composer remounts for a different video.
+let dynamicModelsSnapshot: DynamicModelsCache | null = null;
+
 interface UseConfigReturn {
   config: ConfigurationResponse | null;
   summarizerModels: AvailableModel[];
@@ -125,18 +129,8 @@ function hasPaidTokenPricing(model: OpenRouterModel): boolean {
   return [inputCost, outputCost].some((price) => Number.isFinite(price) && price > 0);
 }
 
-function outputsImages(model: OpenRouterModel): boolean {
-  const outputModalities = model.architecture?.output_modalities ?? [];
-  if (outputModalities.includes("image")) {
-    return true;
-  }
-
-  const modality = model.architecture?.modality?.toLowerCase() ?? "";
-  return modality.includes("->") && modality.endsWith("image");
-}
-
 function isSupportedTextModel(model: OpenRouterModel): boolean {
-  return !outputsImages(model) && hasPaidTokenPricing(model);
+  return supportsTextResponse(modelModalities(model.architecture)) && hasPaidTokenPricing(model);
 }
 
 function availableModelFromOpenRouterModel(
@@ -154,6 +148,7 @@ function availableModelFromOpenRouterModel(
     recommended: true,
     ...modelMetadata,
     price: effectivePrice,
+    modalities: modelModalities(model.architecture),
   };
 }
 
@@ -174,6 +169,12 @@ function normalizeAvailableModel(value: unknown): AvailableModel | null {
   if (typeof record.key !== "string" || typeof record.label !== "string") {
     return null;
   }
+  const stored = record.modalities as { input?: unknown; output?: unknown } | undefined;
+  const modalities = modelModalities({
+    input_modalities: stored?.input,
+    output_modalities: stored?.output,
+  });
+  if (!supportsTextResponse(modalities)) return null;
 
   return {
     key: record.key,
@@ -183,6 +184,7 @@ function normalizeAvailableModel(value: unknown): AvailableModel | null {
     intelligenceScore: normalizeOptionalNumber(record.intelligenceScore),
     speedMetric: normalizeOptionalNumber(record.speedMetric),
     price: normalizeOptionalNumber(record.price),
+    modalities,
   };
 }
 
@@ -223,7 +225,9 @@ function isDynamicModelsCacheUsable(cache: DynamicModelsCache | null): boolean {
 }
 
 async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
-  const cachedValue = await getStorageValue<unknown>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE);
+  const cachedValue = await getStorageValue<unknown>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE).catch(
+    () => null,
+  );
   const cache = normalizeDynamicModelsCache(cachedValue);
   const cachedModels =
     cachedValue && typeof cachedValue === "object"
@@ -236,7 +240,10 @@ async function loadDynamicModelsCache(): Promise<DynamicModelsCache | null> {
     });
   }
 
-  return cache;
+  if (cache && (!dynamicModelsSnapshot || cache.fetchedAtMs > dynamicModelsSnapshot.fetchedAtMs)) {
+    dynamicModelsSnapshot = cache;
+  }
+  return dynamicModelsSnapshot;
 }
 
 async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
@@ -244,10 +251,16 @@ async function saveDynamicModelsCache(models: AvailableModel[]): Promise<void> {
     return;
   }
 
-  await setStorageValue<DynamicModelsCache>(STORAGE_KEYS.DYNAMIC_MODELS_CACHE, {
+  dynamicModelsSnapshot = {
     source: DYNAMIC_MODELS_CACHE_SOURCE,
     fetchedAtMs: Date.now(),
     models,
+  };
+  await setStorageValue<DynamicModelsCache>(
+    STORAGE_KEYS.DYNAMIC_MODELS_CACHE,
+    dynamicModelsSnapshot,
+  ).catch((error) => {
+    console.warn("Could not persist the model catalog", error);
   });
 }
 
@@ -289,10 +302,11 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
 
 async function fetchAndCacheDynamicModels(): Promise<AvailableModel[]> {
   const models = await fetchDynamicModels();
-  if (models.length > 0) {
+  if (models.some((model) => model.recommended)) {
     await saveDynamicModelsCache(models);
+    return models;
   }
-  return models;
+  return dynamicModelsSnapshot?.models.length ? dynamicModelsSnapshot.models : models;
 }
 
 function modelPriceRange(models: AvailableModel[]): {
@@ -361,7 +375,9 @@ function storageUpdatesFromPreferences(updates: Partial<UserPreferences>): Recor
 export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
   const shouldLoadDynamicModels = options.loadDynamicModels ?? true;
   const [config, setConfig] = useState<ConfigurationResponse | null>(null);
-  const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>(FALLBACK_DYNAMIC_MODELS);
+  const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>(
+    () => dynamicModelsSnapshot?.models ?? FALLBACK_DYNAMIC_MODELS,
+  );
   const [summarizerModelCostLimit, setSummarizerModelCostLimit] = useState<number>(
     DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT,
   );
@@ -394,17 +410,19 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
       }
       setError(null);
 
-      const [configuration, cachedDynamicModels] = await Promise.all([
-        api.getConfiguration().catch(() => null),
-        loadDynamicModelsCache(),
-      ]);
-
-      setConfig(configuration ?? DEFAULT_CONFIGURATION_RESPONSE);
-
-      if (isDynamicModelsCacheUsable(cachedDynamicModels)) {
+      setConfig(DEFAULT_CONFIGURATION_RESPONSE);
+      const cachedDynamicModels = await loadDynamicModelsCache();
+      if (cachedDynamicModels?.models.length) {
         setDynamicModels(cachedDynamicModels.models);
-        return;
+        setIsLoading(false);
       }
+
+      // Optional configuration must not delay showing the cached catalog.
+      void api.getConfiguration().then(
+        (configuration) => setConfig(configuration),
+        () => {},
+      );
+      if (isDynamicModelsCacheUsable(cachedDynamicModels)) return;
 
       const fetchedDynamicModels = await fetchAndCacheDynamicModels();
       if (fetchedDynamicModels.length > 0 || !hasVisibleModels) {

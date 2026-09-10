@@ -5,20 +5,17 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const USE_CONFIG_PATH = new URL("../src/sidepanel/hooks/use-config.ts", import.meta.url);
-const VIDEO_URL_FORM_PATH = new URL(
-  "../src/sidepanel/components/VideoUrlForm.tsx",
-  import.meta.url,
-);
+const VIDEO_CHAT_PATH = new URL("../src/sidepanel/components/VideoChat.tsx", import.meta.url);
 const EDITABLE_COMBOBOX_PATH = new URL(
   "../src/sidepanel/components/ui/editable-combobox.tsx",
   import.meta.url,
 );
 const SETTINGS_PATH = new URL("../src/sidepanel/pages/Settings.tsx", import.meta.url);
 
-test("sidepanel home keeps dynamic model loading gated until video context or model interaction", async () => {
-  const [useConfigSource, videoUrlFormSource, editableComboboxSource] = await Promise.all([
+test("the composer preloads models while non-model consumers can skip catalog loading", async () => {
+  const [useConfigSource, videoChatSource, editableComboboxSource] = await Promise.all([
     readFile(USE_CONFIG_PATH, "utf8"),
-    readFile(VIDEO_URL_FORM_PATH, "utf8"),
+    readFile(VIDEO_CHAT_PATH, "utf8"),
     readFile(EDITABLE_COMBOBOX_PATH, "utf8"),
   ]);
 
@@ -28,20 +25,18 @@ test("sidepanel home keeps dynamic model loading gated until video context or mo
   assert.match(useConfigSource, /setDynamicModels\(FALLBACK_DYNAMIC_MODELS\)/);
   assert.match(useConfigSource, /const isValidLanguage = useCallback/);
 
-  assert.match(videoUrlFormSource, /shouldLoadModelOptions/);
-  assert.match(videoUrlFormSource, /loadDynamicModels: shouldLoadModelOptions/);
-  assert.match(videoUrlFormSource, /onOpen=\{loadModelOptions\}/);
-  assert.match(videoUrlFormSource, /setShouldLoadModelOptions\(true\)/);
+  assert.match(videoChatSource, /useModelSelection\(\)/);
+  assert.doesNotMatch(videoChatSource, /setLoadModels/);
 
   assert.match(editableComboboxSource, /onOpen\?: \(\) => void/);
   assert.match(editableComboboxSource, /onOpen\?\.\(\)/);
 });
 
 test("model catalogs and cost filters never rewrite explicit selections", async () => {
-  const [useConfigSource, videoUrlFormSource, editableComboboxSource, settingsSource] =
+  const [useConfigSource, videoChatSource, editableComboboxSource, settingsSource] =
     await Promise.all([
       readFile(USE_CONFIG_PATH, "utf8"),
-      readFile(VIDEO_URL_FORM_PATH, "utf8"),
+      readFile(VIDEO_CHAT_PATH, "utf8"),
       readFile(EDITABLE_COMBOBOX_PATH, "utf8"),
       readFile(SETTINGS_PATH, "utf8"),
     ]);
@@ -49,7 +44,7 @@ test("model catalogs and cost filters never rewrite explicit selections", async 
   assert.match(useConfigSource, /function modelPreferenceValue/);
   assert.doesNotMatch(useConfigSource, /isValidSummarizerModel/);
   assert.doesNotMatch(useConfigSource, /isValidRefinerModel/);
-  assert.doesNotMatch(videoUrlFormSource, /resolveVisibleModelKey/);
+  assert.doesNotMatch(videoChatSource, /resolveVisibleModelKey/);
   assert.doesNotMatch(settingsSource, /resolveVisibleModelKey/);
   assert.match(editableComboboxSource, /findExactComboboxOption/);
   assert.doesNotMatch(editableComboboxSource, /optionMatchScore/);

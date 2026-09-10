@@ -16,7 +16,6 @@ import {
 } from "@/core/storage";
 import type { TranscriptFetchContext } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
-import { summaryToMarkdown } from "@/core/utils/summaryMarkdown";
 import { resolveSummarizationRoute } from "@/core/workRouter";
 
 import { generateSummary, type SummaryResult } from "./summaryGeneration";
@@ -82,7 +81,6 @@ async function broadcastStoredSummary(
   const videoInfo = await getVideoMetadata(videoId);
 
   const summary = storedSummary.summary;
-  const summaryText = videoInfo ? summaryToMarkdown(summary, videoInfo) : "";
 
   const provider = storedSummary.modelUsed?.startsWith("gemini::")
     ? "gemini"
@@ -96,7 +94,6 @@ async function broadcastStoredSummary(
     requestId,
     summary: {
       summary,
-      summaryText: summaryText,
       iterations: 0,
     },
     provider,
@@ -119,9 +116,11 @@ async function broadcastSummaryResult(
   targetLanguage: string,
   provider: "llm" | "gemini",
   requestId?: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   // Save summary to storage
-  await saveSummary(videoId, result.summary, modelSelection, targetLanguage);
+  await saveSummary(videoId, result.summary, modelSelection, targetLanguage, signal);
+  signal?.throwIfAborted();
 
   // Send result to sidepanel
   sendRuntimeMessage({
@@ -286,6 +285,7 @@ async function runSummaryJob(input: {
   } = input;
 
   try {
+    run.signal.throwIfAborted();
     const geminiKey = config.geminiApiKey;
     const llmKey = config.llmApiKey;
 
@@ -343,6 +343,7 @@ async function runSummaryJob(input: {
         requestId: run.effectiveRequestId,
       },
       config,
+      run.signal,
     );
     if (!run.isCurrent()) return;
     await broadcastSummaryResult(
@@ -354,6 +355,7 @@ async function runSummaryJob(input: {
       targetLanguage,
       finalProvider,
       run.resolveRequestId(),
+      run.signal,
     );
   } catch (error) {
     if (!run.isCurrent()) return;

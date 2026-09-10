@@ -1,9 +1,10 @@
+/** Shared class-name utilities and Traditional Chinese conversion for displayed text and captions. */
+
 import { type ClassValue, clsx } from "clsx";
 import * as OpenCC from "opencc-js";
 import { twMerge } from "tailwind-merge";
 
 import type { SubtitleSegment } from "@/core/storage";
-import type { Summary } from "@/core/types";
 
 const converterCN2TW = OpenCC.Converter({ from: "cn", to: "tw" });
 const CHINESE_CHAR_REGEX = /[\u4E00-\u9FFF]/;
@@ -49,67 +50,4 @@ export function toTraditionalChinese(subtitles: SubtitleSegment[]): SubtitleSegm
     ...segment,
     text: parts[index] ?? "",
   }));
-}
-
-/**
- * Convert summary text fields to traditional Chinese (Taiwan variant)
- * Only converts the final results that are displayed to the user
- */
-function convertSummaryChineseFieldwise(summary: Summary): Summary {
-  const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
-  return {
-    ...summary,
-    overview: s2tw(summary.overview || ""),
-    chapters: chapters.map((c) => ({
-      ...c,
-      title: s2tw(c.title || ""),
-      description: s2tw(c.description || ""),
-    })),
-  };
-}
-
-export function toChineseSummary(summary: Summary): Summary {
-  const chapters = Array.isArray(summary.chapters) ? summary.chapters : [];
-
-  const converted: Summary = {
-    ...summary,
-    overview: summary.overview || "",
-    chapters: chapters.length
-      ? chapters.map((c) => ({
-          ...c,
-          title: c.title || "",
-          description: c.description || "",
-        }))
-      : [],
-  };
-
-  const parts: string[] = [];
-  const targets: Array<{ container: any; key: string | number }> = [];
-  const pushTarget = (container: any, key: string | number, value: string | null | undefined) => {
-    parts.push(value || "");
-    targets.push({ container, key });
-  };
-
-  pushTarget(converted, "overview", converted.overview);
-
-  converted.chapters.forEach((c) => {
-    pushTarget(c, "title", c.title);
-    pushTarget(c, "description", c.description);
-  });
-
-  const separator = "\u001F";
-  const convertedText = s2tw(parts.join(separator));
-  const convertedParts = convertedText.split(separator);
-
-  if (convertedParts.length !== parts.length) {
-    return convertSummaryChineseFieldwise(summary);
-  }
-
-  convertedParts.forEach((part, index) => {
-    const target = targets[index];
-    if (!target) return;
-    target.container[target.key] = part;
-  });
-
-  return converted;
 }

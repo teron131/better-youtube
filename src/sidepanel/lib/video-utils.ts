@@ -3,7 +3,7 @@
  */
 
 import type { StreamingProgressState } from "@/core/types";
-import { extractVideoId } from "@/core/utils/url";
+import { extractVideoId, getWatchVideoId } from "@/core/utils/url";
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
 const STEP_ORDER = ["scraping", "summary_generation", "complete"] as const;
@@ -38,7 +38,7 @@ export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTab = tabs[0];
-      if (currentTab?.url?.includes("youtube.com/watch")) {
+      if (getWatchVideoId(currentTab?.url)) {
         resolve(currentTab);
       } else {
         resolve(null);

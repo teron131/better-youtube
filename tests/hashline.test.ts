@@ -1,11 +1,11 @@
-/** Verifies atomic hashline edits, snapshot checks, and JSON validation for summary artifacts. */
+/** Verifies atomic Markdown hashline edits, stale anchors, and bounded draft updates. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSummaryArtifact } from "../src/core/agent/artifact.ts";
 
-const summary = { overview: "Original", chapters: [{ title: "One", description: "Details" }] };
+const summary = "Original\n\n## One\nDetails";
 function anchor(text: string, match: string) {
   return text
     .split("\n")
@@ -13,61 +13,61 @@ function anchor(text: string, match: string) {
     .split(":", 1)[0];
 }
 
-test("hashline edits replace only the selected field and reject stale reads", () => {
+test("hashline edits replace only selected Markdown and reject stale anchors", () => {
   const artifact = createSummaryArtifact(summary);
-  const read = artifact.readHashlines();
-  const start = anchor(read.text!, '"overview"');
-  artifact.edit({
-    edits: [{ op: "replace", start, end: null, lines: ['  "overview": "Updated",'] }],
-  });
-  assert.deepEqual(artifact.read().summary, { chapters: summary.chapters, overview: "Updated" });
-  assert.equal(summary.overview, "Original");
+  const start = anchor(artifact.readHashlines().text!, "Original");
+  artifact.edit({ edits: [{ op: "replace", start, end: null, lines: ["**Updated**"] }] });
+  assert.equal(artifact.read().summary, "**Updated**\n\n## One\nDetails");
   assert.throws(
     () => artifact.edit({ edits: [{ op: "replace", start, end: null, lines: [] }] }),
-    /Stale or invalid hashline anchor/,
+    /Stale or invalid/,
   );
   assert.throws(() => artifact.write(summary), /already exists/);
 });
 
-test("invalid anchors, overlapping ranges, malformed JSON, and invalid schemas change nothing", () => {
-  const artifact = createSummaryArtifact(summary);
+test("invalid anchors, overlapping edits, and empty summaries change nothing", () => {
+  const artifact = createSummaryArtifact("Original");
   const before = artifact.readHashlines();
-  const start = anchor(before.text!, '"overview"');
-  const edit = { op: "replace" as const, start, end: null, lines: ['  "overview": "Updated",'] };
+  const edit = {
+    op: "replace" as const,
+    start: anchor(before.text!, "Original"),
+    end: null,
+    lines: ["Updated"],
+  };
   for (const edits of [
     [{ ...edit, start: "2#00000000" }],
     [edit, edit],
-    [{ ...edit, lines: ["not json"] }],
     [{ ...edit, lines: [] }],
-    [{ ...edit, lines: ['  "overview": "Updated",\n'] }],
+    [{ ...edit, lines: [" \n"] }],
+    [{ ...edit, lines: ["   "] }],
   ]) {
     assert.throws(() => artifact.edit({ edits }));
     assert.deepEqual(artifact.readHashlines(), before);
   }
 });
 
-test("insertions and range deletion use original anchors and enforce the revision budget", () => {
+test("insertion and deletion use snapshot anchors and enforce the edit budget", () => {
   const artifact = createSummaryArtifact(summary);
   let read = artifact.readHashlines();
   artifact.edit({
     edits: [
       {
         op: "insert_before",
-        start: anchor(read.text!, '"title"'),
+        start: anchor(read.text!, "## One"),
         end: null,
-        lines: ['      "startTime": "00:01",'],
+        lines: ["Start 00:01"],
       },
     ],
   });
-  assert.equal(artifact.read().summary!.chapters[0].startTime, "00:01");
+  assert.match(artifact.read().summary!, /Start 00:01/);
   read = artifact.readHashlines();
   artifact.edit({
     edits: [
       {
         op: "insert_after",
-        start: anchor(read.text!, '"startTime"'),
+        start: anchor(read.text!, "Start 00:01"),
         end: null,
-        lines: ['      "endTime": "00:10",'],
+        lines: ["End 00:10"],
       },
     ],
   });
@@ -76,16 +76,13 @@ test("insertions and range deletion use original anchors and enforce the revisio
     edits: [
       {
         op: "replace",
-        start: anchor(read.text!, '"startTime"'),
-        end: anchor(read.text!, '"endTime"'),
+        start: anchor(read.text!, "Start 00:01"),
+        end: anchor(read.text!, "End 00:10"),
         lines: [],
       },
     ],
   });
-  assert.deepEqual(artifact.read().summary, {
-    chapters: summary.chapters,
-    overview: summary.overview,
-  });
+  assert.equal(artifact.read().summary, summary);
   read = artifact.readHashlines();
   assert.throws(
     () =>
@@ -93,9 +90,9 @@ test("insertions and range deletion use original anchors and enforce the revisio
         edits: [
           {
             op: "replace",
-            start: anchor(read.text!, '"overview"'),
+            start: anchor(read.text!, "Original"),
             end: null,
-            lines: ['  "overview": "Over budget"'],
+            lines: ["Over budget"],
           },
         ],
       }),

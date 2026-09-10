@@ -65,7 +65,8 @@ export const TIMING = {
   SUMMARY_SUCCESS_DISPLAY_MS: 3000,
   CAPTION_CHECK_DELAY_MS: 500,
   TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
-  PROCESSING_TIMEOUT_MS: 2 * 60 * 1000, // 2 minutes
+  AGENT_TIMEOUT_MS: 3 * 60 * 1000,
+  PROCESSING_TIMEOUT_MS: 190_000, // Agent deadline plus message-delivery headroom.
   RETRY_BACKOFF_MULTIPLIER_MS: 1000, // Base unit for exponential backoff
   API_TIMEOUT_MS: 300000, // 5 minutes
   SCRAPING_TIMEOUT_MS: 120000, // 2 minutes
@@ -220,6 +221,7 @@ export const MESSAGE_ACTIONS = {
   FETCH_SUBTITLES: "fetchSubtitles",
   GENERATE_SUBTITLES: "generateSubtitles",
   GENERATE_SUMMARY: "generateSummary",
+  CANCEL_VIDEO_REQUEST: "cancelVideoRequest",
   SUBTITLES_GENERATED: "subtitlesGenerated",
   SUMMARY_GENERATED: "summaryGenerated",
   UPDATE_POPUP_STATUS: "updatePopupStatus",

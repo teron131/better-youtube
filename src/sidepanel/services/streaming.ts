@@ -203,7 +203,7 @@ function createSummaryListener(
       });
       settle(() =>
         reject({
-          message: "Processing timeout after 2 minutes",
+          message: "The summary request timed out. Please retry or select another model.",
           type: "processing",
         } as ApiError),
       );
@@ -309,6 +309,8 @@ export async function streamSummary(
     onProgress?.(state);
   };
   if (runId) console.log("[stream] start summary run", { runId, url });
+  let removeCancellation: (() => void) | undefined;
+  let cancelPendingWork: (() => void) | undefined;
 
   try {
     throwIfAborted(signal, runId);
@@ -367,6 +369,24 @@ export async function streamSummary(
       summarizerProvider,
       forceRegenerate: options.forceRegenerate,
     });
+    const cancelBackground = () => {
+      void sendChromeMessage({
+        action: MESSAGE_ACTIONS.CANCEL_VIDEO_REQUEST,
+        kind: "summary",
+        videoId,
+        requestId,
+      }).catch(() => {});
+    };
+    cancelPendingWork = cancelBackground;
+    signal?.addEventListener("abort", cancelBackground, { once: true });
+    removeCancellation = () => signal?.removeEventListener("abort", cancelBackground);
+    // A cancellation during background configuration loading must also reach the registered job.
+    void sendResult.then(
+      () => {
+        if (signal?.aborted) cancelBackground();
+      },
+      () => {},
+    );
 
     try {
       const startResponse = await withAbort(sendResult, signal, runId);
@@ -392,13 +412,13 @@ export async function streamSummary(
       videoInfo: normalizeVideoInfo(resultVideoInfo, url),
       transcript,
       summary: summary.summary,
-      summaryText: summary.summaryText,
       provider,
       totalTime: formatTime(),
       iterations: summary.iterations || 0,
       chunksProcessed: 0,
     };
   } catch (error) {
+    cancelPendingWork?.();
     const apiError = toApiError(error);
     emitProgress({
       step: "summarizing",
@@ -414,5 +434,7 @@ export async function streamSummary(
       chunksProcessed: 0,
       error: apiError,
     };
+  } finally {
+    removeCancellation?.();
   }
 }

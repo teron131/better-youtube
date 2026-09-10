@@ -4,12 +4,11 @@
 
 import { Button } from "@ui/components/ui/button";
 import { Card } from "@ui/components/ui/card";
-import type { ApiError, StreamingProgressState } from "@ui/services/types";
+import type { ApiError } from "@ui/services/types";
 import { AlertCircle } from "lucide-react";
 
 interface ErrorDisplayProps {
   error: ApiError;
-  progressStates: StreamingProgressState[];
   onLoadExample: () => void;
 }
 
@@ -20,13 +19,7 @@ const getErrorTypeStyle = (type: string) => {
   return "border-border/60 bg-muted/40 text-foreground";
 };
 
-const getStatusColor = (status: string) => {
-  if (status === "completed") return "bg-green-500";
-  if (status === "error") return "bg-primary";
-  return "bg-yellow-500";
-};
-
-export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisplayProps) {
+export function ErrorDisplay({ error, onLoadExample }: ErrorDisplayProps) {
   const hasGeminiIssue = error.message.includes("GEMINI_API_KEY");
 
   return (
@@ -51,25 +44,6 @@ export function ErrorDisplay({ error, progressStates, onLoadExample }: ErrorDisp
             <div className="bg-muted/30 rounded-lg p-3 mb-3">
               <p className="text-base text-muted-foreground mb-1">Technical Details:</p>
               <p className="text-xs font-mono text-foreground break-all">{error.details}</p>
-            </div>
-          )}
-
-          {progressStates.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h4 className="font-semibold text-base">Progress Details:</h4>
-              <div className="bg-muted/30 rounded-lg p-4 max-h-48 overflow-y-auto">
-                {progressStates.map((state) => (
-                  <div
-                    key={`${state.status}-${state.step}-${state.message}`}
-                    className="text-base text-foreground font-mono mb-2"
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusColor(state.status)}`}
-                    />
-                    Step {state.step}: {state.message}
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 

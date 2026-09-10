@@ -1,5 +1,6 @@
 /** Owns loading, editing, and persistence for Better YouTube settings. */
 
+import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { useModelSelection } from "@ui/hooks/use-config";
@@ -17,9 +18,8 @@ import { applySummaryFontSize } from "../lib/font-size";
 import { clampModelCostLimit, modelCostLimitBounds } from "./settings/modelCostLimit";
 import {
   ApiConfigurationSection,
-  AppearanceSettingsSection,
-  GenerationSettingsSection,
   ModelConfigurationSection,
+  ReadingSettingsSection,
   SettingsLoadingView,
   SettingsTopbar,
   StorageSettingsSection,
@@ -382,11 +382,11 @@ const Settings = () => {
   }
 
   return (
-    <div className="app-shell pb-10">
+    <div className="app-shell settings-page pb-8">
       <SettingsTopbar />
 
-      <div className="sidepanel-container pt-24">
-        <div className="grid grid-cols-1 gap-8 fade-in-up stagger-1">
+      <div className="sidepanel-container py-6">
+        <div className="grid min-w-0 grid-cols-1 gap-6">
           <ApiConfigurationSection
             settings={settings}
             onChange={handleChange}
@@ -400,8 +400,8 @@ const Settings = () => {
             renderModelCostLimitControl={renderModelCostLimitControl}
             onChange={handleChange}
           />
-          <GenerationSettingsSection settings={settings} onChange={handleChange} />
-          <AppearanceSettingsSection settings={settings} onChange={handleChange} />
+          <ReadingSettingsSection settings={settings} onChange={handleChange} />
+          <RecommendationFilterSettings />
           <StorageSettingsSection
             isClearingStorage={isClearingStorage}
             onClearStoredData={() => {

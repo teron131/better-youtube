@@ -28,15 +28,13 @@ test("skill metadata and instructions come from the Markdown files", () => {
     SKILLS.map((skill) => skill.name),
     ["summary", "questions"],
   );
-  assert.match(SKILLS[0].description, /chronological chapters/);
-  assert.match(SKILLS[0].content, /write_summary/);
+  assert.match(SKILLS[0].description, /Markdown summary/);
+  assert.match(SKILLS[0].content, /natural Markdown/);
   assert.match(SKILLS[1].content, /Do not update the summary unless the user asks/);
 });
 
-const summary = {
-  overview: "Solar panels convert sunlight to electricity.",
-  chapters: [{ title: "Conversion", description: "The speaker explains photovoltaic cells." }],
-};
+const summary =
+  "Solar panels convert sunlight to electricity.\n\nThe speaker explains photovoltaic cells.";
 const config = {
   llmApiKey: "test-key",
   llmBaseUrl: "https://test.invalid/v1",
@@ -53,14 +51,11 @@ const input = {
 
 test("agent creates, reads, and hashline-edits its artifact, then answers without editing", async () => {
   const originalFetch = globalThis.fetch;
-  const editedSummary = {
-    ...summary,
-    overview: "Photovoltaic cells convert sunlight to electricity.",
-  };
+  const editedSummary = summary.replace("Solar panels", "Photovoltaic cells");
   const requests: any[] = [];
   const scripted: Array<{ tool?: string; args?: unknown; text?: string }> = [
     { tool: "read_skill", args: { name: "summary" } },
-    { tool: "write_summary", args: summary },
+    { tool: "write_summary", args: { text: summary } },
     { tool: "read_summary", args: {} },
     { tool: "edit_summary" },
     { text: "The summary is ready." },
@@ -76,7 +71,7 @@ test("agent creates, reads, and hashline-edits its artifact, then answers withou
       const read = JSON.parse(request.messages.at(-1).content);
       const start = read.text
         .split("\n")
-        .find((line: string) => line.includes('"overview"'))
+        .find((line: string) => line.includes("Solar panels"))
         .split(":", 1)[0];
       step.args = {
         edits: [
@@ -84,7 +79,7 @@ test("agent creates, reads, and hashline-edits its artifact, then answers withou
             op: "replace",
             start,
             end: null,
-            lines: [`  "overview": ${JSON.stringify(editedSummary.overview)}`],
+            lines: [editedSummary.split("\n")[0]],
           },
         ],
       };
@@ -140,16 +135,15 @@ test("agent creates, reads, and hashline-edits its artifact, then answers withou
   }
 });
 
-test("artifact creation validates structure and exposes copies of the summary", () => {
-  const original = structuredClone(summary);
+test("artifact creation accepts Markdown text without a structural schema", () => {
   const artifact = createSummaryArtifact(null);
   assert.throws(() => artifact.write({ overview: "Missing chapters" }));
   assert.equal(artifact.read().changed, false);
-  artifact.write({ ...summary, overview: "Edited" });
-  assert.deepEqual(original, summary);
+  assert.throws(() => artifact.write("  \n"));
+  artifact.write("**Edited** with $x^2$.");
   const snapshot = artifact.read();
-  snapshot.summary!.overview = "External mutation";
-  assert.equal(artifact.read().summary!.overview, "Edited");
+  snapshot.summary = "External mutation";
+  assert.equal(artifact.read().summary, "**Edited** with $x^2$.");
   assert.throws(() => artifact.write(summary), /already exists/);
 });
 
@@ -159,7 +153,7 @@ test("a failed model continuation discards the run's draft changes", async () =>
   const snapshot = createSummaryArtifact(initial).readHashlines();
   const start = snapshot
     .text!.split("\n")
-    .find((line) => line.includes('"overview"'))!
+    .find((line) => line.includes("Solar panels"))!
     .split(":", 1)[0];
   let calls = 0;
   globalThis.fetch = async () => {
@@ -193,7 +187,7 @@ test("a failed model continuation discards the run's draft changes", async () =>
                         op: "replace",
                         start,
                         end: null,
-                        lines: ['  "overview": "Uncommitted edit",'],
+                        lines: ["Uncommitted edit"],
                       },
                     ],
                   }),
@@ -211,6 +205,128 @@ test("a failed model continuation discards the run's draft changes", async () =>
     );
     assert.deepEqual(initial, summary);
     assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("native Gemini returns Markdown directly without imposing a response schema", async () => {
+  const { summarizeGemini } = await import("../src/background/nativeSummary.ts");
+  const originalFetch = globalThis.fetch;
+  let body: any;
+  globalThis.fetch = async (input, init) => {
+    body = input instanceof Request ? await input.clone().json() : JSON.parse(String(init?.body));
+    return Response.json({
+      candidates: [
+        {
+          content: { role: "model", parts: [{ text: "A **plain Markdown** summary with $x^2$." }] },
+          finishReason: "STOP",
+        },
+      ],
+    });
+  };
+  try {
+    const result = await summarizeGemini(
+      { kind: "transcript", transcript: "Source" },
+      { model: "gemini-test" },
+      { geminiApiKey: "test-key" },
+    );
+    assert.equal(result.summary, "A **plain Markdown** summary with $x^2$.");
+    assert.equal(body.generationConfig.responseMimeType, undefined);
+    assert.equal(body.generationConfig.responseJsonSchema, undefined);
+    assert.match(JSON.stringify(body.contents), /Markdown/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a completed summary remains usable when the final model message is empty", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return Response.json({
+      id: `empty-final-${calls}`,
+      object: "chat.completion",
+      created: 1,
+      model: "test-model",
+      choices: [
+        {
+          index: 0,
+          finish_reason: calls === 1 ? "tool_calls" : "stop",
+          message:
+            calls === 1
+              ? {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: "draft",
+                      type: "function",
+                      function: {
+                        name: "write_summary",
+                        arguments: JSON.stringify({ text: summary }),
+                      },
+                    },
+                  ],
+                }
+              : { role: "assistant", content: "" },
+        },
+      ],
+    });
+  };
+  try {
+    const result = await runAgent(input, config);
+    assert.equal(result.summary, summary);
+    assert.equal(result.reply, summary);
+    assert.equal(result.summaryChanged, true);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("an empty response without an artifact change still fails", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({
+      id: "empty",
+      object: "chat.completion",
+      created: 1,
+      model: "test-model",
+      choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "" } }],
+    });
+  try {
+    await assert.rejects(runAgent({ ...input, summary }, config), /returned no answer/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("summary requests preload their skill and accept a direct Markdown response", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    const request = JSON.parse(String(init?.body));
+    assert.match(request.messages[0].content, /Summary skill \(already loaded\)/);
+    assert.equal(request.tools?.length ?? 0, 0);
+    assert.doesNotMatch(request.messages[0].content, /write_summary|read_summary|edit_summary/);
+    return Response.json({
+      id: "direct",
+      object: "chat.completion",
+      created: 1,
+      model: "test-model",
+      choices: [
+        { index: 0, finish_reason: "stop", message: { role: "assistant", content: summary } },
+      ],
+    });
+  };
+  try {
+    const result = await runAgent({ ...input, task: "summary" }, config);
+    assert.equal(result.summary, summary);
+    assert.equal(result.summaryChanged, true);
+    assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }

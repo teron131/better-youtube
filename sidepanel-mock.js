@@ -1,5 +1,34 @@
-// Mock chrome extension APIs for browser preview
+/** Preview-only extension APIs; settings and model catalogs persist in localStorage across reloads. */
+
 if (typeof chrome === "undefined" || !chrome.runtime) {
+  const storageKey = "better-youtube-preview-storage";
+  const storageListeners = new Set();
+  const readStorage = () => JSON.parse(localStorage.getItem(storageKey) || "{}");
+  const selectKeys = (items, keys) => {
+    if (keys == null) return { ...items };
+    const names =
+      typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys);
+    const result = Array.isArray(keys) || typeof keys === "string" ? {} : { ...keys };
+    for (const key of names) if (key in items) result[key] = items[key];
+    return result;
+  };
+  const respond = (callback, operation) => {
+    let result;
+    try {
+      result = operation();
+    } catch (error) {
+      chrome.runtime.lastError = { message: String(error) };
+    }
+    try {
+      callback?.(result);
+    } finally {
+      chrome.runtime.lastError = null;
+    }
+  };
+  const notify = (changes) => {
+    if (Object.keys(changes).length)
+      storageListeners.forEach((listener) => listener(changes, "local"));
+  };
   window.chrome = {
     runtime: {
       lastError: null,
@@ -19,22 +48,49 @@ if (typeof chrome === "undefined" || !chrome.runtime) {
     storage: {
       local: {
         get: (keys, cb) => {
-          console.log("Mock storage.get:", keys);
-          cb({});
+          respond(
+            (value) => cb(value ?? {}),
+            () => selectKeys(readStorage(), keys),
+          );
         },
         set: (items, cb) => {
-          console.log("Mock storage.set:", items);
-          if (cb) cb();
+          let changes = {};
+          respond(cb, () => {
+            const previous = readStorage();
+            localStorage.setItem(storageKey, JSON.stringify({ ...previous, ...items }));
+            changes = Object.fromEntries(
+              Object.entries(items)
+                .filter(([key, value]) => JSON.stringify(previous[key]) !== JSON.stringify(value))
+                .map(([key, newValue]) => [key, { oldValue: previous[key], newValue }]),
+            );
+          });
+          notify(changes);
         },
         remove: (keys, cb) => {
-          console.log("Mock storage.remove:", keys);
-          if (cb) cb();
+          let changes = {};
+          respond(cb, () => {
+            const previous = readStorage();
+            const next = { ...previous };
+            const names = typeof keys === "string" ? [keys] : keys;
+            for (const key of names) delete next[key];
+            localStorage.setItem(storageKey, JSON.stringify(next));
+            changes = Object.fromEntries(
+              names
+                .filter((key) => key in previous)
+                .map((key) => [key, { oldValue: previous[key] }]),
+            );
+          });
+          notify(changes);
         },
-        getBytesInUse: (_keys, cb) => cb(0),
+        getBytesInUse: (keys, cb) =>
+          respond(
+            cb,
+            () => new TextEncoder().encode(JSON.stringify(selectKeys(readStorage(), keys))).length,
+          ),
       },
       onChanged: {
-        addListener: () => console.log("Mock storage.onChanged.addListener"),
-        removeListener: () => console.log("Mock storage.onChanged.removeListener"),
+        addListener: (listener) => storageListeners.add(listener),
+        removeListener: (listener) => storageListeners.delete(listener),
       },
     },
     tabs: {

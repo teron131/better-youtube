@@ -14,6 +14,11 @@ import Settings from "./pages/Settings";
 
 function AppRoutes() {
   const [path, setPath] = useState(getCurrentSidepanelPath);
+  const [visitedHome, setVisitedHome] = useState(() => path === "/");
+
+  useEffect(() => {
+    if (path === "/") setVisitedHome(true);
+  }, [path]);
 
   useEffect(() => {
     const updatePath = () => {
@@ -29,14 +34,18 @@ function AppRoutes() {
     };
   }, []);
 
-  switch (path) {
-    case "/settings":
-      return <Settings />;
-    case "/":
-      return <Index />;
-    default:
-      return <NotFound path={path} />;
-  }
+  // Internal navigation hides the workspace; video navigation and panel closure still own cancellation.
+  return (
+    <>
+      {(visitedHome || path === "/") && (
+        <div hidden={path !== "/"}>
+          <Index />
+        </div>
+      )}
+      {path === "/settings" && <Settings />}
+      {path !== "/" && path !== "/settings" && <NotFound path={path} />}
+    </>
+  );
 }
 
 const App = () => {

@@ -58,3 +58,31 @@ test("only relevant local storage changes trigger a sync", async () => {
     { transcript: "refined transcript" },
   ]);
 });
+
+test("a late cache read cannot overwrite a newer saved result", async () => {
+  const updates: string[] = [];
+  let listener!: (changes: Record<string, unknown>, area: string) => void;
+  let first!: (state: string) => void;
+  let second!: (state: string) => void;
+  let calls = 0;
+  const cleanup = subscribeToStoredVideoState({
+    relevantKeys: new Set(["summary"]),
+    loadState: () =>
+      new Promise<string>((resolve) => {
+        if (++calls === 1) first = resolve;
+        else second = resolve;
+      }),
+    updateState: (state) => updates.push(state),
+    addStorageListener: (fn) => {
+      listener = fn;
+    },
+    removeStorageListener: () => {},
+  });
+  listener({ summary: {} }, "local");
+  second("New summary");
+  await Promise.resolve();
+  first("Old metadata-only state");
+  await Promise.resolve();
+  assert.deepEqual(updates, ["New summary"]);
+  cleanup();
+});
