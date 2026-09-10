@@ -2,15 +2,15 @@
 
 Chrome MV3 extension for YouTube transcript extraction, caption refinement, grounded AI summaries, and recommendation filtering.
 
-![UI Demo](static/ui.png)
+![Terence Tao video with captions, transcript, and the GPT-5.6 Luna side panel](static/ui.png)
 
 <p align="center">
-  <img src="static/ui1.png" alt="ui1" width="49.5%" />
-  <img src="static/ui2.png" alt="ui2" width="49.5%" />
+  <img src="static/ui1.png" alt="Jensen Huang interview with the video summary and GPT-5.6 Luna composer" width="49.5%" />
+  <img src="static/ui2.png" alt="Markdown summary with copy and regeneration controls" width="49.5%" />
 </p>
 <p align="center">
-  <img src="static/ui3.png" alt="ui3" width="49.5%" />
-  <img src="static/ui4.png" alt="ui4" width="49.5%" />
+  <img src="static/ui3.png" alt="Connection and model settings with GPT-5.6 Luna selected" width="49.5%" />
+  <img src="static/ui4.png" alt="Expanded recommendation filters" width="49.5%" />
 </p>
 
 ## What It Does
@@ -24,8 +24,17 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 
 ## Transcript Sources
 
-The extension reads captions and metadata from the active YouTube tab and reuses cached transcripts when available.
-Native Gemini summaries can also use the video URL directly.
+Better YouTube reads captions from the video open in your browser, using the existing YouTube session.
+Standalone fetchers can run into anti-bot checks, while Gemini's direct YouTube support has been unreliable on long videos in our testing.
+
+| Approach | How it works | Trade-off |
+| --- | --- | --- |
+| **Active YouTube tab — default** | Reads captions from the watch page in your current browser session. | Avoids a separate fetcher's anti-bot hurdles, but requires the video to be open and captions to be available. |
+| **Local fetching tools** | Uses tools such as yt-dlp to retrieve captions or download audio; FFmpeg handles audio conversion when speech-to-text is needed. | Requires local tools and potentially a transcription model or service. YouTube may block or rate-limit the download requests. |
+| **Paid transcript API** | Sends the video URL to a hosted service that handles retrieval or transcription. | Avoids maintaining local fetching tools, but adds API costs, quotas, and dependence on the provider's coverage and reliability. |
+| **Gemini native video input** | Sends the YouTube URL directly to Gemini for analysis. | Can use both audio and visuals, but in our testing, videos around an hour or longer have sometimes failed silently, returning no usable summary. |
+
+The long-video caveat applies to Gemini's direct URL input; it is an observed reliability issue, not a fixed duration limit for transcript-based summaries.
 Follow-up chat requires a transcript and a configured OpenAI-compatible API key.
 
 ## How It Works
