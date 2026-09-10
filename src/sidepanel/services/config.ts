@@ -9,7 +9,7 @@ import { DEFAULTS } from "@/core/constants";
 // ================================
 
 export const DEFAULT_SUMMARY_MODEL = DEFAULTS.MODEL_SUMMARIZER;
-export const DEFAULT_QUALITY_MODEL = DEFAULTS.MODEL_REFINER;
+export const DEFAULT_REFINER_MODEL = DEFAULTS.MODEL_REFINER;
 
 // ================================
 // LANGUAGE CONFIGURATION

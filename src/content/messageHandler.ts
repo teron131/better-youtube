@@ -100,8 +100,6 @@ function handleGenerateSummary(message: any, sendResponse: (response: any) => vo
     requestId,
     modelSelection: message.modelSelection,
     targetLanguage: message.targetLanguage,
-    qualityModel: message.qualityModel,
-    summarizerMode: message.summarizerMode,
   }).catch((error) => {
     console.error("Error sending generate summary message:", error.message);
   });

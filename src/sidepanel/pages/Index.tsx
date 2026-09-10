@@ -8,6 +8,7 @@ import { ProcessingStatus } from "@ui/components/ProcessingStatus";
 import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
 import { Button } from "@ui/components/ui/button";
+import { VideoChat } from "@ui/components/VideoChat";
 import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoProcessing, type VideoProcessingOptions } from "@ui/hooks/use-video-processing";
@@ -403,6 +404,12 @@ const Index = () => {
     });
   }, [updateState]);
 
+  useEffect(() => {
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("example") === "1") {
+      loadExample();
+    }
+  }, [loadExample]);
+
   const resolveVideoUrl = async (url: string): Promise<string | null> => {
     const trimmed = url.trim();
     if (trimmed) return trimmed;
@@ -662,11 +669,21 @@ const Index = () => {
             {summaryResult?.summary && (
               <SummaryPanel
                 summary={summaryResult.summary}
-                quality={summaryResult.quality}
                 videoInfo={summaryResult.videoInfo}
                 provider={summaryResult.provider}
                 onRegenerate={isExampleMode ? undefined : handleRegenerate}
                 isRegenerating={isLoading}
+              />
+            )}
+
+            {((activeVideoId && transcript) || isExampleMode) && (
+              <VideoChat
+                key={isExampleMode ? "example" : activeVideoId}
+                videoId={isExampleMode ? "MiUHjLxm3V0" : activeVideoId}
+                transcript={transcript || ""}
+                model={lastOptions?.summaryModel}
+                disabled={isLoading}
+                preview={isExampleMode}
               />
             )}
 

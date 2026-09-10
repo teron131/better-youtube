@@ -6,13 +6,7 @@ import type { StreamingProgressState } from "@/core/types";
 import { extractVideoId } from "@/core/utils/url";
 
 const VIDEO_ID_REGEX = /^[\w-]{11}$/;
-const STEP_ORDER = [
-  "scraping",
-  "summary_generation",
-  "quality_check",
-  "refinement",
-  "complete",
-] as const;
+const STEP_ORDER = ["scraping", "summary_generation", "complete"] as const;
 type NormalizedStep = (typeof STEP_ORDER)[number];
 
 export const PROGRESS_STEPS = [
@@ -24,17 +18,7 @@ export const PROGRESS_STEPS = [
   {
     step: "summary_generation",
     name: "Summary Generation",
-    description: "Generating initial AI summary with Gemini model",
-  },
-  {
-    step: "quality_check",
-    name: "Quality Assessment",
-    description: "Evaluating summary quality and completeness",
-  },
-  {
-    step: "refinement",
-    name: "Summary Refinement",
-    description: "Refining summary based on quality feedback",
+    description: "Generating the video summary",
   },
   {
     step: "complete",
@@ -105,12 +89,4 @@ export function sortProgressStates(states: StreamingProgressState[]): StreamingP
     const stepB = normalizeStepName(b.step);
     return STEP_ORDER.indexOf(stepA) - STEP_ORDER.indexOf(stepB);
   });
-}
-
-/**
- * Get stage text from anchor index
- */
-export function getStageText(anchor: number): string {
-  const stages = ["Initializing", "Scraping", "Summarizing", "Quality Check", "Complete"];
-  return stages[anchor] || "Processing";
 }

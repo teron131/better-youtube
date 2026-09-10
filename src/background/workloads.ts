@@ -1,5 +1,5 @@
 /**
- * Owns request identity, current-work guards, and pending-job dedupe for video workflows.
+ * Owns request identity, current-work guards, and pending-job dedupe for background video workflows.
  */
 
 interface VideoWorkloadLifecycleInput {
@@ -78,10 +78,13 @@ export class VideoWorkloadLifecycle {
   ): Promise<"ran" | "joined"> {
     const pendingJob = this.pendingJobs.get(workloadKey);
     if (pendingJob) {
-      onJoin?.();
-      await pendingJob;
-      this.finalize(videoId, requestId);
-      return "joined";
+      try {
+        onJoin?.();
+        await pendingJob;
+        return "joined";
+      } finally {
+        this.finalize(videoId, requestId);
+      }
     }
 
     try {

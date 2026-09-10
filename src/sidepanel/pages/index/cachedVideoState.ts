@@ -8,7 +8,6 @@ import {
   getVideoMetadata,
   getVideoMetadataStorageKey,
 } from "@/core/storage";
-import type { QualityData } from "@/core/types";
 import { extractVideoId } from "@/core/utils/url";
 
 export type CachedVideoState = Partial<VideoProcessingState>;
@@ -79,7 +78,6 @@ export async function loadCachedVideoState(videoId: string): Promise<CachedVideo
     summaryResult: {
       success: true,
       summary: storedSummary.summary,
-      quality: (storedSummary.quality as unknown as QualityData) ?? undefined,
       videoInfo: storedVideoInfo ?? undefined,
       transcript: transcript ?? undefined,
       provider: resolveSummaryProvider(storedSummary.modelUsed),

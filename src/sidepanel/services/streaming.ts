@@ -293,7 +293,6 @@ export async function streamSummary(
   url: string,
   options: {
     summaryModel?: string;
-    qualityModel?: string;
     targetLanguage?: string | null;
     transcript?: string;
     forceRegenerate?: boolean;
@@ -317,14 +316,8 @@ export async function streamSummary(
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error("Invalid YouTube URL");
 
-    const {
-      summarizerModel,
-      refinerModel,
-      targetLanguage,
-      showSubtitles,
-      summarizerProvider,
-      summarizerMode,
-    } = await withAbort(loadConfig(), signal, runId);
+    const { summarizerModel, refinerModel, targetLanguage, showSubtitles, summarizerProvider } =
+      await withAbort(loadConfig(), signal, runId);
     throwIfAborted(signal, runId);
     const activeTab = await withAbort(getCurrentTab(), signal, runId);
     const activeTabId = activeTab?.id;
@@ -370,11 +363,8 @@ export async function streamSummary(
       requestId,
       transcript: options.transcript,
       modelSelection: options.summaryModel ?? summarizerModel,
-      qualityModel: options.qualityModel,
-      refinerModel,
       targetLanguage: options.targetLanguage ?? targetLanguage,
       summarizerProvider,
-      summarizerMode,
       forceRegenerate: options.forceRegenerate,
     });
 
@@ -402,9 +392,7 @@ export async function streamSummary(
       videoInfo: normalizeVideoInfo(resultVideoInfo, url),
       transcript,
       summary: summary.summary,
-      quality: summary.quality,
       summaryText: summary.summaryText,
-      qualityScore: summary.qualityScore,
       provider,
       totalTime: formatTime(),
       iterations: summary.iterations || 0,

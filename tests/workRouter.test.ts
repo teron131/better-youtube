@@ -6,20 +6,17 @@ import { resolveSummarizationRoute } from "../src/core/workRouter.ts";
 test("auto route prioritizes LLM when both keys are available", () => {
   const route = resolveSummarizationRoute({
     requestedProvider: "auto",
-    requestedMode: "validation",
     summarizerModel: "google/gemini-3-flash",
     hasGeminiKey: true,
     hasLlmKey: true,
   });
 
   assert.equal(route.provider, "llm");
-  assert.equal(route.llmMode, "react");
 });
 
 test("auto route falls back to Gemini when LLM is unavailable", () => {
   const route = resolveSummarizationRoute({
     requestedProvider: "auto",
-    requestedMode: "validation",
     summarizerModel: "google/gemini-3-flash",
     hasGeminiKey: true,
     hasLlmKey: false,
@@ -28,44 +25,48 @@ test("auto route falls back to Gemini when LLM is unavailable", () => {
   assert.equal(route.provider, "gemini");
 });
 
-test("native mode with auto still prioritizes LLM when both keys are available", () => {
+test("auto route rejects missing provider keys", () => {
+  assert.throws(
+    () =>
+      resolveSummarizationRoute({
+        requestedProvider: "auto",
+        summarizerModel: "google/gemini-3-flash",
+        hasGeminiKey: false,
+        hasLlmKey: false,
+      }),
+    /No valid summarizer provider/,
+  );
+});
+
+test("explicit Gemini falls back to LLM for a non-Gemini model", () => {
   const route = resolveSummarizationRoute({
-    requestedProvider: "auto",
-    requestedMode: "native",
-    summarizerModel: "google/gemini-3-flash",
+    requestedProvider: "gemini",
+    summarizerModel: "openai/example",
     hasGeminiKey: true,
     hasLlmKey: true,
   });
 
   assert.equal(route.provider, "llm");
-  assert.equal(route.modePreference, "validation");
-  assert.equal(route.llmMode, "react");
 });
 
-test("native mode stays native for explicit Gemini provider", () => {
+test("explicit Gemini provider takes precedence when usable", () => {
   const route = resolveSummarizationRoute({
     requestedProvider: "gemini",
-    requestedMode: "native",
     summarizerModel: "google/gemini-3-flash",
     hasGeminiKey: true,
     hasLlmKey: true,
   });
 
   assert.equal(route.provider, "gemini");
-  assert.equal(route.modePreference, "native");
-  assert.equal(route.llmMode, undefined);
 });
 
-test("explicit LLM provider is not overridden by native mode", () => {
+test("explicit LLM provider takes precedence when usable", () => {
   const route = resolveSummarizationRoute({
     requestedProvider: "llm",
-    requestedMode: "native",
     summarizerModel: "google/gemini-3-flash",
     hasGeminiKey: true,
     hasLlmKey: true,
   });
 
   assert.equal(route.provider, "llm");
-  assert.equal(route.modePreference, "validation");
-  assert.equal(route.llmMode, "react");
 });

@@ -35,14 +35,9 @@ export function isFormValid(url: string): boolean {
 /**
  * Prepare processing options for API
  */
-export function prepareProcessingOptions(
-  targetLanguage: string,
-  summaryModel: string,
-  qualityModel: string,
-) {
+export function prepareProcessingOptions(targetLanguage: string, summaryModel: string) {
   return {
     summaryModel,
-    qualityModel,
     ...(targetLanguage !== "auto" && { targetLanguage }),
   };
 }

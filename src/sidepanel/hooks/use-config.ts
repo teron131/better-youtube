@@ -4,7 +4,7 @@ import { sortModelsByRankKey } from "@ui/lib/model-sort";
 import { api } from "@ui/services/api";
 import {
   type AvailableModel,
-  DEFAULT_QUALITY_MODEL,
+  DEFAULT_REFINER_MODEL,
   DEFAULT_SUMMARY_MODEL,
   DEFAULT_TARGET_LANGUAGE,
   SUPPORTED_LANGUAGES,
@@ -33,7 +33,6 @@ const DEFAULT_CONFIGURATION_RESPONSE: ConfigurationResponse = {
   available_models: {},
   supported_languages: SUPPORTED_LANGUAGES,
   default_summary_model: DEFAULT_SUMMARY_MODEL,
-  default_quality_model: DEFAULT_QUALITY_MODEL,
   default_target_language: DEFAULT_TARGET_LANGUAGE,
 };
 
@@ -42,8 +41,6 @@ const USER_PREFERENCE_STORAGE_KEYS = [
   STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
   STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
   STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
-  STORAGE_KEYS.SUMMARIZER_MODE,
-  STORAGE_KEYS.QUALITY_MODEL,
 ] as const;
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
@@ -65,7 +62,7 @@ type OpenRouterModel = {
 };
 
 const FALLBACK_DYNAMIC_MODELS: AvailableModel[] = [
-  ...new Set([DEFAULT_SUMMARY_MODEL, DEFAULT_QUALITY_MODEL]),
+  ...new Set([DEFAULT_SUMMARY_MODEL, DEFAULT_REFINER_MODEL]),
 ]
   .filter((modelKey) => !isBatchModelVariant(modelKey))
   .map((modelKey) => {
@@ -116,10 +113,6 @@ type UserPreferenceStorageResult = Record<string, unknown>;
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
-}
-
-function summarizerModeValue(value: unknown): UserPreferences["summarizerMode"] | undefined {
-  return value === "native" || value === "validation" || value === "fast" ? value : undefined;
 }
 
 function modelPreferenceValue(value: unknown, fallback: string): string {
@@ -349,8 +342,6 @@ function storagePreferences(result: UserPreferenceStorageResult): Partial<UserPr
     targetLanguage:
       stringValue(result[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM]) ||
       stringValue(result[STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED]),
-    summarizerMode: summarizerModeValue(result[STORAGE_KEYS.SUMMARIZER_MODE]),
-    qualityModel: stringValue(result[STORAGE_KEYS.QUALITY_MODEL]),
   };
 }
 
@@ -362,12 +353,6 @@ function storageUpdatesFromPreferences(updates: Partial<UserPreferences>): Recor
   }
   if (updates.targetLanguage) {
     storageUpdates[STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM] = updates.targetLanguage;
-  }
-  if (updates.summarizerMode) {
-    storageUpdates[STORAGE_KEYS.SUMMARIZER_MODE] = updates.summarizerMode;
-  }
-  if (updates.qualityModel) {
-    storageUpdates[STORAGE_KEYS.QUALITY_MODEL] = updates.qualityModel;
   }
 
   return storageUpdates;
@@ -472,15 +457,13 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
     };
   }, []);
 
-  const enrichedModels = useMemo(() => dynamicModels, [dynamicModels]);
-
   const allSummarizerModels = useMemo(
-    () => sortModelsByRankKey(enrichedModels, "intelligenceScore"),
-    [enrichedModels],
+    () => sortModelsByRankKey(dynamicModels, "intelligenceScore"),
+    [dynamicModels],
   );
   const allRefinerModels = useMemo(
-    () => sortModelsByRankKey(enrichedModels, "speedMetric"),
-    [enrichedModels],
+    () => sortModelsByRankKey(dynamicModels, "speedMetric"),
+    [dynamicModels],
   );
   const summarizerModelPriceRange = useMemo(
     () => modelPriceRange(allSummarizerModels),
@@ -558,16 +541,12 @@ export function useLanguageSelection(options: UseConfigOptions = {}) {
 
 interface UserPreferences {
   summaryModel: string;
-  qualityModel: string;
   targetLanguage: string;
-  summarizerMode: "native" | "validation" | "fast";
 }
 
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   summaryModel: DEFAULT_SUMMARY_MODEL,
-  qualityModel: DEFAULT_QUALITY_MODEL,
   targetLanguage: DEFAULT_TARGET_LANGUAGE || "auto",
-  summarizerMode: "validation",
 };
 
 export function useUserPreferences(options: UseConfigOptions = {}) {
@@ -582,20 +561,10 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
           prefs.summaryModel,
           DEFAULT_USER_PREFERENCES.summaryModel,
         ),
-        qualityModel: modelPreferenceValue(
-          prefs.qualityModel,
-          DEFAULT_USER_PREFERENCES.qualityModel,
-        ),
         targetLanguage:
           prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
             ? prefs.targetLanguage
             : DEFAULT_USER_PREFERENCES.targetLanguage,
-        summarizerMode:
-          prefs.summarizerMode === "native" ||
-          prefs.summarizerMode === "validation" ||
-          prefs.summarizerMode === "fast"
-            ? prefs.summarizerMode
-            : DEFAULT_USER_PREFERENCES.summarizerMode,
       };
     },
     [isValidLanguage],
@@ -641,14 +610,6 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
             ),
           }
         : {}),
-      ...(updates.qualityModel !== undefined
-        ? {
-            qualityModel: modelPreferenceValue(
-              updates.qualityModel,
-              DEFAULT_USER_PREFERENCES.qualityModel,
-            ),
-          }
-        : {}),
     };
     setPreferences((currentPreferences) => ({ ...currentPreferences, ...normalizedUpdates }));
 
@@ -668,8 +629,6 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
     chrome.storage.local.remove([
       STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
       STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-      STORAGE_KEYS.SUMMARIZER_MODE,
-      STORAGE_KEYS.QUALITY_MODEL,
     ]);
   };
 

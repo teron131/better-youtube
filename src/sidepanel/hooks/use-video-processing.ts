@@ -15,7 +15,6 @@ import { streamSummary } from "@/sidepanel/services/streaming";
 
 export interface VideoProcessingOptions {
   summaryModel?: string;
-  qualityModel?: string;
   targetLanguage?: string;
   transcript?: string;
   forceRegenerate?: boolean;

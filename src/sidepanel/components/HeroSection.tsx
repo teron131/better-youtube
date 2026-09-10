@@ -10,7 +10,6 @@ interface HeroSectionProps {
     options?: {
       targetLanguage?: string;
       summaryModel?: string;
-      qualityModel?: string;
     },
     action?: "caption" | "summary",
   ) => void;
@@ -27,7 +26,7 @@ export function HeroSection({ onSubmit, isLoading, initialUrl }: HeroSectionProp
             <div className="space-y-3 fade-in-up stagger-1 px-6">
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-foreground tracking-tight text-left">
                 YouTube Video
-                <span className="block text-[hsl(0,100%,40%)]">Structured Summary</span>
+                <span className="block text-[hsl(0,100%,40%)]">Summary &amp; Chat</span>
               </h1>
             </div>
           </div>

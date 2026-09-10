@@ -1,16 +1,15 @@
 /** Owns validation and storage-backed loading for extension configuration across browser contexts. */
 
+import type { LlmModelPrefixMode } from "./clients/config.ts";
 import type { FontSize } from "./constants.ts";
 import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
-import type { LlmModelPrefixMode } from "./llmModelPrefix.ts";
-import { getStorageValues, setStorageValue } from "./storage.ts";
+import { getStorageValues, removeStorageValue, setStorageValue } from "./storage.ts";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
-export type SummarizerModePreference = "native" | "validation" | "fast";
 
 export interface AppConfig {
   // API Keys (nullable)
@@ -20,13 +19,11 @@ export interface AppConfig {
   geminiApiKey: string | null;
 
   // Routing
-  summarizerProvider: "auto" | "gemini" | "llm";
-  summarizerMode: "native" | "validation" | "fast";
+  summarizerProvider: SummarizerProviderPreference;
 
   // Model selections
   summarizerModel: string;
   refinerModel: string;
-  qualityModel: string;
   summarizerModelCostLimit: number;
   refinerModelCostLimit: number;
 
@@ -45,7 +42,6 @@ const MODEL_SELECTION_STORAGE_KEYS = [
   STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
   STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
   STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-  STORAGE_KEYS.QUALITY_MODEL,
 ] as const;
 const BATCH_MODEL_SUFFIX = ":batch";
 
@@ -112,18 +108,6 @@ function resolveModel(
   );
 }
 
-function resolveQualityModel(
-  storedQualityModel: string | null | undefined,
-  refinerCustomModel: string | null | undefined,
-  refinerRecommendedModel: string | null | undefined,
-  defaultModel: string,
-): string {
-  return (
-    normalizeModelSelection(storedQualityModel) ||
-    resolveModel(refinerCustomModel, refinerRecommendedModel, defaultModel)
-  );
-}
-
 async function migrateStoredBatchModelSelections(result: StoredValues): Promise<void> {
   const writes: Array<Promise<void>> = [];
   for (const key of MODEL_SELECTION_STORAGE_KEYS) {
@@ -162,18 +146,18 @@ function resolveStoredModelCostLimits(
  * No caching - always fetches fresh values from storage
  */
 export async function loadConfig(): Promise<AppConfig> {
+  const retiredKeys = ["summarizerMode", "qualityModel"];
   const keys = [
+    ...retiredKeys,
     STORAGE_KEYS.LLM_API_KEY,
     STORAGE_KEYS.LLM_BASE_URL,
     STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
     STORAGE_KEYS.GEMINI_API_KEY,
     STORAGE_KEYS.SUMMARIZER_PROVIDER,
-    STORAGE_KEYS.SUMMARIZER_MODE,
     STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
     STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
     STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
     STORAGE_KEYS.REFINER_CUSTOM_MODEL,
-    STORAGE_KEYS.QUALITY_MODEL,
     STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
     STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
     STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
@@ -186,18 +170,15 @@ export async function loadConfig(): Promise<AppConfig> {
 
   const result = await getStorageValues<StoredValues>(keys);
   await migrateStoredBatchModelSelections(result);
+  await Promise.all(
+    retiredKeys.filter((key) => key in result).map((key) => removeStorageValue(key)),
+  );
 
   const providerRaw = String(
     result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ?? DEFAULTS.SUMMARIZER_PROVIDER,
   );
   const summarizerProvider: "auto" | "gemini" | "llm" =
     providerRaw === "gemini" || providerRaw === "llm" ? providerRaw : "auto";
-
-  const modeRaw = String(result[STORAGE_KEYS.SUMMARIZER_MODE] ?? "");
-  const summarizerMode: "native" | "validation" | "fast" =
-    modeRaw === "native" || modeRaw === "validation" || modeRaw === "fast"
-      ? modeRaw
-      : DEFAULTS.SUMMARIZER_MODE;
 
   const summarizerModel = resolveModel(
     result[STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL],
@@ -218,16 +199,9 @@ export async function loadConfig(): Promise<AppConfig> {
     geminiApiKey: normalizeKey(result[STORAGE_KEYS.GEMINI_API_KEY]),
 
     summarizerProvider,
-    summarizerMode,
 
     summarizerModel,
     refinerModel,
-    qualityModel: resolveQualityModel(
-      result[STORAGE_KEYS.QUALITY_MODEL],
-      result[STORAGE_KEYS.REFINER_CUSTOM_MODEL],
-      result[STORAGE_KEYS.REFINER_RECOMMENDED_MODEL],
-      summarizerModel,
-    ),
     ...resolveStoredModelCostLimits(result),
 
     targetLanguage:

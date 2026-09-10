@@ -1,3 +1,5 @@
+/** Runs caption extraction and refinement, publishing raw, priority, and final segments in order. */
+
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { getRefinerWorkloadStats, refineTranscriptWithLLM } from "@/core/refiner";
 import { saveSubtitles, saveVideoMetadata } from "@/core/storage";
@@ -9,7 +11,7 @@ import {
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
 
-import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workflow";
+import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workloads";
 
 export async function handleFetchSubtitles(
   message: ChromeMessage,

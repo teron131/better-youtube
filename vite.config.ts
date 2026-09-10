@@ -16,10 +16,6 @@ export default defineConfig(() => {
           find: "@ui",
           replacement: path.resolve(__dirname, "./src/sidepanel"),
         },
-        {
-          find: /^@langchain\/langgraph$/,
-          replacement: path.resolve(__dirname, "./src/core/langgraph-web-shim.ts"),
-        },
       ],
     },
     build: {
@@ -28,7 +24,7 @@ export default defineConfig(() => {
       rollupOptions: {
         input: {
           sidepanel: path.resolve(__dirname, "sidepanel.html"),
-          background: path.resolve(__dirname, "src/handlers/index.ts"),
+          background: path.resolve(__dirname, "src/background/main.ts"),
         },
         output: {
           entryFileNames: (chunkInfo) => {

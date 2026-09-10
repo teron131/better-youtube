@@ -3,7 +3,7 @@
  */
 
 import { Card } from "@ui/components/ui/card";
-import { getStageText } from "@ui/lib/video-utils";
+import { PROGRESS_STEPS } from "@ui/lib/video-utils";
 import type { StreamingProgressState } from "@ui/services/types";
 import { Loader2 } from "lucide-react";
 
@@ -13,9 +13,6 @@ interface ProcessingStatusProps {
   progressStates: StreamingProgressState[];
 }
 
-const STEP_TO_ANCHOR = [-1, 0, 1, 2, 3, 2, 4];
-const TOTAL_ANCHORS = 4;
-
 export function ProcessingStatus({
   currentStage,
   currentStep,
@@ -23,17 +20,14 @@ export function ProcessingStatus({
 }: ProcessingStatusProps) {
   const finished = progressStates.some((s) => s.step === "complete");
 
-  const mapCurrentToAnchor = (stepIdx: number) =>
-    STEP_TO_ANCHOR[Math.max(0, Math.min(stepIdx + 1, STEP_TO_ANCHOR.length - 1))];
-
   const activeAnchor = finished
-    ? TOTAL_ANCHORS
+    ? PROGRESS_STEPS.length
     : progressStates.length === 0
       ? 0
-      : mapCurrentToAnchor(currentStep);
+      : Math.max(0, Math.min(currentStep + 1, PROGRESS_STEPS.length));
 
-  const progressPercent = (activeAnchor / TOTAL_ANCHORS) * 100;
-  const stageText = getStageText(activeAnchor);
+  const progressPercent = (activeAnchor / PROGRESS_STEPS.length) * 100;
+  const stageText = activeAnchor === 0 ? "Initializing" : PROGRESS_STEPS[activeAnchor - 1].name;
 
   return (
     <Card className="p-6">

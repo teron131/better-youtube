@@ -1,3 +1,5 @@
+/** Shared transcript, summary, configuration, and progress contracts for extension surfaces. */
+
 // ============================================================================
 // API Response Types
 // ============================================================================
@@ -60,7 +62,6 @@ export interface ConfigurationResponse {
   available_models: Record<string, string>;
   supported_languages: Record<string, string>;
   default_summary_model: string;
-  default_quality_model: string;
   default_target_language: string;
 }
 
@@ -77,47 +78,22 @@ export interface Chapter {
   description: string;
 }
 
-// Quality Assessment Structures
-export interface QualityData {
-  completeness: QualityRate;
-  structure: QualityRate;
-  no_garbage: QualityRate;
-  meta_language_avoidance: QualityRate;
-  correct_language: QualityRate;
-  totalScore?: number;
-  maxPossibleScore?: number;
-  percentageScore?: number;
-  isAcceptable?: boolean;
-}
-
-export interface QualityRate {
-  rate: "Fail" | "Refine" | "Pass";
-  reason: string;
-}
-
 // Streaming Types
 export interface StreamingChunk {
   transcript_or_url?: string;
   summary?: Summary;
-  quality?: QualityData;
   iterations?: number;
   isComplete?: boolean;
   timestamp?: string;
   chunkNumber?: number;
-  type?: "status" | "summary" | "quality" | "complete" | "error";
+  type?: "status" | "summary" | "complete" | "error";
   message?: string;
   processingTime?: string;
   totalChunks?: number;
 }
 
 export interface StreamingProgressState {
-  step:
-    | "scraping"
-    | "summarizing"
-    | "summary_generation"
-    | "quality_check"
-    | "refinement"
-    | "complete";
+  step: "scraping" | "summarizing" | "summary_generation" | "complete";
   stepName: string;
   status: "pending" | "processing" | "completed" | "error";
   message: string;
@@ -128,7 +104,6 @@ export interface StreamingProgressState {
   error?: ApiError;
   processingTime?: string;
   iterations?: number;
-  qualityScore?: number;
   chunkCount?: number;
 }
 
@@ -137,9 +112,7 @@ export interface StreamingProcessingResult {
   videoInfo?: VideoInfoResponse;
   transcript?: string;
   summary?: Summary;
-  quality?: QualityData;
   summaryText?: string;
-  qualityScore?: number;
   provider?: "gemini" | "llm";
   error?: ApiError;
   totalTime: string;
