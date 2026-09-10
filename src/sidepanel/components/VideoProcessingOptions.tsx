@@ -1,16 +1,16 @@
 /**
- * Component for configuring summary model, quality model, and target language options.
+ * Configures the summary model and output language.
  */
 
 import { ModelSelector } from "@ui/components/ModelSelector";
 import { useLanguageSelection, useModelSelection, useUserPreferences } from "@ui/hooks/use-config";
-import { Bot, Languages, Sparkles } from "lucide-react";
+import { Bot, Languages } from "lucide-react";
 
 import { toModelComboboxOption } from "../lib/model-options";
 
 export function VideoProcessingOptions() {
   const { languages } = useLanguageSelection();
-  const { summarizerModels, refinerModels } = useModelSelection();
+  const { summarizerModels } = useModelSelection();
   const { preferences, updatePreferences } = useUserPreferences();
 
   return (
@@ -25,17 +25,6 @@ export function VideoProcessingOptions() {
           placeholder="Select summarizer..."
           enableSorting
           defaultSortMetric="intelligence"
-        />
-
-        <ModelSelector
-          label="Refiner"
-          icon={Sparkles}
-          value={preferences.qualityModel}
-          onChange={(value) => updatePreferences({ qualityModel: value })}
-          options={refinerModels.map((model) => toModelComboboxOption(model))}
-          placeholder="Select refiner..."
-          enableSorting
-          defaultSortMetric="speed"
         />
       </div>
 

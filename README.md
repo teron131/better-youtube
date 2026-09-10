@@ -18,176 +18,89 @@ Chrome MV3 extension for YouTube transcript extraction, caption refinement, grou
 - Extracts transcript and video metadata from the active YouTube watch tab.
 - Refines subtitle segments in the background and streams partial caption updates back to the player.
 - Generates video summaries with Gemini or an OpenAI-compatible provider.
+- Uses an OpenAI Agents SDK video assistant for OpenAI-compatible summaries, follow-up questions, and summary edits.
 - Caches transcripts, subtitles, metadata, and summaries in Chrome storage.
 - Filters recommendation feeds with saved rules such as views, duration, age, keywords, and subscription preservation.
 
 ## Transcript Sources
 
-The extension reads captions and metadata from the active YouTube tab, then falls back to cached or stored transcript data before summary work runs.
+The extension reads captions and metadata from the active YouTube tab and reuses cached transcripts when available.
+Native Gemini summaries can also use the video URL directly.
+Follow-up chat requires a transcript and a configured OpenAI-compatible API key.
 
-| Method | Type | Robustness | Speed | Notes |
-|--------|------|------------|-------|-------|
-| **Chrome Tab Captions** | **Direct** | ⭐⭐⭐⭐⭐ | ⚡ Fast | **Primary**. Extracts official/auto-captions from the active watch tab. |
-| **Pending or Cached Transcript** | **Reuse** | ⭐⭐⭐⭐ | ⚡ Fast | Reuses in-flight transcript work, memory cache, stored subtitles, and saved metadata. |
-| **Gemini URL Input** | **Native Summary** | ⭐⭐⭐ | ⚡ Fast | Used only for Gemini summaries when no side-panel transcript is supplied. |
-
-## Architecture
+## How It Works
 
 ```mermaid
 flowchart LR
-    accTitle: Better YouTube extension architecture
-    accDescr: Shows the main extension surfaces, background workflows, shared storage, and AI providers in a clean left-to-right map.
-
-    YT["YouTube pages"]
-
-    subgraph SURFACES["Extension surfaces"]
-        direction TB
-        CS["Content script<br/>overlay, auto-gen, feed filtering"]
-        SP["Side panel<br/>summary and settings"]
-    end
-
-    subgraph WORKER["Background service worker"]
-        direction TB
-        BG["Message router"]
-
-        subgraph SERVICES[" "]
-            direction LR
-            TR["Transcript service<br/>watch-tab extraction and dedupe"]
-            RF["Caption refiner<br/>raw fallback and partial updates"]
-            SR["Summary service<br/>provider routing and fallback"]
-        end
-    end
-
-    subgraph SHARED["Shared state"]
-        direction TB
-        CFG["Runtime config<br/>provider, mode, model, API keys"]
-        RC["Recommendation filters<br/>rules, stats, subscriptions"]
-        ST["Chrome storage<br/>settings headroom and oldest-video cleanup"]
-    end
-
-    subgraph AI["AI providers"]
-        direction TB
-        GM["Gemini"]
-        LLM["OpenAI-compatible LLM"]
-    end
-
-    YT --> CS
-    CS --> BG
-    SP --> BG
-    CFG --> BG
-    CS --> RC
-    RC --> ST
-    BG --> TR
-    BG --> RF
-    BG --> SR
-    BG --> ST
-    RF --> GM
-    RF --> LLM
-    SR --> GM
-    SR --> LLM
+    accTitle: Extension overview
+    accDescr: The side panel and YouTube content script send requests to the background worker, which coordinates video context, AI workflows, and storage.
+    PAGE["YouTube page"] <--> CONTENT["Content script"]
+    PANEL["Side panel"] --> BG["Background worker"]
+    CONTENT <--> BG
+    BG --> CONTEXT["Transcript and video metadata"]
+    BG --> AGENT["Summary and Q&A agent"]
+    BG --> GEMINI["Native Gemini summary"]
+    BG --> CAPTIONS["Caption refinement pipeline"]
+    BG <--> STORAGE["Chrome storage"]
+    AGENT <--> TOOLS["Skills and summary tools"]
 ```
 
-## Core Flows
+### Summaries and Q&A
+
+The agent reads the video context, loads Markdown skills, and can inspect and edit an in-memory summary using hashline tools.
+Only successful runs save summary changes; temporary tool history is discarded.
+
+```mermaid
+flowchart TD
+    accTitle: Summary generation and video chat
+    accDescr: Summary requests reuse matching cached results or run the selected provider; chat uses the agent with video context and recent conversation history.
+    REQUEST["Summary request"] --> CACHE{"Matching saved summary?"}
+    CACHE -->|Yes| DISPLAY["Display summary"]
+    CACHE -->|No| ROUTE{"Selected provider"}
+    ROUTE -->|OpenAI-compatible| AGENT["Agent with video context"]
+    ROUTE -->|Native Gemini| GEMINI["Summarize supplied transcript or video URL"]
+    GEMINI -->|Failure and LLM key available| AGENT
+    GEMINI -->|Success| SAVE["Save final summary"]
+    CHAT["Question or edit request"] --> CONTEXT["Transcript, current summary, recent chat"]
+    CONTEXT --> AGENT
+    AGENT <--> SKILLS["Load relevant Markdown skill"]
+    AGENT <--> ARTIFACT["Write, read, or hashline-edit summary"]
+    AGENT -->|Successful summary creation or edit| SAVE
+    AGENT -->|Answer| REPLY["Reply in video chat"]
+    SAVE --> DISPLAY
+```
 
 ### Caption Refinement
 
-```mermaid
-sequenceDiagram
-    participant UI as UI
-    participant CS as Watch page
-    participant BG as Background worker
-    participant TR as Transcript service
-    participant ST as Storage
-    participant AI as AI provider
-
-    alt Auto-generate on watch page
-        CS->>CS: Wait for delay and visible tab
-        CS->>BG: SCRAPE_VIDEO
-    else Manual caption request
-        UI->>BG: FETCH_SUBTITLES
-    end
-
-    BG->>TR: Resolve transcript
-    alt Cached or pending transcript
-        TR-->>BG: Reuse transcript
-    else Fresh watch-tab extraction
-        TR->>CS: Read captions and metadata
-        CS-->>TR: Transcript payload
-    end
-    TR-->>BG: Transcript text
-    BG->>ST: Save raw subtitles
-    BG-->>CS: Raw subtitle fallback
-    BG->>AI: Refine transcript
-    AI-->>BG: Partial and final updates
-    BG->>ST: Save refined subtitles
-    BG-->>CS: Final subtitle updates
-    CS->>CS: Render overlay
-```
-
-### Summary Generation
+Caption refinement runs independently of the agent and processes transcript chunks concurrently.
 
 ```mermaid
-sequenceDiagram
-    participant UI as UI
-    participant BG as Background worker
-    participant TR as Transcript service
-    participant ST as Storage
-    participant AI as Gemini or LLM
-
-    UI->>BG: GENERATE_SUMMARY
-    BG->>ST: Check cached summary
-
-    alt No matching cached summary
-        BG->>TR: Resolve transcript or video URL
-        TR-->>BG: Transcript text or URL
-        BG->>BG: Resolve provider and mode
-        BG->>AI: Run summary workflow
-        AI-->>BG: Structured summary
-        BG->>ST: Save summary and metadata
-    end
-
-    BG-->>UI: SUMMARY_GENERATED or SHOW_ERROR
+flowchart LR
+    accTitle: Independent caption refinement pipeline
+    accDescr: Captions are extracted or reused, saved as a raw fallback, then refined in concurrent LangChain batches with priority and final updates.
+    REQUEST["Caption request"] --> SOURCE["Extract or reuse transcript"]
+    SOURCE --> RAW["Save and display raw captions"]
+    RAW --> REFINE["Concurrent LangChain refinement"]
+    REFINE --> PARTIAL["Display priority updates"]
+    REFINE --> FINAL["Save and display final captions"]
 ```
 
 ### Recommendation Filtering
 
 ```mermaid
 flowchart TD
-    accTitle: Recommendation filtering flow
-    accDescr: Shows how the content script filters recommendation cards using saved rules, subscription lookups, and rescan scheduling.
-
-    LOAD["YouTube feed or watch page loads"] --> PAGE{"Supported page?"}
-    PAGE -->|No: channel, subscriptions, or history page| SKIP["Skip filtering"]
-    PAGE -->|Yes| READ["Load filter settings, filter stats, and stored subscriptions"]
-    READ --> SCAN["Scan visible recommendation cards"]
-    SCAN --> EXTRACT["Extract title, channel, views, age, duration, and language hints"]
-    EXTRACT --> SUBS{"Preserve subscribed channels?"}
-    SUBS -->|Yes and channel matches| SHOW["Keep card visible"]
-    SUBS -->|No match| RULES{"Matches an active hide rule?"}
-    RULES -->|No| SHOW
-    RULES -->|Yes| HIDE["Hide card and record filter reason"]
-    SHOW --> RESCAN["Observe DOM changes and queue rescans for new cards"]
-    HIDE --> RESCAN
-    SUBLOAD["Extract subscriptions from /feed/channels on demand"] --> READ
+    accTitle: Recommendation filtering
+    accDescr: On supported pages, saved rules filter recommendation cards while optionally preserving subscribed channels; DOM changes trigger rescans.
+    PAGE["Supported YouTube page"] --> SCAN["Read recommendation cards"]
+    SCAN --> SUB{"Preserve this subscribed channel?"}
+    SUB -->|Yes| KEEP["Keep visible"]
+    SUB -->|No| RULES{"Matches a hide rule?"}
+    SETTINGS["Saved filter settings and subscriptions"] --> SUB
+    SETTINGS --> RULES
+    RULES -->|No| KEEP
+    RULES -->|Yes| HIDE["Hide card and record reason"]
+    CHANGES["Page content changes"] --> SCAN
 ```
-
-## Project Map
-
-- `public/manifest.json` wires the MV3 service worker, content script, side panel, and permissions.
-- `src/handlers/index.ts` is the background entrypoint and routes `MESSAGE_ACTIONS` requests.
-- `src/content/index.ts` manages YouTube SPA navigation, subtitle rendering, and auto-generation triggers.
-- `src/sidepanel/main.tsx` boots the React side panel used in both extension and demo mode.
-- `src/core/*` contains shared contracts, transcript logic, refiner logic, summarizer logic, storage helpers, and runtime config.
-
-## Design Notes
-
-- Transcript fetches are cached and deduplicated before caption or summary work starts.
-- Caption refinement saves raw subtitle segments first, then sends partial refined updates as they arrive.
-- Summary generation selects a provider and mode from runtime config, model choice, and available API keys.
-- Model selection builds intelligence and speed scores from aggregate Artificial Analysis, Vals, Epoch, Surge, and OpenRouter evidence to guide sorting and labels. The scored model list is cached locally for 24 hours; if public sources are unavailable, the extension keeps using OpenRouter discovery and price sorting.
-- Provider logos are bundled under `public/provider-logos/` as normalized PNGs sourced from Artificial Analysis `modelCreatorLogo` small-logo assets, so rendering does not depend on remote image availability.
-- Long-running work is guarded by `requestId` and per-video workload tracking so stale responses are ignored.
-- Storage keys and cross-context actions are centralized in `src/core/constants.ts`.
 
 ## Development
 
@@ -203,6 +116,9 @@ Useful extra commands:
 pnpm run lint
 pnpm run test:chrome-tab
 ```
+
+For a layout preview, run `pnpm dev` and open `/sidepanel.html?example=1`.
+Real video processing requires the installed extension and a configured API key.
 
 ## Load The Extension
 

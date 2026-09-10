@@ -1,32 +1,12 @@
-/** Validates summary-shaped values and renders the shared persisted summary contract as Markdown. */
+/** Renders persisted summaries and optional video metadata for background responses. */
 
 import type { VideoMetadata } from "@/core/storage";
 import type { Summary } from "@/core/types";
 
-function coerceSummary(value: unknown): Summary | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-
-  const chapters = Array.isArray(v.chapters) ? v.chapters : null;
-  if (!chapters) return null;
-
-  if (typeof v.overview === "string") {
-    return { overview: v.overview, chapters } as Summary;
-  }
-
-  return null;
-}
-
-export function parseLlmSummary(summary: unknown): Summary {
-  const coerced = coerceSummary(summary);
-  if (coerced) return coerced;
-  throw new Error("Invalid summary shape from LLM");
-}
-
 export function summaryToMarkdown(summary: Summary, videoInfo?: VideoMetadata | null): string {
   const parts: string[] = [];
 
-  const normalized = coerceSummary(summary) ?? summary;
+  const normalized = summary;
 
   if (videoInfo) {
     if (videoInfo.url) parts.push(`**URL:** ${String(videoInfo.url)}\n`);

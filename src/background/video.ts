@@ -1,5 +1,5 @@
 /**
- * Background handler for transcript-backed video preview requests from extension surfaces.
+ * Answers video preview requests with transcript-backed metadata from the requested watch tab.
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";

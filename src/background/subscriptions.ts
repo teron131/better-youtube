@@ -1,5 +1,5 @@
 /**
- * Subscription extraction workflow for the YouTube channels page.
+ * Extracts and persists subscriptions from the YouTube channels page through its page execution context.
  */
 
 import { STORAGE_KEYS } from "@/core/constants";

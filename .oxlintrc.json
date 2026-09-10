@@ -1,5 +1,4 @@
 {
-  "ignorePatterns": ["llm-harness-js/**"],
   "categories": {
     "correctness": "error",
     "suspicious": "off"

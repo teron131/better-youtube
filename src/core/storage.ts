@@ -1,11 +1,25 @@
 /// <reference types="chrome" />
 
 /**
- * Chrome storage management
+ * Owns persisted video records, settings preservation, quota retries, and whole-video cache eviction.
  */
 
 import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants.ts";
-import type { Quality, Summary } from "./summarizer/schemas.ts";
+import {
+  getStorageUsage,
+  sessionStorageGet,
+  sessionStorageGetMultiple,
+  sessionStorageRemove,
+  sessionStorageSet,
+  storageGet,
+  storageGetAll,
+  storageGetMultiple,
+  storageRemove,
+  storageSet,
+} from "./storageBrowser.ts";
+import type { Summary } from "./types.ts";
+export { getStorageUsage } from "./storageBrowser.ts";
+export type { StorageUsage } from "./storageBrowser.ts";
 
 // ============================================================================
 // Types
@@ -32,16 +46,9 @@ export interface VideoMetadata {
 
 export interface StoredSummary {
   summary: Summary;
-  quality?: Quality | null;
   timestamp: number;
   modelUsed: string;
   targetLanguage?: string | null;
-}
-
-export interface StorageUsage {
-  bytesUsed: number;
-  bytesAvailable: number;
-  percentageUsed: number;
 }
 
 export interface ClearStoredDataResult {
@@ -99,8 +106,6 @@ async function saveVideoScopedItem(videoId: string, key: string, value: unknown)
 // Core Storage Operations
 // ============================================================================
 
-const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
-const hasSessionStorageApi = typeof chrome !== "undefined" && !!chrome.storage?.session;
 const WRITE_RATE_RETRY_LIMIT = 3;
 const WRITE_RATE_BACKOFF_BASE_MS = 250;
 const QUOTA_CLEANUP_RETRY_LIMIT = 3;
@@ -115,7 +120,6 @@ const SETTINGS_STORAGE_KEYS_TO_KEEP = new Set<string>([
   STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
   STORAGE_KEYS.GEMINI_API_KEY,
   STORAGE_KEYS.SUMMARIZER_PROVIDER,
-  STORAGE_KEYS.SUMMARIZER_MODE,
   STORAGE_KEYS.SUMMARIZER_RECOMMENDED_MODEL,
   STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
   STORAGE_KEYS.REFINER_RECOMMENDED_MODEL,
@@ -126,7 +130,6 @@ const SETTINGS_STORAGE_KEYS_TO_KEEP = new Set<string>([
   STORAGE_KEYS.SUMMARY_FONT_SIZE,
   STORAGE_KEYS.TARGET_LANGUAGE_RECOMMENDED,
   STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-  STORAGE_KEYS.QUALITY_MODEL,
   STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
   STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
   STORAGE_KEYS.VIEWS_FILTER_ENABLED,
@@ -199,189 +202,6 @@ async function setWithQuotaRetry(items: Record<string, unknown>): Promise<void> 
   }
 }
 
-/**
- * Low-level storage setter
- */
-async function storageSet(items: Record<string, unknown>): Promise<void> {
-  if (!isExtension) {
-    Object.entries(items).forEach(([key, value]) => {
-      localStorage.setItem(key, JSON.stringify(value));
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set(items, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * Low-level storage getter for a single key
- */
-async function storageGet<T>(key: string): Promise<T | null> {
-  if (!isExtension) {
-    const item = localStorage.getItem(key);
-    return item ? (JSON.parse(item) as T) : null;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.local.get([key], (result) => {
-      resolve(result[key] ?? null);
-    });
-  });
-}
-
-/**
- * Low-level storage getter for multiple keys
- */
-async function storageGetMultiple<T extends Record<string, unknown>>(
-  keys: string[],
-): Promise<Partial<T>> {
-  if (!isExtension) {
-    const result: Partial<T> = {};
-    keys.forEach((key) => {
-      const item = localStorage.getItem(key);
-      if (item) {
-        (result as any)[key] = JSON.parse(item);
-      }
-    });
-    return result;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.local.get(keys, (result) => {
-      resolve(result as Partial<T>);
-    });
-  });
-}
-
-/**
- * Low-level storage remover
- */
-async function storageRemove(keys: string[]): Promise<void> {
-  if (!isExtension) {
-    keys.forEach((key) => {
-      localStorage.removeItem(key);
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.remove(keys, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-async function sessionStorageSet(items: Record<string, unknown>): Promise<void> {
-  if (!hasSessionStorageApi) {
-    Object.entries(items).forEach(([key, value]) => {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.session.set(items, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-async function sessionStorageGet<T>(key: string): Promise<T | null> {
-  if (!hasSessionStorageApi) {
-    const item = sessionStorage.getItem(key);
-    return item ? (JSON.parse(item) as T) : null;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.session.get([key], (result) => {
-      resolve(result[key] ?? null);
-    });
-  });
-}
-
-async function sessionStorageGetMultiple<T extends Record<string, unknown>>(
-  keys: string[],
-): Promise<Partial<T>> {
-  if (!hasSessionStorageApi) {
-    const result: Partial<T> = {};
-    keys.forEach((key) => {
-      const item = sessionStorage.getItem(key);
-      if (item) {
-        (result as Record<string, unknown>)[key] = JSON.parse(item);
-      }
-    });
-    return result;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.session.get(keys, (result) => {
-      resolve(result as Partial<T>);
-    });
-  });
-}
-
-async function sessionStorageRemove(keys: string[]): Promise<void> {
-  if (!hasSessionStorageApi) {
-    keys.forEach((key) => {
-      sessionStorage.removeItem(key);
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.session.remove(keys, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * Low-level storage getter for everything
- */
-async function storageGetAll(): Promise<Record<string, unknown>> {
-  if (!isExtension) {
-    const allItems: Record<string, unknown> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key) {
-        const item = localStorage.getItem(key);
-        if (item) allItems[key] = JSON.parse(item);
-      }
-    }
-    return allItems;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, (allItems) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(allItems);
-      }
-    });
-  });
-}
-
 // ============================================================================
 // Video Data Storage
 // ============================================================================
@@ -411,12 +231,10 @@ export async function saveSummary(
   summary: Summary,
   modelUsed: string,
   targetLanguage?: string | null,
-  quality?: Quality | null,
 ): Promise<void> {
   const key = StorageKeys.summary(videoId);
   const storedSummary: StoredSummary = {
     summary,
-    quality,
     timestamp: Date.now(),
     modelUsed,
     targetLanguage,
@@ -464,27 +282,6 @@ export async function getStorageValues<T extends Record<string, unknown>>(
 // ============================================================================
 // Storage Cleanup & Usage
 // ============================================================================
-
-export async function getStorageUsage(): Promise<StorageUsage> {
-  if (!isExtension) {
-    return {
-      bytesUsed: 0,
-      bytesAvailable: STORAGE.QUOTA_BYTES,
-      percentageUsed: 0,
-    };
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.local.getBytesInUse(null, (bytesInUse) => {
-      const used = bytesInUse || 0;
-      resolve({
-        bytesUsed: used,
-        bytesAvailable: Math.max(0, STORAGE.QUOTA_BYTES - used),
-        percentageUsed: (used / STORAGE.QUOTA_BYTES) * 100,
-      });
-    });
-  });
-}
 
 export async function clearStoredDataExceptSettings(): Promise<ClearStoredDataResult> {
   const allItems = await storageGetAll();

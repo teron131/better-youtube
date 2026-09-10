@@ -2,9 +2,9 @@ import type { ModelSortMetric } from "@ui/lib/model-sort";
 import type { AvailableModel } from "@ui/services/config";
 import type { LucideIcon } from "lucide-react";
 
+import type { LlmModelPrefixMode } from "@/core/clients/config";
 import type { FontSize } from "@/core/constants";
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
-import type { LlmModelPrefixMode } from "@/core/llmModelPrefix";
 
 export type ModelCostLimitKey = "summarizerModelCostLimit" | "refinerModelCostLimit";
 
@@ -14,7 +14,6 @@ export const DEFAULT_SETTINGS = {
   llmModelPrefixMode: "provider" as LlmModelPrefixMode,
   geminiApiKey: "",
   summarizerProvider: "auto",
-  summarizerMode: "validation",
   summarizerModel: DEFAULTS.MODEL_SUMMARIZER as string,
   refinerModel: DEFAULTS.MODEL_REFINER as string,
   summarizerModelCostLimit: Number(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
@@ -104,7 +103,6 @@ export const SETTINGS_STORAGE_KEYS: Record<keyof SettingsState, string> = {
   llmModelPrefixMode: STORAGE_KEYS.LLM_MODEL_PREFIX_MODE,
   geminiApiKey: STORAGE_KEYS.GEMINI_API_KEY,
   summarizerProvider: STORAGE_KEYS.SUMMARIZER_PROVIDER,
-  summarizerMode: STORAGE_KEYS.SUMMARIZER_MODE,
   summarizerModel: STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
   refinerModel: STORAGE_KEYS.REFINER_CUSTOM_MODEL,
   summarizerModelCostLimit: STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,

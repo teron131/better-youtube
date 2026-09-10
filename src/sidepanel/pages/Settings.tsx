@@ -110,7 +110,6 @@ const Settings = () => {
           llmModelPrefixMode: config.llmModelPrefixMode,
           geminiApiKey: config.geminiApiKey ?? "",
           summarizerProvider: config.summarizerProvider,
-          summarizerMode: config.summarizerMode,
           summarizerModel: config.summarizerModel,
           refinerModel: config.refinerModel,
           summarizerModelCostLimit: config.summarizerModelCostLimit,

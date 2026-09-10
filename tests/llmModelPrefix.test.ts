@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveLlmRequestModel } from "../src/core/llmModelPrefix.ts";
+import { resolveLlmRequestModel } from "../src/core/clients/config.ts";
 
 test("provider prefix mode preserves the selected model id", () => {
   assert.equal(resolveLlmRequestModel("openai/gpt-5.4-nano", "provider"), "openai/gpt-5.4-nano");

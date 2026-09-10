@@ -3,16 +3,18 @@
  * Handles API calls, message routing, and orchestrates the refinement/summarization process.
  */
 
+import { CHAT_ACTION } from "@/core/agent/conversation";
 import { type AppConfig, loadConfig } from "@/core/config";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createMessageListener } from "@/core/utils/chrome";
 
-import { registerContentScriptBootstrap } from "./contentScriptBootstrap";
-import { handleFetchSubtitles } from "./refine";
+import { handleFetchSubtitles } from "./captions";
+import { handleVideoChat } from "./chat";
+import { registerContentScriptBootstrap } from "./contentScripts";
 import { handleExtractSubscriptions } from "./subscriptions";
 import { handleGenerateSummary } from "./summary";
-import { handleScrapeVideo } from "./transcript";
-import { VideoWorkloadLifecycle } from "./workflow";
+import { handleScrapeVideo } from "./video";
+import { VideoWorkloadLifecycle } from "./workloads";
 
 const captionWorkloads = new VideoWorkloadLifecycle();
 const summaryWorkloads = new VideoWorkloadLifecycle();
@@ -37,6 +39,14 @@ createMessageListener((message, sender, sendResponse) => {
   const tabId = typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
 
   switch (message.action) {
+    case CHAT_ACTION:
+      void handleVideoChat(message).then(sendResponse, (error) => {
+        sendResponse({
+          success: false,
+          error: error instanceof Error ? error.message : "Video chat failed.",
+        });
+      });
+      return true;
     case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
       sendResponse({
         status: "error",

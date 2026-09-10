@@ -1,3 +1,5 @@
+/** Installs content scripts into existing YouTube tabs when the extension is installed or updated. */
+
 import { MESSAGE_ACTIONS } from "@/core/constants";
 
 const YOUTUBE_URL_PATTERNS = ["https://*.youtube.com/*"];

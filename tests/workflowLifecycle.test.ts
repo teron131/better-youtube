@@ -5,7 +5,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { VideoWorkloadLifecycle } from "../src/handlers/workflow.ts";
+import { VideoWorkloadLifecycle } from "../src/background/workloads.ts";
+
+test("failed joined work releases request identity and allows another run", async () => {
+  const lifecycle = new VideoWorkloadLifecycle();
+  const first = lifecycle.begin({ videoId: "video", requestId: "first", workloadKey: "job" });
+  const running = first.runOrJoin(async () => {
+    throw new Error("provider failed");
+  });
+  const second = lifecycle.begin({ videoId: "video", requestId: "second", workloadKey: "job" });
+  const joining = second.runOrJoin(async () => assert.fail("duplicate job"));
+  await Promise.all([
+    assert.rejects(running, /provider failed/),
+    assert.rejects(joining, /provider failed/),
+  ]);
+  const next = lifecycle.begin({ videoId: "video", workloadKey: "job" });
+  assert.equal(next.resolveRequestId(), undefined);
+  assert.equal(await next.runOrJoin(async () => {}), "ran");
+});
 
 test("tracks the current request id and ignores stale workload ownership", () => {
   const lifecycle = new VideoWorkloadLifecycle();

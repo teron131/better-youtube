@@ -21,9 +21,7 @@ export const exampleData: StreamingProcessingResult = {
   },
   transcript: null,
   summary: exampleSummaryGemini,
-  quality: null,
   summaryText: null,
-  qualityScore: 0,
   iterations: 1,
   chunksProcessed: 0,
 };

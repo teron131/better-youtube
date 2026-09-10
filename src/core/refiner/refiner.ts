@@ -4,10 +4,13 @@
  */
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 
+import { resolveLlmConnection } from "@/core/clients/config";
+import { createBrowserSafeOpenAiFetch, isBrowserRuntime } from "@/core/clients/transport";
+import { loadConfig } from "@/core/config";
 import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
-import { createLlmClient } from "@/core/llmClients";
 import type { SubtitleSegment } from "@/core/storage";
 import { chunkSegmentsByCount, parseRefinedSegments } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
@@ -57,7 +60,7 @@ const TRANSCRIPT_LABEL_PATTERN =
 // ============================================================================
 
 function normalizeSegmentText(text: string): string {
-  return (text || "").split(/\s+/).join(" ");
+  return (text || "").replace(/\s+/g, " ");
 }
 
 function formatTranscriptSegments(segments: SubtitleSegment[]): string {
@@ -88,9 +91,7 @@ function normalizeRefinedOutputLines(text: string): string[] {
     .replace(/\r\n?/g, "\n")
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !line.startsWith("```"))
-    .filter((line) => !TRANSCRIPT_LABEL_PATTERN.test(line));
+    .filter((line) => line && !line.startsWith("```") && !TRANSCRIPT_LABEL_PATTERN.test(line));
 }
 
 function isTransientBatchError(error: unknown): boolean {
@@ -105,7 +106,7 @@ function createFallbackResponse(originalChunk: SubtitleSegment[]): RefinedTransc
 }
 
 /**
- * Custom concurrency handler for batch processing with retries
+ * Dispatches batches in input order with bounded concurrency, retries, and per-item fallback.
  */
 async function runConcurrentBatch<T, R>(
   items: T[],
@@ -115,13 +116,14 @@ async function runConcurrentBatch<T, R>(
   onEachComplete?: (result: R, index: number, allResults: readonly (R | undefined)[]) => void,
 ): Promise<R[]> {
   const results = new Array<R | undefined>(items.length);
-  const queue = items.map((item, index) => ({ item, index }));
+  let cursor = 0;
 
   const workers = Array.from({
     length: Math.min(concurrency, items.length),
   }).map(async () => {
-    while (queue.length > 0) {
-      const { item, index } = queue.shift()!;
+    while (cursor < items.length) {
+      const index = cursor++;
+      const item = items[index];
       let lastError: unknown = null;
       let success = false;
 
@@ -284,7 +286,23 @@ export async function refineTranscriptWithLLM(
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
-  const llm = await createLlmClient(model, "Better YouTube - Refiner");
+  const config = await loadConfig();
+  const connection = resolveLlmConnection(model, {
+    ...config,
+    llmApiKey:
+      config.llmApiKey || (typeof process !== "undefined" ? process.env.LLM_API_KEY : null),
+  });
+  const llm = new ChatOpenAI({
+    model: connection.model,
+    apiKey: connection.apiKey,
+    configuration: {
+      baseURL: connection.baseURL,
+      ...(isBrowserRuntime()
+        ? { fetch: createBrowserSafeOpenAiFetch() }
+        : { defaultHeaders: { "X-Title": "Better YouTube - Refiner" } }),
+    },
+    temperature: 0.0,
+  });
   const structuredLlm = llm.withStructuredOutput(RefinedTranscriptSchema, {
     method: "jsonSchema",
     includeRaw: true,

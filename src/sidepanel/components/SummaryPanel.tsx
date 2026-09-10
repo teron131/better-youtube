@@ -28,13 +28,12 @@ import {
   useState,
 } from "react";
 
-import type { QualityData, Summary, VideoInfoResponse } from "@/core/types";
+import type { Summary, VideoInfoResponse } from "@/core/types";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { toChineseSummary } from "@/core/utils/text";
 
 interface SummaryPanelProps {
   summary: Summary;
-  quality?: QualityData;
   videoInfo?: VideoInfoResponse;
   provider?: "gemini" | "llm";
   onRegenerate?: () => void;

@@ -38,7 +38,6 @@ interface VideoUrlFormProps {
     options?: {
       targetLanguage?: string;
       summaryModel?: string;
-      qualityModel?: string;
     },
     action?: "caption" | "summary",
   ) => void;
@@ -188,11 +187,7 @@ export const VideoUrlForm = ({ onSubmit, isLoading, initialUrl }: VideoUrlFormPr
     e.preventDefault();
     const trimmedUrl = url.trim();
 
-    const options = prepareProcessingOptions(
-      preferences.targetLanguage,
-      preferences.summaryModel,
-      preferences.qualityModel,
-    );
+    const options = prepareProcessingOptions(preferences.targetLanguage, preferences.summaryModel);
 
     if (!trimmedUrl) {
       setValidationError("");

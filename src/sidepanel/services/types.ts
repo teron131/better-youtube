@@ -6,8 +6,6 @@ export type {
   ApiError,
   Chapter,
   ConfigurationResponse,
-  QualityData,
-  QualityRate,
   StreamingChunk,
   StreamingProcessingResult,
   StreamingProgressState,

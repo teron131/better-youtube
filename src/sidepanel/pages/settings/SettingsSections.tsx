@@ -25,9 +25,9 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { resolveLlmRequestModel } from "@/core/clients/config";
 import type { FontSize } from "@/core/constants";
 import { STORAGE_KEYS, TARGET_LANGUAGES } from "@/core/constants";
-import { resolveLlmRequestModel } from "@/core/llmModelPrefix";
 
 import { SIDEPANEL_ROUTE_HREFS } from "../../lib/routes";
 import {
@@ -274,28 +274,6 @@ export function GenerationSettingsSection({
                 <SelectItem value="auto">Auto</SelectItem>
                 <SelectItem value="gemini">Gemini Native</SelectItem>
                 <SelectItem value="llm">LLM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span>Mode</span>
-            </div>
-            <Select
-              value={settings.summarizerMode}
-              onValueChange={(value) => {
-                void onChange("summarizerMode", value);
-              }}
-            >
-              <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-                <SelectValue placeholder="Select mode" />
-              </SelectTrigger>
-              <SelectContent className="rounded-md">
-                <SelectItem value="native">Gemini Native</SelectItem>
-                <SelectItem value="validation">Validation Agent</SelectItem>
-                <SelectItem value="fast">Fast Agent</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -10,7 +10,6 @@ export const STORAGE_KEYS = {
   LLM_MODEL_PREFIX_MODE: "llmModelPrefixMode",
   GEMINI_API_KEY: "geminiApiKey",
   SUMMARIZER_PROVIDER: "summarizerProvider",
-  SUMMARIZER_MODE: "summarizerMode",
   SUMMARIZER_RECOMMENDED_MODEL: "summarizerRecommendedModel",
   SUMMARIZER_CUSTOM_MODEL: "summarizerCustomModel",
   REFINER_RECOMMENDED_MODEL: "refinerRecommendedModel",
@@ -21,7 +20,6 @@ export const STORAGE_KEYS = {
   SUMMARY_FONT_SIZE: "summaryFontSize",
   TARGET_LANGUAGE_RECOMMENDED: "targetLanguageRecommended",
   TARGET_LANGUAGE_CUSTOM: "targetLanguageCustom",
-  QUALITY_MODEL: "qualityModel",
   SUMMARIZER_MODEL_COST_LIMIT: "summarizerModelCostLimit",
   REFINER_MODEL_COST_LIMIT: "refinerModelCostLimit",
   DYNAMIC_MODELS_CACHE: "dynamicModelsCache",
@@ -128,18 +126,6 @@ export const COOKIE_SETTINGS = {
 export const DEFAULT_MODEL_SUMMARIZER = "google/gemini-3-flash";
 export const DEFAULT_MODEL_REFINER = "google/gemini-2.5-flash-lite-preview-09-2025";
 
-export const QUALITY_THRESHOLDS = {
-  MIN_QUALITY_SCORE: 80, // Percentage threshold for acceptable quality (aligned with Python backend)
-  MAX_ITERATIONS: 2,
-  SCORE_MAP: { Fail: 0, Refine: 1, Pass: 2 } as const,
-  MAX_SCORE_PER_ASPECT: 2,
-} as const;
-
-export const PROCESSING_CONFIG = {
-  STEP_TO_ANCHOR: [-1, 0, 1, 2, 3, 2, 4],
-  TOTAL_PROGRESS_ANCHORS: 4,
-} as const;
-
 export const DEFAULTS = {
   MODEL_SUMMARIZER: DEFAULT_MODEL_SUMMARIZER,
   MODEL_REFINER: DEFAULT_MODEL_REFINER,
@@ -150,7 +136,6 @@ export const DEFAULTS = {
   TARGET_LANGUAGE_RECOMMENDED: "auto",
   TARGET_LANGUAGE_CUSTOM: "",
   SUMMARIZER_PROVIDER: "auto" as const,
-  SUMMARIZER_MODE: "validation" as const,
   SUMMARIZER_MODEL_COST_LIMIT: 5,
   REFINER_MODEL_COST_LIMIT: 5,
   VIEWS_FILTER_ENABLED: false,

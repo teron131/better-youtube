@@ -21,7 +21,6 @@ export interface ExampleDataResult {
  * Load example data with realistic progress states
  */
 export function loadExampleData(): ExampleDataResult {
-  const qualityScore = exampleData.qualityScore || 0;
   const chapterCount = exampleData.summary?.chapters?.length || 0;
 
   const exampleProgressStates: StreamingProgressState[] = [
@@ -40,13 +39,6 @@ export function loadExampleData(): ExampleDataResult {
       iterations: exampleData.iterations,
     },
     {
-      step: "quality_check",
-      stepName: "Quality Assessment",
-      status: "completed",
-      message: "🎯 Quality check skipped (Gemini-native example)",
-      qualityScore,
-    },
-    {
       step: "complete",
       stepName: "Summary Complete",
       status: "completed",
@@ -54,7 +46,6 @@ export function loadExampleData(): ExampleDataResult {
       processingTime: exampleData.totalTime,
       chunkCount: exampleData.chunksProcessed,
       iterations: exampleData.iterations,
-      qualityScore,
     },
   ];
 
