@@ -2,7 +2,6 @@
  * Component displaying video metadata including thumbnail, title, author, and statistics.
  */
 
-import { Card } from "@ui/components/ui/card";
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -16,11 +15,9 @@ interface InfoItemProps {
 }
 
 const InfoItem = ({ icon, value }: InfoItemProps) => (
-  <div className="flex items-center gap-2">
-    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-      {icon}
-    </div>
-    <span className="font-medium">{value}</span>
+  <div className="flex min-w-0 items-center gap-1.5">
+    <div className="flex h-5 w-5 shrink-0 items-center justify-center">{icon}</div>
+    <span className="min-w-0 break-words">{value}</span>
   </div>
 );
 
@@ -200,7 +197,6 @@ export const VideoInfo = ({
   url,
 }: VideoInfoProps) => {
   const displayDuration = trimLeadingZeros(duration || undefined);
-  const hasMetrics = viewCount != null || likeCount != null;
   const formattedUploadDate = formatDate(uploadDate);
   const displayThumbnail = useCroppedThumbnail(thumbnail, url);
   const displayTitle = title ? s2tw(title) : title;
@@ -248,15 +244,15 @@ export const VideoInfo = ({
   if (!title) return null;
 
   return (
-    <Card className="p-6 shadow-md">
-      <div className="flex flex-col sm:flex-row gap-6">
-        <div className="flex-shrink-0 w-full sm:w-64 md:w-80">
-          <div className="relative rounded-xl border border-border/60 shadow-lg overflow-hidden bg-muted/20">
+    <section className="py-2">
+      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 min-[480px]:grid-cols-[144px_minmax(0,1fr)] md:grid-cols-[192px_minmax(0,1fr)]">
+        <div className="w-full">
+          <div className="relative overflow-hidden">
             {displayThumbnail ? (
               <img
                 src={displayThumbnail}
                 alt={title || "Video thumbnail"}
-                className="w-full h-auto object-contain block"
+                className="block aspect-video w-full object-cover"
                 decoding="async"
               />
             ) : (
@@ -266,24 +262,21 @@ export const VideoInfo = ({
           </div>
         </div>
 
-        <div className="flex-1 space-y-4">
-          <h3 className="text-2xl font-black tracking-tight text-foreground line-clamp-2 leading-tight">
+        <div className="min-w-0">
+          <h3 className="line-clamp-3 break-words text-lg font-semibold leading-snug tracking-tight text-foreground min-[480px]:text-xl">
             {displayTitle || "Title not available"}
           </h3>
+        </div>
+        <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] leading-5 text-muted-foreground">
+          {primaryInfoItems.map((item) => (
+            <InfoItem key={item.key} icon={item.icon} value={item.value} />
+          ))}
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-muted-foreground">
-            {primaryInfoItems.map((item) => (
-              <InfoItem key={item.key} icon={item.icon} value={item.value} />
-            ))}
-
-            {hasMetrics && <div className="basis-full" />}
-
-            {metricItems.map((item) => (
-              <InfoItem key={item.key} icon={item.icon} value={item.value} />
-            ))}
-          </div>
+          {metricItems.map((item) => (
+            <InfoItem key={item.key} icon={item.icon} value={item.value} />
+          ))}
         </div>
       </div>
-    </Card>
+    </section>
   );
 };

@@ -21,8 +21,6 @@ export interface ExampleDataResult {
  * Load example data with realistic progress states
  */
 export function loadExampleData(): ExampleDataResult {
-  const chapterCount = exampleData.summary?.chapters?.length || 0;
-
   const exampleProgressStates: StreamingProgressState[] = [
     {
       step: "scraping",
@@ -35,7 +33,7 @@ export function loadExampleData(): ExampleDataResult {
       step: "summary_generation",
       stepName: "Summary Generation",
       status: "completed",
-      message: `📝 Initial summary generated with ${chapterCount} chapters`,
+      message: "Summary generated",
       iterations: exampleData.iterations,
     },
     {

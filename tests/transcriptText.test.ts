@@ -11,7 +11,6 @@ import {
 } from "../src/core/transcript/cache.ts";
 import { resolveTranscriptText } from "../src/core/transcript/text.ts";
 import type { TranscriptResponse } from "../src/core/types.ts";
-import { summaryToMarkdown } from "../src/core/utils/summaryMarkdown.ts";
 
 test("supplied transcript text remains untrimmed", async () => {
   assert.equal(await resolveTranscriptText("  Supplied transcript.\n"), "  Supplied transcript.\n");
@@ -77,15 +76,4 @@ test("missing video IDs and unavailable transcripts fail before agent execution"
     resolveTranscriptText("https://www.youtube.com/watch?v=VeizK1M7V7E"),
     /No transcript available/,
   );
-});
-
-test("response Markdown preserves headings and timestamps", () => {
-  assert.equal(
-    summaryToMarkdown({
-      overview: "  Overview  ",
-      chapters: [{ title: "First", description: "Details.", startTime: "00:01", endTime: "00:10" }],
-    }),
-    "# Summary\n\nOverview\n\n# Video Chapters\n\n## First (00:01-00:10)\n\nDetails.\n\n",
-  );
-  assert.equal(summaryToMarkdown({ overview: "", chapters: [] }), "");
 });

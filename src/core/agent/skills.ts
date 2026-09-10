@@ -5,7 +5,7 @@ import summary from "./skills/summary/SKILL.md?raw";
 
 export const SKILLS = [readSkill(summary), readSkill(questions)];
 
-/** Reads the bundled skills' plain name/description frontmatter and keeps the body out of the initial prompt. */
+/** Separates discovery metadata from the skill body so each workflow controls when guidance is loaded. */
 function readSkill(markdown: string) {
   const document = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(markdown);
   const name = document?.[1].match(/^name: (.+)$/m)?.[1].trim();

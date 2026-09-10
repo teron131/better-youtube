@@ -42,6 +42,20 @@ export function createYouTubeWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
+/** Identifies a playable watch page without accepting lookalike hosts or non-video YouTube pages. */
+export function getWatchVideoId(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const page = new URL(url);
+    if (page.hostname !== "youtube.com" && !page.hostname.endsWith(".youtube.com")) return null;
+    if (page.pathname !== "/watch") return null;
+    const id = page.searchParams.get("v");
+    return id && /^[\w-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get video thumbnail URL
  */

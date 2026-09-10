@@ -4,6 +4,8 @@
 
 import { DEFAULTS } from "@/core/constants";
 
+import type { ModelModalities } from "./model-modalities";
+
 // ================================
 // MODEL DEFAULTS
 // ================================
@@ -39,6 +41,7 @@ export type AvailableModel = {
   intelligenceScore?: number | null;
   speedMetric?: number | null;
   price?: number | null;
+  modalities?: ModelModalities;
 };
 
 export type SupportedLanguage = {

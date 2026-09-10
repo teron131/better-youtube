@@ -4,11 +4,9 @@
 
 export type {
   ApiError,
-  Chapter,
   ConfigurationResponse,
   StreamingChunk,
   StreamingProcessingResult,
   StreamingProgressState,
-  Summary,
   VideoInfoResponse,
 } from "@/core/types";

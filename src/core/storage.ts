@@ -17,7 +17,7 @@ import {
   storageRemove,
   storageSet,
 } from "./storageBrowser.ts";
-import type { Summary } from "./types.ts";
+import { migrateSummaryText } from "./summaryMigration.ts";
 export { getStorageUsage } from "./storageBrowser.ts";
 export type { StorageUsage } from "./storageBrowser.ts";
 
@@ -45,7 +45,7 @@ export interface VideoMetadata {
 }
 
 export interface StoredSummary {
-  summary: Summary;
+  summary: string;
   timestamp: number;
   modelUsed: string;
   targetLanguage?: string | null;
@@ -97,9 +97,15 @@ function createVideoStoragePayload(
   };
 }
 
-async function saveVideoScopedItem(videoId: string, key: string, value: unknown): Promise<void> {
+async function saveVideoScopedItem(
+  videoId: string,
+  key: string,
+  value: unknown,
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
   await ensureStorageSpace();
-  await setWithQuotaRetry(createVideoStoragePayload(videoId, key, value));
+  await setWithQuotaRetry(createVideoStoragePayload(videoId, key, value), signal);
 }
 
 // ============================================================================
@@ -168,11 +174,15 @@ function isWriteRateQuotaError(error: unknown): error is Error {
   return error instanceof Error && error.message.includes("MAX_WRITE_OPERATIONS");
 }
 
-async function setWithQuotaRetry(items: Record<string, unknown>): Promise<void> {
+async function setWithQuotaRetry(
+  items: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
   let quotaCleanupAttempts = 0;
 
   for (let attempt = 0; attempt <= WRITE_RATE_RETRY_LIMIT; attempt++) {
     try {
+      signal?.throwIfAborted();
       await storageSet(items);
       return;
     } catch (error) {
@@ -223,14 +233,22 @@ export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata
 }
 
 export async function getSummary(videoId: string): Promise<StoredSummary | null> {
-  return storageGet<StoredSummary>(StorageKeys.summary(videoId));
+  const key = StorageKeys.summary(videoId);
+  const stored = await storageGet<Omit<StoredSummary, "summary"> & { summary: unknown }>(key);
+  if (!stored) return null;
+  const summary = migrateSummaryText(stored.summary);
+  if (summary === null) return null;
+  const result = { ...stored, summary };
+  if (typeof stored.summary !== "string") await setWithQuotaRetry({ [key]: result });
+  return result;
 }
 
 export async function saveSummary(
   videoId: string,
-  summary: Summary,
+  summary: string,
   modelUsed: string,
   targetLanguage?: string | null,
+  signal?: AbortSignal,
 ): Promise<void> {
   const key = StorageKeys.summary(videoId);
   const storedSummary: StoredSummary = {
@@ -239,7 +257,7 @@ export async function saveSummary(
     modelUsed,
     targetLanguage,
   };
-  await saveVideoScopedItem(videoId, key, storedSummary);
+  await saveVideoScopedItem(videoId, key, storedSummary, signal);
 }
 
 // ============================================================================

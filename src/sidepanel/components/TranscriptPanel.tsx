@@ -3,7 +3,6 @@
  */
 
 import { Button } from "@ui/components/ui/button";
-import { Card } from "@ui/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@ui/components/ui/collapsible";
 import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
@@ -161,22 +160,19 @@ export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) 
   }, [currentMatchIndex, deferredSearchQuery]);
 
   return (
-    <Card className="p-0 contain-layout">
+    <section className="contain-layout">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full p-6 h-auto justify-between hover:bg-transparent transition-all duration-300"
+            className="w-full px-0 py-3 h-auto justify-between hover:bg-transparent"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
-                <FileText className="w-6 h-6" />
+              <div className="flex items-center justify-center text-muted-foreground">
+                <FileText className="w-4 h-4" />
               </div>
               <div className="text-left">
-                <span className="text-2xl font-black tracking-tight text-foreground block">
-                  Transcript
-                </span>
-                <span className="text-muted-foreground text-sm">Complete video transcription</span>
+                <span className="text-sm font-medium text-foreground block">Transcript</span>
               </div>
             </div>
             {isOpen ? (
@@ -187,7 +183,7 @@ export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) 
           </Button>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="px-6 pb-6">
+        <CollapsibleContent className="pb-4">
           <div className="space-y-6">
             <div className="flex gap-3 items-center">
               <div className="relative min-w-0 flex-1">
@@ -273,10 +269,7 @@ export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) 
               </Tooltip>
             </div>
 
-            <div
-              ref={transcriptRef}
-              className="glass-effect rounded-2xl p-6 max-h-96 overflow-y-auto border border-primary/10 contain-layout"
-            >
+            <div ref={transcriptRef} className="py-3 max-h-96 overflow-y-auto contain-layout">
               <div className="text-foreground leading-relaxed whitespace-pre-wrap font-mono summary-text">
                 {highlightedContent}
               </div>
@@ -284,6 +277,6 @@ export const TranscriptPanel = ({ transcript, metadata }: TranscriptPanelProps) 
           </div>
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </section>
   );
 };

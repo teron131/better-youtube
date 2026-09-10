@@ -94,3 +94,35 @@ test("joins a pending workload and clears it after completion", async () => {
   assert.equal(nextResult, "ran");
   assert.equal(startedNextJob, true);
 });
+
+test("cancelling the latest owner aborts inference and permits an immediate retry", async () => {
+  const lifecycle = new VideoWorkloadLifecycle();
+  const old = lifecycle.begin({ videoId: "video", requestId: "old", workloadKey: "same" });
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const oldJob = old.runOrJoin(() => pending);
+  const joined = lifecycle.begin({ videoId: "video", requestId: "joined", workloadKey: "same" });
+  lifecycle.cancel("video", "old");
+  assert.equal(old.signal.aborted, false);
+  lifecycle.cancel("video", "joined");
+  assert.equal(joined.signal.aborted, true);
+  assert.equal(old.isCurrent(), false);
+  const retry = lifecycle.begin({ videoId: "video", requestId: "retry", workloadKey: "same" });
+  let finishRetry!: () => void;
+  const retryJob = retry.runOrJoin(
+    () =>
+      new Promise<void>((resolve) => {
+        finishRetry = resolve;
+      }),
+  );
+  await Promise.resolve();
+  release();
+  await oldJob;
+  assert.equal(retry.isCurrent(), true);
+  assert.equal(retry.resolveRequestId(), "retry");
+  assert.equal(retry.signal.aborted, false);
+  finishRetry();
+  assert.equal(await retryJob, "ran");
+});

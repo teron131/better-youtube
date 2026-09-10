@@ -6,7 +6,7 @@ import { MESSAGE_ACTIONS, TIMING } from "../../core/constants.ts";
 import type { VideoInfoResponse } from "../../core/types.ts";
 import type { ChromeMessage } from "../../core/utils/chrome.ts";
 import { getCurrentTab, sendChromeMessage } from "../../core/utils/chrome.ts";
-import { createYouTubeWatchUrl, extractVideoId } from "../../core/utils/url.ts";
+import { createYouTubeWatchUrl, extractVideoId, getWatchVideoId } from "../../core/utils/url.ts";
 
 export interface CurrentVideoFetchState {
   videoInfo: VideoInfoResponse | null;
@@ -45,6 +45,7 @@ export async function fetchCurrentVideoState(
   const resolveCurrentTab = options.getCurrentTab ?? getCurrentTab;
   const sendMessage = options.sendMessage ?? sendChromeMessage;
   const activeTab = await resolveCurrentTab();
+  if (!activeTab?.id || getWatchVideoId(activeTab.url) !== videoId) return null;
   const response = await sendMessage<ScrapeVideoResponse>(
     {
       action: MESSAGE_ACTIONS.SCRAPE_VIDEO,

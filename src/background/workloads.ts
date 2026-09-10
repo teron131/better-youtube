@@ -10,6 +10,7 @@ interface VideoWorkloadLifecycleInput {
 
 export interface VideoWorkloadRun {
   effectiveRequestId: string;
+  signal: AbortSignal;
   isCurrent(): boolean;
   resolveRequestId(): string | undefined;
   runOrJoin(jobFactory: () => Promise<void>, onJoin?: () => void): Promise<"ran" | "joined">;
@@ -22,6 +23,7 @@ export class VideoWorkloadLifecycle {
   private readonly requestIds = new Map<string, string>();
   private readonly latestWorkloadKeys = new Map<string, string>();
   private readonly pendingJobs = new Map<string, Promise<void>>();
+  private readonly controllers = new Map<string, AbortController>();
   private readonly maxEntries: number;
 
   /**
@@ -37,6 +39,14 @@ export class VideoWorkloadLifecycle {
   public begin(input: VideoWorkloadLifecycleInput): VideoWorkloadRun {
     const { videoId, workloadKey } = input;
     const effectiveRequestId = input.requestId ? String(input.requestId) : "";
+    const previous = this.latestWorkloadKeys.get(videoId);
+    if (previous && previous !== workloadKey) this.controllers.get(previous)?.abort();
+    let controller = this.controllers.get(workloadKey);
+    if (!controller || controller.signal.aborted) {
+      this.pendingJobs.delete(workloadKey);
+      controller = new AbortController();
+      this.controllers.set(workloadKey, controller);
+    }
 
     if (input.requestId) {
       this.requestIds.set(videoId, effectiveRequestId);
@@ -45,11 +55,24 @@ export class VideoWorkloadLifecycle {
 
     return {
       effectiveRequestId,
-      isCurrent: () => this.isCurrent(videoId, workloadKey),
+      signal: controller.signal,
+      isCurrent: () => !controller.signal.aborted && this.isCurrent(videoId, workloadKey),
       resolveRequestId: () => this.resolveRequestId(videoId, effectiveRequestId),
       runOrJoin: (jobFactory, onJoin) =>
         this.runOrJoin(videoId, effectiveRequestId, workloadKey, jobFactory, onJoin),
     };
+  }
+
+  /** Cancels only the current request owner so an older view cannot cancel a newer request. */
+  public cancel(videoId: string, requestId: string): void {
+    if (this.requestIds.get(videoId) !== requestId) return;
+    const key = this.latestWorkloadKeys.get(videoId);
+    if (!key) return;
+    this.controllers.get(key)?.abort();
+    this.pendingJobs.delete(key);
+    this.controllers.delete(key);
+    this.latestWorkloadKeys.delete(videoId);
+    this.requestIds.delete(videoId);
   }
 
   /**
@@ -87,13 +110,16 @@ export class VideoWorkloadLifecycle {
       }
     }
 
+    const job = Promise.resolve().then(jobFactory);
     try {
-      const job = Promise.resolve().then(jobFactory);
       this.pendingJobs.set(workloadKey, job);
       await job;
       return "ran";
     } finally {
-      this.pendingJobs.delete(workloadKey);
+      if (this.pendingJobs.get(workloadKey) === job) {
+        this.pendingJobs.delete(workloadKey);
+        this.controllers.delete(workloadKey);
+      }
       this.finalize(videoId, requestId);
     }
   }

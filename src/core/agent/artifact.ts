@@ -2,36 +2,9 @@
 
 import { z } from "zod";
 
-const ChapterSchema = z.object({
-  startTime: z
-    .string()
-    .describe("Optional chapter start timestamp in the format MM:SS.")
-    .optional(),
-  endTime: z
-    .string()
-    .describe("Optional chapter end timestamp matching the same format as startTime.")
-    .optional(),
-  title: z.string().describe("A concise chapter heading."),
-  description: z
-    .string()
-    .describe(
-      "A substantive chapter description grounded in the transcript. Include key facts (numbers/names/steps) when present. Avoid meta-language like 'this video...' and do not include sponsorship/promotional content.",
-    ),
-});
-
-export const SummaryArtifactSchema = z.object({
-  chapters: z
-    .array(ChapterSchema)
-    .min(1)
-    .describe("Chronological, non-overlapping chapters covering the core content."),
-  overview: z
-    .string()
-    .describe(
-      "An end-to-end summary of the whole content (main thesis + arc), written in direct statements without meta-language.",
-    ),
-});
-
-export type SummaryArtifact = z.infer<typeof SummaryArtifactSchema>;
+export const SummaryTextSchema = z
+  .string()
+  .refine((text) => Boolean(text.trim()), "Summary must not be empty.");
 
 export const SummaryEditSchema = z.object({
   edits: z
@@ -46,7 +19,7 @@ export const SummaryEditSchema = z.object({
         lines: z
           .array(z.string())
           .describe(
-            "Raw replacement JSON lines without hashline prefixes; empty array deletes a replace range",
+            "Markdown lines without hashline prefixes; empty array deletes a replace range",
           ),
       }),
     )
@@ -54,12 +27,12 @@ export const SummaryEditSchema = z.object({
 });
 
 /** Keeps a run-local copy and permits a small number of complete, validated revisions. */
-export function createSummaryArtifact(initial: SummaryArtifact | null) {
-  let draft = initial ? structuredClone(initial) : null;
+export function createSummaryArtifact(initial: string | null) {
+  let draft = initial;
   let writes = 0;
   const readHashlines = () => ({
     text: draft
-      ? JSON.stringify(draft, null, 2)
+      ? draft
           .split("\n")
           .map((line, index) => `${index + 1}#${lineHash(line)}:${line}`)
           .join("\n")
@@ -68,13 +41,13 @@ export function createSummaryArtifact(initial: SummaryArtifact | null) {
   const commit = (value: unknown) => {
     if (writes >= 3)
       throw new Error("Summary revision limit reached; finish with the current draft.");
-    const validated = SummaryArtifactSchema.parse(value);
+    const validated = SummaryTextSchema.parse(value);
     draft = validated;
     writes += 1;
     return readHashlines();
   };
   return {
-    read: () => ({ summary: draft ? structuredClone(draft) : null, changed: writes > 0 }),
+    read: () => ({ summary: draft, changed: writes > 0 }),
     readHashlines,
     write(value: unknown) {
       if (draft)
@@ -85,16 +58,14 @@ export function createSummaryArtifact(initial: SummaryArtifact | null) {
     edit(value: z.infer<typeof SummaryEditSchema>) {
       const input = SummaryEditSchema.parse(value);
       if (!draft) throw new Error("Create the summary with write_summary before editing it.");
-      const lines = JSON.stringify(draft, null, 2).split("\n");
+      const lines = draft.split("\n");
       const edits = input.edits
         .map((edit) => {
           const start = resolveAnchor(edit.start, lines);
           const end = edit.end === null ? start : resolveAnchor(edit.end, lines);
           if (end < start) throw new Error("The end anchor must not precede the start anchor.");
           if (edit.lines.some((line) => /[\r\n]/.test(line)))
-            throw new Error(
-              "Each replacement entry must contain one physical line; escape newlines inside JSON strings.",
-            );
+            throw new Error("Each replacement entry must contain one physical Markdown line.");
           if (edit.op !== "replace" && edit.end !== null)
             throw new Error("Insertion edits require a null end anchor.");
           const offset = edit.op === "insert_after" ? start + 1 : start;
@@ -114,7 +85,7 @@ export function createSummaryArtifact(initial: SummaryArtifact | null) {
         const edit = edits[index];
         lines.splice(edit.offset, edit.count, ...edit.lines);
       }
-      return commit(JSON.parse(lines.join("\n")));
+      return commit(lines.join("\n"));
     },
   };
 }

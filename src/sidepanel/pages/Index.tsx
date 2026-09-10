@@ -3,8 +3,6 @@
  */
 
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
-import { HeroSection } from "@ui/components/HeroSection";
-import { ProcessingStatus } from "@ui/components/ProcessingStatus";
 import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
 import { Button } from "@ui/components/ui/button";
@@ -22,7 +20,7 @@ import {
   setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Captions, ListFilter, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { Captions, ListFilter, Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
@@ -58,6 +56,8 @@ const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set(
 
 const Index = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const summaryStartRef = useRef(false);
   const currentUrlVideoIdRef = useRef<string | null>(null);
   const activeTabLookupRef = useRef(0);
   const videoSyncSequenceRef = useRef(0);
@@ -67,6 +67,9 @@ const Index = () => {
     kind: "navigation",
   });
   const [isRefreshingVideo, setIsRefreshingVideo] = useState(false);
+  const [isResolvingVideo, setIsResolvingVideo] = useState(true);
+  const [hasActiveVideo, setHasActiveVideo] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
   const [isExampleMode, setIsExampleMode] = useState(false);
   const [lastProcessedUrl, setLastProcessedUrl] = useState<string>("");
   const [lastOptions, setLastOptions] = useState<VideoProcessingOptions>();
@@ -76,9 +79,6 @@ const Index = () => {
   const {
     isLoading,
     error,
-    currentStep,
-    currentStage,
-    progressStates,
     summaryResult,
     scrapedVideoInfo,
     scrapedTranscript,
@@ -98,20 +98,39 @@ const Index = () => {
     async (kind: VideoSyncRequest["kind"] = "navigation"): Promise<CurrentVideoLoadResult> => {
       const lookupSequence = activeTabLookupRef.current + 1;
       activeTabLookupRef.current = lookupSequence;
+      setIsResolvingVideo(true);
       const url = await getVideoIdFromCurrentTab();
       if (lookupSequence !== activeTabLookupRef.current) return "superseded";
-      if (!url) return "unavailable";
+      if (!url) {
+        videoSyncSequenceRef.current += 1;
+        currentUrlVideoIdRef.current = null;
+        cancelCurrentRun();
+        setHasActiveVideo(false);
+        setInitialUrl("");
+        setLastProcessedUrl("");
+        setLastOptions(undefined);
+        setIsExampleMode(false);
+        setIsRefreshingVideo(false);
+        setIsResolvingVideo(false);
+        updateState(EMPTY_VIDEO_STATE);
+        return "unavailable";
+      }
 
+      setHasActiveVideo(true);
       setIsExampleMode(false);
       setInitialUrl((previousUrl) => (previousUrl === url ? previousUrl : url));
       requestVideoSync(kind);
       return "started";
     },
-    [requestVideoSync],
+    [cancelCurrentRun, requestVideoSync, updateState],
   );
 
   // Get current tab URL on mount and when tab changes
   useEffect(() => {
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("example") === "1") {
+      setIsResolvingVideo(false);
+      return;
+    }
     // Load initial URL
     void loadCurrentTabUrl();
 
@@ -165,6 +184,8 @@ const Index = () => {
         }
 
         activeTabLookupRef.current += 1;
+        setHasActiveVideo(true);
+        setIsResolvingVideo(true);
         setIsExampleMode(false);
         setInitialUrl((previousUrl) => (previousUrl === nextUrl ? previousUrl : nextUrl));
         requestVideoSync();
@@ -253,7 +274,7 @@ const Index = () => {
           updateState(EMPTY_VIDEO_STATE);
         }
 
-        if (!forceRefresh) {
+        if (!forceRefresh && videoChanged) {
           const cachedState = await loadCachedVideoState(nextVideoId);
           if (cancelled || syncSequence !== videoSyncSequenceRef.current) return;
           updateState(cachedState ?? EMPTY_VIDEO_STATE);
@@ -285,7 +306,6 @@ const Index = () => {
         updateState({
           scrapedVideoInfo: fetchedState.videoInfo,
           scrapedTranscript: fetchedState.transcript,
-          error: null,
         });
       } catch (error) {
         console.error("Failed to sync current video state:", error);
@@ -299,6 +319,7 @@ const Index = () => {
       } finally {
         if (syncSequence === videoSyncSequenceRef.current) {
           setIsRefreshingVideo(false);
+          setIsResolvingVideo(false);
         }
       }
     };
@@ -319,16 +340,15 @@ const Index = () => {
 
     return subscribeToStoredVideoState({
       relevantKeys: getTrackedStorageKeys(videoId),
-      loadState: async () => {
-        const cachedState = await loadCachedVideoState(videoId);
-        if (!cachedState || cachedState.scrapedTranscript !== null) {
-          return cachedState;
-        }
-
-        const { scrapedTranscript: _omittedTranscript, ...state } = cachedState;
-        return state;
+      loadState: () => loadCachedVideoState(videoId),
+      updateState: ({ summaryResult, scrapedVideoInfo, scrapedTranscript }) => {
+        // Storage owns content, not the foreground request's loading or error state.
+        updateState({
+          ...(summaryResult ? { summaryResult } : {}),
+          ...(scrapedVideoInfo ? { scrapedVideoInfo } : {}),
+          ...(typeof scrapedTranscript === "string" ? { scrapedTranscript } : {}),
+        });
       },
-      updateState,
       addStorageListener: (listener) => chrome.storage.onChanged.addListener(listener),
       removeStorageListener: (listener) => chrome.storage.onChanged.removeListener(listener),
       onError: (error) => {
@@ -443,61 +463,72 @@ const Index = () => {
     });
   };
 
-  const resolveUrlOrLoadExample = async (url: string): Promise<string | null> => {
+  const resolveVideoSource = async (url: string): Promise<string | null> => {
     const videoUrl = await resolveVideoUrl(url);
     if (videoUrl) return videoUrl;
 
     toast({
-      title: "Loading example",
-      description: "Not on a YouTube video page and no URL provided. Loading example data.",
+      title: "No video selected",
+      description: "Open a YouTube watch page.",
     });
-    loadExample();
     return null;
   };
 
   const handleVideoSubmit = async (url: string, options?: VideoProcessingOptions) => {
-    setIsExampleMode(false);
+    if (summaryStartRef.current || chatBusy || isLoading) return;
+    summaryStartRef.current = true;
+    const lookup = activeTabLookupRef.current;
+    try {
+      setIsExampleMode(false);
 
-    const videoUrl = await resolveUrlOrLoadExample(url);
-    if (!videoUrl) return;
+      const videoUrl = await resolveVideoSource(url);
+      if (lookup !== activeTabLookupRef.current) return;
+      if (!videoUrl) return;
 
-    setLastProcessedUrl(videoUrl);
+      setLastProcessedUrl(videoUrl);
 
-    // Include current transcript if available to avoid re-fetching
-    const currentTranscript = summaryResult?.transcript || scrapedTranscript;
-    const processingOptions = {
-      ...options,
-      transcript: options?.transcript || currentTranscript || undefined,
-    };
-
-    setLastOptions(processingOptions);
-
-    const result = await processVideo(videoUrl, processingOptions);
-    if (!result.success) {
-      const error = result.error || {
-        message: "Processing failed",
-        type: "processing",
+      // Include current transcript if available to avoid re-fetching
+      const currentTranscript =
+        extractVideoId(videoUrl) === currentUrlVideoIdRef.current
+          ? summaryResult?.transcript || scrapedTranscript
+          : undefined;
+      const processingOptions = {
+        ...options,
+        transcript: options?.transcript || currentTranscript || undefined,
       };
-      const apiError = handleApiError(error);
-      updateState({
-        error: apiError,
-        currentStage: "❌ Processing failed",
-      });
 
-      toast({
-        title: "Processing Failed",
-        description: apiError.message,
-        variant: "destructive",
-      });
+      setLastOptions(processingOptions);
 
-      console.error("Processing error:", apiError.message, "Details:", apiError.details);
+      const result = await processVideo(videoUrl, processingOptions);
+      if (lookup !== activeTabLookupRef.current) return;
+      if (!result.success) {
+        const error = result.error || {
+          message: "Processing failed",
+          type: "processing",
+        };
+        const apiError = handleApiError(error);
+        updateState({
+          error: apiError,
+          currentStage: "❌ Processing failed",
+        });
+
+        toast({
+          title: "Processing Failed",
+          description: apiError.message,
+          variant: "destructive",
+        });
+
+        console.error("Processing error:", apiError.message, "Details:", apiError.details);
+      }
+    } finally {
+      summaryStartRef.current = false;
     }
   };
 
   const handleCaptionSubmit = async (url: string) => {
     setIsExampleMode(false);
 
-    const videoUrl = await resolveUrlOrLoadExample(url);
+    const videoUrl = await resolveVideoSource(url);
     if (!videoUrl) return;
 
     setLastProcessedUrl(videoUrl);
@@ -519,10 +550,10 @@ const Index = () => {
     }
 
     try {
-      await triggerCaptionGeneration(videoUrl);
+      await triggerCaptionGeneration(videoUrl, { forceRegenerate: true });
       toast({
-        title: "Caption requested",
-        description: "Caption generation started for this video.",
+        title: "Regenerating captions",
+        description: "Fetching the transcript again and rerunning caption refinement.",
       });
     } catch (error) {
       const apiError = handleApiError(error);
@@ -532,18 +563,6 @@ const Index = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const handleFormSubmit = async (
-    url: string,
-    options?: VideoProcessingOptions,
-    action: "caption" | "summary" = "summary",
-  ) => {
-    if (action === "caption") {
-      await handleCaptionSubmit(url);
-      return;
-    }
-    await handleVideoSubmit(url, options);
   };
 
   const handleRegenerate = async () => {
@@ -581,9 +600,21 @@ const Index = () => {
   const videoInfo = cachedVideoInfo || summaryVideoInfo;
   const transcript = scrapedTranscript || summaryResult?.transcript;
 
+  const openSummary = async (model: string, language: string) => {
+    if (!isExampleMode && (!hasActiveVideo || isResolvingVideo || chatBusy || isLoading)) return;
+    if (summaryResult?.summary) {
+      summaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    await handleVideoSubmit(initialUrl || lastProcessedUrl, {
+      summaryModel: model,
+      targetLanguage: language,
+    });
+  };
+
   return (
-    <div className="app-shell pb-10">
-      <div className="absolute top-[var(--sidepanel-topbar-offset)] left-0 right-0 z-50">
+    <div className="video-workspace flex h-dvh flex-col overflow-hidden bg-background">
+      <header className="shrink-0 border-b border-border/50 py-2">
         <div className="sidepanel-container">
           <div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
             <div className="flex items-center gap-2">
@@ -644,13 +675,31 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <HeroSection onSubmit={handleFormSubmit} isLoading={isLoading} initialUrl={initialUrl} />
-
-      <div className="relative" ref={resultsRef}>
-        <div className="sidepanel-container relative z-10 pb-12 -mt-10">
+      <VideoChat
+        key={isExampleMode ? "example" : activeVideoId || "empty"}
+        videoId={isExampleMode ? "MiUHjLxm3V0" : activeVideoId || ""}
+        transcript={transcript || ""}
+        disabled={isLoading}
+        videoReady={hasActiveVideo && !isResolvingVideo}
+        contextLoading={isResolvingVideo}
+        onBusyChange={setChatBusy}
+        preview={isExampleMode}
+        hasSummary={Boolean(summaryResult?.summary)}
+        onSummary={openSummary}
+        onCaptions={() => handleCaptionSubmit(initialUrl || lastProcessedUrl)}
+      >
+        <div ref={resultsRef}>
           <div className="space-y-4">
+            {!activeVideoId && !isExampleMode && (
+              <div className="py-10 text-center">
+                <h1 className="text-2xl font-semibold tracking-tight">Understand this video</h1>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Open a YouTube video, get a summary, or ask a question.
+                </p>
+              </div>
+            )}
             {!isExampleMode && videoInfo && (
               <VideoInfo
                 url={videoInfo.url}
@@ -667,44 +716,30 @@ const Index = () => {
             {transcript && <TranscriptPanel transcript={transcript} metadata={videoInfo} />}
 
             {summaryResult?.summary && (
-              <SummaryPanel
-                summary={summaryResult.summary}
-                videoInfo={summaryResult.videoInfo}
-                provider={summaryResult.provider}
-                onRegenerate={isExampleMode ? undefined : handleRegenerate}
-                isRegenerating={isLoading}
-              />
-            )}
-
-            {((activeVideoId && transcript) || isExampleMode) && (
-              <VideoChat
-                key={isExampleMode ? "example" : activeVideoId}
-                videoId={isExampleMode ? "MiUHjLxm3V0" : activeVideoId}
-                transcript={transcript || ""}
-                model={lastOptions?.summaryModel}
-                disabled={isLoading}
-                preview={isExampleMode}
-              />
+              <div ref={summaryRef} className="scroll-mt-4">
+                <SummaryPanel
+                  summary={summaryResult.summary}
+                  videoInfo={summaryResult.videoInfo}
+                  onRegenerate={isExampleMode ? undefined : handleRegenerate}
+                  isRegenerating={isLoading || chatBusy || isResolvingVideo || !hasActiveVideo}
+                />
+              </div>
             )}
 
             {isLoading && (
-              <ProcessingStatus
-                currentStage={currentStage}
-                currentStep={currentStep}
-                progressStates={progressStates}
-              />
+              <p
+                role="status"
+                className="flex items-center gap-2 py-4 text-sm text-muted-foreground"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Preparing your summary…
+              </p>
             )}
 
-            {error && !isLoading && (
-              <ErrorDisplay
-                error={error}
-                progressStates={progressStates}
-                onLoadExample={loadExample}
-              />
-            )}
+            {error && !isLoading && <ErrorDisplay error={error} onLoadExample={loadExample} />}
           </div>
         </div>
-      </div>
+      </VideoChat>
     </div>
   );
 };

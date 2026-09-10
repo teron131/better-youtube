@@ -1,5 +1,6 @@
+/** Settings sections share compact controls and responsive groups while persistence stays with the page. */
+
 import { ModelSelector } from "@ui/components/ModelSelector";
-import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
@@ -21,7 +22,6 @@ import {
   Sparkles,
   Trash2,
   Type,
-  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -55,11 +55,11 @@ export function SettingsLoadingView() {
 
 export function SettingsTopbar() {
   return (
-    <div className="absolute top-[var(--sidepanel-topbar-offset)] left-0 right-0 z-50">
+    <div className="border-b border-border/70">
       <div className="sidepanel-container">
-        <div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
-          <div className="fade-in-up">
-            <h1 className="text-4xl font-black tracking-tight text-foreground">Settings</h1>
+        <div className="flex h-[72px] w-full items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
           </div>
           <Button
             asChild
@@ -68,7 +68,7 @@ export function SettingsTopbar() {
             className="text-muted-foreground hover:text-foreground transition-all"
           >
             <a aria-label="Back to main page" href={SIDEPANEL_ROUTE_HREFS.home}>
-              <ArrowLeft className="h-6 w-6" />
+              <ArrowLeft className="h-5 w-5" />
             </a>
           </Button>
         </div>
@@ -93,28 +93,31 @@ function LlmModelPrefixControls({
   }));
 
   return (
-    <div className="space-y-1.5 pt-1">
+    <div className="settings-field-detail space-y-2 pt-1">
       <Label className="text-sm font-semibold">LLM Model ID Format</Label>
-      <div className="grid items-stretch gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_12rem]">
-        <div className="grid h-9 gap-px rounded-md border border-border/60 bg-muted/20 px-2.5 py-0.5 text-[11px]">
+      <div className="grid items-stretch gap-2">
+        <div className="grid gap-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs">
           {modelPreviews.map((preview) => (
             <div
               key={preview.label}
-              className="grid min-h-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-2"
+              className="grid min-h-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-2"
             >
               <span className="font-semibold text-muted-foreground">{preview.label}</span>
-              <code className="truncate text-right text-xs text-foreground">{preview.value}</code>
+              <code className="break-all text-right text-xs leading-5 text-foreground">
+                {preview.value}
+              </code>
             </div>
           ))}
         </div>
 
-        <div className="grid h-9 grid-cols-2 rounded-md border border-border/70 bg-background p-0.5">
+        <div className="grid min-h-10 grid-cols-2 rounded-md border border-border/70 bg-background p-0.5">
           {LLM_MODEL_PREFIX_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => onChange("llmModelPrefixMode", option.value)}
-              className={`h-full rounded-sm px-1.5 text-[11px] font-semibold transition-colors ${
+              aria-pressed={settings.llmModelPrefixMode === option.value}
+              className={`h-full whitespace-nowrap rounded-sm px-1.5 text-xs font-medium transition-colors ${
                 settings.llmModelPrefixMode === option.value
                   ? "bg-primary text-white"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -140,14 +143,36 @@ export function ApiConfigurationSection({
 }) {
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
-      <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
         <Key className="h-4 w-4 text-primary" />
-        <span>API Configuration</span>
-      </div>
-      <div className="space-y-4">
+        <span>Connection</span>
+      </h2>
+      <div className="space-y-5">
+        <div className="settings-field">
+          <div className="contents">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Cpu className="h-4 w-4 text-primary" />
+              <span>Provider</span>
+            </div>
+            <Select
+              value={settings.summarizerProvider}
+              onValueChange={(value) => onChange("summarizerProvider", value)}
+            >
+              <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
+                <SelectValue placeholder="Auto" />
+              </SelectTrigger>
+              <SelectContent className="rounded-md">
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="gemini">Gemini Native</SelectItem>
+                <SelectItem value="llm">LLM</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {API_KEY_FIELDS.map((field) => (
-          <div className="space-y-1.5" key={field.key}>
-            <div className="flex items-center justify-between gap-3">
+          <div className="settings-field" key={field.key}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor={field.key} className="text-sm font-semibold">
                 {field.label}
               </Label>
@@ -197,10 +222,10 @@ export function ModelConfigurationSection({
 }) {
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
-      <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
         <Cpu className="h-4 w-4 text-primary" />
-        <span>Model Configuration</span>
-      </div>
+        <span>Models &amp; generation</span>
+      </h2>
       <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
         {selectorConfigs.map((selectorConfig) => (
           <ModelSelector
@@ -217,11 +242,12 @@ export function ModelConfigurationSection({
           />
         ))}
       </div>
+      <GenerationControls settings={settings} onChange={onChange} />
     </section>
   );
 }
 
-export function GenerationSettingsSection({
+function GenerationControls({
   settings,
   onChange,
 }: {
@@ -229,69 +255,42 @@ export function GenerationSettingsSection({
   onChange: SettingsChangeHandler;
 }) {
   return (
-    <section className={SETTINGS_SECTION_CLASSNAME}>
-      <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-        <Zap className="h-4 w-4 text-primary" />
-        <span>Generation</span>
+    <div className="space-y-5 pt-2">
+      <div className="settings-field">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Globe className="h-4 w-4 text-primary" />
+          <span>Target Language</span>
+        </div>
+        <Select
+          value={settings.targetLanguage}
+          onValueChange={(value) => onChange("targetLanguage", value)}
+        >
+          <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
+            <SelectValue placeholder="Language" />
+          </SelectTrigger>
+          <SelectContent className="rounded-md">
+            {TARGET_LANGUAGES.map((language) => (
+              <SelectItem key={language.value} value={language.value}>
+                {language.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="space-y-5">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Globe className="h-4 w-4 text-primary" />
-            <span>Target Language</span>
-          </div>
-          <Select
-            value={settings.targetLanguage}
-            onValueChange={(value) => onChange("targetLanguage", value)}
-          >
-            <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-              <SelectValue placeholder="Language" />
-            </SelectTrigger>
-            <SelectContent className="rounded-md">
-              {TARGET_LANGUAGES.map((language) => (
-                <SelectItem key={language.value} value={language.value}>
-                  {language.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Cpu className="h-4 w-4 text-primary" />
-              <span>Provider</span>
-            </div>
-            <Select
-              value={settings.summarizerProvider}
-              onValueChange={(value) => onChange("summarizerProvider", value)}
-            >
-              <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
-                <SelectValue placeholder="Auto" />
-              </SelectTrigger>
-              <SelectContent className="rounded-md">
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="gemini">Gemini Native</SelectItem>
-                <SelectItem value="llm">LLM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex items-center justify-between gap-4 pt-1">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span>Auto-Generate Caption</span>
         </div>
-
-        <div className="flex items-center justify-between gap-4 pt-1">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Auto-Generate Caption</span>
-          </div>
-          <Switch
-            checked={settings.autoGenerate}
-            onCheckedChange={(checked) => onChange("autoGenerate", checked)}
-            className="scale-75 data-[state=checked]:bg-primary"
-          />
-        </div>
+        <Switch
+          checked={settings.autoGenerate}
+          onCheckedChange={(checked) => onChange("autoGenerate", checked)}
+          aria-label="Auto-generate captions"
+          className="shrink-0 data-[state=checked]:bg-primary"
+        />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -304,14 +303,14 @@ export function StorageSettingsSection({
 }) {
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
-      <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
         <Trash2 className="h-4 w-4 text-primary" />
         <span>Storage</span>
-      </div>
+      </h2>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">Cached data</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Transcripts, summaries, video details, and temporary caches
           </p>
         </div>
@@ -319,6 +318,7 @@ export function StorageSettingsSection({
           type="button"
           variant="default"
           size="icon"
+          className="shrink-0"
           aria-label="Clear cached storage"
           title="Clear cached storage"
           onClick={onClearStoredData}
@@ -345,6 +345,7 @@ function FontSizeSelector({
           key={size}
           type="button"
           onClick={() => onChange(size)}
+          aria-pressed={value === size}
           className={`h-9 rounded-sm text-sm font-semibold transition-colors ${
             value === size
               ? "bg-primary text-white"
@@ -358,7 +359,7 @@ function FontSizeSelector({
   );
 }
 
-export function AppearanceSettingsSection({
+export function ReadingSettingsSection({
   settings,
   onChange,
 }: {
@@ -366,31 +367,27 @@ export function AppearanceSettingsSection({
   onChange: SettingsChangeHandler;
 }) {
   return (
-    <>
-      <RecommendationFilterSettings />
-
-      <section className={SETTINGS_SECTION_CLASSNAME}>
-        <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
-          <Type className="h-4 w-4 text-primary" />
-          <span>Font Size</span>
+    <section className={SETTINGS_SECTION_CLASSNAME}>
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <Type className="h-4 w-4 text-primary" />
+        <span>Reading</span>
+      </h2>
+      <div className="space-y-5">
+        <div className="settings-field">
+          <Label className="text-sm font-medium text-foreground">Captions</Label>
+          <FontSizeSelector
+            value={settings.captionFontSize as FontSize}
+            onChange={(value) => onChange("captionFontSize", value)}
+          />
         </div>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-foreground">Caption Overlay</Label>
-            <FontSizeSelector
-              value={settings.captionFontSize as FontSize}
-              onChange={(value) => onChange("captionFontSize", value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-foreground">Summary Panel</Label>
-            <FontSizeSelector
-              value={settings.summaryFontSize as FontSize}
-              onChange={(value) => onChange("summaryFontSize", value)}
-            />
-          </div>
+        <div className="settings-field">
+          <Label className="text-sm font-medium text-foreground">Summary and chat</Label>
+          <FontSizeSelector
+            value={settings.summaryFontSize as FontSize}
+            onChange={(value) => onChange("summaryFontSize", value)}
+          />
         </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }

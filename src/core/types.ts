@@ -65,23 +65,10 @@ export interface ConfigurationResponse {
   default_target_language: string;
 }
 
-// Summary Data Structures
-export interface Summary {
-  chapters: Chapter[];
-  overview: string;
-}
-
-export interface Chapter {
-  startTime?: string;
-  endTime?: string;
-  title: string;
-  description: string;
-}
-
 // Streaming Types
 export interface StreamingChunk {
   transcript_or_url?: string;
-  summary?: Summary;
+  summary?: string;
   iterations?: number;
   isComplete?: boolean;
   timestamp?: string;
@@ -111,8 +98,7 @@ export interface StreamingProcessingResult {
   success: boolean;
   videoInfo?: VideoInfoResponse;
   transcript?: string;
-  summary?: Summary;
-  summaryText?: string;
+  summary?: string;
   provider?: "gemini" | "llm";
   error?: ApiError;
   totalTime: string;

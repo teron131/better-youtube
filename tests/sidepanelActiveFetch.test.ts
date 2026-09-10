@@ -11,6 +11,7 @@ test("fetches current video state through the active tab scrape route", async ()
     getCurrentTab: async () =>
       ({
         id: 42,
+        url: "https://www.youtube.com/watch?v=abc123XYZ_9",
       }) as chrome.tabs.Tab,
     sendMessage: async (message, timeout) => {
       sentMessages.push(message);
@@ -59,6 +60,7 @@ test("requests a forced background refresh", async () => {
     getCurrentTab: async () =>
       ({
         id: 42,
+        url: "https://www.youtube.com/watch?v=abc123XYZ_9",
       }) as chrome.tabs.Tab,
     sendMessage: async (message) => {
       sentMessages.push(message);
@@ -77,4 +79,19 @@ test("requests a forced background refresh", async () => {
       forceRefresh: true,
     },
   ]);
+});
+
+test("does not scrape missing, unrelated, or navigated-away tabs", async () => {
+  for (const url of [
+    undefined,
+    "https://example.com/",
+    "https://youtube.com/",
+    "https://www.youtube.com/watch?v=otherVideo1",
+  ]) {
+    const result = await fetchCurrentVideoState("abc123XYZ_9", {
+      getCurrentTab: async () => ({ id: 42, url }) as chrome.tabs.Tab,
+      sendMessage: async () => assert.fail("must not request stale video context"),
+    });
+    assert.equal(result, null);
+  }
 });

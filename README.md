@@ -47,7 +47,9 @@ flowchart LR
 
 ### Summaries and Q&A
 
-The agent reads the video context, loads Markdown skills, and can inspect and edit an in-memory summary using hashline tools.
+Initial summaries use the preloaded summary skill and return Markdown in one model turn.
+Follow-up questions and requested edits use the agent with video context, Markdown skills, and hashline tools.
+Summaries are Markdown text rendered like assistant messages; there is no required overview or chapter schema.
 Only successful runs save summary changes; temporary tool history is discarded.
 
 ```mermaid
@@ -57,12 +59,13 @@ flowchart TD
     REQUEST["Summary request"] --> CACHE{"Matching saved summary?"}
     CACHE -->|Yes| DISPLAY["Display summary"]
     CACHE -->|No| ROUTE{"Selected provider"}
-    ROUTE -->|OpenAI-compatible| AGENT["Agent with video context"]
+    ROUTE -->|OpenAI-compatible| DRAFT["One model turn with transcript and summary skill"]
     ROUTE -->|Native Gemini| GEMINI["Summarize supplied transcript or video URL"]
-    GEMINI -->|Failure and LLM key available| AGENT
+    GEMINI -->|Failure and LLM key available| DRAFT
     GEMINI -->|Success| SAVE["Save final summary"]
+    DRAFT --> SAVE
     CHAT["Question or edit request"] --> CONTEXT["Transcript, current summary, recent chat"]
-    CONTEXT --> AGENT
+    CONTEXT --> AGENT["Agent with video context"]
     AGENT <--> SKILLS["Load relevant Markdown skill"]
     AGENT <--> ARTIFACT["Write, read, or hashline-edit summary"]
     AGENT -->|Successful summary creation or edit| SAVE

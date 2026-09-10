@@ -1,3 +1,5 @@
+/** Edits recommendation rules and subscription exceptions, with recent hidden items for feedback. */
+
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Switch } from "@ui/components/ui/switch";
@@ -346,24 +348,24 @@ export function RecommendationFilterSettings() {
   };
 
   return (
-    <section className="space-y-8 border-t border-border/70 pt-5">
-      <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-[0.04em]">
+    <details className="settings-filters group space-y-4 border-t border-border/70 pt-5">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-semibold">
         <ListFilter className="h-4 w-4 text-primary" />
-        <span>Recommendation Filters</span>
-      </div>
+        <span>Recommendation filters</span>
+        <span aria-hidden="true" className="ml-auto text-muted-foreground group-open:rotate-180">
+          ⌄
+        </span>
+      </summary>
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2 md:gap-y-5">
         {TOGGLE_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
-            <div
-              key={item.key}
-              className="flex items-start justify-between gap-3 py-2.5 md:min-h-[92px] md:gap-4"
-            >
+            <div key={item.key} className="flex items-start justify-between gap-3 py-2.5 md:gap-4">
               <div className="min-w-0 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0 text-primary" />
-                  <div className="text-sm font-semibold leading-none">{item.title}</div>
+                  <div className="text-sm font-semibold leading-5">{item.title}</div>
                 </div>
                 <div className="pl-6">
                   <div className="text-sm font-medium leading-6 text-foreground/95">
@@ -379,7 +381,7 @@ export function RecommendationFilterSettings() {
               <Switch
                 checked={settings[item.key]}
                 onCheckedChange={(checked) => void handleSettingChange(item.key, checked)}
-                className="mt-0.5 scale-75 data-[state=checked]:bg-primary"
+                className="mt-0.5 shrink-0 data-[state=checked]:bg-primary"
               />
             </div>
           );
@@ -393,7 +395,7 @@ export function RecommendationFilterSettings() {
             Titles containing one of these words will be hidden.
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             value={newKeyword}
             onChange={(event) => setNewKeyword(event.target.value)}
@@ -403,13 +405,13 @@ export function RecommendationFilterSettings() {
                 void addKeyword();
               }
             }}
-            className="h-10 flex-1 rounded-md border-border/70 bg-background"
+            className="h-10 min-w-0 flex-1 rounded-md border-border/70 bg-background"
             placeholder="Add keyword"
           />
           <Button
             type="button"
             onClick={() => void addKeyword()}
-            className="h-10 min-w-[6.75rem] shrink-0 rounded-md px-4 text-sm"
+            className="h-10 min-w-[5rem] shrink-0 rounded-md px-4 text-sm"
           >
             Add
           </Button>
@@ -429,7 +431,7 @@ export function RecommendationFilterSettings() {
       </div>
 
       <div className="space-y-4 pt-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start justify-between gap-3 min-[480px]:flex-row">
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Users className="h-4 w-4 text-primary" />
@@ -449,7 +451,7 @@ export function RecommendationFilterSettings() {
             type="button"
             onClick={() => void handleExtractSubscriptions()}
             disabled={isExtracting}
-            className="h-10 min-w-[6.75rem] shrink-0 rounded-md px-4 text-sm"
+            className="h-10 min-w-[5rem] shrink-0 rounded-md px-4 text-sm"
           >
             {isExtracting ? (
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -511,6 +513,6 @@ export function RecommendationFilterSettings() {
           </div>
         )}
       </div>
-    </section>
+    </details>
   );
 }

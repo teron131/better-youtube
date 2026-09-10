@@ -6,14 +6,23 @@ import { loadConfig } from "../core/config.ts";
 import { getSubtitles, getSummary, getVideoMetadata, saveSummary } from "../core/storage.ts";
 import { getCachedTranscript } from "../core/transcript/cache.ts";
 
-const pendingVideos = new Set<string>();
+const pendingVideos = new Map<string, { requestId?: string; controller: AbortController }>();
+
+/** Cancels only the matching chat turn; a late cancellation cannot affect its successor. */
+export function cancelVideoChat(videoId: string, requestId: string): void {
+  const pending = pendingVideos.get(videoId);
+  if (pending?.requestId !== requestId) return;
+  pending.controller.abort();
+  pendingVideos.delete(videoId);
+}
 
 /** Rejects overlapping turns for the same video and leaves stored summaries untouched on failure. */
 export async function handleVideoChat(message: unknown): Promise<ChatResponse> {
   const request = ChatRequestSchema.parse(message);
   if (pendingVideos.has(request.videoId))
     throw new Error("This video already has an answer in progress.");
-  pendingVideos.add(request.videoId);
+  const pending = { requestId: request.requestId, controller: new AbortController() };
+  pendingVideos.set(request.videoId, pending);
   try {
     const [config, stored, metadata, subtitles] = await Promise.all([
       loadConfig(),
@@ -29,6 +38,7 @@ export async function handleVideoChat(message: unknown): Promise<ChatResponse> {
       subtitles?.map((segment) => segment.text).join("\n") ||
       "";
     const model = request.model || config.summarizerModel;
+    pending.controller.signal.throwIfAborted();
     const result = await runAgent(
       {
         videoId: request.videoId,
@@ -42,17 +52,26 @@ export async function handleVideoChat(message: unknown): Promise<ChatResponse> {
         prompt: request.prompt,
       },
       config,
+      pending.controller.signal,
     );
+    pending.controller.signal.throwIfAborted();
     if (result.summaryChanged && result.summary) {
       const latest = await getSummary(request.videoId);
+      pending.controller.signal.throwIfAborted();
       if (latest?.timestamp !== stored?.timestamp)
         throw new Error(
           "The summary changed while the assistant was working. Please retry your edit.",
         );
-      await saveSummary(request.videoId, result.summary, `llm::${model}`, config.targetLanguage);
+      await saveSummary(
+        request.videoId,
+        result.summary,
+        `llm::${model}`,
+        config.targetLanguage,
+        pending.controller.signal,
+      );
     }
     return { success: true, ...result };
   } finally {
-    pendingVideos.delete(request.videoId);
+    if (pendingVideos.get(request.videoId) === pending) pendingVideos.delete(request.videoId);
   }
 }
