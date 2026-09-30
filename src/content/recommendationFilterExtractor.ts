@@ -6,9 +6,10 @@ const HAN_CHARACTER_PATTERN = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g;
 const LATIN_LETTER_PATTERN = /[A-Za-z]/g;
 const ENGLISH_WORD_PATTERN = /\b[A-Za-z]{2,}\b/g;
 const VIEW_COUNT_PATTERN = /(\d+(?:[.,]\d+)?\s*[KMB]?)\s*views?/i;
+const COMPACT_VIEW_COUNT_PATTERN = /^\d+(?:[.,]\d+)*\s*[KMB]?$/i;
 const NO_VIEWS_PATTERN = /No views?/i;
 const PUBLISH_TIME_PATTERN =
-  /(streamed\s+)?\d+\s*(second|minute|hour|day|week|month|year)s?\s*ago/i;
+  /(streamed\s+)?\d+\s*(?:(?:second|minute|hour|day|week|month|year)s?|s|min|h|d|w|mo|y)\s*ago/i;
 const DURATION_TEXT_PATTERN = /^(?:\d+:)?\d{1,2}:\d{2}$/;
 const LIVE_BADGE_PATTERN = /\b(live|live now)\b/i;
 const LIVE_VIEW_COUNT_PATTERN = /\bwatching\b/i;
@@ -596,6 +597,42 @@ function extractMatch(text: string | null, pattern: RegExp): string | null {
   return match ? normalizeText(match[0]) : null;
 }
 
+/** Read bare view counts from scoped metadata, using accessibility labels where YouTube provides them. */
+function fillMetadataFromCardElements(videoData: ExtractedVideoData, videoElement: Element) {
+  for (const element of videoElement.querySelectorAll(
+    "yt-content-metadata-view-model [aria-label]",
+  )) {
+    const label = normalizeText(element.getAttribute("aria-label"));
+    if (!label) {
+      continue;
+    }
+
+    if (!videoData.viewCount && /\bviews?\b/i.test(label)) {
+      videoData.viewCount =
+        extractMatch(getNormalizedElementText(element), COMPACT_VIEW_COUNT_PATTERN) ||
+        extractMatch(label, VIEW_COUNT_PATTERN) ||
+        extractMatch(label, NO_VIEWS_PATTERN);
+    } else if (!videoData.viewCount) {
+      videoData.viewCount = extractMatch(label, WATCHING_COUNT_PATTERN);
+    }
+
+    if (!videoData.publishTime) {
+      videoData.publishTime = extractMatch(label, PUBLISH_TIME_PATTERN);
+    }
+  }
+
+  for (const element of videoElement.querySelectorAll("#metadata-line .inline-metadata-item")) {
+    const text = getNormalizedElementText(element);
+    if (!videoData.viewCount) {
+      videoData.viewCount = extractMatch(text, COMPACT_VIEW_COUNT_PATTERN);
+    }
+    if (!videoData.publishTime) {
+      videoData.publishTime = extractMatch(text, PUBLISH_TIME_PATTERN);
+    }
+  }
+  updateLiveContentState(videoData);
+}
+
 function fillMetadataFromText(videoData: ExtractedVideoData, metadataText: string | null) {
   if (!videoData.viewCount) {
     videoData.viewCount =
@@ -771,6 +808,9 @@ export function extractVideoData(videoElement: Element): VideoCardData {
       data.duration = extractDurationFromElement(videoElement);
     }
 
+    if (!data.viewCount || !data.publishTime) {
+      fillMetadataFromCardElements(data, videoElement);
+    }
     if (!data.viewCount || !data.publishTime || !data.isLiveContent) {
       fillMetadataFromText(data, getMetadataText(videoElement));
     }

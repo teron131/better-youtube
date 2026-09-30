@@ -83,7 +83,7 @@ function parseVideoAgeYears(text: string): number {
     return 0;
   }
 
-  const match = normalizedText.match(/(\d+(?:\.\d+)?)\s+(year|month)/i);
+  const match = normalizedText.match(/(\d+(?:\.\d+)?)\s*(years?|months?|mo|y)\b/i);
   if (!match) {
     return 0;
   }
@@ -93,8 +93,12 @@ function parseVideoAgeYears(text: string): number {
 
   switch (unit) {
     case "year":
+    case "years":
+    case "y":
       return value;
     case "month":
+    case "months":
+    case "mo":
       return value / 12;
     default:
       return 0;
