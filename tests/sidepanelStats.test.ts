@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { fetchAggregateSources } from "../src/sidepanel/services/model-stats/leaderboards.ts";
 import {
   fetchModelSelectorMetadataIndex,
   normalizeOpenRouterModelId,
@@ -74,6 +75,51 @@ test("quietly falls back when every optional score source fails", async () => {
   const index = await fetchModelSelectorMetadataIndex([MODEL_A]);
 
   assert.deepEqual(index, { modelsById: {} });
+});
+
+test("sidepanel leaderboard reads use the background worker without fetching in the document", async (t) => {
+  const originalChrome = globalThis.chrome;
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const sources = {
+    artificialAnalysis: [],
+    valsIndex: [],
+    epochCapabilitiesIndex: [],
+    surgeIntelligenceIndex: [{ model: "model-a", score: 100 }],
+  };
+  const requests: unknown[] = [];
+  let documentFetches = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    documentFetches += 1;
+    throw new Error("Leaderboard fetching must not trigger document preloads");
+  });
+  Object.defineProperty(globalThis, "document", { value: {}, configurable: true });
+  globalThis.chrome = {
+    runtime: {
+      id: "test-extension",
+      sendMessage: (message, callback) => {
+        requests.push(message);
+        callback(sources);
+      },
+    },
+  } as unknown as typeof chrome;
+  try {
+    assert.deepEqual(await fetchAggregateSources(), sources);
+    assert.deepEqual(requests, [{ action: "fetchModelQualitySources" }]);
+    assert.equal(documentFetches, 0);
+
+    globalThis.chrome.runtime.lastError = { message: "Background worker unavailable" };
+    assert.deepEqual(await fetchAggregateSources(), {
+      artificialAnalysis: [],
+      valsIndex: [],
+      epochCapabilitiesIndex: [],
+      surgeIntelligenceIndex: [],
+    });
+    assert.equal(documentFetches, 0);
+  } finally {
+    globalThis.chrome = originalChrome;
+    if (originalDocument) Object.defineProperty(globalThis, "document", originalDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
 });
 
 function openRouterStatsResponse(url: string): Response {
