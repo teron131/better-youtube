@@ -231,6 +231,7 @@ export const MESSAGE_ACTIONS = {
   SHOW_ERROR: "showError",
   UPDATE_CAPTION_FONT_SIZE: "updateCaptionFontSize",
   EXTRACT_SUBSCRIPTIONS: "extractSubscriptions",
+  FETCH_MODEL_QUALITY_SOURCES: "fetchModelQualitySources",
 } as const;
 
 export const ELEMENT_IDS = {

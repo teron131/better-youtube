@@ -1,5 +1,7 @@
-/** Scrape the four public aggregate quality leaderboards used by extension-owned model scoring. */
+/** Read and parse public quality leaderboards, routing extension document reads through the background worker to avoid page resource preloads. */
 
+import { MESSAGE_ACTIONS } from "../../../core/constants.ts";
+import { isChromeContextValid, sendChromeMessage } from "../../../core/utils/chrome.ts";
 import {
   asFiniteNumber,
   asRecord,
@@ -46,8 +48,24 @@ type SurgeIntelligenceIndexRow = {
   score: number;
 };
 
-/** Read all four unstable public sources in parallel and degrade each failed parser to no evidence. */
+/** Keep HTTP Link preload hints out of extension documents while preserving partial evidence and preview reads. */
 export async function fetchAggregateSources(): Promise<AggregateSources> {
+  if (typeof document !== "undefined" && isChromeContextValid()) {
+    try {
+      return await sendChromeMessage<AggregateSources>(
+        { action: MESSAGE_ACTIONS.FETCH_MODEL_QUALITY_SOURCES },
+        SCRAPE_TIMEOUT_MS + 5_000,
+      );
+    } catch {
+      return {
+        artificialAnalysis: [],
+        valsIndex: [],
+        epochCapabilitiesIndex: [],
+        surgeIntelligenceIndex: [],
+      };
+    }
+  }
+
   const [artificialAnalysisHtml, valsIndexHtml, epochCsv, surgeHtml] = await Promise.all([
     fetchRemoteText(ARTIFICIAL_ANALYSIS_URL, SCRAPE_TIMEOUT_MS),
     fetchRemoteText(VALS_INDEX_URL, SCRAPE_TIMEOUT_MS),

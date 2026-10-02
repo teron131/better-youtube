@@ -7,6 +7,7 @@ import { CHAT_ACTION } from "@/core/agent/conversation";
 import { type AppConfig, loadConfig } from "@/core/config";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createMessageListener } from "@/core/utils/chrome";
+import { fetchAggregateSources } from "@/sidepanel/services/model-stats/leaderboards";
 
 import { handleFetchSubtitles } from "./captions";
 import { cancelVideoChat, handleVideoChat } from "./chat";
@@ -39,6 +40,10 @@ createMessageListener((message, sender, sendResponse) => {
   const tabId = typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
 
   switch (message.action) {
+    case MESSAGE_ACTIONS.FETCH_MODEL_QUALITY_SOURCES:
+      void fetchAggregateSources().then(sendResponse);
+      return true;
+
     case MESSAGE_ACTIONS.CANCEL_VIDEO_REQUEST:
       if (typeof message.videoId === "string" && typeof message.requestId === "string") {
         if (message.kind === "chat") cancelVideoChat(message.videoId, message.requestId);
