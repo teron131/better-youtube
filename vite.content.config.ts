@@ -1,3 +1,5 @@
+/** Bundles the YouTube content script as an isolated-world IIFE beside the other extension outputs. */
+
 import path from "node:path";
 
 import { defineConfig } from "vite";
@@ -6,13 +8,7 @@ import { nodePolyfills } from "vite-plugin-node-polyfills";
 export default defineConfig({
   plugins: [nodePolyfills()],
   resolve: {
-    alias: [
-      { find: "@", replacement: path.resolve(__dirname, "./src") },
-      {
-        find: /^@langchain\/langgraph$/,
-        replacement: path.resolve(__dirname, "./src/core/langgraph-web-shim.ts"),
-      },
-    ],
+    alias: [{ find: "@", replacement: path.resolve(__dirname, "./src") }],
   },
   build: {
     emptyOutDir: false,

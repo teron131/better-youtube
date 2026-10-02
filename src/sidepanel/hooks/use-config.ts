@@ -8,8 +8,6 @@ import {
   DEFAULT_SUMMARY_MODEL,
   DEFAULT_TARGET_LANGUAGE,
   SUPPORTED_LANGUAGES,
-  SUPPORTED_LANGUAGES_LIST,
-  type SupportedLanguage,
 } from "@ui/services/config";
 import { modelModalities, supportsTextResponse } from "@ui/services/model-modalities";
 import {
@@ -102,7 +100,6 @@ interface UseConfigReturn {
     min: number | null;
     max: number | null;
   };
-  languages: SupportedLanguage[];
   isLoading: boolean;
   error: string | null;
   isValidLanguage: (language: string) => boolean;
@@ -520,7 +517,6 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
     allRefinerModels,
     summarizerModelPriceRange,
     refinerModelPriceRange,
-    languages: SUPPORTED_LANGUAGES_LIST,
     isLoading,
     error,
     isValidLanguage,
@@ -545,15 +541,6 @@ export function useModelSelection(options: UseConfigOptions = {}) {
     allRefinerModels,
     summarizerModelPriceRange,
     refinerModelPriceRange,
-  };
-}
-
-export function useLanguageSelection(options: UseConfigOptions = {}) {
-  const { languages, isValidLanguage } = useConfig(options);
-
-  return {
-    languages,
-    isValidLanguage,
   };
 }
 

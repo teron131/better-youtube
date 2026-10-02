@@ -8,7 +8,12 @@
 import { loadConfig } from "@/core/config";
 import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
-import type { ApiError, StreamingProcessingResult, StreamingProgressState } from "@/core/types";
+import type {
+  ApiError,
+  StreamingProcessingResult,
+  StreamingProgressState,
+  VideoInfoResponse,
+} from "@/core/types";
 import { type ChromeMessage, getCurrentTab, sendChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
@@ -20,7 +25,7 @@ async function performScrape(
   url: string,
   tabId?: number,
   onProgress?: (state: StreamingProgressState) => void,
-): Promise<any> {
+): Promise<VideoInfoResponse | undefined> {
   onProgress?.({
     step: "scraping",
     stepName: "Fetching Transcript",
@@ -28,7 +33,7 @@ async function performScrape(
     message: "Fetching video transcript...",
   });
 
-  const result = await sendChromeMessage({
+  const result = await sendChromeMessage<{ status: string; videoInfo?: VideoInfoResponse }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
     tabId,
@@ -49,26 +54,27 @@ async function performScrape(
   return videoInfo;
 }
 
-/**
- * Normalize video info from various sources
- */
-function normalizeVideoInfo(rawInfo: any, fallbackUrl: string): any {
-  const vi = rawInfo || {};
+/** Normalizes optional video details while retaining zero counts and a fallback request URL. */
+function normalizeVideoInfo(
+  rawInfo: VideoInfoResponse | null | undefined,
+  fallbackUrl: string,
+): VideoInfoResponse {
+  const vi: Partial<VideoInfoResponse> = rawInfo || {};
   return {
     url: vi.url || fallbackUrl,
     title: vi.title || null,
     thumbnail: vi.thumbnail || null,
     author: vi.author || null,
     duration: vi.duration || null,
-    upload_date: vi.upload_date || null,
-    view_count: vi.view_count ?? null,
-    like_count: vi.like_count ?? null,
+    uploadDate: vi.uploadDate || null,
+    viewCount: vi.viewCount ?? null,
+    likeCount: vi.likeCount ?? null,
   };
 }
 
 interface SummaryListenerResult {
-  summary: any;
-  videoInfo: any;
+  summary: { summary: string; iterations?: number };
+  videoInfo: VideoInfoResponse | null | undefined;
   transcript: string | null;
   provider?: "gemini" | "llm";
 }
@@ -127,7 +133,7 @@ async function withAbort<T>(promise: Promise<T>, signal?: AbortSignal, runId?: s
 function createSummaryListener(
   videoId: string,
   requestId: RequestId,
-  videoInfo: any,
+  videoInfo: SummaryListenerResult["videoInfo"],
   onProgress?: (state: StreamingProgressState) => void,
   control?: StreamControl,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
@@ -152,7 +158,12 @@ function createSummaryListener(
         msg.videoId === videoId &&
         msg.requestId === requestId
       ) {
-        const { summary, videoInfo: msgVideoInfo, transcript } = msg;
+        const {
+          summary,
+          videoInfo: msgVideoInfo,
+          transcript,
+          provider,
+        } = msg as ChromeMessage & Partial<SummaryListenerResult>;
         const transcriptText = typeof transcript === "string" ? transcript : null;
         if (!summary) {
           settle(() =>
@@ -175,19 +186,19 @@ function createSummaryListener(
             summary,
             videoInfo: msgVideoInfo || videoInfo,
             transcript: transcriptText,
-            provider: (msg as any).provider,
+            provider,
           }),
         );
         return;
       }
 
-      if (msg.action !== MESSAGE_ACTIONS.SHOW_ERROR || (msg as any).requestId !== requestId) {
+      if (msg.action !== MESSAGE_ACTIONS.SHOW_ERROR || msg.requestId !== requestId) {
         return;
       }
 
       settle(() =>
         reject({
-          message: (msg as any).error || "Processing failed",
+          message: (msg.error as string) || "Processing failed",
           type: "processing",
         } as ApiError),
       );
@@ -324,7 +335,7 @@ export async function streamSummary(
     const activeTab = await withAbort(getCurrentTab(), signal, runId);
     const activeTabId = activeTab?.id;
 
-    let videoInfo: any = null;
+    let videoInfo: SummaryListenerResult["videoInfo"] = null;
     if (!options.transcript) {
       videoInfo = await withAbort(
         performScrape(videoId, url, activeTabId, emitProgress),

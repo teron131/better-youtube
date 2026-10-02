@@ -174,6 +174,7 @@ function isWriteRateQuotaError(error: unknown): error is Error {
   return error instanceof Error && error.message.includes("MAX_WRITE_OPERATIONS");
 }
 
+/** Retries recoverable quota failures within one write budget and never reports success without a write. */
 async function setWithQuotaRetry(
   items: Record<string, unknown>,
   signal?: AbortSignal,
@@ -195,19 +196,16 @@ async function setWithQuotaRetry(
         continue;
       }
 
-      if (isQuotaError(error) && quotaCleanupAttempts < QUOTA_CLEANUP_RETRY_LIMIT) {
-        quotaCleanupAttempts += 1;
-        await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE * quotaCleanupAttempts);
-        continue;
-      }
+      if (!isQuotaError(error)) throw error;
 
-      if (isQuotaError(error)) {
+      if (quotaCleanupAttempts >= QUOTA_CLEANUP_RETRY_LIMIT || attempt >= WRITE_RATE_RETRY_LIMIT) {
         throw new Error(
           "Storage is still full after clearing cached videos. Please remove some saved extension data and try again.",
         );
       }
 
-      throw error;
+      quotaCleanupAttempts += 1;
+      await cleanupOldVideos(STORAGE.CLEANUP_BATCH_SIZE * quotaCleanupAttempts);
     }
   }
 }
