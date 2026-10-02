@@ -1,8 +1,10 @@
-# Publish installable extension files only when a version tag is pushed.
+# Publish new package versions pushed to main, while retaining explicit version-tag releases.
 name: Release extension
 
 on:
   push:
+    branches:
+      - "main"
     tags:
       - "v*"
 
@@ -10,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -20,22 +22,58 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          fetch-depth: 0
+      - name: Check for an unreleased version
+        id: version
+        run: |
+          release_tag="$(node -p "'v' + require('./package.json').version")"
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected a numeric three-part package version." >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "$release_tag" ]]; then
+            echo "The pushed tag must match the package version: $release_tag" >&2
+            exit 1
+          fi
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" != "tag" ]] && git show-ref --verify --quiet "refs/tags/$release_tag"; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$release_tag is already tagged; skipping release."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@v4
+        if: steps.version.outputs.publish == 'true'
       - uses: actions/setup-node@v4
+        if: steps.version.outputs.publish == 'true'
         with:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.version.outputs.publish == 'true'
       - run: pnpm run lint
+        if: steps.version.outputs.publish == 'true'
       - run: pnpm run format:check
+        if: steps.version.outputs.publish == 'true'
       - run: node --experimental-strip-types --test tests/*.test.ts
+        if: steps.version.outputs.publish == 'true'
       - run: pnpm run package
+        if: steps.version.outputs.publish == 'true'
+      - name: Tag the verified version
+        if: steps.version.outputs.publish == 'true' && github.ref_type != 'tag'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Better YouTube $RELEASE_TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$RELEASE_TAG"
       - name: Publish extension ZIP and checksum
+        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: >-
           gh release create "$RELEASE_TAG"
           .cache/releases/*.zip .cache/releases/*.sha256

@@ -151,8 +151,9 @@ Real video processing requires the installed extension and a configured API key.
 Run `pnpm run package` to build the extension and create a ZIP with its SHA-256 checksum in `.cache/releases/`.
 Packaging requires the `zip` and `unzip` commands and includes the built extension without source maps.
 
-The release workflow runs only when a `v<version>` tag is pushed.
-The tag, `package.json`, and extension manifest must agree on the version; the workflow checks the code, builds the ZIP, and publishes it as a GitHub Release asset.
+Pushing a new version to `main` automatically checks the code, builds the extension ZIP, creates an annotated `v<version>` tag, and publishes the ZIP and checksum as GitHub Release assets.
+Set matching versions in `package.json` and `public/manifest.json` before pushing; pushes whose package version is already tagged skip release creation.
+Explicit `v<version>` tag pushes remain supported, and the tag must match the package and extension manifest versions.
 
 ## Build Output
 
