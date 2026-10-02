@@ -1,3 +1,5 @@
+/** Formats transcript exports from the current video metadata contract without changing the source text. */
+
 import { formatDate, trimLeadingZeros } from "../../core/utils/date.ts";
 
 export interface TranscriptCopyMetadata {
@@ -5,7 +7,6 @@ export interface TranscriptCopyMetadata {
   author?: string | null;
   duration?: string | null;
   uploadDate?: string | null;
-  upload_date?: string | null;
 }
 
 function metadataLine(label: string, value?: string | null): string | null {
@@ -18,7 +19,7 @@ export function buildTranscriptWithMetadata(
   metadata?: TranscriptCopyMetadata | null,
 ): string {
   const formattedDuration = trimLeadingZeros(metadata?.duration);
-  const formattedDate = formatDate(metadata?.uploadDate ?? metadata?.upload_date);
+  const formattedDate = formatDate(metadata?.uploadDate);
   const headerLines = [
     metadataLine("Title", metadata?.title),
     metadataLine("Author", metadata?.author),

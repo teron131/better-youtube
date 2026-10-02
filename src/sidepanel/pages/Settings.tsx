@@ -305,7 +305,6 @@ const Settings = () => {
         }));
         setModelCostLimitInput(key, String(resolvedValue));
       }
-      console.log(`Auto-saved ${key}:`, nextValue);
       if (key === "summaryFontSize") {
         applySummaryFontSize(nextValue as FontSize);
       } else if (key === "captionFontSize") {

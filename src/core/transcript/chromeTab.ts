@@ -763,53 +763,40 @@ async function executeChromeTabExtraction(
     captionTracks,
   });
 
-  const createSuccessResult = (
-    captionStateForPayload: ChromeTabCaptionState,
-    selectedTrack: ChromeTabCaptionTrack,
-    payload: { fmt: ChromeCaptionFormat; text: string },
-    attempts: ChromeTabCaptionAttempt[],
-  ): ChromeTabMainWorldResult => ({
-    ...createResult(readPlayerMetadata(captionStateForPayload.response)),
-    ok: true,
-    source: captionStateForPayload.sourceName,
-    captionTracks: captionStateForPayload.captionTracks,
-    language: selectedTrack.languageCode,
-    selectedTrack,
-    payload,
-    attempts,
-  });
-
   const attempts: ChromeTabCaptionAttempt[] = [];
-  const captionStatesToTry: ChromeTabCaptionState[] = [];
+  const tryCaptionState = async (
+    state: ChromeTabCaptionState,
+  ): Promise<ChromeTabMainWorldResult | null> => {
+    const selectedTrack = selectCaptionTrack(state.captionTracks);
+    if (!selectedTrack) return null;
+
+    const { attempts: sourceAttempts, payload } = await fetchCaptionPayload(selectedTrack);
+    attempts.push(...sourceAttempts);
+    if (!payload) return null;
+
+    return {
+      ...createResult(readPlayerMetadata(state.response)),
+      ok: true,
+      source: state.sourceName,
+      captionTracks: state.captionTracks,
+      language: selectedTrack.languageCode,
+      selectedTrack,
+      payload,
+      attempts,
+    };
+  };
+
   if (captionState) {
-    captionStatesToTry.push(captionState);
+    const result = await tryCaptionState(captionState);
+    if (result) return result;
   }
 
+  // Request fallback player data only after earlier caption sources fail.
   for (const fallbackClient of innertubeFallbackClients) {
     const fallbackCaptionState = await fetchInnertubeCaptionState(fallbackClient);
-    if (fallbackCaptionState) {
-      captionStatesToTry.push(fallbackCaptionState);
-    }
-  }
-
-  for (const captionStateForPayload of captionStatesToTry) {
-    const selectedTrack = selectCaptionTrack(captionStateForPayload.captionTracks);
-    if (!selectedTrack) {
-      continue;
-    }
-
-    const payloadResult = await fetchCaptionPayload(selectedTrack);
-    attempts.push(...payloadResult.attempts);
-    if (!payloadResult.payload) {
-      continue;
-    }
-
-    return createSuccessResult(
-      captionStateForPayload,
-      selectedTrack,
-      payloadResult.payload,
-      attempts,
-    );
+    if (!fallbackCaptionState) continue;
+    const result = await tryCaptionState(fallbackCaptionState);
+    if (result) return result;
   }
 
   if (!captionTracks.length) {

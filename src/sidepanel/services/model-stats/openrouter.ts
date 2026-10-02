@@ -105,29 +105,33 @@ function buildOpenRouterMetrics(
   };
 }
 
+/** Averages each endpoint's finite samples before weighting endpoints by their token traffic. */
 function tokenWeightedSeriesMean(
   response: JsonObject | null,
   seriesTokenWeights: Record<string, number>,
   valueScale: number,
 ): number | null {
   const rows = Array.isArray(response?.data) ? response.data : [];
-  const valuesBySeries = new Map<string, number[]>();
+  const totalsBySeries = new Map<string, { total: number; count: number }>();
   for (const row of rows) {
     for (const [series, value] of Object.entries(asRecord(asRecord(row).y))) {
       const numericValue = asFiniteNumber(value);
       if (numericValue == null) continue;
-      valuesBySeries.set(series, [
-        ...(valuesBySeries.get(series) ?? []),
-        numericValue * valueScale,
-      ]);
+      const sample = numericValue * valueScale;
+      if (!Number.isFinite(sample)) continue;
+      const totals = totalsBySeries.get(series) ?? { total: 0, count: 0 };
+      totals.total += sample;
+      totals.count += 1;
+      totalsBySeries.set(series, totals);
     }
   }
   let weightedSum = 0;
   let totalWeight = 0;
   for (const [series, weight] of Object.entries(seriesTokenWeights)) {
     if (!(weight > 0)) continue;
-    const seriesMean = meanFinite(valuesBySeries.get(series) ?? []);
-    if (seriesMean == null) continue;
+    const totals = totalsBySeries.get(series);
+    if (!totals) continue;
+    const seriesMean = totals.total / totals.count;
     weightedSum += seriesMean * weight;
     totalWeight += weight;
   }
@@ -204,13 +208,6 @@ function providerWeightedPrice(
     }
   }
   return totalTokens > 0 ? weightedSum / totalTokens : null;
-}
-
-function meanFinite(values: Array<number | null>): number | null {
-  const finiteValues = values.filter((value): value is number => Number.isFinite(value));
-  return finiteValues.length > 0
-    ? finiteValues.reduce((total, value) => total + value, 0) / finiteValues.length
-    : null;
 }
 
 export function normalizeOpenRouterModelId(value: string): string {

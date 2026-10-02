@@ -6,10 +6,13 @@ import { beforeEach, test } from "node:test";
 
 import { VideoWorkloadLifecycle } from "../src/background/workloads.ts";
 import { MESSAGE_ACTIONS, STORAGE, STORAGE_KEYS } from "../src/core/constants.ts";
+import type { StreamingProgressState } from "../src/core/types.ts";
+import type { ChromeMessage } from "../src/core/utils/chrome.ts";
 
 const local: Record<string, any> = {};
 const session: Record<string, any> = {};
 const notifications: any[] = [];
+const messageListeners = new Set<(message: ChromeMessage) => void>();
 let bytesUsed = 0;
 const summary = "Grounded **summary**.";
 let agentCalls = 0;
@@ -46,9 +49,19 @@ Object.assign(globalThis, {
     runtime: {
       sendMessage(payload: unknown, callback?: () => void) {
         notifications.push(payload);
+        for (const listener of messageListeners) listener(payload as ChromeMessage);
         callback?.();
         return Promise.resolve();
       },
+      onMessage: {
+        addListener: (listener: (message: ChromeMessage) => void) => messageListeners.add(listener),
+        removeListener: (listener: (message: ChromeMessage) => void) =>
+          messageListeners.delete(listener),
+      },
+    },
+    tabs: {
+      query: (_query: unknown, callback: (tabs: Array<{ id: number }>) => void) =>
+        callback([{ id: 7 }]),
     },
   },
   backendTestModels: {
@@ -110,6 +123,7 @@ beforeEach(() => {
   for (const key of Object.keys(local)) delete local[key];
   for (const key of Object.keys(session)) delete session[key];
   notifications.length = 0;
+  messageListeners.clear();
   bytesUsed = 0;
   agentCalls = nativeCalls = 0;
   agentReply = async () => ({ summary });
@@ -225,6 +239,25 @@ test("cache eviction removes complete old video groups while preserving settings
   assert.equal(local["video_info_00000000000"], undefined);
   assert.equal(local["video_meta_00000000000"], undefined);
   assert.ok(local["summary_00000000011"]);
+});
+
+test("mixed write-rate and storage quota failures cannot report an unsaved setting as saved", async (t) => {
+  const runtime = (globalThis as any).chrome.runtime;
+  let attempts = 0;
+  t.mock.method(chrome.storage.local, "set", (_items: unknown, callback: () => void) => {
+    attempts += 1;
+    runtime.lastError = {
+      message: attempts === 1 ? "MAX_WRITE_OPERATIONS_PER_MINUTE" : "QUOTA_BYTES exceeded",
+    };
+    try {
+      callback();
+    } finally {
+      runtime.lastError = undefined;
+    }
+  });
+  await assert.rejects(setStorageValue(STORAGE_KEYS.AUTO_GENERATE, true), /Storage is still full/);
+  assert.equal(attempts, 4);
+  assert.equal(local[STORAGE_KEYS.AUTO_GENERATE], undefined);
 });
 
 test("clear saved data retains settings and clears only owned session data", async () => {
@@ -346,3 +379,62 @@ test("aborted writes leave stored summaries untouched", async () => {
   await assert.rejects(saveSummary(videoId, "New", "new", "English", controller.signal), /abort/i);
   assert.equal(local[`summary_${videoId}`].summary, "Previous");
 });
+
+for (const metadataSource of ["scrape", "summary"] as const) {
+  test(`summary streaming preserves video details from ${metadataSource} messages`, async (t) => {
+    const { streamSummary } = await import("../src/sidepanel/services/streaming.ts");
+    const videoInfo = {
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      title: "Test video",
+      thumbnail: "thumbnail.jpg",
+      author: "Test channel",
+      duration: "12:34",
+      uploadDate: "2026-09-02",
+      viewCount: 0,
+      likeCount: 0,
+    };
+    local[STORAGE_KEYS.SHOW_SUBTITLES] = false;
+    local[`video_info_${videoId}`] = videoInfo;
+    local[videoId] = [{ text: "Source", startTime: 0, endTime: 1000 }];
+    const sendMessage = chrome.runtime.sendMessage;
+    t.mock.method(
+      chrome.runtime,
+      "sendMessage",
+      (message: ChromeMessage, callback?: (response: unknown) => void) => {
+        if (message.action === MESSAGE_ACTIONS.SCRAPE_VIDEO) {
+          callback?.({ status: "success", videoInfo });
+          return;
+        }
+        if (message.action === MESSAGE_ACTIONS.GENERATE_SUMMARY) {
+          return handleGenerateSummary(
+            message,
+            {
+              config: config as any,
+              summaryWorkloads: new VideoWorkloadLifecycle(),
+              tabId: 7,
+            },
+            callback!,
+          );
+        }
+        if (message.action === MESSAGE_ACTIONS.SUMMARY_GENERATED && metadataSource === "scrape") {
+          return sendMessage({ ...message, videoInfo: undefined }, callback);
+        }
+        return sendMessage(message, callback);
+      },
+    );
+    const progress: StreamingProgressState[] = [];
+    const result = await streamSummary(
+      videoInfo.url,
+      metadataSource === "summary" ? { transcript: "Source" } : {},
+      (state) => progress.push(state),
+    );
+    assert.equal(result.success, true);
+    assert.deepEqual(result.videoInfo, videoInfo);
+    assert.equal(result.summary, summary);
+    assert.equal(agentCalls, 1);
+    if (metadataSource === "scrape") {
+      assert.deepEqual(progress.find((state) => state.data?.videoInfo)?.data.videoInfo, videoInfo);
+    }
+    assert.equal(messageListeners.size, 0);
+  });
+}
