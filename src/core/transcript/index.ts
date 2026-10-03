@@ -5,6 +5,7 @@ export {
   fetchTranscript,
   toSubtitleSegments,
   extractVideoInfo,
+  getResponseTranscriptText,
   getTranscriptText,
 } from "./service.ts";
 export type { TranscriptFetchContext } from "./service.ts";

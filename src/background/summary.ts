@@ -1,9 +1,6 @@
 /// <reference types="chrome" />
 
-/**
- * Summary Handler
- * Handles summary generation requests with caching and workflow orchestration
- */
+/** Handles summary requests: deduplicates workloads, reuses matching saved summaries, and publishes results. */
 
 import type { AppConfig } from "@/core/config";
 import { MESSAGE_ACTIONS } from "@/core/constants";
@@ -18,32 +15,10 @@ import type { TranscriptFetchContext } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { resolveSummarizationRoute } from "@/core/workRouter";
 
-import { generateSummary, type SummaryResult } from "./summaryGeneration";
+import { generateSummary } from "./summaryGeneration";
 import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workloads";
 
-// ============================================================================
-// Types
-// ============================================================================
-
-type ProviderPref = "auto" | "gemini" | "llm";
-
-function normalizeProviderPreference(input: {
-  summaryProvider?: unknown;
-  summarizerProvider?: unknown;
-  globalProvider: ProviderPref;
-}): ProviderPref {
-  const { summaryProvider, summarizerProvider, globalProvider } = input;
-
-  if (summarizerProvider === "gemini" || summarizerProvider === "llm") {
-    return summarizerProvider;
-  }
-
-  if (summaryProvider === "gemini") return "gemini";
-  if (summaryProvider === "llm") return "llm";
-  if (summaryProvider === "auto") return "auto";
-
-  return globalProvider;
-}
+type ProviderPref = AppConfig["summarizerProvider"];
 
 // ============================================================================
 // Storage Resolution Helpers
@@ -80,23 +55,11 @@ async function broadcastStoredSummary(
 ): Promise<void> {
   const videoInfo = await getVideoMetadata(videoId);
 
-  const summary = storedSummary.summary;
-
-  const provider = storedSummary.modelUsed?.startsWith("gemini::")
-    ? "gemini"
-    : storedSummary.modelUsed?.startsWith("llm::")
-      ? "llm"
-      : undefined;
-
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
     requestId,
-    summary: {
-      summary,
-      iterations: 0,
-    },
-    provider,
+    summary: storedSummary.summary,
     videoInfo,
     transcript: null,
   });
@@ -109,28 +72,24 @@ async function broadcastStoredSummary(
  */
 async function broadcastSummaryResult(
   videoId: string,
-  result: SummaryResult,
+  summary: string,
   videoInfo: VideoMetadata,
-  transcript_or_url: string,
-  modelSelection: string,
+  transcript: string | null,
+  modelUsed: string,
   targetLanguage: string,
-  provider: "llm" | "gemini",
   requestId?: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  // Save summary to storage
-  await saveSummary(videoId, result.summary, modelSelection, targetLanguage, signal);
+  await saveSummary(videoId, summary, modelUsed, targetLanguage, signal);
   signal?.throwIfAborted();
 
-  // Send result to sidepanel
   sendRuntimeMessage({
     action: MESSAGE_ACTIONS.SUMMARY_GENERATED,
     videoId,
     requestId,
-    summary: result,
-    provider,
+    summary,
     videoInfo,
-    transcript: transcript_or_url.startsWith("http") ? null : transcript_or_url,
+    transcript,
   });
 
   console.log(`Summarization workflow completed for video: ${videoId}`);
@@ -185,7 +144,6 @@ interface SummaryMessage extends ChromeMessage {
   modelSelection?: string;
   targetLanguage?: string;
   forceRegenerate?: boolean;
-  summaryProvider?: string;
   summarizerProvider?: string;
 }
 
@@ -206,7 +164,6 @@ export async function handleGenerateSummary(
     modelSelection,
     targetLanguage,
     forceRegenerate,
-    summaryProvider,
     summarizerProvider,
   } = message as unknown as SummaryMessage;
   const transcriptFetchContext: TranscriptFetchContext = { tabId };
@@ -214,11 +171,10 @@ export async function handleGenerateSummary(
 
   sendResponse({ status: "processing" });
 
-  const providerPref = normalizeProviderPreference({
-    summarizerProvider,
-    summaryProvider,
-    globalProvider: config.summarizerProvider,
-  });
+  const providerPref: ProviderPref =
+    summarizerProvider === "gemini" || summarizerProvider === "llm"
+      ? summarizerProvider
+      : config.summarizerProvider;
 
   const workloadKey = buildSummaryWorkloadKey({
     videoId,
@@ -291,7 +247,7 @@ async function runSummaryJob(input: {
 
     const { provider } = resolveSummarizationRoute({
       requestedProvider: providerPref,
-      summarizerModel: String(modelSelection),
+      summarizerModel: modelSelection,
       hasGeminiKey: !!geminiKey,
       hasLlmKey: !!llmKey,
     });
@@ -301,7 +257,7 @@ async function runSummaryJob(input: {
       JSON.stringify({
         videoId,
         requestId: run.effectiveRequestId,
-        modelSelection: String(modelSelection),
+        modelSelection,
         targetLanguage: String(targetLanguage),
         providerPref,
         resolvedProvider: provider,
@@ -313,7 +269,7 @@ async function runSummaryJob(input: {
       }),
     );
 
-    const modelUsedKey = `${provider}::${String(modelSelection)}`;
+    const modelUsedKey = `${provider}::${modelSelection}`;
 
     const storedSummary = await checkCachedSummary(
       videoId,
@@ -328,9 +284,9 @@ async function runSummaryJob(input: {
     }
 
     const {
-      result,
+      summary,
       videoInfo,
-      source: transcript_or_url,
+      transcript,
       provider: finalProvider,
     } = await generateSummary(
       {
@@ -348,12 +304,11 @@ async function runSummaryJob(input: {
     if (!run.isCurrent()) return;
     await broadcastSummaryResult(
       videoId,
-      result,
+      summary,
       videoInfo,
-      transcript_or_url,
-      `${finalProvider}::${String(modelSelection)}`,
+      transcript,
+      `${finalProvider}::${modelSelection}`,
       targetLanguage,
-      finalProvider,
       run.resolveRequestId(),
       run.signal,
     );

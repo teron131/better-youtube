@@ -4,17 +4,12 @@
 
 import type { FontSize } from "@/core/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/core/constants";
-import { createRequestId, type RequestId } from "@/core/requestId";
+import type { RequestId } from "@/core/requestId";
 import { saveSubtitles, setStorageValue, type SubtitleSegment } from "@/core/storage";
-import { sendChromeMessage } from "@/core/utils/chrome";
 import { toTraditionalChinese } from "@/core/utils/text";
 import { extractVideoId } from "@/core/utils/url";
 
-import {
-  AUTO_GENERATION_STORAGE_KEYS,
-  clearAutoGenTrigger,
-  markAutoGenTriggered,
-} from "./autoGeneration";
+import { AUTO_GENERATION_STORAGE_KEYS, clearAutoGenTrigger } from "./autoGeneration";
 import type { ContentScriptState } from "./contentHelpers";
 import {
   applyCaptionFontSize,
@@ -22,39 +17,27 @@ import {
   startSubtitleDisplay,
   stopSubtitleDisplay,
 } from "./subtitleRenderer";
-import { determineToggleState, isCurrentVideo } from "./videoHelpers";
+import { isCurrentVideo } from "./videoHelpers";
 
 export function setupMessageListener(
   state: ContentScriptState,
-  actions: {
-    clearSubtitles: () => void;
-    checkAndTriggerAutoGeneration: (
-      videoId: string,
-      storageResult: any,
-      checkCaptionsEnabled: boolean,
-      withDelay: boolean,
-    ) => Promise<boolean>;
-  },
+  checkAndTriggerAutoGeneration: (
+    videoId: string,
+    storageResult: any,
+    checkCaptionsEnabled: boolean,
+    withDelay: boolean,
+  ) => Promise<boolean>,
 ): void {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.action) {
       case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
         handleGetVideoTitle(sendResponse);
         break;
-      case MESSAGE_ACTIONS.GENERATE_SUMMARY:
-        handleGenerateSummary(message, sendResponse);
-        break;
-      case MESSAGE_ACTIONS.GENERATE_SUBTITLES:
-        handleGenerateSubtitles(message, state, actions.clearSubtitles, sendResponse);
-        break;
       case MESSAGE_ACTIONS.SUBTITLES_GENERATED:
         handleSubtitlesGenerated(message, state, sendResponse);
         break;
-      case MESSAGE_ACTIONS.SHOW_ERROR:
-        handleShowError(message, state, sendResponse);
-        break;
       case MESSAGE_ACTIONS.TOGGLE_SUBTITLES:
-        handleToggleSubtitles(message, state, actions.checkAndTriggerAutoGeneration, sendResponse);
+        handleToggleSubtitles(message, state, checkAndTriggerAutoGeneration, sendResponse);
         break;
       case MESSAGE_ACTIONS.UPDATE_CAPTION_FONT_SIZE:
         handleUpdateCaptionFontSize(message, sendResponse);
@@ -71,76 +54,8 @@ function handleGetVideoTitle(sendResponse: (response: any) => void): void {
   sendResponse({ title: titleElement?.textContent ?? null });
 }
 
-function resolveVideoIdOrRespond(
-  message: any,
-  sendResponse: (response: any) => void,
-): string | null {
-  const videoId = message.videoId || extractVideoId(window.location.href);
-  if (videoId) return videoId;
-  sendResponse({
-    status: "error",
-    message: "Could not extract video ID from URL.",
-  });
-  return null;
-}
-
 function getActiveVideoId(state: ContentScriptState): string | null {
   return state.currentVideoId || extractVideoId(window.location.href);
-}
-
-function handleGenerateSummary(message: any, sendResponse: (response: any) => void): void {
-  const videoId = resolveVideoIdOrRespond(message, sendResponse);
-  if (!videoId) return;
-
-  const requestId: RequestId | undefined = message.requestId as RequestId | undefined;
-
-  sendChromeMessage({
-    action: MESSAGE_ACTIONS.GENERATE_SUMMARY,
-    videoId,
-    requestId,
-    modelSelection: message.modelSelection,
-    targetLanguage: message.targetLanguage,
-  }).catch((error) => {
-    console.error("Error sending generate summary message:", error.message);
-  });
-
-  sendResponse({ status: "started" });
-}
-
-function handleGenerateSubtitles(
-  message: any,
-  state: ContentScriptState,
-  clearSubtitles: () => void,
-  sendResponse: (response: any) => void,
-): void {
-  const videoId = resolveVideoIdOrRespond(message, sendResponse);
-  if (!videoId) return;
-
-  clearSubtitles();
-  markAutoGenTriggered(videoId);
-  state.currentVideoId = videoId;
-
-  const requestId: RequestId =
-    (message.requestId as RequestId | undefined) ?? createRequestId("caption");
-  state.currentCaptionRequestId = requestId;
-
-  sendChromeMessage<{ status: string }>({
-    action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
-    videoId,
-    requestId,
-    modelSelection: message.modelSelection,
-    forceRegenerate: message.forceRegenerate === true,
-  })
-    .then((response) => {
-      if (response?.status === "error") {
-        clearAutoGenTrigger(videoId);
-      }
-    })
-    .catch((error) => {
-      console.error("Error communicating with background:", error.message);
-    });
-
-  sendResponse({ status: "started" });
 }
 
 function handleSubtitlesGenerated(
@@ -195,26 +110,6 @@ function handleSubtitlesGenerated(
     state,
     sendResponse,
   );
-}
-
-function handleShowError(
-  message: any,
-  state: ContentScriptState,
-  sendResponse: (response: any) => void,
-): void {
-  const messageVideoId = message.videoId as string | undefined;
-  const messageRequestId = message.requestId as RequestId | undefined;
-
-  if (
-    messageVideoId &&
-    messageRequestId &&
-    state.currentCaptionRequestId &&
-    messageRequestId === state.currentCaptionRequestId
-  ) {
-    clearAutoGenTrigger(messageVideoId);
-  }
-
-  sendResponse({ status: "acknowledged" });
 }
 
 function handleConvertedSubtitles(
@@ -300,7 +195,7 @@ function handleToggleSubtitles(
   ) => Promise<boolean>,
   sendResponse: (response: any) => void,
 ): void {
-  const nextState = determineToggleState(message);
+  const nextState = message.showSubtitles !== false;
   const wasEnabled = state.showSubtitlesEnabled;
   state.showSubtitlesEnabled = nextState;
   state.userInteractedWithToggle = true;

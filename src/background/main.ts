@@ -59,13 +59,6 @@ createMessageListener((message, sender, sendResponse) => {
         });
       });
       return true;
-    case MESSAGE_ACTIONS.GET_VIDEO_TITLE:
-      sendResponse({
-        status: "error",
-        message: "Use content script for title",
-      });
-      return false;
-
     case MESSAGE_ACTIONS.SCRAPE_VIDEO:
       void handleScrapeVideo(message, { tabId }, sendResponse).catch((error) => {
         console.error(`[handlers] ${message.action} failed`, error);

@@ -11,16 +11,17 @@ import {
   fetchTranscript,
   getCachedTranscript,
   getPendingTranscript,
+  getResponseTranscriptText,
   getTranscriptText,
   type TranscriptFetchContext,
 } from "./transcript/index.ts";
-import type { TranscriptResponse } from "./types.ts";
 import { createYouTubeWatchUrl } from "./utils/url.ts";
 
 /**
- * Resolve transcript source (message → cache → stored → URL)
+ * Resolves summary transcript text (message → pending tab fetch → cache → stored → fetch).
+ * Supplied text stays verbatim; a video without transcript text fails before any model call.
  */
-export async function getTranscriptSource(
+export async function resolveTranscriptText(
   videoId: string,
   messageTranscript: string | undefined,
   fetchContext: TranscriptFetchContext,
@@ -33,21 +34,14 @@ export async function getTranscriptSource(
   const pending = getPendingTranscript(videoId, fetchContext.tabId);
   if (pending) {
     console.log(`Waiting for pending transcript fetch for ${videoId}`);
-    const fetched = await pending;
-    const pendingText = toTranscriptText(fetched);
-    if (pendingText) {
-      return pendingText;
-    }
+    const pendingText = getResponseTranscriptText(await pending);
+    if (pendingText) return pendingText;
   }
 
-  const cached = getCachedTranscript(videoId);
-  if (cached?.transcript_only_text) {
+  const cachedText = getResponseTranscriptText(getCachedTranscript(videoId));
+  if (cachedText) {
     console.log(`Using cached transcript for summary of ${videoId}`);
-    return cached.transcript_only_text;
-  }
-  if (cached?.transcript?.length) {
-    console.log(`Using cached transcript segments for summary of ${videoId}`);
-    return getTranscriptText(cached.transcript);
+    return cachedText;
   }
 
   const storedSubtitles = await getSubtitles(videoId);
@@ -56,15 +50,13 @@ export async function getTranscriptSource(
     return getTranscriptText(storedSubtitles);
   }
 
-  const fetched = await fetchTranscript(videoId, fetchContext);
-  const text = toTranscriptText(fetched);
-  if (text) {
+  const fetchedText = getResponseTranscriptText(await fetchTranscript(videoId, fetchContext));
+  if (fetchedText) {
     console.log(`Using fetched transcript for summary of ${videoId}`);
-    return text;
+    return fetchedText;
   }
 
-  console.log(`No transcript text available for ${videoId}, will use URL.`);
-  return createYouTubeWatchUrl(videoId);
+  throw new Error("No transcript found for this video.");
 }
 
 /**
@@ -105,12 +97,4 @@ export async function getVideoInfo(
     viewCount: null,
     likeCount: null,
   };
-}
-
-function toTranscriptText(data: TranscriptResponse | null): string | null {
-  if (!data) return null;
-  const transcriptOnlyText =
-    typeof data.transcript_only_text === "string" ? data.transcript_only_text : "";
-  const text = transcriptOnlyText || getTranscriptText(data.transcript ?? []);
-  return text.trim() ? text : null;
 }

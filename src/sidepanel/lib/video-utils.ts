@@ -1,31 +1,6 @@
-/**
- * Video processing utilities
- */
+/** Resolves the active tab's YouTube watch page for sidepanel video syncing. */
 
-import type { StreamingProgressState } from "@/core/types";
-import { extractVideoId, getWatchVideoId } from "@/core/utils/url";
-
-const VIDEO_ID_REGEX = /^[\w-]{11}$/;
-const STEP_ORDER = ["scraping", "summary_generation", "complete"] as const;
-type NormalizedStep = (typeof STEP_ORDER)[number];
-
-export const PROGRESS_STEPS = [
-  {
-    step: "scraping",
-    name: "Scraping Video",
-    description: "Extracting video info and transcript from the current tab",
-  },
-  {
-    step: "summary_generation",
-    name: "Summary Generation",
-    description: "Generating the video summary",
-  },
-  {
-    step: "complete",
-    name: "Complete",
-    description: "Summary completed successfully",
-  },
-] as const;
+import { createYouTubeWatchUrl, getWatchVideoId } from "@/core/utils/url";
 
 /**
  * Get current YouTube video tab
@@ -38,55 +13,19 @@ export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTab = tabs[0];
-      if (getWatchVideoId(currentTab?.url)) {
-        resolve(currentTab);
-      } else {
-        resolve(null);
-      }
+      resolve(getWatchVideoId(currentTab?.url) ? currentTab : null);
     });
   });
 }
 
-/**
- * Get video ID from current active tab
- */
-export async function getVideoIdFromCurrentTab(): Promise<string> {
+/** Returns the canonical watch URL of the active tab's video, or an empty string. */
+export async function getCurrentVideoUrl(): Promise<string> {
   try {
-    const tab = await getCurrentVideoTab();
-    if (!tab?.url) return "";
-
-    const videoId = extractVideoId(tab.url);
-    if (videoId && VIDEO_ID_REGEX.test(videoId)) {
-      return `https://www.youtube.com/watch?v=${videoId}`;
-    }
+    const videoId = getWatchVideoId((await getCurrentVideoTab())?.url);
+    if (videoId) return createYouTubeWatchUrl(videoId);
   } catch (error) {
     console.error("Error getting video ID from tab:", error);
   }
 
   return "";
-}
-
-/**
- * Normalize step names for consistent UI display
- */
-export function normalizeStepName(step: StreamingProgressState["step"]): NormalizedStep {
-  return step === "summarizing" ? "summary_generation" : (step as NormalizedStep);
-}
-
-/**
- * Find step index in progress steps array
- */
-export function findStepIndex(step: StreamingProgressState["step"]): number {
-  return PROGRESS_STEPS.findIndex((s) => s.step === step);
-}
-
-/**
- * Sort progress states in correct order
- */
-export function sortProgressStates(states: StreamingProgressState[]): StreamingProgressState[] {
-  return [...states].sort((a, b) => {
-    const stepA = normalizeStepName(a.step);
-    const stepB = normalizeStepName(b.step);
-    return STEP_ORDER.indexOf(stepA) - STEP_ORDER.indexOf(stepB);
-  });
 }

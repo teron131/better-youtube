@@ -4,13 +4,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import type {
-  ApiError,
-  StreamingProcessingResult,
-  StreamingProgressState,
-  VideoInfoResponse,
-} from "@/core/types";
-import { findStepIndex, normalizeStepName, sortProgressStates } from "@/sidepanel/lib/video-utils";
+import type { ApiError, StreamingProcessingResult, VideoInfoResponse } from "@/core/types";
 import { streamSummary } from "@/sidepanel/services/streaming";
 
 export interface VideoProcessingOptions {
@@ -23,9 +17,6 @@ export interface VideoProcessingOptions {
 export interface VideoProcessingState {
   isLoading: boolean;
   error: ApiError | null;
-  currentStep: number;
-  currentStage: string;
-  progressStates: StreamingProgressState[];
   summaryResult: StreamingProcessingResult | null;
   scrapedVideoInfo: VideoInfoResponse | null;
   scrapedTranscript: string | null;
@@ -34,41 +25,22 @@ export interface VideoProcessingState {
 const INITIAL_STATE: VideoProcessingState = {
   isLoading: false,
   error: null,
-  currentStep: 0,
-  currentStage: "",
-  progressStates: [],
   summaryResult: null,
   scrapedVideoInfo: null,
   scrapedTranscript: null,
 };
 
-const LOADING_STATE: VideoProcessingState = {
-  isLoading: true,
-  error: null,
-  summaryResult: null,
-  currentStep: 0,
-  currentStage: "Initializing...",
-  progressStates: [],
-  scrapedVideoInfo: null,
-  scrapedTranscript: null,
-};
+const LOADING_STATE: VideoProcessingState = { ...INITIAL_STATE, isLoading: true };
 
 function buildFailedResult(error: ApiError): StreamingProcessingResult {
-  return {
-    success: false,
-    totalTime: "0.0s",
-    iterations: 0,
-    chunksProcessed: 0,
-    error,
-  };
+  return { success: false, error };
 }
 
 type Action =
   | { type: "START" }
-  | { type: "PROGRESS"; payload: StreamingProgressState }
+  | { type: "VIDEO_INFO"; payload: VideoInfoResponse }
   | { type: "COMPLETE"; payload: StreamingProcessingResult }
   | { type: "ERROR"; payload: ApiError }
-  | { type: "RESET" }
   | { type: "UPDATE"; payload: Partial<VideoProcessingState> };
 
 function reducer(state: VideoProcessingState, action: Action): VideoProcessingState {
@@ -76,33 +48,8 @@ function reducer(state: VideoProcessingState, action: Action): VideoProcessingSt
     case "START":
       return LOADING_STATE;
 
-    case "PROGRESS": {
-      const progressState = action.payload;
-      const normalizedStep = normalizeStepName(progressState.step);
-      const stepIndex = findStepIndex(normalizedStep);
-
-      const nextStates = [...state.progressStates];
-      const normalizedProgress = {
-        ...progressState,
-        step: normalizedStep,
-      };
-      const existingIndex = nextStates.findIndex((s) => s.step === normalizedStep);
-
-      if (existingIndex >= 0) {
-        nextStates[existingIndex] = normalizedProgress;
-      } else {
-        nextStates.push(normalizedProgress);
-      }
-
-      return {
-        ...state,
-        currentStep: stepIndex >= 0 ? stepIndex : state.currentStep,
-        currentStage: progressState.message,
-        progressStates: sortProgressStates(nextStates),
-        scrapedVideoInfo: progressState.data?.videoInfo ?? state.scrapedVideoInfo,
-        scrapedTranscript: progressState.data?.transcript ?? state.scrapedTranscript,
-      };
-    }
+    case "VIDEO_INFO":
+      return { ...state, scrapedVideoInfo: action.payload };
 
     case "COMPLETE":
       return {
@@ -110,15 +57,11 @@ function reducer(state: VideoProcessingState, action: Action): VideoProcessingSt
         scrapedVideoInfo: action.payload.videoInfo || state.scrapedVideoInfo,
         scrapedTranscript: action.payload.transcript || state.scrapedTranscript,
         summaryResult: action.payload,
-        currentStage: "Processing completed",
         isLoading: false,
       };
 
     case "ERROR":
       return { ...state, isLoading: false, error: action.payload };
-
-    case "RESET":
-      return INITIAL_STATE;
 
     case "UPDATE":
       return { ...state, ...action.payload };
@@ -147,11 +90,7 @@ export function useVideoProcessing() {
   }, []);
 
   const processVideo = useCallback(
-    async (
-      url: string,
-      options?: VideoProcessingOptions,
-      onProgress?: (state: StreamingProgressState) => void,
-    ): Promise<StreamingProcessingResult> => {
+    async (url: string, options?: VideoProcessingOptions): Promise<StreamingProcessingResult> => {
       const runToken = runTokenRef.current + 1;
       runTokenRef.current = runToken;
       abortControllerRef.current?.abort();
@@ -164,12 +103,11 @@ export function useVideoProcessing() {
         const result = await streamSummary(
           url,
           options || {},
-          (progress) => {
+          (videoInfo) => {
             if (runToken !== runTokenRef.current) {
               return;
             }
-            dispatch({ type: "PROGRESS", payload: progress });
-            onProgress?.(progress);
+            dispatch({ type: "VIDEO_INFO", payload: videoInfo });
           },
           { signal: controller.signal, runId: String(runToken) },
         );
@@ -199,16 +137,13 @@ export function useVideoProcessing() {
             type: "processing",
           });
         }
-        const error =
-          typeof e === "object" && e !== null && "message" in e
-            ? ({
-                message: String((e as Record<string, unknown>).message),
-                type: (e as Record<string, unknown>).type || "processing",
-              } as ApiError)
-            : ({
-                message: "Processing failed",
-                type: "processing",
-              } as ApiError);
+        const error: ApiError = {
+          message:
+            typeof e === "object" && e !== null && "message" in e
+              ? String((e as Record<string, unknown>).message)
+              : "Processing failed",
+          type: "processing",
+        };
         dispatch({ type: "ERROR", payload: error });
         return buildFailedResult(error);
       } finally {
@@ -228,6 +163,5 @@ export function useVideoProcessing() {
       (updates: Partial<VideoProcessingState>) => dispatch({ type: "UPDATE", payload: updates }),
       [],
     ),
-    resetState: useCallback(() => dispatch({ type: "RESET" }), []),
   };
 }

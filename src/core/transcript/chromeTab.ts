@@ -1,7 +1,6 @@
 /** Extracts captions and matching video metadata from the active YouTube tab. */
 /// <reference types="chrome" />
 
-import { ERROR_MESSAGES } from "../constants.ts";
 import type { ApiTranscriptSegment, TranscriptResponse } from "../types.ts";
 import { formatTimestamp } from "../utils/date.ts";
 import { createYouTubeWatchUrl, getThumbnailUrl } from "../utils/url.ts";
@@ -336,7 +335,7 @@ function isWatchPage(url: string | undefined): boolean {
 
 function createFailure(videoId: string, tabId: number, message: string): Error {
   return new Error(
-    `${ERROR_MESSAGES.CHROME_TAB_EXTRACTION_FAILED} ${message} (videoId=${videoId}, tabId=${tabId})`,
+    `Chrome transcript extraction failed. ${message} (videoId=${videoId}, tabId=${tabId})`,
   );
 }
 
@@ -859,17 +858,11 @@ function toChromeTabResponse(args: {
     | "durationSeconds"
     | "viewCount"
     | "likeCount"
-    | "language"
-    | "captionTracks"
-  > & {
-    selectedTrack?: ChromeTabCaptionTrack;
-  };
+  >;
   transcript: ApiTranscriptSegment[];
 }): TranscriptResponse {
   const { videoId, tabTitle, extraction, transcript } = args;
   return {
-    success: true,
-    type: "video",
     url: createYouTubeWatchUrl(videoId),
     videoId,
     transcript,
@@ -882,8 +875,6 @@ function toChromeTabResponse(args: {
     publishDate: extraction.publishDate,
     viewCountInt: extraction.viewCount,
     likeCountInt: extraction.likeCount,
-    language: extraction.language || extraction.selectedTrack?.languageCode || "",
-    captionTracks: extraction.captionTracks,
   };
 }
 

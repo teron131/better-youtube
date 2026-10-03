@@ -1,13 +1,8 @@
+/** Rebuilds sidepanel video state from persisted summaries, metadata, and subtitles. */
+
 import type { VideoProcessingState } from "@ui/hooks/use-video-processing";
 
-import {
-  getSubtitles,
-  getSubtitlesStorageKey,
-  getSummary,
-  getSummaryStorageKey,
-  getVideoMetadata,
-  getVideoMetadataStorageKey,
-} from "@/core/storage";
+import { getSubtitles, getSummary, getVideoMetadata, VideoStorageKeys } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
 export type CachedVideoState = Partial<VideoProcessingState>;
@@ -16,9 +11,6 @@ export const EMPTY_VIDEO_STATE: CachedVideoState = {
   summaryResult: null,
   scrapedVideoInfo: null,
   scrapedTranscript: null,
-  currentStage: "",
-  currentStep: 0,
-  progressStates: [],
   isLoading: false,
   error: null,
 };
@@ -36,12 +28,6 @@ export function isVideoInfoForVideo(
   return extractVideoId(videoInfo.url) === videoId;
 }
 
-function resolveSummaryProvider(modelUsed?: string): "gemini" | "llm" | undefined {
-  if (modelUsed?.startsWith("gemini::")) return "gemini";
-  if (modelUsed?.startsWith("llm::")) return "llm";
-  return undefined;
-}
-
 export function createTranscriptOnlyState(
   transcript: string | null,
   videoInfo: VideoProcessingState["scrapedVideoInfo"] = null,
@@ -50,11 +36,6 @@ export function createTranscriptOnlyState(
     ...EMPTY_VIDEO_STATE,
     scrapedVideoInfo: videoInfo,
     scrapedTranscript: transcript,
-    currentStage: transcript
-      ? "Loaded cached transcript"
-      : videoInfo
-        ? "Loaded cached video info"
-        : "",
   };
 }
 
@@ -80,16 +61,9 @@ export async function loadCachedVideoState(videoId: string): Promise<CachedVideo
       summary: storedSummary.summary,
       videoInfo: storedVideoInfo ?? undefined,
       transcript: transcript ?? undefined,
-      provider: resolveSummaryProvider(storedSummary.modelUsed),
-      totalTime: "cached",
-      iterations: 0,
-      chunksProcessed: 0,
     },
     scrapedVideoInfo: storedVideoInfo ?? null,
     scrapedTranscript: transcript ?? null,
-    currentStage: "Loaded cached summary",
-    currentStep: 4,
-    progressStates: [],
     isLoading: false,
     error: null,
   };
@@ -97,8 +71,8 @@ export async function loadCachedVideoState(videoId: string): Promise<CachedVideo
 
 export function getTrackedStorageKeys(videoId: string): Set<string> {
   return new Set([
-    getSubtitlesStorageKey(videoId),
-    getVideoMetadataStorageKey(videoId),
-    getSummaryStorageKey(videoId),
+    VideoStorageKeys.subtitles(videoId),
+    VideoStorageKeys.metadata(videoId),
+    VideoStorageKeys.summary(videoId),
   ]);
 }

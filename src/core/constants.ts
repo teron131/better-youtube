@@ -1,4 +1,4 @@
-// Constants for Better YouTube Chrome Extension
+/** Storage keys, defaults, message actions, and tuning values shared by every extension context. */
 
 // ============================================================================
 // Storage Keys
@@ -47,7 +47,6 @@ export const STORAGE_KEYS = {
 // ============================================================================
 
 export const API_ENDPOINTS = {
-  LLM: "https://api.openai.com/v1/chat/completions",
   LLM_DEFAULT_BASE_URL: "https://api.openai.com/v1",
 } as const;
 
@@ -58,41 +57,17 @@ export const API_ENDPOINTS = {
 export const TIMING = {
   AUTO_GENERATION_DELAY_MS: 2000,
   INIT_RETRY_DELAY_MS: 500,
-  SUBTITLE_UPDATE_INTERVAL_MS: 100,
   MAX_INIT_ATTEMPTS: 5,
   CONTENT_SCRIPT_INIT_DELAY_MS: 500,
-  STATUS_MESSAGE_DISPLAY_MS: 2000,
-  SUMMARY_SUCCESS_DISPLAY_MS: 3000,
-  CAPTION_CHECK_DELAY_MS: 500,
   TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
   AGENT_TIMEOUT_MS: 3 * 60 * 1000,
   PROCESSING_TIMEOUT_MS: 190_000, // Agent deadline plus message-delivery headroom.
-  RETRY_BACKOFF_MULTIPLIER_MS: 1000, // Base unit for exponential backoff
-  API_TIMEOUT_MS: 300000, // 5 minutes
   SCRAPING_TIMEOUT_MS: 120000, // 2 minutes
-  STREAM_CHUNK_THROTTLE_MS: 100,
-  PROGRESS_UPDATE_INTERVAL: 500,
 } as const;
 
 // ============================================================================
 // UI Dimensions & Behavior
 // ============================================================================
-
-export const UI_DIMENSIONS = {
-  SIDEBAR_WIDTH: "16rem",
-  SIDEBAR_WIDTH_MOBILE: "18rem",
-  SIDEBAR_WIDTH_ICON: "3rem",
-  MOBILE_BREAKPOINT: 768,
-} as const;
-
-export const UI_BEHAVIOR = {
-  SIDEBAR_COOKIE_NAME: "sidebar:state",
-  SIDEBAR_COOKIE_MAX_AGE: 60 * 60 * 24 * 7, // 7 days
-  SIDEBAR_KEYBOARD_SHORTCUT: "b",
-  TOAST_LIMIT: 1,
-  TOAST_REMOVE_DELAY: 1000000,
-  MAX_LOG_ENTRIES: 100,
-} as const;
 
 // ============================================================================
 // Storage & Limits
@@ -107,35 +82,21 @@ export const STORAGE = {
 
 export const STORAGE_CLEANUP = {
   MIN_VIDEOS_TO_KEEP: 5,
-  DEFAULT_BATCH_SIZE: 10,
-} as const;
-
-export const FILE_LIMITS = {
-  MAX_FILE_SIZE_MB: 100,
-} as const;
-
-export const COOKIE_SETTINGS = {
-  DEFAULT_EXPIRY_DAYS: 365,
 } as const;
 
 // ============================================================================
 // Model Configuration
 // ============================================================================
 
-// Default models - these are fallbacks when API is unavailable
-// The model list is now loaded dynamically from OpenRouter API
-export const DEFAULT_MODEL_SUMMARIZER = "google/gemini-3-flash";
-export const DEFAULT_MODEL_REFINER = "google/gemini-2.5-flash-lite-preview-09-2025";
-
 export const DEFAULTS = {
-  MODEL_SUMMARIZER: DEFAULT_MODEL_SUMMARIZER,
-  MODEL_REFINER: DEFAULT_MODEL_REFINER,
+  // Fallback models when the OpenRouter catalog is unavailable.
+  MODEL_SUMMARIZER: "google/gemini-3-flash",
+  MODEL_REFINER: "google/gemini-2.5-flash-lite-preview-09-2025",
   AUTO_GENERATE: false,
   SHOW_SUBTITLES: true,
   CAPTION_FONT_SIZE: "M" as const,
   SUMMARY_FONT_SIZE: "M" as const,
   TARGET_LANGUAGE_RECOMMENDED: "auto",
-  TARGET_LANGUAGE_CUSTOM: "",
   SUMMARIZER_PROVIDER: "auto" as const,
   SUMMARIZER_MODEL_COST_LIMIT: 5,
   REFINER_MODEL_COST_LIMIT: 5,
@@ -206,25 +167,17 @@ export const FONT_SIZES = {
   },
 } as const;
 
-export const SUBTITLE_RENDERING = {
-  CONTAINER_Z_INDEX: 9999,
-  TIME_MULTIPLIER_MS: 1000, // Convert seconds to milliseconds
-} as const;
-
 // ============================================================================
 // Messaging & Elements
 // ============================================================================
 
 export const MESSAGE_ACTIONS = {
   SCRAPE_VIDEO: "scrapeVideo",
-  SCRAPE_VIDEO_COMPLETED: "scrapeVideoCompleted",
   FETCH_SUBTITLES: "fetchSubtitles",
-  GENERATE_SUBTITLES: "generateSubtitles",
   GENERATE_SUMMARY: "generateSummary",
   CANCEL_VIDEO_REQUEST: "cancelVideoRequest",
   SUBTITLES_GENERATED: "subtitlesGenerated",
   SUMMARY_GENERATED: "summaryGenerated",
-  UPDATE_POPUP_STATUS: "updatePopupStatus",
   TOGGLE_SUBTITLES: "toggleSubtitles",
   GET_VIDEO_TITLE: "getVideoTitle",
   CURRENT_VIDEO_CHANGED: "currentVideoChanged",
@@ -257,26 +210,8 @@ export const SEGMENT_PARSER_CONFIG = {
   MAX_REFINED_LENGTH_EXTRA_CHARS: 80,
 } as const;
 
-export const ERROR_MESSAGES = {
-  CONTEXT_INVALIDATED: "Extension context invalidated",
-  VIDEO_ID_REQUIRED: "Video ID is required.",
-  NO_VIDEO_ID: "Could not extract video ID from URL.",
-  NO_TRANSCRIPT: "No transcript available for this video",
-  CHROME_TAB_EXTRACTION_FAILED: "Chrome transcript extraction failed.",
-  CHROME_TAB_REQUIRES_TAB: "Chrome transcript extraction requires an active YouTube watch tab.",
-  LLM_KEY_MISSING: "LLM API key not found",
-  NOT_YOUTUBE_PAGE: "Not a YouTube video page",
-  SUMMARY_IN_PROGRESS: "Summary generation is already in progress for this video.",
-} as const;
-
-export const VIEW_COUNT = {
-  MILLION: 1000000,
-  THOUSAND: 1000,
-} as const;
-
 // ============================================================================
 // Types
 // ============================================================================
 
 export type FontSize = "S" | "M" | "L";
-export type TargetLanguage = "auto" | "en" | "zh-TW" | string;

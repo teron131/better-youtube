@@ -1,4 +1,4 @@
-/** Protects transcript text resolution and the Markdown returned by summary handlers. */
+/** Protects summary transcript resolution order, tab scoping, and missing-transcript failures. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -9,16 +9,34 @@ import {
   setCachedTranscript,
   setPendingTranscript,
 } from "../src/core/transcript/cache.ts";
-import { resolveTranscriptText } from "../src/core/transcript/text.ts";
 import type { TranscriptResponse } from "../src/core/types.ts";
 
-test("supplied transcript text remains untrimmed", async () => {
-  assert.equal(await resolveTranscriptText("  Supplied transcript.\n"), "  Supplied transcript.\n");
+const local: Record<string, unknown> = {};
+Object.assign(globalThis, {
+  chrome: {
+    storage: {
+      local: {
+        get(keys: string[], callback: (items: Record<string, unknown>) => void) {
+          callback(
+            Object.fromEntries(keys.filter((key) => key in local).map((key) => [key, local[key]])),
+          );
+        },
+      },
+    },
+  },
 });
 
-test("URL resolution joins only the explicitly requested tab's pending transcript", async () => {
+const { resolveTranscriptText } = await import("../src/core/videoContext.ts");
+
+test("supplied transcript text remains untrimmed", async () => {
+  assert.equal(
+    await resolveTranscriptText("abcdefghijk", "  Supplied transcript.\n", {}),
+    "  Supplied transcript.\n",
+  );
+});
+
+test("resolution joins only the explicitly requested tab's pending transcript", async () => {
   const videoId = "abcdefghijk";
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
   setPendingTranscript(
     videoId,
     Promise.resolve({ transcript_only_text: "First tab" } as TranscriptResponse),
@@ -31,49 +49,55 @@ test("URL resolution joins only the explicitly requested tab's pending transcrip
   );
   try {
     const results = await Promise.all([
-      resolveTranscriptText(url, videoId, { tabId: 1 }),
-      resolveTranscriptText(url, videoId, { tabId: 2 }),
+      resolveTranscriptText(videoId, undefined, { tabId: 1 }),
+      resolveTranscriptText(videoId, undefined, { tabId: 2 }),
     ]);
     assert.deepEqual(results, ["First tab", "Second tab"]);
-    await assert.rejects(resolveTranscriptText(url, videoId, {}), /active YouTube watch tab/);
+    await assert.rejects(resolveTranscriptText(videoId, undefined, {}), /active YouTube watch tab/);
   } finally {
     clearPendingTranscript(videoId, 1);
     clearPendingTranscript(videoId, 2);
   }
 });
 
-test("URL resolution preserves cached text preference and segment fallback", async () => {
+test("resolution prefers cached text, then segments, then stored subtitles", async () => {
   const videoId = "VeizK1M7V7E";
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
   const transcript = [
-    { text: "First segment.", startMs: 0, endMs: 1000 },
-    { text: "Second segment.", startMs: 1000, endMs: 2000 },
+    { text: "First segment.", startMs: 0, endMs: 1000, startTimeText: "0:00" },
+    { text: "Second segment.", startMs: 1000, endMs: 2000, startTimeText: "0:01" },
   ];
   try {
     for (const [text, expected] of [
-      ["  Preferred transcript.  ", "Preferred transcript."],
+      ["  Preferred transcript.  ", "  Preferred transcript.  "],
       ["", "First segment. Second segment."],
     ]) {
       setCachedTranscript(videoId, {
         transcript_only_text: text,
         transcript,
       } as TranscriptResponse);
-      assert.equal(await resolveTranscriptText(url), expected);
+      assert.equal(await resolveTranscriptText(videoId, undefined, { tabId: 1 }), expected);
     }
-    setCachedTranscript(videoId, { transcript_only_text: "   ", transcript } as TranscriptResponse);
-    await assert.rejects(resolveTranscriptText(url), /No transcript found/);
+    clearTranscriptCache(videoId);
+    local[videoId] = [{ text: "Stored subtitle.", startTime: 0, endTime: 1000 }];
+    assert.equal(await resolveTranscriptText(videoId, undefined, { tabId: 1 }), "Stored subtitle.");
   } finally {
     clearTranscriptCache(videoId);
+    delete local[videoId];
   }
 });
 
-test("missing video IDs and unavailable transcripts fail before agent execution", async () => {
-  await assert.rejects(
-    resolveTranscriptText("https://www.youtube.com/watch"),
-    /Could not extract video id/,
-  );
-  await assert.rejects(
-    resolveTranscriptText("https://www.youtube.com/watch?v=VeizK1M7V7E"),
-    /No transcript available/,
-  );
+test("a video without transcript text fails before agent execution", async () => {
+  const videoId = "VeizK1M7V7E";
+  setCachedTranscript(videoId, {
+    transcript_only_text: "  ",
+    transcript: [],
+  } as TranscriptResponse);
+  try {
+    await assert.rejects(
+      resolveTranscriptText(videoId, undefined, { tabId: 1 }),
+      /No transcript found/,
+    );
+  } finally {
+    clearTranscriptCache(videoId);
+  }
 });

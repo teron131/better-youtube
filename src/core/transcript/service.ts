@@ -47,6 +47,15 @@ export function getTranscriptText(transcript: ReadonlyArray<{ text: string }>): 
   return transcript.map((segment) => segment.text).join(" ");
 }
 
+/** Prefers the extractor's joined text over segments; whitespace-only text counts as missing. */
+export function getResponseTranscriptText(
+  data: TranscriptResponse | null | undefined,
+): string | null {
+  if (!data) return null;
+  const text = data.transcript_only_text || getTranscriptText(data.transcript ?? []);
+  return text.trim() ? text : null;
+}
+
 async function fetchTranscriptForTab(
   videoId: string,
   tabId: number | undefined,

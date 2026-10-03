@@ -24,14 +24,14 @@ export const AUTO_GENERATION_STORAGE_KEYS = [
 /**
  * Check if auto-generation has been triggered for a video
  */
-export function isAutoGenTriggered(videoId: string): boolean {
+function isAutoGenTriggered(videoId: string): boolean {
   return autoGenTriggered.has(videoId);
 }
 
 /**
  * Mark auto-generation as triggered for a video
  */
-export function markAutoGenTriggered(videoId: string): void {
+function markAutoGenTriggered(videoId: string): void {
   autoGenTriggered.add(videoId);
 }
 

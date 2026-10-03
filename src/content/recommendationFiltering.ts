@@ -657,6 +657,17 @@ class FeedFilterController {
     }, 800);
   }
 
+  /** Discards queued and processed card state so every visible card is judged by the new rules. */
+  private rescanAfterRuleChange(reason: string): void {
+    this.clearQueuedCardFiltering();
+    this.pendingVideoCards.clear();
+    this.clearMetadataRetryState();
+    resetProcessedVideoCards();
+    this.updateContentObserver();
+    this.runAllFiltersSafely(true, reason);
+    this.scheduleSettlingRescans(reason);
+  }
+
   private startStorageListener(): void {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "local") {
@@ -667,13 +678,7 @@ class FeedFilterController {
         this.subscribedChannels = buildSubscriptionLookup(
           changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS].newValue?.channels,
         );
-        this.clearQueuedCardFiltering();
-        this.pendingVideoCards.clear();
-        this.clearMetadataRetryState();
-        resetProcessedVideoCards();
-        this.updateContentObserver();
-        this.runAllFiltersSafely(true, "subscription update");
-        this.scheduleSettlingRescans("subscription update");
+        this.rescanAfterRuleChange("subscription update");
         return;
       }
 
@@ -685,13 +690,7 @@ class FeedFilterController {
       void loadFeedFilterSettings()
         .then((settings) => {
           this.filterSettings = settings;
-          this.clearQueuedCardFiltering();
-          this.pendingVideoCards.clear();
-          this.clearMetadataRetryState();
-          resetProcessedVideoCards();
-          this.updateContentObserver();
-          this.runAllFiltersSafely(true, "settings change");
-          this.scheduleSettlingRescans("settings change");
+          this.rescanAfterRuleChange("settings change");
         })
         .catch((error) => {
           logFilteringError("settings reload", error);

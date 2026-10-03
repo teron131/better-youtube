@@ -3,7 +3,7 @@
 import { RecommendationFilterSettings } from "@ui/components/RecommendationFilterSettings";
 import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
-import { useModelSelection } from "@ui/hooks/use-config";
+import { isModelWithinCostLimit, useModelSelection } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
 import { Bot, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +12,7 @@ import { loadConfig, normalizeModelCostLimit, normalizeModelSelection } from "@/
 import type { FontSize } from "@/core/constants";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
-import { clearStoredDataExceptSettings, getStorageValue, setStorageValue } from "@/core/storage";
+import { clearStoredDataExceptSettings, setStorageValue } from "@/core/storage";
 
 import { applySummaryFontSize } from "../lib/font-size";
 import { clampModelCostLimit, modelCostLimitBounds } from "./settings/modelCostLimit";
@@ -52,16 +52,15 @@ const Settings = () => {
   const refinerCostLimitBounds = modelCostLimitBounds(refinerModelPriceRange);
   const visibleSummarizerModels = useMemo(
     () =>
-      allSummarizerModels.filter(
-        (model) =>
-          typeof model.price !== "number" || model.price <= settings.summarizerModelCostLimit,
+      allSummarizerModels.filter((model) =>
+        isModelWithinCostLimit(model, settings.summarizerModelCostLimit),
       ),
     [allSummarizerModels, settings.summarizerModelCostLimit],
   );
   const visibleRefinerModels = useMemo(
     () =>
-      allRefinerModels.filter(
-        (model) => typeof model.price !== "number" || model.price <= settings.refinerModelCostLimit,
+      allRefinerModels.filter((model) =>
+        isModelWithinCostLimit(model, settings.refinerModelCostLimit),
       ),
     [allRefinerModels, settings.refinerModelCostLimit],
   );
@@ -292,13 +291,9 @@ const Settings = () => {
     try {
       await setStorageValue(SETTINGS_STORAGE_KEYS[key], nextValue);
       if (key === "summarizerModelCostLimit" || key === "refinerModelCostLimit") {
-        const storedValue = await getStorageValue<number>(SETTINGS_STORAGE_KEYS[key]);
         const priceRange =
           key === "summarizerModelCostLimit" ? summarizerModelPriceRange : refinerModelPriceRange;
-        const resolvedValue = clampModelCostLimit(
-          normalizeModelCostLimit(storedValue ?? nextValue),
-          priceRange,
-        );
+        const resolvedValue = clampModelCostLimit(normalizeModelCostLimit(nextValue), priceRange);
         setSettings((currentSettings) => ({
           ...currentSettings,
           [key]: resolvedValue,

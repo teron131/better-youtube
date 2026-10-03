@@ -12,20 +12,21 @@ const EDITABLE_COMBOBOX_PATH = new URL(
 );
 const SETTINGS_PATH = new URL("../src/sidepanel/pages/Settings.tsx", import.meta.url);
 
-test("the composer preloads models while non-model consumers can skip catalog loading", async () => {
+test("the composer preloads models while preference consumers never load the catalog", async () => {
   const [useConfigSource, videoChatSource, editableComboboxSource] = await Promise.all([
     readFile(USE_CONFIG_PATH, "utf8"),
     readFile(VIDEO_CHAT_PATH, "utf8"),
     readFile(EDITABLE_COMBOBOX_PATH, "utf8"),
   ]);
+  const userPreferencesSource = useConfigSource.slice(
+    useConfigSource.indexOf("export function useUserPreferences"),
+  );
 
-  assert.match(useConfigSource, /interface UseConfigOptions/);
-  assert.match(useConfigSource, /loadDynamicModels\?: boolean/);
-  assert.match(useConfigSource, /if \(!shouldLoadDynamicModels\)/);
-  assert.match(useConfigSource, /setDynamicModels\(FALLBACK_DYNAMIC_MODELS\)/);
-  assert.match(useConfigSource, /const isValidLanguage = useCallback/);
+  assert.match(userPreferencesSource, /export function useUserPreferences\(\)/);
+  assert.doesNotMatch(userPreferencesSource, /useModelSelection|loadModelCatalog/);
 
   assert.match(videoChatSource, /useModelSelection\(\)/);
+  assert.match(videoChatSource, /useUserPreferences\(\)/);
   assert.doesNotMatch(videoChatSource, /setLoadModels/);
 
   assert.match(editableComboboxSource, /onOpen\?: \(\) => void/);

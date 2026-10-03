@@ -98,7 +98,6 @@ class ContentManager {
 
   constructor() {
     this.checkAndTriggerAutoGeneration = this.checkAndTriggerAutoGeneration.bind(this);
-    this.clearSubtitles = this.clearSubtitles.bind(this);
     this.handlePotentialUrlChange = this.handlePotentialUrlChange.bind(this);
     this.scheduleUrlCheck = this.scheduleUrlCheck.bind(this);
   }
@@ -219,7 +218,7 @@ class ContentManager {
     });
   }
 
-  public clearSubtitles(): void {
+  private clearSubtitles(): void {
     this.state.currentSubtitles = [];
     this.state.currentVideoId = undefined;
     this.state.currentCaptionRequestId = undefined;
@@ -286,10 +285,7 @@ class ContentManager {
   };
 
   // Setup message listener exactly once
-  setupMessageListener(manager.state, {
-    clearSubtitles: manager.clearSubtitles,
-    checkAndTriggerAutoGeneration: manager.checkAndTriggerAutoGeneration,
-  });
+  setupMessageListener(manager.state, manager.checkAndTriggerAutoGeneration);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);

@@ -1,21 +1,13 @@
-/** Centralize application configuration, backend synchronization, and dynamic model loading for the sidepanel. */
+/** Loads the sidepanel model catalog and syncs the composer's summary model and language preferences. */
 
 import { sortModelsByRankKey } from "@ui/lib/model-sort";
-import { api } from "@ui/services/api";
-import {
-  type AvailableModel,
-  DEFAULT_REFINER_MODEL,
-  DEFAULT_SUMMARY_MODEL,
-  DEFAULT_TARGET_LANGUAGE,
-  SUPPORTED_LANGUAGES,
-} from "@ui/services/config";
+import type { AvailableModel } from "@ui/services/config";
 import { modelModalities, supportsTextResponse } from "@ui/services/model-modalities";
 import {
   fetchModelSelectorMetadataIndex,
   type ModelSelectorMetadata,
   normalizeOpenRouterModelId,
 } from "@ui/services/stats";
-import type { ConfigurationResponse } from "@ui/services/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -23,17 +15,8 @@ import {
   normalizeModelCostLimit,
   normalizeModelSelection,
 } from "@/core/config";
-import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
-import { getStorageValue, getStorageValues, setStorageValue } from "@/core/storage";
-
-const DEFAULT_CONFIGURATION_RESPONSE: ConfigurationResponse = {
-  status: "success",
-  message: "Using local configuration fallback",
-  available_models: {},
-  supported_languages: SUPPORTED_LANGUAGES,
-  default_summary_model: DEFAULT_SUMMARY_MODEL,
-  default_target_language: DEFAULT_TARGET_LANGUAGE,
-};
+import { DEFAULTS, STORAGE_KEYS, TARGET_LANGUAGES } from "@/core/constants";
+import { getStorageValue, setStorageValue } from "@/core/storage";
 
 const USER_PREFERENCE_STORAGE_KEYS = [
   STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
@@ -61,7 +44,7 @@ type OpenRouterModel = {
 };
 
 const FALLBACK_DYNAMIC_MODELS: AvailableModel[] = [
-  ...new Set([DEFAULT_SUMMARY_MODEL, DEFAULT_REFINER_MODEL]),
+  ...new Set([DEFAULTS.MODEL_SUMMARIZER, DEFAULTS.MODEL_REFINER]),
 ]
   .filter((modelKey) => !isBatchModelVariant(modelKey))
   .map((modelKey) => {
@@ -85,30 +68,6 @@ type DynamicModelsCache = {
 
 // Keep the last catalog available when the composer remounts for a different video.
 let dynamicModelsSnapshot: DynamicModelsCache | null = null;
-
-interface UseConfigReturn {
-  config: ConfigurationResponse | null;
-  summarizerModels: AvailableModel[];
-  refinerModels: AvailableModel[];
-  allSummarizerModels: AvailableModel[];
-  allRefinerModels: AvailableModel[];
-  summarizerModelPriceRange: {
-    min: number | null;
-    max: number | null;
-  };
-  refinerModelPriceRange: {
-    min: number | null;
-    max: number | null;
-  };
-  isLoading: boolean;
-  error: string | null;
-  isValidLanguage: (language: string) => boolean;
-  refresh: () => Promise<void>;
-}
-
-interface UseConfigOptions {
-  loadDynamicModels?: boolean;
-}
 
 type UserPreferenceStorageResult = Record<string, unknown>;
 
@@ -297,6 +256,14 @@ async function fetchDynamicModels(): Promise<AvailableModel[]> {
   }
 }
 
+/** Shows a cached catalog immediately, then refreshes it from OpenRouter once the cache is stale. */
+async function loadModelCatalog(setModels: (models: AvailableModel[]) => void): Promise<void> {
+  const cachedDynamicModels = await loadDynamicModelsCache();
+  if (cachedDynamicModels?.models.length) setModels(cachedDynamicModels.models);
+  if (isDynamicModelsCacheUsable(cachedDynamicModels)) return;
+  setModels(await fetchAndCacheDynamicModels());
+}
+
 async function fetchAndCacheDynamicModels(): Promise<AvailableModel[]> {
   const models = await fetchDynamicModels();
   if (models.some((model) => model.recommended)) {
@@ -324,25 +291,19 @@ function modelPriceRange(models: AvailableModel[]): {
   };
 }
 
-function isModelWithinCostLimit(model: AvailableModel, modelCostLimit: number): boolean {
+/** Unpriced models stay visible because a missing price is not evidence of exceeding the limit. */
+export function isModelWithinCostLimit(model: AvailableModel, modelCostLimit: number): boolean {
   return typeof model.price !== "number" || model.price <= modelCostLimit;
 }
 
-async function getStoredModelCostLimits(): Promise<{
-  summarizerModelCostLimit: number;
-  refinerModelCostLimit: number;
-}> {
-  const result = await getStorageValues<Record<string, unknown>>([
-    STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT,
-    STORAGE_KEYS.REFINER_MODEL_COST_LIMIT,
-  ]);
+async function getStoredSummarizerModelCostLimit(): Promise<number> {
+  return normalizeModelCostLimit(
+    await getStorageValue<unknown>(STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT),
+  );
+}
 
-  return {
-    summarizerModelCostLimit: normalizeModelCostLimit(
-      result[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT],
-    ),
-    refinerModelCostLimit: normalizeModelCostLimit(result[STORAGE_KEYS.REFINER_MODEL_COST_LIMIT]),
-  };
+function isSupportedLanguage(language: string): boolean {
+  return TARGET_LANGUAGES.some((option) => option.value === language);
 }
 
 function storagePreferences(result: UserPreferenceStorageResult): Partial<UserPreferences> {
@@ -369,100 +330,34 @@ function storageUpdatesFromPreferences(updates: Partial<UserPreferences>): Recor
   return storageUpdates;
 }
 
-export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
-  const shouldLoadDynamicModels = options.loadDynamicModels ?? true;
-  const [config, setConfig] = useState<ConfigurationResponse | null>(null);
+/** Provides ranked catalogs for both selectors plus the summary models within the saved cost limit. */
+export function useModelSelection() {
   const [dynamicModels, setDynamicModels] = useState<AvailableModel[]>(
     () => dynamicModelsSnapshot?.models ?? FALLBACK_DYNAMIC_MODELS,
   );
   const [summarizerModelCostLimit, setSummarizerModelCostLimit] = useState<number>(
     DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT,
   );
-  const [refinerModelCostLimit, setRefinerModelCostLimit] = useState<number>(
-    DEFAULTS.REFINER_MODEL_COST_LIMIT,
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const dynamicModelsRef = useRef<AvailableModel[]>([]);
 
   useEffect(() => {
-    dynamicModelsRef.current = dynamicModels;
-  }, [dynamicModels]);
-
-  const loadConfig = useCallback(async () => {
-    try {
-      if (!shouldLoadDynamicModels) {
-        setConfig(DEFAULT_CONFIGURATION_RESPONSE);
-        setDynamicModels(FALLBACK_DYNAMIC_MODELS);
-        setError(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const hasVisibleModels =
-        dynamicModelsRef.current.length > FALLBACK_DYNAMIC_MODELS.length ||
-        dynamicModelsRef.current.some((model) => model.recommended);
-      if (!hasVisibleModels) {
-        setIsLoading(true);
-      }
-      setError(null);
-
-      setConfig(DEFAULT_CONFIGURATION_RESPONSE);
-      const cachedDynamicModels = await loadDynamicModelsCache();
-      if (cachedDynamicModels?.models.length) {
-        setDynamicModels(cachedDynamicModels.models);
-        setIsLoading(false);
-      }
-
-      // Optional configuration must not delay showing the cached catalog.
-      void api.getConfiguration().then(
-        (configuration) => setConfig(configuration),
-        () => {},
-      );
-      if (isDynamicModelsCacheUsable(cachedDynamicModels)) return;
-
-      const fetchedDynamicModels = await fetchAndCacheDynamicModels();
-      if (fetchedDynamicModels.length > 0 || !hasVisibleModels) {
-        setDynamicModels(
-          fetchedDynamicModels.length > 0
-            ? fetchedDynamicModels
-            : (cachedDynamicModels?.models ?? []),
-        );
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load configuration");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [shouldLoadDynamicModels]);
-
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+    void loadModelCatalog(setDynamicModels).catch((error) => {
+      console.error("Failed to load the model catalog", error);
+    });
+  }, []);
 
   useEffect(() => {
     let isActive = true;
-
-    void getStoredModelCostLimits().then((storedModelCostLimits) => {
-      if (!isActive) return;
-      setSummarizerModelCostLimit(storedModelCostLimits.summarizerModelCostLimit);
-      setRefinerModelCostLimit(storedModelCostLimits.refinerModelCostLimit);
-    });
+    const syncCostLimit = () => {
+      void getStoredSummarizerModelCostLimit().then((costLimit) => {
+        if (isActive) setSummarizerModelCostLimit(costLimit);
+      });
+    };
+    syncCostLimit();
 
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
-      if (areaName !== "local") return;
-      if (
-        !changes[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT] &&
-        !changes[STORAGE_KEYS.REFINER_MODEL_COST_LIMIT]
-      ) {
-        return;
+      if (areaName === "local" && changes[STORAGE_KEYS.SUMMARIZER_MODEL_COST_LIMIT]) {
+        syncCostLimit();
       }
-
-      void getStoredModelCostLimits().then((storedModelCostLimits) => {
-        if (!isActive) return;
-        setSummarizerModelCostLimit(storedModelCostLimits.summarizerModelCostLimit);
-        setRefinerModelCostLimit(storedModelCostLimits.refinerModelCostLimit);
-      });
     };
 
     chrome.storage.onChanged.addListener(listener);
@@ -496,47 +391,8 @@ export function useConfig(options: UseConfigOptions = {}): UseConfigReturn {
     [allSummarizerModels, summarizerModelCostLimit],
   );
 
-  const refinerModels = useMemo(
-    () => allRefinerModels.filter((model) => isModelWithinCostLimit(model, refinerModelCostLimit)),
-    [allRefinerModels, refinerModelCostLimit],
-  );
-
-  const isValidLanguage = useCallback(
-    (language: string) =>
-      config?.supported_languages
-        ? language in config.supported_languages
-        : language in SUPPORTED_LANGUAGES,
-    [config],
-  );
-
-  return {
-    config,
-    summarizerModels,
-    refinerModels,
-    allSummarizerModels,
-    allRefinerModels,
-    summarizerModelPriceRange,
-    refinerModelPriceRange,
-    isLoading,
-    error,
-    isValidLanguage,
-    refresh: loadConfig,
-  };
-}
-
-export function useModelSelection(options: UseConfigOptions = {}) {
-  const {
-    summarizerModels,
-    refinerModels,
-    allSummarizerModels,
-    allRefinerModels,
-    summarizerModelPriceRange,
-    refinerModelPriceRange,
-  } = useConfig(options);
-
   return {
     summarizerModels,
-    refinerModels,
     allSummarizerModels,
     allRefinerModels,
     summarizerModelPriceRange,
@@ -550,30 +406,23 @@ interface UserPreferences {
 }
 
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  summaryModel: DEFAULT_SUMMARY_MODEL,
-  targetLanguage: DEFAULT_TARGET_LANGUAGE || "auto",
+  summaryModel: DEFAULTS.MODEL_SUMMARIZER,
+  targetLanguage: DEFAULTS.TARGET_LANGUAGE_RECOMMENDED,
 };
 
-export function useUserPreferences(options: UseConfigOptions = {}) {
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  return {
+    summaryModel: modelPreferenceValue(prefs.summaryModel, DEFAULT_USER_PREFERENCES.summaryModel),
+    targetLanguage:
+      prefs.targetLanguage && isSupportedLanguage(prefs.targetLanguage)
+        ? prefs.targetLanguage
+        : DEFAULT_USER_PREFERENCES.targetLanguage,
+  };
+}
+
+export function useUserPreferences() {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
   const hasLocalEditsRef = useRef(false);
-  const { isValidLanguage } = useConfig(options);
-
-  const validatePreferences = useCallback(
-    (prefs: Partial<UserPreferences>) => {
-      return {
-        summaryModel: modelPreferenceValue(
-          prefs.summaryModel,
-          DEFAULT_USER_PREFERENCES.summaryModel,
-        ),
-        targetLanguage:
-          prefs.targetLanguage && isValidLanguage(prefs.targetLanguage)
-            ? prefs.targetLanguage
-            : DEFAULT_USER_PREFERENCES.targetLanguage,
-      };
-    },
-    [isValidLanguage],
-  );
 
   useEffect(() => {
     let isActive = true;
@@ -601,7 +450,7 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
       isActive = false;
       chrome.storage.onChanged.removeListener(listener);
     };
-  }, [validatePreferences]);
+  }, []);
 
   const updatePreferences = useCallback((updates: Partial<UserPreferences>) => {
     hasLocalEditsRef.current = true;
@@ -629,17 +478,8 @@ export function useUserPreferences(options: UseConfigOptions = {}) {
     );
   }, []);
 
-  const resetPreferences = () => {
-    setPreferences(DEFAULT_USER_PREFERENCES);
-    chrome.storage.local.remove([
-      STORAGE_KEYS.SUMMARIZER_CUSTOM_MODEL,
-      STORAGE_KEYS.TARGET_LANGUAGE_CUSTOM,
-    ]);
-  };
-
   return {
     preferences,
     updatePreferences,
-    resetPreferences,
   };
 }

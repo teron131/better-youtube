@@ -5,18 +5,7 @@
  */
 
 import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants.ts";
-import {
-  getStorageUsage,
-  sessionStorageGet,
-  sessionStorageGetMultiple,
-  sessionStorageRemove,
-  sessionStorageSet,
-  storageGet,
-  storageGetAll,
-  storageGetMultiple,
-  storageRemove,
-  storageSet,
-} from "./storageBrowser.ts";
+import { getStorageUsage, localArea, sessionArea, storageGetAll } from "./storageBrowser.ts";
 import { migrateSummaryText } from "./summaryMigration.ts";
 export { getStorageUsage } from "./storageBrowser.ts";
 export type { StorageUsage } from "./storageBrowser.ts";
@@ -64,24 +53,17 @@ interface VideoStorageMeta {
 // Storage Keys
 // ============================================================================
 
-const StorageKeys = {
+const METADATA_KEY_PREFIX = "video_info_";
+const SUMMARY_KEY_PREFIX = "summary_";
+const VIDEO_META_KEY_PREFIX = "video_meta_";
+
+/** Per-video storage keys; subtitles use the bare video ID. */
+export const VideoStorageKeys = {
   subtitles: (videoId: string) => videoId,
-  metadata: (videoId: string) => `video_info_${videoId}`,
-  summary: (videoId: string) => `summary_${videoId}`,
-  meta: (videoId: string) => `video_meta_${videoId}`,
+  metadata: (videoId: string) => `${METADATA_KEY_PREFIX}${videoId}`,
+  summary: (videoId: string) => `${SUMMARY_KEY_PREFIX}${videoId}`,
+  meta: (videoId: string) => `${VIDEO_META_KEY_PREFIX}${videoId}`,
 } as const;
-
-export function getSubtitlesStorageKey(videoId: string): string {
-  return StorageKeys.subtitles(videoId);
-}
-
-export function getVideoMetadataStorageKey(videoId: string): string {
-  return StorageKeys.metadata(videoId);
-}
-
-export function getSummaryStorageKey(videoId: string): string {
-  return StorageKeys.summary(videoId);
-}
 
 function createVideoStoragePayload(
   videoId: string,
@@ -91,7 +73,7 @@ function createVideoStoragePayload(
   const updatedAt = Date.now();
   return {
     [key]: value,
-    [StorageKeys.meta(videoId)]: {
+    [VideoStorageKeys.meta(videoId)]: {
       updatedAt,
     } satisfies VideoStorageMeta,
   };
@@ -116,9 +98,6 @@ const WRITE_RATE_RETRY_LIMIT = 3;
 const WRITE_RATE_BACKOFF_BASE_MS = 250;
 const QUOTA_CLEANUP_RETRY_LIMIT = 3;
 const PROTECTED_STORAGE_HEADROOM_BYTES = 256 * 1024;
-const METADATA_KEY_PREFIX = "video_info_";
-const SUMMARY_KEY_PREFIX = "summary_";
-const VIDEO_META_KEY_PREFIX = "video_meta_";
 const PROTECTED_STORAGE_KEYS = new Set(Object.values(STORAGE_KEYS));
 const SETTINGS_STORAGE_KEYS_TO_KEEP = new Set<string>([
   STORAGE_KEYS.LLM_API_KEY,
@@ -184,7 +163,7 @@ async function setWithQuotaRetry(
   for (let attempt = 0; attempt <= WRITE_RATE_RETRY_LIMIT; attempt++) {
     try {
       signal?.throwIfAborted();
-      await storageSet(items);
+      await localArea.set(items);
       return;
     } catch (error) {
       if (isWriteRateQuotaError(error)) {
@@ -215,24 +194,24 @@ async function setWithQuotaRetry(
 // ============================================================================
 
 export async function getSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
-  return storageGet<SubtitleSegment[]>(StorageKeys.subtitles(videoId));
+  return localArea.get<SubtitleSegment[]>(VideoStorageKeys.subtitles(videoId));
 }
 
 export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
-  await saveVideoScopedItem(videoId, StorageKeys.subtitles(videoId), subtitles);
+  await saveVideoScopedItem(videoId, VideoStorageKeys.subtitles(videoId), subtitles);
 }
 
 export async function getVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
-  return storageGet<VideoMetadata>(StorageKeys.metadata(videoId));
+  return localArea.get<VideoMetadata>(VideoStorageKeys.metadata(videoId));
 }
 
 export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata): Promise<void> {
-  return saveVideoScopedItem(videoId, StorageKeys.metadata(videoId), metadata);
+  return saveVideoScopedItem(videoId, VideoStorageKeys.metadata(videoId), metadata);
 }
 
 export async function getSummary(videoId: string): Promise<StoredSummary | null> {
-  const key = StorageKeys.summary(videoId);
-  const stored = await storageGet<Omit<StoredSummary, "summary"> & { summary: unknown }>(key);
+  const key = VideoStorageKeys.summary(videoId);
+  const stored = await localArea.get<Omit<StoredSummary, "summary"> & { summary: unknown }>(key);
   if (!stored) return null;
   const summary = migrateSummaryText(stored.summary);
   if (summary === null) return null;
@@ -248,7 +227,7 @@ export async function saveSummary(
   targetLanguage?: string | null,
   signal?: AbortSignal,
 ): Promise<void> {
-  const key = StorageKeys.summary(videoId);
+  const key = VideoStorageKeys.summary(videoId);
   const storedSummary: StoredSummary = {
     summary,
     timestamp: Date.now(),
@@ -263,7 +242,7 @@ export async function saveSummary(
 // ============================================================================
 
 export async function getStorageValue<T>(key: string): Promise<T | null> {
-  return storageGet<T>(key);
+  return localArea.get<T>(key);
 }
 
 export async function setStorageValue<T>(key: string, value: T): Promise<void> {
@@ -274,25 +253,25 @@ export async function setStorageValue<T>(key: string, value: T): Promise<void> {
 }
 
 export async function removeStorageValue(key: string): Promise<void> {
-  await storageRemove([key]);
+  await localArea.remove([key]);
 }
 
 export async function getSessionStorageValue<T>(key: string): Promise<T | null> {
-  return sessionStorageGet<T>(key);
+  return sessionArea.get<T>(key);
 }
 
 export async function setSessionStorageValue<T>(key: string, value: T): Promise<void> {
-  await sessionStorageSet({ [key]: value });
+  await sessionArea.set({ [key]: value });
 }
 
 export async function removeSessionStorageValue(key: string): Promise<void> {
-  await sessionStorageRemove([key]);
+  await sessionArea.remove([key]);
 }
 
 export async function getStorageValues<T extends Record<string, unknown>>(
   keys: string[],
 ): Promise<Partial<T>> {
-  return storageGetMultiple<T>(keys);
+  return localArea.getMultiple<T>(keys);
 }
 
 // ============================================================================
@@ -306,15 +285,15 @@ export async function clearStoredDataExceptSettings(): Promise<ClearStoredDataRe
   );
 
   if (localKeysToRemove.length > 0) {
-    await storageRemove(localKeysToRemove);
+    await localArea.remove(localKeysToRemove);
   }
 
-  const sessionItems = await sessionStorageGetMultiple<Record<string, unknown>>([
+  const sessionItems = await sessionArea.getMultiple<Record<string, unknown>>([
     ...SESSION_DATA_KEYS_TO_CLEAR,
   ]);
   const sessionKeysToRemove = Object.keys(sessionItems);
   if (sessionKeysToRemove.length > 0) {
-    await sessionStorageRemove(sessionKeysToRemove);
+    await sessionArea.remove(sessionKeysToRemove);
   }
 
   return {
@@ -420,7 +399,7 @@ async function cleanupOldVideos(countToRemove: number): Promise<void> {
 
   const keysToRemove = groupsToRemove.flatMap((group) => group.keys);
   if (keysToRemove.length === 0) return;
-  await storageRemove(keysToRemove);
+  await localArea.remove(keysToRemove);
 }
 
 async function ensureStorageHeadroom(bytesToKeepAvailable: number): Promise<void> {
@@ -435,7 +414,7 @@ async function ensureStorageHeadroom(bytesToKeepAvailable: number): Promise<void
   await cleanupOldVideos(videosToRemove);
 }
 
-export async function ensureStorageSpace(): Promise<void> {
+async function ensureStorageSpace(): Promise<void> {
   const usage = await getStorageUsage();
 
   if (usage.bytesUsed > VIDEO_STORAGE_BUDGET_BYTES) {
