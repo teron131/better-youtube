@@ -11,10 +11,9 @@ import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoProcessing, type VideoProcessingOptions } from "@ui/hooks/use-video-processing";
 import { currentVideoUrlFromMessage, fetchCurrentVideoState } from "@ui/lib/current-video";
-import { loadExampleData } from "@ui/lib/example-data-loader";
 import { subscribeToStoredVideoState } from "@ui/lib/stored-video-state-sync";
-import { getCurrentVideoTab, getVideoIdFromCurrentTab } from "@ui/lib/video-utils";
-import { handleApiError } from "@ui/services/api";
+import { getCurrentVideoTab, getCurrentVideoUrl } from "@ui/lib/video-utils";
+import { exampleData } from "@ui/services/example-data";
 import {
   getRecommendationFilterSettings,
   setRecommendationFilterSetting,
@@ -99,7 +98,7 @@ const Index = () => {
       const lookupSequence = activeTabLookupRef.current + 1;
       activeTabLookupRef.current = lookupSequence;
       setIsResolvingVideo(true);
-      const url = await getVideoIdFromCurrentTab();
+      const url = await getCurrentVideoUrl();
       if (lookupSequence !== activeTabLookupRef.current) return "superseded";
       if (!url) {
         videoSyncSequenceRef.current += 1;
@@ -403,15 +402,10 @@ const Index = () => {
 
   const loadExample = useCallback(() => {
     setIsExampleMode(true);
-    const example = loadExampleData();
-
     updateState({
-      currentStage: "Example ready",
-      currentStep: 4,
-      progressStates: example.progressStates,
-      scrapedVideoInfo: example.videoInfo,
-      scrapedTranscript: example.transcript,
-      summaryResult: example.summaryResult,
+      scrapedVideoInfo: exampleData.videoInfo,
+      scrapedTranscript: exampleData.transcript,
+      summaryResult: exampleData,
       isLoading: false,
       error: null,
     });
@@ -434,7 +428,7 @@ const Index = () => {
     const trimmed = url.trim();
     if (trimmed) return trimmed;
 
-    const currentTabUrl = await getVideoIdFromCurrentTab();
+    const currentTabUrl = await getCurrentVideoUrl();
     if (!currentTabUrl) return null;
 
     setInitialUrl(currentTabUrl);
@@ -506,19 +500,15 @@ const Index = () => {
           message: "Processing failed",
           type: "processing",
         };
-        const apiError = handleApiError(error);
-        updateState({
-          error: apiError,
-          currentStage: "❌ Processing failed",
-        });
+        updateState({ error });
 
         toast({
           title: "Processing Failed",
-          description: apiError.message,
+          description: error.message,
           variant: "destructive",
         });
 
-        console.error("Processing error:", apiError.message, "Details:", apiError.details);
+        console.error("Processing error:", error.message);
       }
     } finally {
       summaryStartRef.current = false;
@@ -540,10 +530,9 @@ const Index = () => {
           getSubtitles(videoId),
           getVideoMetadata(videoId),
         ]);
-        updateState({
-          ...createTranscriptOnlyState(segmentsToTranscript(storedSubtitles), storedVideoInfo),
-          currentStage: "",
-        });
+        updateState(
+          createTranscriptOnlyState(segmentsToTranscript(storedSubtitles), storedVideoInfo),
+        );
       } catch (error) {
         console.error("Failed to load cached caption state:", error);
       }
@@ -556,10 +545,9 @@ const Index = () => {
         description: "Fetching the transcript again and rerunning caption refinement.",
       });
     } catch (error) {
-      const apiError = handleApiError(error);
       toast({
         title: "Caption failed",
-        description: apiError.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }

@@ -71,7 +71,7 @@ export function VideoChat({
   const [pending, setPending] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { preferences, updatePreferences } = useUserPreferences({ loadDynamicModels: false });
+  const { preferences, updatePreferences } = useUserPreferences();
   const { summarizerModels } = useModelSelection();
   const modelOptions = summarizerModels.map((model) => ({
     ...toModelComboboxOption(model),

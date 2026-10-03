@@ -47,13 +47,3 @@ export async function executeScrapeForAutoGen(videoId: string): Promise<boolean>
   console.log(`[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`);
   return true;
 }
-
-export function determineToggleState(message: any): boolean {
-  if ("showSubtitles" in message) {
-    return message.showSubtitles !== false;
-  }
-  if ("enabled" in message) {
-    return message.enabled !== false;
-  }
-  return true;
-}

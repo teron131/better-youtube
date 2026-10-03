@@ -98,14 +98,6 @@ export interface VideoCardData {
 export const VIDEO_CARD_SELECTOR =
   "ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model";
 
-export const VIDEO_CARD_NODE_NAMES = new Set([
-  "YTD-VIDEO-RENDERER",
-  "YTD-RICH-ITEM-RENDERER",
-  "YTD-GRID-VIDEO-RENDERER",
-  "YTD-COMPACT-VIDEO-RENDERER",
-  "YT-LOCKUP-VIEW-MODEL",
-]);
-
 export function normalizeText(text: unknown): string | null {
   if (typeof text !== "string") {
     return null;

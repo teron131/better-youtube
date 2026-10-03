@@ -8,7 +8,6 @@ import { exampleSummaryGemini } from "./example-data-gemini";
 
 export const exampleData: StreamingProcessingResult = {
   success: true,
-  totalTime: "cached",
   videoInfo: {
     url: "https://youtu.be/MiUHjLxm3V0",
     title: "ASML and EUV Lithography",
@@ -21,6 +20,4 @@ export const exampleData: StreamingProcessingResult = {
   },
   transcript: null,
   summary: exampleSummaryGemini,
-  iterations: 1,
-  chunksProcessed: 0,
 };

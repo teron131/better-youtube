@@ -2,9 +2,8 @@
  * Answers video preview requests with transcript-backed metadata from the requested watch tab.
  */
 
-import { MESSAGE_ACTIONS } from "@/core/constants";
 import { saveVideoMetadata } from "@/core/storage";
-import { extractVideoInfo, fetchTranscript, getTranscriptText } from "@/core/transcript";
+import { extractVideoInfo, fetchTranscript, getResponseTranscriptText } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
 
 type ScrapeResponse = {
@@ -59,22 +58,13 @@ export async function handleScrapeVideo(
     const videoInfo = extractVideoInfo(data, videoId);
     await saveVideoMetadata(videoId, videoInfo);
 
-    const transcriptText = data.transcript_only_text || getTranscriptText(data.transcript) || null;
+    const transcriptText = getResponseTranscriptText(data);
     sendResponse({
       status: "success",
       videoInfo,
       transcript: transcriptText,
       hasTranscript: !!transcriptText,
     });
-
-    chrome.runtime
-      .sendMessage({
-        action: MESSAGE_ACTIONS.SCRAPE_VIDEO_COMPLETED,
-        videoId,
-        videoInfo,
-        transcript: transcriptText,
-      })
-      .catch(() => {});
   } catch (error) {
     if (!suppressErrors) {
       console.error("Scrape video error:", error);

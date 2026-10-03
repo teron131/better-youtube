@@ -1,38 +1,18 @@
 /// <reference types="chrome" />
 
-/**
- * Chrome Extension Messaging Service
- * Handles communication with background script for video processing
- */
+/** Sidepanel messaging for summary and caption requests, including cancellation and result matching. */
 
 import { loadConfig } from "@/core/config";
 import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
 import { createRequestId, type RequestId } from "@/core/requestId";
-import type {
-  ApiError,
-  StreamingProcessingResult,
-  StreamingProgressState,
-  VideoInfoResponse,
-} from "@/core/types";
+import type { ApiError, StreamingProcessingResult, VideoInfoResponse } from "@/core/types";
 import { type ChromeMessage, getCurrentTab, sendChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
-/**
- * Handle scraping step
- */
 async function performScrape(
   videoId: string,
-  url: string,
   tabId?: number,
-  onProgress?: (state: StreamingProgressState) => void,
 ): Promise<VideoInfoResponse | undefined> {
-  onProgress?.({
-    step: "scraping",
-    stepName: "Fetching Transcript",
-    status: "processing",
-    message: "Fetching video transcript...",
-  });
-
   const result = await sendChromeMessage<{ status: string; videoInfo?: VideoInfoResponse }>({
     action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
     videoId,
@@ -40,18 +20,7 @@ async function performScrape(
   });
 
   if (result.status !== "success") throw new Error("Failed to fetch video data");
-
-  const videoInfo = result.videoInfo;
-  onProgress?.({
-    step: "scraping",
-    stepName: "Fetching Transcript",
-    status: "completed",
-    message: "Video data fetched",
-    data: {
-      videoInfo: videoInfo ? normalizeVideoInfo(videoInfo, url) : undefined,
-    },
-  });
-  return videoInfo;
+  return result.videoInfo;
 }
 
 /** Normalizes optional video details while retaining zero counts and a fallback request URL. */
@@ -73,10 +42,9 @@ function normalizeVideoInfo(
 }
 
 interface SummaryListenerResult {
-  summary: { summary: string; iterations?: number };
+  summary: string;
   videoInfo: VideoInfoResponse | null | undefined;
   transcript: string | null;
-  provider?: "gemini" | "llm";
 }
 
 interface StreamControl {
@@ -134,7 +102,6 @@ function createSummaryListener(
   videoId: string,
   requestId: RequestId,
   videoInfo: SummaryListenerResult["videoInfo"],
-  onProgress?: (state: StreamingProgressState) => void,
   control?: StreamControl,
 ): { promise: Promise<SummaryListenerResult>; cancel: () => void } {
   let cleanup = () => {};
@@ -162,7 +129,6 @@ function createSummaryListener(
           summary,
           videoInfo: msgVideoInfo,
           transcript,
-          provider,
         } = msg as ChromeMessage & Partial<SummaryListenerResult>;
         const transcriptText = typeof transcript === "string" ? transcript : null;
         if (!summary) {
@@ -175,18 +141,11 @@ function createSummaryListener(
           return;
         }
 
-        onProgress?.({
-          step: "complete",
-          stepName: "Complete",
-          status: "completed",
-          message: "Summary generated successfully",
-        });
         settle(() =>
           resolve({
             summary,
             videoInfo: msgVideoInfo || videoInfo,
             transcript: transcriptText,
-            provider,
           }),
         );
         return;
@@ -298,7 +257,8 @@ export async function triggerCaptionGeneration(
 }
 
 /**
- * Stream summary: Scrape → Refine (if enabled) + Summarize in parallel
+ * Stream summary: Scrape → Refine (if enabled) + Summarize in parallel.
+ * Scraped video details reach `onVideoInfo` before the summary finishes.
  */
 export async function streamSummary(
   url: string,
@@ -308,17 +268,11 @@ export async function streamSummary(
     transcript?: string;
     forceRegenerate?: boolean;
   },
-  onProgress?: (state: StreamingProgressState) => void,
+  onVideoInfo?: (videoInfo: VideoInfoResponse) => void,
   control?: StreamControl,
 ): Promise<StreamingProcessingResult> {
-  const startTime = Date.now();
-  const formatTime = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
   const signal = control?.signal;
   const runId = control?.runId;
-  const emitProgress = (state: StreamingProgressState) => {
-    if (signal?.aborted) return;
-    onProgress?.(state);
-  };
   if (runId) console.log("[stream] start summary run", { runId, url });
   let removeCancellation: (() => void) | undefined;
   let cancelPendingWork: (() => void) | undefined;
@@ -337,35 +291,18 @@ export async function streamSummary(
 
     let videoInfo: SummaryListenerResult["videoInfo"] = null;
     if (!options.transcript) {
-      videoInfo = await withAbort(
-        performScrape(videoId, url, activeTabId, emitProgress),
-        signal,
-        runId,
-      );
+      videoInfo = await withAbort(performScrape(videoId, activeTabId), signal, runId);
+      if (videoInfo && !signal?.aborted) onVideoInfo?.(normalizeVideoInfo(videoInfo, url));
       if (showSubtitles) triggerRefinement(videoId, createRequestId("caption"), refinerModel);
-    } else {
-      emitProgress({
-        step: "scraping",
-        stepName: "Fetching Transcript",
-        status: "completed",
-        message: "Using provided transcript",
-      });
     }
 
     throwIfAborted(signal, runId);
-    emitProgress({
-      step: "summarizing",
-      stepName: "Summarizing",
-      status: "processing",
-      message: "Generating summary...",
-    });
 
     const requestId = createRequestId("summary");
     const { promise: listenerPromise, cancel } = createSummaryListener(
       videoId,
       requestId,
       videoInfo,
-      emitProgress,
       control,
     );
 
@@ -415,36 +352,17 @@ export async function streamSummary(
       summary,
       videoInfo: resultVideoInfo,
       transcript,
-      provider,
     } = await withAbort(listenerPromise, signal, runId);
 
     return {
       success: true,
       videoInfo: normalizeVideoInfo(resultVideoInfo, url),
       transcript,
-      summary: summary.summary,
-      provider,
-      totalTime: formatTime(),
-      iterations: summary.iterations || 0,
-      chunksProcessed: 0,
+      summary,
     };
   } catch (error) {
     cancelPendingWork?.();
-    const apiError = toApiError(error);
-    emitProgress({
-      step: "summarizing",
-      stepName: "Processing",
-      status: "error",
-      message: apiError.message,
-      error: apiError,
-    });
-    return {
-      success: false,
-      totalTime: formatTime(),
-      iterations: 0,
-      chunksProcessed: 0,
-      error: apiError,
-    };
+    return { success: false, error: toApiError(error) };
   } finally {
     removeCancellation?.();
   }

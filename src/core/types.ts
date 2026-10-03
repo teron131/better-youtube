@@ -1,8 +1,4 @@
-/** Shared transcript, summary, configuration, and progress contracts for extension surfaces. */
-
-// ============================================================================
-// API Response Types
-// ============================================================================
+/** Shared transcript, video-info, and summary-result contracts for extension surfaces. */
 
 export interface ApiTranscriptSegment {
   text: string;
@@ -18,33 +14,22 @@ export interface ChannelInfo {
   title: string;
 }
 
+/** In-memory transcript extraction result; persisted video details use `VideoMetadata`. */
 export interface TranscriptResponse {
-  success?: boolean;
-  credits_remaining?: number;
-  type?: string;
   transcript: ApiTranscriptSegment[];
   transcript_only_text?: string;
   title: string;
   description: string;
   thumbnail?: string;
   url?: string;
-  id?: string;
   viewCountInt?: number;
   likeCountInt?: number;
   publishDate?: string;
   channel?: ChannelInfo;
   durationFormatted?: string;
-  keywords?: string[];
   videoId?: string;
-  captionTracks?: any[];
-  language?: string;
 }
 
-/**
- * Type definitions for YouTube Summarizer API
- */
-
-// Basic Video Info
 export interface VideoInfoResponse {
   url: string;
   title: string | null;
@@ -56,60 +41,15 @@ export interface VideoInfoResponse {
   likeCount?: number;
 }
 
-export interface ConfigurationResponse {
-  status: string;
-  message: string;
-  available_models: Record<string, string>;
-  supported_languages: Record<string, string>;
-  default_summary_model: string;
-  default_target_language: string;
-}
-
-// Streaming Types
-export interface StreamingChunk {
-  transcript_or_url?: string;
-  summary?: string;
-  iterations?: number;
-  isComplete?: boolean;
-  timestamp?: string;
-  chunkNumber?: number;
-  type?: "status" | "summary" | "complete" | "error";
-  message?: string;
-  processingTime?: string;
-  totalChunks?: number;
-}
-
-export interface StreamingProgressState {
-  step: "scraping" | "summarizing" | "summary_generation" | "complete";
-  stepName: string;
-  status: "pending" | "processing" | "completed" | "error";
-  message: string;
-  data?: {
-    videoInfo?: VideoInfoResponse;
-    transcript?: string;
-  };
-  error?: ApiError;
-  processingTime?: string;
-  iterations?: number;
-  chunkCount?: number;
-}
-
 export interface StreamingProcessingResult {
   success: boolean;
   videoInfo?: VideoInfoResponse;
   transcript?: string;
   summary?: string;
-  provider?: "gemini" | "llm";
   error?: ApiError;
-  totalTime: string;
-  iterations: number;
-  chunksProcessed: number;
 }
 
-// Error Types
 export interface ApiError {
   message: string;
-  status?: number;
-  details?: string;
-  type?: "network" | "validation" | "server" | "processing" | "unknown";
+  type?: "processing";
 }

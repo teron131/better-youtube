@@ -2,8 +2,6 @@
 
 import type { SummarizerProviderPreference } from "./config.ts";
 
-export type EffectiveSummarizerProvider = "gemini" | "llm";
-
 export function isGeminiModelSelection(modelSelection: string): boolean {
   const s = String(modelSelection || "");
   return s.startsWith("gemini-") || s.startsWith("google/gemini-");

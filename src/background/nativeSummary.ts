@@ -6,7 +6,7 @@ import { SummaryTextSchema } from "../core/agent/artifact.ts";
 import { SKILLS } from "../core/agent/skills.ts";
 import type { AppConfig } from "../core/config.ts";
 
-export type GeminiInput =
+type GeminiInput =
   | {
       kind: "youtube_url";
       videoUrl: string;
@@ -18,21 +18,17 @@ export type GeminiInput =
       targetLanguage?: string;
     };
 
+const GEMINI_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Returns validated Markdown summary text from one native Gemini request. */
 export async function summarizeGemini(
   input: GeminiInput,
-  options: {
-    model: string;
-    thinkingLevel?: ThinkingLevel;
-    timeoutMs?: number;
-    signal?: AbortSignal;
-  },
+  options: { model: string; signal?: AbortSignal },
   config: Pick<AppConfig, "geminiApiKey">,
-): Promise<{ summary: string; usage?: unknown }> {
+): Promise<string> {
   options.signal?.throwIfAborted();
   if (!config.geminiApiKey) throw new Error("Gemini API key missing");
   const client = new GoogleGenAI({ apiKey: config.geminiApiKey });
-  const thinkingLevel = options.thinkingLevel ?? ThinkingLevel.MEDIUM;
-  const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
 
   const prompt = summaryPrompt(input.targetLanguage ?? "auto", input.kind);
 
@@ -47,17 +43,16 @@ export async function summarizeGemini(
       typeof client.models.generateContent
     >[0]["contents"],
     config: {
-      httpOptions: { timeout: timeoutMs },
+      httpOptions: { timeout: GEMINI_TIMEOUT_MS },
       abortSignal: options.signal,
-      thinkingConfig: { thinkingLevel },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
     },
   });
 
   const raw = response.text;
   if (!raw) throw new Error("Gemini returned empty response");
 
-  const parsed = SummaryTextSchema.parse(raw);
-  return { summary: parsed, usage: response.usageMetadata };
+  return SummaryTextSchema.parse(raw);
 }
 
 /** Keeps native video input's visual grounding rules separate from transcript-only agent instructions. */

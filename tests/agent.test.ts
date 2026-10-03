@@ -231,7 +231,7 @@ test("native Gemini returns Markdown directly without imposing a response schema
       { model: "gemini-test" },
       { geminiApiKey: "test-key" },
     );
-    assert.equal(result.summary, "A **plain Markdown** summary with $x^2$.");
+    assert.equal(result, "A **plain Markdown** summary with $x^2$.");
     assert.equal(body.generationConfig.responseMimeType, undefined);
     assert.equal(body.generationConfig.responseJsonSchema, undefined);
     assert.match(JSON.stringify(body.contents), /Markdown/);

@@ -4,16 +4,10 @@ import { runAgent } from "../core/agent/runtime.ts";
 import type { AppConfig } from "../core/config.ts";
 import type { VideoMetadata } from "../core/storage.ts";
 import type { TranscriptFetchContext } from "../core/transcript/index.ts";
-import { resolveTranscriptText } from "../core/transcript/text.ts";
 import { createYouTubeWatchUrl } from "../core/utils/url.ts";
-import { getTranscriptSource, getVideoInfo } from "../core/videoContext.ts";
+import { getVideoInfo, resolveTranscriptText } from "../core/videoContext.ts";
 import { isGeminiModelSelection } from "../core/workRouter.ts";
 import { summarizeGemini } from "./nativeSummary.ts";
-
-export type SummaryResult = {
-  summary: string;
-  iterations?: number;
-};
 
 /** Resolves each source at most once and falls back to the agent only when native Gemini fails. */
 export async function generateSummary(
@@ -40,16 +34,16 @@ export async function generateSummary(
   } = input;
   const geminiKey = config.geminiApiKey;
   const llmKey = config.llmApiKey;
-  // Lazy resolution: Gemini can use URL directly; LLM needs transcript_or_url.
+  // Lazy resolution: Gemini can summarize the watch URL directly; the agent needs transcript text.
   let videoInfoPromise: Promise<VideoMetadata> | undefined;
-  let llmSourcePromise: Promise<string> | undefined;
+  let transcriptPromise: Promise<string> | undefined;
   const getVideoInfoLazy = () => {
     videoInfoPromise ??= getVideoInfo(videoId, transcriptFetchContext);
     return videoInfoPromise;
   };
-  const getLlmSourceLazy = () => {
-    llmSourcePromise ??= getTranscriptSource(videoId, msgTranscript, transcriptFetchContext);
-    return llmSourcePromise;
+  const getTranscriptLazy = () => {
+    transcriptPromise ??= resolveTranscriptText(videoId, msgTranscript, transcriptFetchContext);
+    return transcriptPromise;
   };
 
   const tryGemini = async () => {
@@ -59,43 +53,19 @@ export async function generateSummary(
     }
     if (!geminiKey) throw new Error("Gemini API key missing");
     await getVideoInfoLazy();
-    const geminiModel = normalizeGeminiModel(String(modelSelection));
-
-    const gemini = msgTranscript
-      ? await summarizeGemini(
-          {
-            kind: "transcript",
-            transcript: String(msgTranscript),
-            targetLanguage: targetLanguage,
-          },
-          { model: geminiModel, signal },
-          config,
-        )
-      : await summarizeGemini(
-          {
-            kind: "youtube_url",
-            videoUrl: createYouTubeWatchUrl(videoId),
-            targetLanguage: targetLanguage,
-          },
-          { model: geminiModel, signal },
-          config,
-        );
-
-    const summary = gemini.summary;
-    return {
-      summary,
-      iterations: 1,
-    };
+    return summarizeGemini(
+      msgTranscript
+        ? { kind: "transcript", transcript: msgTranscript, targetLanguage }
+        : { kind: "youtube_url", videoUrl: createYouTubeWatchUrl(videoId), targetLanguage },
+      { model: normalizeGeminiModel(modelSelection), signal },
+      config,
+    );
   };
 
   const tryLlm = async () => {
     signal?.throwIfAborted();
     if (!llmKey) throw new Error("LLM API key missing");
-    const transcript = await resolveTranscriptText(
-      await getLlmSourceLazy(),
-      videoId,
-      transcriptFetchContext,
-    );
+    const transcript = await getTranscriptLazy();
     const videoInfo = await getVideoInfoLazy();
     const result = await runAgent(
       {
@@ -116,22 +86,18 @@ export async function generateSummary(
 
     if (!result.summary)
       throw new Error("The video assistant finished without creating a summary.");
-    const summary = result.summary;
-    return {
-      summary,
-      iterations: 1,
-    };
+    return result.summary;
   };
 
   let finalProvider = provider;
-  let result: SummaryResult;
+  let summary: string;
   try {
     console.log("[summary] trying provider", {
       provider: finalProvider,
       videoId,
       requestId,
     });
-    result = await (provider === "gemini" ? tryGemini() : tryLlm());
+    summary = await (provider === "gemini" ? tryGemini() : tryLlm());
   } catch (error) {
     signal?.throwIfAborted();
     if (provider === "gemini" && llmKey) {
@@ -143,7 +109,7 @@ export async function generateSummary(
         error: String(error),
       });
       finalProvider = "llm";
-      result = await tryLlm();
+      summary = await tryLlm();
     } else {
       console.warn("[summary] primary provider failed", {
         provider,
@@ -156,11 +122,10 @@ export async function generateSummary(
   }
 
   const videoInfo = await getVideoInfoLazy();
-  const transcript_or_url =
-    finalProvider === "gemini" && !msgTranscript
-      ? createYouTubeWatchUrl(videoId)
-      : await getLlmSourceLazy();
-  return { result, videoInfo, source: transcript_or_url, provider: finalProvider };
+  // Native Gemini summarizes the watch URL itself, so it produces no transcript to report.
+  const transcript =
+    finalProvider === "gemini" && !msgTranscript ? null : await getTranscriptLazy();
+  return { summary, videoInfo, transcript, provider: finalProvider };
 }
 
 function normalizeGeminiModel(modelSelection: string): string {

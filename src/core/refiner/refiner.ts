@@ -1,7 +1,4 @@
-/**
- * Caption Refiner using LangChain
- * Refines YouTube transcript segments using LLM batch processing
- */
+/** Refines caption segments in concurrent LangChain batches, publishing the opening window before the rest. */
 
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
@@ -10,7 +7,7 @@ import { z } from "zod";
 import { resolveLlmConnection } from "@/core/clients/config";
 import { createBrowserSafeOpenAiFetch, isBrowserRuntime } from "@/core/clients/transport";
 import { loadConfig } from "@/core/config";
-import { DEFAULTS, REFINER_CONFIG } from "@/core/constants";
+import { REFINER_CONFIG } from "@/core/constants";
 import type { SubtitleSegment } from "@/core/storage";
 import { chunkSegmentsByCount, parseRefinedSegments } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
@@ -280,8 +277,7 @@ export async function refineTranscriptWithLLM(
   segments: SubtitleSegment[],
   title: string,
   description: string,
-  onProgress?: (chunkIdx: number, totalChunks: number) => void,
-  model: string = DEFAULTS.MODEL_REFINER,
+  model: string,
   onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
@@ -327,8 +323,6 @@ export async function refineTranscriptWithLLM(
     }),
   ]);
 
-  onProgress?.(0, batchMessages.length);
-
   const priorityHandler = createPriorityHandler(
     priorityRangeCount,
     splitIndex,
@@ -344,10 +338,7 @@ export async function refineTranscriptWithLLM(
       return response.parsed ?? createFallbackResponse(chunks[idx].segments);
     },
     (_messages, idx) => createFallbackResponse(chunks[idx].segments),
-    (result, idx, allResults) => {
-      onProgress?.(idx + 1, batchMessages.length);
-      priorityHandler(result, idx, allResults);
-    },
+    priorityHandler,
   );
 
   return parseChunkResponses(chunks, responses, segments);

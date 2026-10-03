@@ -6,7 +6,7 @@ import { beforeEach, test } from "node:test";
 
 import { VideoWorkloadLifecycle } from "../src/background/workloads.ts";
 import { MESSAGE_ACTIONS, STORAGE, STORAGE_KEYS } from "../src/core/constants.ts";
-import type { StreamingProgressState } from "../src/core/types.ts";
+import type { VideoInfoResponse } from "../src/core/types.ts";
 import type { ChromeMessage } from "../src/core/utils/chrome.ts";
 
 const local: Record<string, any> = {};
@@ -18,7 +18,7 @@ const summary = "Grounded **summary**.";
 let agentCalls = 0;
 let nativeCalls = 0;
 let agentReply = async () => ({ summary });
-let nativeReply = async () => ({ summary });
+let nativeReply = async () => summary;
 
 function storageArea(items: Record<string, any>) {
   return {
@@ -127,7 +127,7 @@ beforeEach(() => {
   bytesUsed = 0;
   agentCalls = nativeCalls = 0;
   agentReply = async () => ({ summary });
-  nativeReply = async () => ({ summary });
+  nativeReply = async () => summary;
   local[`video_info_${videoId}`] = {
     url: `https://www.youtube.com/watch?v=${videoId}`,
     title: "Test video",
@@ -164,7 +164,7 @@ test("summary messages persist final artifacts and reuse only matching cache ent
   assert.equal(notifications[0].transcript, "Source transcript");
   await request();
   assert.equal(agentCalls, 1);
-  assert.equal(notifications[1].summary.iterations, 0);
+  assert.equal(notifications[1].summary, summary);
   assert.equal(notifications[1].transcript, null);
   await request({ targetLanguage: "French" });
   assert.equal(agentCalls, 2);
@@ -180,7 +180,6 @@ test("native Gemini failure falls back to the agent and records the actual provi
   assert.equal(nativeCalls, 1);
   assert.equal(agentCalls, 1);
   assert.equal(local[`summary_${videoId}`].modelUsed, "llm::gemini-test");
-  assert.equal(notifications[0].provider, "llm");
 });
 
 test("provider failure emits an error and leaves the existing summary intact", async () => {
@@ -422,18 +421,18 @@ for (const metadataSource of ["scrape", "summary"] as const) {
         return sendMessage(message, callback);
       },
     );
-    const progress: StreamingProgressState[] = [];
+    const scrapedVideoInfo: VideoInfoResponse[] = [];
     const result = await streamSummary(
       videoInfo.url,
       metadataSource === "summary" ? { transcript: "Source" } : {},
-      (state) => progress.push(state),
+      (info) => scrapedVideoInfo.push(info),
     );
     assert.equal(result.success, true);
     assert.deepEqual(result.videoInfo, videoInfo);
     assert.equal(result.summary, summary);
     assert.equal(agentCalls, 1);
     if (metadataSource === "scrape") {
-      assert.deepEqual(progress.find((state) => state.data?.videoInfo)?.data.videoInfo, videoInfo);
+      assert.deepEqual(scrapedVideoInfo, [videoInfo]);
     }
     assert.equal(messageListeners.size, 0);
   });

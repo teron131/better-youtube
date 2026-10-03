@@ -129,7 +129,6 @@ async function runCaptionJob(input: {
       segments,
       data.title,
       data.description,
-      undefined, // onProgress
       String(modelSelection),
       (prioritySegments) => {
         console.log("[refine] partial emitted", {

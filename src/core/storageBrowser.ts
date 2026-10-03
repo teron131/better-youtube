@@ -1,4 +1,4 @@
-/** Adapts Chrome local/session storage and web-preview storage without deciding cache retention. */
+/** Adapts Chrome local/session storage, with Web Storage fallbacks for the preview, without deciding cache retention. */
 
 import { STORAGE } from "./constants.ts";
 
@@ -8,164 +8,24 @@ export interface StorageUsage {
   percentageUsed: number;
 }
 
+interface StorageArea {
+  get<T>(key: string): Promise<T | null>;
+  getMultiple<T extends Record<string, unknown>>(keys: string[]): Promise<Partial<T>>;
+  set(items: Record<string, unknown>): Promise<void>;
+  remove(keys: string[]): Promise<void>;
+}
+
 const isExtension = typeof chrome !== "undefined" && !!chrome.storage?.local;
 const hasSessionStorageApi = typeof chrome !== "undefined" && !!chrome.storage?.session;
 
-/**
- * Low-level storage setter
- */
-export async function storageSet(items: Record<string, unknown>): Promise<void> {
-  if (!isExtension) {
-    Object.entries(items).forEach(([key, value]) => {
-      localStorage.setItem(key, JSON.stringify(value));
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set(items, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * Low-level storage getter for a single key
- */
-export async function storageGet<T>(key: string): Promise<T | null> {
-  if (!isExtension) {
-    const item = localStorage.getItem(key);
-    return item ? (JSON.parse(item) as T) : null;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.local.get([key], (result) => {
-      resolve(result[key] ?? null);
-    });
-  });
-}
-
-/**
- * Low-level storage getter for multiple keys
- */
-export async function storageGetMultiple<T extends Record<string, unknown>>(
-  keys: string[],
-): Promise<Partial<T>> {
-  if (!isExtension) {
-    const result: Partial<T> = {};
-    keys.forEach((key) => {
-      const item = localStorage.getItem(key);
-      if (item) {
-        (result as any)[key] = JSON.parse(item);
-      }
-    });
-    return result;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.local.get(keys, (result) => {
-      resolve(result as Partial<T>);
-    });
-  });
-}
-
-/**
- * Low-level storage remover
- */
-export async function storageRemove(keys: string[]): Promise<void> {
-  if (!isExtension) {
-    keys.forEach((key) => {
-      localStorage.removeItem(key);
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.remove(keys, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-export async function sessionStorageSet(items: Record<string, unknown>): Promise<void> {
-  if (!hasSessionStorageApi) {
-    Object.entries(items).forEach(([key, value]) => {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.session.set(items, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-export async function sessionStorageGet<T>(key: string): Promise<T | null> {
-  if (!hasSessionStorageApi) {
-    const item = sessionStorage.getItem(key);
-    return item ? (JSON.parse(item) as T) : null;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.session.get([key], (result) => {
-      resolve(result[key] ?? null);
-    });
-  });
-}
-
-export async function sessionStorageGetMultiple<T extends Record<string, unknown>>(
-  keys: string[],
-): Promise<Partial<T>> {
-  if (!hasSessionStorageApi) {
-    const result: Partial<T> = {};
-    keys.forEach((key) => {
-      const item = sessionStorage.getItem(key);
-      if (item) {
-        (result as Record<string, unknown>)[key] = JSON.parse(item);
-      }
-    });
-    return result;
-  }
-
-  return new Promise((resolve) => {
-    chrome.storage.session.get(keys, (result) => {
-      resolve(result as Partial<T>);
-    });
-  });
-}
-
-export async function sessionStorageRemove(keys: string[]): Promise<void> {
-  if (!hasSessionStorageApi) {
-    keys.forEach((key) => {
-      sessionStorage.removeItem(key);
-    });
-    return;
-  }
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.session.remove(keys, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
+export const localArea = createStorageArea(
+  isExtension ? () => chrome.storage.local : null,
+  () => localStorage,
+);
+export const sessionArea = createStorageArea(
+  hasSessionStorageApi ? () => chrome.storage.session : null,
+  () => sessionStorage,
+);
 
 /**
  * Low-level storage getter for everything
@@ -213,4 +73,52 @@ export async function getStorageUsage(): Promise<StorageUsage> {
       });
     });
   });
+}
+
+/** Reads resolve without `lastError` checks, matching Chrome's empty results; writes and removals reject on it. */
+function createStorageArea(
+  getArea: (() => chrome.storage.StorageArea) | null,
+  getWebStorage: () => Storage,
+): StorageArea {
+  if (!getArea) {
+    const read = (key: string) => {
+      const item = getWebStorage().getItem(key);
+      return item ? JSON.parse(item) : null;
+    };
+    return {
+      get: async (key) => read(key),
+      getMultiple: async <T extends Record<string, unknown>>(keys: string[]) => {
+        const result: Record<string, unknown> = {};
+        for (const key of keys) {
+          const value = read(key);
+          if (value !== null) result[key] = value;
+        }
+        return result as Partial<T>;
+      },
+      set: async (items) => {
+        for (const [key, value] of Object.entries(items)) {
+          getWebStorage().setItem(key, JSON.stringify(value));
+        }
+      },
+      remove: async (keys) => {
+        for (const key of keys) getWebStorage().removeItem(key);
+      },
+    };
+  }
+
+  const settle = (resolve: () => void, reject: (error: Error) => void) => () => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else resolve();
+  };
+  return {
+    get: (key) =>
+      new Promise((resolve) => getArea().get([key], (result) => resolve(result[key] ?? null))),
+    getMultiple: <T extends Record<string, unknown>>(keys: string[]) =>
+      new Promise<Partial<T>>((resolve) =>
+        getArea().get(keys, (result) => resolve(result as Partial<T>)),
+      ),
+    set: (items) => new Promise((resolve, reject) => getArea().set(items, settle(resolve, reject))),
+    remove: (keys) =>
+      new Promise((resolve, reject) => getArea().remove(keys, settle(resolve, reject))),
+  };
 }
