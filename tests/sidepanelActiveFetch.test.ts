@@ -25,6 +25,7 @@ test("fetches current video state through the active tab scrape route", async ()
           author: "Fresh channel",
         },
         transcript: "fresh transcript",
+        captionSegments: [{ text: "fresh transcript", startTime: 1200, endTime: 2400 }],
       };
     },
   });
@@ -40,6 +41,9 @@ test("fetches current video state through the active tab scrape route", async ()
   assert.deepEqual(messageTimeouts, [TIMING.SCRAPING_TIMEOUT_MS]);
   assert.equal(state?.videoInfo?.title, "Fresh title");
   assert.equal(state?.transcript, "fresh transcript");
+  assert.deepEqual(state?.captionSegments, [
+    { text: "fresh transcript", startTime: 1200, endTime: 2400 },
+  ]);
 });
 
 test("ignores skipped active video scrape responses", async () => {

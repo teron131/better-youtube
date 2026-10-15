@@ -14,6 +14,15 @@ export interface ChannelInfo {
   title: string;
 }
 
+/** Identifies a caption source or English translation independently of its expiring download URL. */
+export interface CaptionTrack {
+  id: string;
+  languageCode: string;
+  name: string;
+  kind: "manual" | "auto" | "translated";
+  priority: number;
+}
+
 /** In-memory transcript extraction result; persisted video details use `VideoMetadata`. */
 export interface TranscriptResponse {
   transcript: ApiTranscriptSegment[];
@@ -28,6 +37,10 @@ export interface TranscriptResponse {
   channel?: ChannelInfo;
   durationFormatted?: string;
   videoId?: string;
+  captionTracks?: CaptionTrack[];
+  selectedCaptionTrackId?: string;
+  /** The fetched segments are source text awaiting explicit AI translation into English. */
+  translationRequired?: boolean;
 }
 
 export interface VideoInfoResponse {

@@ -18,6 +18,7 @@ import { fetchTranscriptFromChromeTab } from "./chromeTab.ts";
 export type TranscriptFetchContext = {
   tabId?: number;
   forceRefresh?: boolean;
+  captionTrackId?: string;
 };
 
 export function toSubtitleSegments(transcript: ApiTranscriptSegment[]): SubtitleSegment[] {
@@ -60,6 +61,7 @@ async function fetchTranscriptForTab(
   videoId: string,
   tabId: number | undefined,
   hasScopedContext: boolean,
+  captionTrackId?: string,
 ): Promise<TranscriptResponse | null> {
   if (!tabId) {
     if (hasScopedContext) {
@@ -68,11 +70,12 @@ async function fetchTranscriptForTab(
     return null;
   }
 
-  const result = await fetchTranscriptFromChromeTab(videoId, tabId);
-  setCachedTranscript(videoId, result);
+  const result = await fetchTranscriptFromChromeTab(videoId, tabId, captionTrackId);
+  setCachedTranscript(videoId, result, captionTrackId);
   return result;
 }
 
+/** Resolves the requested track without sharing another track's cached text or pending extraction. */
 export async function fetchTranscript(
   videoId: string,
   context?: TranscriptFetchContext,
@@ -80,25 +83,31 @@ export async function fetchTranscript(
   const scopedContext = context;
   const tabId = scopedContext?.tabId;
   const forceRefresh = scopedContext?.forceRefresh === true;
+  const captionTrackId = scopedContext?.captionTrackId;
 
   if (!forceRefresh) {
-    const cached = getCachedTranscript(videoId);
+    const cached = getCachedTranscript(videoId, captionTrackId);
     if (cached) return cached;
 
-    const pending = getPendingTranscript(videoId, tabId);
+    const pending = getPendingTranscript(videoId, tabId, captionTrackId);
     if (pending) return pending;
   }
 
-  const fetchPromise = fetchTranscriptForTab(videoId, tabId, Boolean(scopedContext));
+  const fetchPromise = fetchTranscriptForTab(
+    videoId,
+    tabId,
+    Boolean(scopedContext),
+    captionTrackId,
+  );
 
   if (forceRefresh) {
     return fetchPromise;
   }
 
-  setPendingTranscript(videoId, fetchPromise, tabId);
+  setPendingTranscript(videoId, fetchPromise, tabId, captionTrackId);
   try {
     return await fetchPromise;
   } finally {
-    clearPendingTranscript(videoId, tabId);
+    clearPendingTranscript(videoId, tabId, captionTrackId);
   }
 }

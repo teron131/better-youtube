@@ -7,6 +7,7 @@
 import { STORAGE, STORAGE_CLEANUP, STORAGE_KEYS, YOUTUBE } from "./constants.ts";
 import { getStorageUsage, localArea, sessionArea, storageGetAll } from "./storageBrowser.ts";
 import { migrateSummaryText } from "./summaryMigration.ts";
+import type { CaptionTrack } from "./types.ts";
 export { getStorageUsage } from "./storageBrowser.ts";
 export type { StorageUsage } from "./storageBrowser.ts";
 
@@ -19,6 +20,16 @@ export interface SubtitleSegment {
   startTime: number;
   endTime: number;
   startTimeText?: string | null;
+}
+
+/** Identifies the chosen source for a video's displayed and copied captions. */
+export interface CaptionState {
+  tracks: CaptionTrack[];
+  selectedTrackId: string;
+  status: "original" | "refining" | "refined" | "error";
+  /** This source needs AI translation; only a refined result contains completed English captions. */
+  translationRequired?: boolean;
+  error?: string;
 }
 
 export interface VideoMetadata {
@@ -56,10 +67,12 @@ interface VideoStorageMeta {
 const METADATA_KEY_PREFIX = "video_info_";
 const SUMMARY_KEY_PREFIX = "summary_";
 const VIDEO_META_KEY_PREFIX = "video_meta_";
+const CAPTION_STATE_KEY_PREFIX = "caption_state_";
 
 /** Per-video storage keys; subtitles use the bare video ID. */
 export const VideoStorageKeys = {
   subtitles: (videoId: string) => videoId,
+  captions: (videoId: string) => `${CAPTION_STATE_KEY_PREFIX}${videoId}`,
   metadata: (videoId: string) => `${METADATA_KEY_PREFIX}${videoId}`,
   summary: (videoId: string) => `${SUMMARY_KEY_PREFIX}${videoId}`,
   meta: (videoId: string) => `${VIDEO_META_KEY_PREFIX}${videoId}`,
@@ -197,8 +210,26 @@ export async function getSubtitles(videoId: string): Promise<SubtitleSegment[] |
   return localArea.get<SubtitleSegment[]>(VideoStorageKeys.subtitles(videoId));
 }
 
-export async function saveSubtitles(videoId: string, subtitles: SubtitleSegment[]): Promise<void> {
-  await saveVideoScopedItem(videoId, VideoStorageKeys.subtitles(videoId), subtitles);
+export async function getCaptionState(videoId: string): Promise<CaptionState | null> {
+  return localArea.get<CaptionState>(VideoStorageKeys.captions(videoId));
+}
+
+/** Saves source identity and its text together so readers never label another track's captions. */
+export async function saveCaptionState(
+  videoId: string,
+  state: CaptionState,
+  subtitles?: SubtitleSegment[],
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
+  await ensureStorageSpace();
+  await setWithQuotaRetry(
+    {
+      ...createVideoStoragePayload(videoId, VideoStorageKeys.captions(videoId), state),
+      ...(subtitles ? { [VideoStorageKeys.subtitles(videoId)]: subtitles } : {}),
+    },
+    signal,
+  );
 }
 
 export async function getVideoMetadata(videoId: string): Promise<VideoMetadata | null> {
@@ -329,6 +360,9 @@ function resolveVideoIdFromStorageKey(key: string, value: unknown): string | nul
   }
   if (key.startsWith(VIDEO_META_KEY_PREFIX)) {
     return key.slice(VIDEO_META_KEY_PREFIX.length);
+  }
+  if (key.startsWith(CAPTION_STATE_KEY_PREFIX)) {
+    return key.slice(CAPTION_STATE_KEY_PREFIX.length);
   }
   return null;
 }
