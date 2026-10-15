@@ -1,6 +1,6 @@
 /** Owns the video conversation and bottom composer; successful summary edits are committed by the background agent. */
 
-import { ArrowUp, Captions, FileText, Loader2, Trash2 } from "lucide-react";
+import { ArrowUp, Captions, FileText, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -32,6 +32,8 @@ interface VideoChatProps {
   hasSummary: boolean;
   onSummary: (model: string, language: string) => Promise<void>;
   onCaptions: () => Promise<void>;
+  /** Renders the panel top bar; startNewChat is unset while there is no idle conversation to discard. */
+  header: (startNewChat?: () => void) => ReactNode;
   children: ReactNode;
 }
 
@@ -63,6 +65,7 @@ export function VideoChat({
   hasSummary,
   onSummary,
   onCaptions,
+  header,
   children,
 }: VideoChatProps) {
   const storageKey = `video-chat:${videoId}`;
@@ -177,6 +180,16 @@ export function VideoChat({
     }
   }
 
+  function startNewChat() {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      /* In-memory clearing is still available. */
+    }
+    setMessages([]);
+    setError(null);
+  }
+
   async function openSummary() {
     if (disabled || busy.current || !canSummarize) return;
     busy.current = true;
@@ -195,6 +208,7 @@ export function VideoChat({
 
   return (
     <>
+      {header(messages.length > 0 && !pending ? startNewChat : undefined)}
       <main
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         aria-label="Video workspace"
@@ -335,42 +349,19 @@ export function VideoChat({
                   <Captions className="h-4 w-4" />
                   Caption
                 </Button>
-                <div className="ml-auto flex shrink-0 items-center gap-1">
-                  {messages.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      disabled={pending}
-                      aria-label="Clear video chat"
-                      onClick={() => {
-                        try {
-                          sessionStorage.removeItem(storageKey);
-                        } catch {
-                          /* In-memory clearing is still available. */
-                        }
-                        setMessages([]);
-                        setError(null);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="ml-auto h-9 w-9 shrink-0 rounded-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                  aria-label="Send message"
+                  disabled={!draft.trim() || working || contextLoading || !canChat}
+                >
+                  {working ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
                   )}
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="h-9 w-9 rounded-full"
-                    aria-label="Send message"
-                    disabled={!draft.trim() || working || contextLoading || !canChat}
-                  >
-                    {working ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                </Button>
               </div>
             </div>
           </form>

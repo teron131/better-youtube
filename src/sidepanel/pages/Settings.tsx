@@ -5,7 +5,6 @@ import { Input } from "@ui/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
 import { isModelWithinCostLimit, useModelSelection } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
-import { Bot, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { loadConfig, normalizeModelCostLimit, normalizeModelSelection } from "@/core/config";
@@ -69,8 +68,7 @@ const Settings = () => {
       {
         modelKey: "summarizerModel" as const,
         costLimitKey: "summarizerModelCostLimit" as const,
-        label: "Summary Model",
-        icon: Bot,
+        label: "Summary model",
         options: visibleSummarizerModels,
         priceRange: summarizerModelPriceRange,
         costLimitBounds: summarizerCostLimitBounds,
@@ -80,8 +78,7 @@ const Settings = () => {
       {
         modelKey: "refinerModel" as const,
         costLimitKey: "refinerModelCostLimit" as const,
-        label: "Caption Refinement Model",
-        icon: Sparkles,
+        label: "Caption refinement model",
         options: visibleRefinerModels,
         priceRange: refinerModelPriceRange,
         costLimitBounds: refinerCostLimitBounds,
@@ -326,7 +323,7 @@ const Settings = () => {
         });
       } else if (permissionStatus === "invalid") {
         toast({
-          title: "Invalid LLM Base URL",
+          title: "Invalid LLM base URL",
           description: "Use a full URL like https://api.example.com/v1.",
           variant: "destructive",
         });
@@ -376,7 +373,7 @@ const Settings = () => {
   }
 
   return (
-    <div className="app-shell settings-page pb-8">
+    <div className="settings-page pb-8">
       <SettingsTopbar />
 
       <div className="sidepanel-container py-6">

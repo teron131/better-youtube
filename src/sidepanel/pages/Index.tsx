@@ -5,7 +5,6 @@
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
 import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
-import { Button } from "@ui/components/ui/button";
 import { VideoChat } from "@ui/components/VideoChat";
 import { VideoInfo } from "@ui/components/VideoInfo";
 import { useToast } from "@ui/hooks/use-toast";
@@ -19,7 +18,7 @@ import {
   setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Captions, ListFilter, Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
@@ -32,13 +31,13 @@ import { getStorageValue, setStorageValue } from "@/core/storage";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
-import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
 import {
   EMPTY_VIDEO_STATE,
   getTrackedStorageKeys,
   isVideoInfoForVideo,
   loadCachedVideoState,
 } from "./index/cachedVideoState";
+import { WorkspaceHeader } from "./index/WorkspaceHeader";
 
 interface VideoSyncRequest {
   revision: number;
@@ -298,7 +297,7 @@ const Index = () => {
         if (!fetchedState) {
           if (isManualRefresh) {
             toast({
-              title: "Refresh Failed",
+              title: "Refresh failed",
               description:
                 "Couldn't read the active video yet. Try again after the page finishes loading.",
               variant: "destructive",
@@ -317,7 +316,7 @@ const Index = () => {
         console.error("Failed to sync current video state:", error);
         if (videoSyncRequest.kind === "manual" && syncSequence === videoSyncSequenceRef.current) {
           toast({
-            title: "Refresh Failed",
+            title: "Refresh failed",
             description: "Couldn't refresh the active video.",
             variant: "destructive",
           });
@@ -380,7 +379,7 @@ const Index = () => {
       console.error("Failed to save subtitles overlay setting:", error);
       setShowSubtitles(!nextState);
       toast({
-        title: "Update Failed",
+        title: "Update failed",
         description: "Couldn't update subtitles overlay setting.",
         variant: "destructive",
       });
@@ -408,7 +407,7 @@ const Index = () => {
         setRecommendationFiltersEnabled(!nextState);
       }
       toast({
-        title: "Update Failed",
+        title: "Update failed",
         description: "Couldn't update recommendation filters.",
         variant: "destructive",
       });
@@ -520,7 +519,7 @@ const Index = () => {
         updateState({ error });
 
         toast({
-          title: "Processing Failed",
+          title: "Processing failed",
           description: error.message,
           variant: "destructive",
         });
@@ -607,7 +606,7 @@ const Index = () => {
     if (result === "superseded") return;
 
     toast({
-      title: "Refresh Failed",
+      title: "Refresh failed",
       description: "Open a YouTube video in the active tab, then try again.",
       variant: "destructive",
     });
@@ -638,69 +637,6 @@ const Index = () => {
 
   return (
     <div className="video-workspace flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="shrink-0 border-b border-border/50 py-2">
-        <div className="sidepanel-container">
-          <div className="flex min-h-[var(--sidepanel-topbar-height)] items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                onClick={() => handleToggleSubtitles(!showSubtitles)}
-                className={`gap-2 text-xs font-medium transition-colors ${
-                  showSubtitles
-                    ? "text-primary bg-primary/10 hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Toggle subtitles overlay"
-              >
-                <Captions className="h-4 w-4" />
-                <span>Overlay</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                onClick={() => void handleToggleRecommendationFilters()}
-                className={`gap-2 text-xs font-medium transition-colors ${
-                  recommendationFiltersEnabled
-                    ? "text-primary bg-primary/10 hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="Toggle recommendation filters"
-              >
-                <ListFilter className="h-4 w-4" />
-                <span>Filters</span>
-              </Button>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                onClick={() => void handleRefreshCurrentVideo()}
-                disabled={isRefreshingVideo}
-                aria-label="Refresh active video"
-                title="Refresh active video"
-                className="text-muted-foreground hover:text-foreground transition-all"
-              >
-                <RefreshCw className={`h-5 w-5 ${isRefreshingVideo ? "animate-spin" : ""}`} />
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground transition-all"
-              >
-                <a aria-label="Open settings" href={SIDEPANEL_ROUTE_HREFS.settings}>
-                  <SettingsIcon className="h-6 w-6" />
-                </a>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <VideoChat
         key={isExampleMode ? "example" : activeVideoId || "empty"}
         videoId={isExampleMode ? "MiUHjLxm3V0" : activeVideoId || ""}
@@ -713,6 +649,17 @@ const Index = () => {
         hasSummary={Boolean(summaryResult?.summary)}
         onSummary={openSummary}
         onCaptions={openCaptions}
+        header={(startNewChat) => (
+          <WorkspaceHeader
+            showSubtitles={showSubtitles}
+            onToggleSubtitles={() => handleToggleSubtitles(!showSubtitles)}
+            recommendationFiltersEnabled={recommendationFiltersEnabled}
+            onToggleRecommendationFilters={() => void handleToggleRecommendationFilters()}
+            onNewChat={startNewChat}
+            isRefreshingVideo={isRefreshingVideo}
+            onRefreshVideo={() => void handleRefreshCurrentVideo()}
+          />
+        )}
       >
         <div ref={resultsRef}>
           <div className="space-y-4">

@@ -231,7 +231,7 @@ export const TranscriptPanel = ({
             variant="ghost"
             className="w-full px-0 py-3 h-auto justify-between hover:bg-transparent"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="flex items-center justify-center text-muted-foreground">
                 <FileText className="w-4 h-4" />
               </div>
@@ -244,11 +244,9 @@ export const TranscriptPanel = ({
                 </span>
               )}
             </div>
-            {isOpen ? (
-              <ChevronUp className="h-6 w-6 text-primary" />
-            ) : (
-              <ChevronDown className="h-6 w-6 text-primary" />
-            )}
+            <ChevronDown
+              className={`text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+            />
           </Button>
         </CollapsibleTrigger>
 
@@ -357,7 +355,7 @@ export const TranscriptPanel = ({
                       size="sm"
                       onClick={clearSearch}
                       aria-label="Clear search"
-                      className="h-6 w-6 p-0 hover:bg-primary/10"
+                      className="h-6 w-6 p-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -372,7 +370,7 @@ export const TranscriptPanel = ({
                     size="icon"
                     onClick={() => navigateMatches("prev")}
                     aria-label="Previous search match"
-                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground"
                   >
                     <ChevronUp className="w-4 h-4" />
                   </Button>
@@ -381,7 +379,7 @@ export const TranscriptPanel = ({
                     size="icon"
                     onClick={() => navigateMatches("next")}
                     aria-label="Next search match"
-                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground"
                   >
                     <ChevronDown className="w-4 h-4" />
                   </Button>
@@ -396,7 +394,7 @@ export const TranscriptPanel = ({
                     aria-label="Copy transcript"
                     onClick={() => void copyTranscript()}
                     disabled={isCaptionTrackLoading || !captionText}
-                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground"
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -414,7 +412,7 @@ export const TranscriptPanel = ({
                     aria-label="Copy transcript with video details"
                     onClick={() => void copyTranscript(true)}
                     disabled={isCaptionTrackLoading || !captionText}
-                    className="h-9 w-9 border-border/60 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    className="h-9 w-9 border-border/60 text-foreground"
                   >
                     <ClipboardList className="w-4 h-4" />
                   </Button>

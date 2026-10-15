@@ -12,14 +12,21 @@ import { extractVideoId, getThumbnailUrl } from "@/core/utils/url";
 interface InfoItemProps {
   icon: ReactNode;
   value: string;
+  title?: string;
 }
 
-const InfoItem = ({ icon, value }: InfoItemProps) => (
-  <div className="flex min-w-0 items-center gap-1.5">
-    <div className="flex h-5 w-5 shrink-0 items-center justify-center">{icon}</div>
+const InfoItem = ({ icon, value, title }: InfoItemProps) => (
+  <div className="flex min-w-0 items-center gap-1.5" title={title}>
+    <div className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</div>
     <span className="min-w-0 break-words">{value}</span>
   </div>
 );
+
+// YouTube-style counts keep the stats row on one line in narrow panels; the exact value stays in the tooltip.
+const compactCount = new Intl.NumberFormat(undefined, {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 const BLACK_BAR_THRESHOLD = 20;
 const CONTENT_ROW_RATIO = 0.08;
@@ -205,41 +212,43 @@ export const VideoInfo = ({
     displayAuthor
       ? {
           key: "author",
-          icon: <User className="w-4 h-4 text-primary" />,
+          icon: <User className="h-4 w-4" />,
           value: displayAuthor,
         }
       : null,
     displayDuration
       ? {
           key: "duration",
-          icon: <Clock className="w-4 h-4 text-primary" />,
+          icon: <Clock className="h-4 w-4" />,
           value: displayDuration,
         }
       : null,
     formattedUploadDate
       ? {
           key: "uploadDate",
-          icon: <CalendarDays className="w-4 h-4 text-primary" />,
+          icon: <CalendarDays className="h-4 w-4" />,
           value: formattedUploadDate,
         }
       : null,
-  ].filter(Boolean) as Array<{ key: string; icon: ReactNode; value: string }>;
+  ].filter(Boolean) as Array<InfoItemProps & { key: string }>;
   const metricItems = [
     viewCount != null
       ? {
           key: "views",
-          icon: <Eye className="w-4 h-4 text-primary" />,
-          value: viewCount.toLocaleString(),
+          icon: <Eye className="h-4 w-4" />,
+          value: compactCount.format(viewCount),
+          title: `${viewCount.toLocaleString()} views`,
         }
       : null,
     likeCount != null
       ? {
           key: "likes",
-          icon: <ThumbsUp className="w-4 h-4 text-primary" />,
-          value: likeCount.toLocaleString(),
+          icon: <ThumbsUp className="h-4 w-4" />,
+          value: compactCount.format(likeCount),
+          title: `${likeCount.toLocaleString()} likes`,
         }
       : null,
-  ].filter(Boolean) as Array<{ key: string; icon: ReactNode; value: string }>;
+  ].filter(Boolean) as Array<InfoItemProps & { key: string }>;
 
   if (!title) return null;
 
@@ -247,7 +256,7 @@ export const VideoInfo = ({
     <section className="py-2">
       <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 min-[480px]:grid-cols-[144px_minmax(0,1fr)] md:grid-cols-[192px_minmax(0,1fr)]">
         <div className="w-full">
-          <div className="relative overflow-hidden">
+          <div className="overflow-hidden rounded-lg bg-muted/30">
             {displayThumbnail ? (
               <img
                 src={displayThumbnail}
@@ -256,9 +265,8 @@ export const VideoInfo = ({
                 decoding="async"
               />
             ) : (
-              <div className="aspect-video w-full bg-muted/30" />
+              <div className="aspect-video w-full" />
             )}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
           </div>
         </div>
 
@@ -267,14 +275,17 @@ export const VideoInfo = ({
             {displayTitle || "Title not available"}
           </h3>
         </div>
-        <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] leading-5 text-muted-foreground">
-          {primaryInfoItems.map((item) => (
-            <InfoItem key={item.key} icon={item.icon} value={item.value} />
+        <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] leading-5 text-muted-foreground">
+          {primaryInfoItems.map(({ key, ...item }) => (
+            <InfoItem key={key} {...item} />
           ))}
-
-          {metricItems.map((item) => (
-            <InfoItem key={item.key} icon={item.icon} value={item.value} />
-          ))}
+          {metricItems.length > 0 && (
+            <div className="flex items-center gap-x-4">
+              {metricItems.map(({ key, ...item }) => (
+                <InfoItem key={key} {...item} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

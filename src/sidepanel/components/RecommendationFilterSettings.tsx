@@ -13,6 +13,7 @@ import {
   setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import {
+  ChevronDown,
   Clock3,
   ExternalLink,
   History,
@@ -23,7 +24,6 @@ import {
   ShieldCheck,
   Shuffle,
   TrendingDown,
-  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -57,43 +57,43 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
   {
     key: "viewsFilterEnabled",
     icon: TrendingDown,
-    title: "Low Views",
+    title: "Low views",
     description: "",
   },
   {
     key: "liveViewerFilterEnabled",
     icon: Radio,
-    title: "Live Viewers",
+    title: "Live viewers",
     description: "",
   },
   {
     key: "durationFilterEnabled",
     icon: Clock3,
-    title: "Duration Range",
+    title: "Duration range",
     description: "",
   },
   {
     key: "keywordFilterEnabled",
     icon: ListFilter,
-    title: "Keyword Match",
+    title: "Keyword match",
     description: "Suppress recommendations with blocked words in the title.",
   },
   {
     key: "ageFilterEnabled",
     icon: History,
-    title: "Older Videos",
+    title: "Older videos",
     description: "",
   },
   {
     key: "englishOnlyTitles",
     icon: Languages,
-    title: "English Videos Only",
+    title: "English videos only",
     description: "Remove videos whose titles are not English.",
   },
   {
     key: "preserveSubscribedChannels",
     icon: ShieldCheck,
-    title: "Keep Subscriptions",
+    title: "Keep subscriptions",
     description: "Subscriptions are immune to filters.",
   },
   {
@@ -350,11 +350,12 @@ export function RecommendationFilterSettings() {
   return (
     <details className="settings-filters group space-y-4 border-t border-border/70 pt-5">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-semibold">
-        <ListFilter className="h-4 w-4 text-primary" />
+        <ListFilter className="h-4 w-4 text-muted-foreground" />
         <span>Recommendation filters</span>
-        <span aria-hidden="true" className="ml-auto text-muted-foreground group-open:rotate-180">
-          ⌄
-        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
+        />
       </summary>
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2 md:gap-y-5">
@@ -364,7 +365,7 @@ export function RecommendationFilterSettings() {
             <div key={item.key} className="flex items-start justify-between gap-3 py-2.5 md:gap-4">
               <div className="min-w-0 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 shrink-0 text-primary" />
+                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="text-sm font-semibold leading-5">{item.title}</div>
                 </div>
                 <div className="pl-6">
@@ -390,7 +391,7 @@ export function RecommendationFilterSettings() {
 
       <div className="space-y-3 pt-4">
         <div>
-          <div className="text-sm font-semibold">Blocked Keywords</div>
+          <div className="text-sm font-semibold">Blocked keywords</div>
           <div className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Titles containing one of these words will be hidden.
           </div>
@@ -410,6 +411,7 @@ export function RecommendationFilterSettings() {
           />
           <Button
             type="button"
+            variant="outline"
             onClick={() => void addKeyword()}
             className="h-10 min-w-[5rem] shrink-0 rounded-md px-4 text-sm"
           >
@@ -422,7 +424,7 @@ export function RecommendationFilterSettings() {
               key={keyword}
               type="button"
               onClick={() => void removeKeyword(keyword)}
-              className="rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-muted"
             >
               {keyword} ×
             </button>
@@ -433,10 +435,7 @@ export function RecommendationFilterSettings() {
       <div className="space-y-4 pt-4">
         <div className="flex flex-col items-start justify-between gap-3 min-[480px]:flex-row">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="h-4 w-4 text-primary" />
-              Subscribed Channels
-            </div>
+            <div className="text-sm font-semibold">Subscribed channels</div>
             <div className="text-[13px] leading-5 text-muted-foreground">
               Import your YouTube subscriptions to make the videos immune to the filters.
             </div>
@@ -449,16 +448,14 @@ export function RecommendationFilterSettings() {
           </div>
           <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => void handleExtractSubscriptions()}
             disabled={isExtracting}
-            className="h-10 min-w-[5rem] shrink-0 rounded-md px-4 text-sm"
+            className="shrink-0"
           >
-            {isExtracting ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ExternalLink className="mr-2 h-4 w-4" />
-            )}
-            {isExtracting ? "Importing..." : "Import"}
+            {isExtracting ? <RefreshCw className="animate-spin" /> : <ExternalLink />}
+            {isExtracting ? "Importing…" : "Import"}
           </Button>
         </div>
         {subscriptions?.channels?.length ? (
@@ -478,7 +475,7 @@ export function RecommendationFilterSettings() {
       <div className="space-y-3 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Recent Hidden Recommendations</div>
+            <div className="text-sm font-semibold">Recent hidden recommendations</div>
             <div className="mt-1 text-[13px] leading-5 text-muted-foreground">
               Latest matches from this browser session only.
             </div>
@@ -487,7 +484,7 @@ export function RecommendationFilterSettings() {
             type="button"
             variant="ghost"
             onClick={() => void handleClearHistory()}
-            className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-primary"
+            className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
           >
             Clear
           </Button>

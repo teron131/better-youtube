@@ -13,16 +13,7 @@ import {
 } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { toModelComboboxOption } from "@ui/lib/model-options";
-import {
-  ArrowLeft,
-  Cpu,
-  Globe,
-  Key,
-  Settings as SettingsIcon,
-  Sparkles,
-  Trash2,
-  Type,
-} from "lucide-react";
+import { ArrowLeft, Cpu, Key, Loader2, Trash2, Type } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { resolveLlmRequestModel } from "@/core/clients/config";
@@ -42,14 +33,13 @@ import {
 
 export function SettingsLoadingView() {
   return (
-    <div className="app-shell flex items-center justify-center">
-      <div className="animate-pulse flex flex-col items-center gap-4">
-        <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
-          <SettingsIcon className="h-6 w-6 text-primary animate-spin-slow" />
-        </div>
-        <p className="text-muted-foreground font-medium">Loading settings...</p>
-      </div>
-    </div>
+    <p
+      role="status"
+      className="flex min-h-dvh items-center justify-center gap-2 text-sm text-muted-foreground"
+    >
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading settings…
+    </p>
   );
 }
 
@@ -57,20 +47,18 @@ export function SettingsTopbar() {
   return (
     <div className="border-b border-border/70">
       <div className="sidepanel-container">
-        <div className="flex h-[72px] w-full items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-          </div>
+        <div className="flex h-14 w-full items-center gap-1">
           <Button
             asChild
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-foreground transition-all"
+            className="-ml-2 h-9 w-9 text-muted-foreground hover:text-foreground"
           >
-            <a aria-label="Back to main page" href={SIDEPANEL_ROUTE_HREFS.home}>
-              <ArrowLeft className="h-5 w-5" />
+            <a aria-label="Back to main page" title="Back" href={SIDEPANEL_ROUTE_HREFS.home}>
+              <ArrowLeft />
             </a>
           </Button>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">Settings</h1>
         </div>
       </div>
     </div>
@@ -94,7 +82,7 @@ function LlmModelPrefixControls({
 
   return (
     <div className="settings-field-detail space-y-2 pt-1">
-      <Label className="text-sm font-semibold">LLM Model ID Format</Label>
+      <Label className="text-sm font-semibold">LLM model ID format</Label>
       <div className="grid items-stretch gap-2">
         <div className="grid gap-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs">
           {modelPreviews.map((preview) => (
@@ -144,16 +132,13 @@ export function ApiConfigurationSection({
   return (
     <section className="space-y-4 pt-5">
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Key className="h-4 w-4 text-primary" />
+        <Key className="h-4 w-4 text-muted-foreground" />
         <span>Connection</span>
       </h2>
       <div className="space-y-5">
         <div className="settings-field">
           <div className="contents">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Cpu className="h-4 w-4 text-primary" />
-              <span>Provider</span>
-            </div>
+            <div className="text-sm font-semibold">Provider</div>
             <Select
               value={settings.summarizerProvider}
               onValueChange={(value) => onChange("summarizerProvider", value)}
@@ -181,7 +166,7 @@ export function ApiConfigurationSection({
                   href={field.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-primary/80 hover:text-primary hover:underline"
+                  className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
                   Get key ↗
                 </a>
@@ -223,7 +208,7 @@ export function ModelConfigurationSection({
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Cpu className="h-4 w-4 text-primary" />
+        <Cpu className="h-4 w-4 text-muted-foreground" />
         <span>Models &amp; generation</span>
       </h2>
       <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
@@ -231,7 +216,6 @@ export function ModelConfigurationSection({
           <ModelSelector
             key={selectorConfig.modelKey}
             label={selectorConfig.label}
-            icon={selectorConfig.icon}
             value={settings[selectorConfig.modelKey]}
             onChange={(value) => onChange(selectorConfig.modelKey, value)}
             options={selectorConfig.options.map((model) => toModelComboboxOption(model))}
@@ -257,10 +241,7 @@ function GenerationControls({
   return (
     <div className="space-y-5 pt-2">
       <div className="settings-field">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Globe className="h-4 w-4 text-primary" />
-          <span>Target Language</span>
-        </div>
+        <div className="text-sm font-semibold">Target language</div>
         <Select
           value={settings.targetLanguage}
           onValueChange={(value) => onChange("targetLanguage", value)}
@@ -279,10 +260,7 @@ function GenerationControls({
       </div>
 
       <div className="flex items-center justify-between gap-4 pt-1">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span>Auto-Generate Caption</span>
-        </div>
+        <div className="text-sm font-semibold">Auto-generate captions</div>
         <Switch
           checked={settings.autoGenerate}
           onCheckedChange={(checked) => onChange("autoGenerate", checked)}
@@ -304,7 +282,7 @@ export function StorageSettingsSection({
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Trash2 className="h-4 w-4 text-primary" />
+        <Trash2 className="h-4 w-4 text-muted-foreground" />
         <span>Storage</span>
       </h2>
       <div className="flex items-center justify-between gap-4">
@@ -316,15 +294,15 @@ export function StorageSettingsSection({
         </div>
         <Button
           type="button"
-          variant="default"
-          size="icon"
-          className="shrink-0"
+          variant="outline"
+          size="sm"
+          className="shrink-0 hover:border-destructive/50 hover:bg-destructive/10 hover:text-foreground"
           aria-label="Clear cached storage"
-          title="Clear cached storage"
           onClick={onClearStoredData}
           disabled={isClearingStorage}
         >
-          <Trash2 className="h-4 w-4" />
+          {isClearingStorage ? <Loader2 className="animate-spin" /> : <Trash2 />}
+          Clear
         </Button>
       </div>
     </section>
@@ -369,7 +347,7 @@ export function ReadingSettingsSection({
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Type className="h-4 w-4 text-primary" />
+        <Type className="h-4 w-4 text-muted-foreground" />
         <span>Reading</span>
       </h2>
       <div className="space-y-5">
