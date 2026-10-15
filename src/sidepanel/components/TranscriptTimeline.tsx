@@ -1,6 +1,6 @@
-/** Displays timed caption rows and keeps transcript browsing independent of the video's playback position. */
+/** Displays timed caption rows that follow playback until the reader scrolls, drags, or searches. */
 
-import { Play } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -23,7 +23,9 @@ interface TranscriptTimelineProps {
   onSeek: (timeMs: number) => Promise<void>;
 }
 
-/** Playback moves the highlighted row, while explicit browsing and search own the reading position. */
+/**
+ * Playback scrolls the list to the current caption while following; any reader-driven scroll, rail drag, keyboard browse, or search match takes over until the reader syncs back or seeks.
+ */
 export function TranscriptTimeline({
   segments,
   content,
@@ -36,7 +38,8 @@ export function TranscriptTimeline({
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const programmaticScroll = useRef(false);
   const scrollFrame = useRef(0);
-  const positioned = useRef(false);
+  const followedIndex = useRef(-1);
+  const [following, setFollowing] = useState(true);
   const [browseIndex, setBrowseIndex] = useState(0);
   const currentBrowseIndex = Math.min(browseIndex, segments.length - 1);
   const firstTime = segments[0].startTime;
@@ -52,7 +55,7 @@ export function TranscriptTimeline({
       : -1;
 
   /** Browsing changes only scroll position; seeking is exclusively the timestamp button's action. */
-  const scrollToCaption = useCallback((index: number) => {
+  const scrollToCaption = useCallback((index: number, behavior: ScrollBehavior = "auto") => {
     const list = listRef.current;
     const row = rowRefs.current[index];
     if (!list || !row) return;
@@ -65,7 +68,9 @@ export function TranscriptTimeline({
     ) {
       firstVisibleIndex--;
     }
-    list.scrollTop = rowRefs.current[firstVisibleIndex]?.offsetTop ?? row.offsetTop;
+    const top = rowRefs.current[firstVisibleIndex]?.offsetTop ?? row.offsetTop;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    list.scrollTo({ top, behavior: reduceMotion ? "auto" : behavior });
     setBrowseIndex(index);
     cancelAnimationFrame(scrollFrame.current);
     scrollFrame.current = requestAnimationFrame(() => {
@@ -77,12 +82,20 @@ export function TranscriptTimeline({
 
   useEffect(() => () => cancelAnimationFrame(scrollFrame.current), []);
 
-  // Position once when the live player first responds, then leave reading and dragging in control.
+  const stopFollowing = useCallback(() => {
+    followedIndex.current = -1;
+    setFollowing(false);
+  }, []);
+
+  // The first follow jumps into place; later caption changes glide so reading stays oriented.
   useEffect(() => {
-    if (positioned.current || currentTimeMs === null) return;
-    positioned.current = true;
-    scrollToCaption(findCaptionIndex(segments, currentTimeMs));
-  }, [currentTimeMs, segments, scrollToCaption]);
+    if (!following || currentTimeMs === null) return;
+    const index = findCaptionIndex(segments, currentTimeMs);
+    if (index === followedIndex.current) return;
+    const behavior = followedIndex.current === -1 ? "auto" : "smooth";
+    followedIndex.current = index;
+    scrollToCaption(index, behavior);
+  }, [following, currentTimeMs, segments, scrollToCaption]);
 
   useEffect(() => {
     if (activeMatchIndex === null) return;
@@ -91,15 +104,14 @@ export function TranscriptTimeline({
     );
     const index = Number(match?.closest<HTMLElement>("[data-caption-index]")?.dataset.captionIndex);
     if (match && Number.isInteger(index)) {
-      positioned.current = true;
+      stopFollowing();
       scrollToCaption(index);
     }
-  }, [activeMatchIndex, content, scrollToCaption]);
+  }, [activeMatchIndex, content, scrollToCaption, stopFollowing]);
 
   const handleScroll = () => {
     const list = listRef.current;
-    if (!list || programmaticScroll.current) return;
-    positioned.current = true;
+    if (!list || programmaticScroll.current || following) return;
     if (list.scrollTop <= 0) {
       setBrowseIndex(0);
       return;
@@ -140,7 +152,7 @@ export function TranscriptTimeline({
         return;
     }
     event.preventDefault();
-    positioned.current = true;
+    stopFollowing();
     scrollToCaption(index);
   };
 
@@ -165,7 +177,10 @@ export function TranscriptTimeline({
               aria-label={`Seek video to ${timestamp}`}
               title={canSeek ? `Seek to ${timestamp}` : "Open this video to seek"}
               disabled={!canSeek}
-              onClick={() => void onSeek(segment.startTime)}
+              onClick={() => {
+                setFollowing(true);
+                void onSeek(segment.startTime);
+              }}
             >
               {timestamp}
             </button>
@@ -180,7 +195,8 @@ export function TranscriptTimeline({
 
   return (
     <div className="caption-timeline pt-1">
-      <div className="flex h-96 gap-1">
+      {/* Bounded by the panel height; the sync control sits at the top edge, which stays visible above the composer. */}
+      <div className="flex h-[min(24rem,55dvh)] gap-1">
         {lastTime > firstTime && (
           <div className="caption-timeline-gutter flex w-6 shrink-0 justify-center py-3">
             <input
@@ -195,38 +211,37 @@ export function TranscriptTimeline({
               step={1}
               value={browsedSegment.startTime}
               onChange={(event) => {
-                positioned.current = true;
+                stopFollowing();
                 scrollToCaption(findCaptionIndex(segments, Number(event.target.value)));
               }}
               onKeyDown={handleTimelineKey}
             />
           </div>
         )}
-        <div
-          ref={listRef}
-          role="region"
-          aria-label="Timestamped captions"
-          className="caption-timeline-lines relative min-w-0 flex-1 overflow-y-auto overscroll-contain"
-          onScroll={handleScroll}
-        >
-          {rows}
-        </div>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-xs tabular-nums text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Play className="h-3 w-3" aria-hidden="true" />
-          {currentTimeMs === null ? (
-            "Video unavailable"
-          ) : (
-            <>
-              Video <span className="text-foreground">{formatTimestamp(currentTimeMs)}</span>
-            </>
+        <div className="relative min-w-0 flex-1">
+          <div
+            ref={listRef}
+            role="region"
+            aria-label="Timestamped captions"
+            className="caption-timeline-lines relative h-full overflow-y-auto overscroll-contain"
+            onScroll={handleScroll}
+            onWheel={stopFollowing}
+            onTouchMove={stopFollowing}
+            onPointerDown={stopFollowing}
+          >
+            {rows}
+          </div>
+          {!following && currentTimeMs !== null && (
+            <button
+              type="button"
+              className="absolute left-1/2 top-2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-popover px-3 py-1.5 text-xs font-medium text-foreground shadow-lg shadow-black/40 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setFollowing(true)}
+            >
+              <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
+              Sync to video · <span className="tabular-nums">{formatTimestamp(currentTimeMs)}</span>
+            </button>
           )}
-        </span>
-        <span>
-          Browsing{" "}
-          <span className="text-foreground">{formatTimestamp(browsedSegment.startTime)}</span>
-        </span>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import type { ModelSortMetric } from "@ui/lib/model-sort";
 import type { AvailableModel } from "@ui/services/config";
-import type { LucideIcon } from "lucide-react";
 
 import type { LlmModelPrefixMode } from "@/core/clients/config";
 import type { FontSize } from "@/core/constants";
@@ -45,7 +44,6 @@ export type ModelSelectorConfig = {
   modelKey: "summarizerModel" | "refinerModel";
   costLimitKey: ModelCostLimitKey;
   label: string;
-  icon: LucideIcon;
   options: AvailableModel[];
   priceRange: PriceRange;
   costLimitBounds: ModelCostLimitBounds;
@@ -78,19 +76,19 @@ export const SETTINGS_SECTION_CLASSNAME = "space-y-4 border-t border-border/70 p
 export const API_KEY_FIELDS: ApiField[] = [
   {
     key: STORAGE_KEYS.LLM_API_KEY,
-    label: "LLM API Key",
+    label: "LLM API key",
     placeholder: "sk-...",
     type: "password",
   },
   {
     key: STORAGE_KEYS.LLM_BASE_URL,
-    label: "LLM Base URL",
+    label: "LLM base URL",
     placeholder: "Any OpenAI API compatible base URL, e.g. https://api.openai.com/v1",
     type: "url",
   },
   {
     key: STORAGE_KEYS.GEMINI_API_KEY,
-    label: "Gemini API Key",
+    label: "Gemini API key",
     href: "https://aistudio.google.com/api-keys",
     placeholder: "...",
     type: "password",

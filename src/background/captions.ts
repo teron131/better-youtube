@@ -147,8 +147,13 @@ async function runCaptionJob(input: {
       await saveVideoMetadata(videoId, extractVideoInfo(data, videoId));
     }
     if (!data?.transcript?.length || !data.selectedCaptionTrackId || !data.captionTracks?.length) {
+      // Videos without captions are an expected outcome, not a failure worth an extension error.
+      console.info("[refine] no transcript available", {
+        videoId,
+        requestId: run.effectiveRequestId,
+      });
       sendSubtitlesToTab([], { noTranscript: true });
-      throw new Error("No transcript available for this video.");
+      return;
     }
 
     const segments = toSubtitleSegments(data.transcript);

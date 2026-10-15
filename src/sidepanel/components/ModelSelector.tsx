@@ -30,7 +30,6 @@ const MODEL_SORT_OPTIONS: Array<{
 
 interface ModelSelectorProps {
   label: string;
-  icon: LucideIcon;
   value: string;
   onChange: (value: string) => void;
   options: ComboboxOption[];
@@ -42,7 +41,6 @@ interface ModelSelectorProps {
 
 export function ModelSelector({
   label,
-  icon: Icon,
   value,
   onChange,
   options,
@@ -103,9 +101,8 @@ export function ModelSelector({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col items-start gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:justify-between">
-        <div className="group relative flex min-h-9 min-w-0 flex-1 items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-primary" />
-          <span className="min-w-0 block text-sm font-semibold text-foreground">{label}</span>
+        <div className="flex min-h-9 min-w-0 flex-1 items-center text-sm font-semibold text-foreground">
+          {label}
         </div>
 
         {enableSorting && (
