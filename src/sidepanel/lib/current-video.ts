@@ -3,6 +3,7 @@
  */
 
 import { MESSAGE_ACTIONS, TIMING } from "../../core/constants.ts";
+import type { CaptionState, SubtitleSegment } from "../../core/storage.ts";
 import type { VideoInfoResponse } from "../../core/types.ts";
 import type { ChromeMessage } from "../../core/utils/chrome.ts";
 import { getCurrentTab, sendChromeMessage } from "../../core/utils/chrome.ts";
@@ -11,16 +12,22 @@ import { createYouTubeWatchUrl, extractVideoId, getWatchVideoId } from "../../co
 export interface CurrentVideoFetchState {
   videoInfo: VideoInfoResponse | null;
   transcript: string | null;
+  captionState: CaptionState | null;
+  captionSegments: SubtitleSegment[];
 }
 
 type ScrapeVideoResponse = {
   status: "success" | "error" | "skipped";
   videoInfo?: VideoInfoResponse | null;
   transcript?: string | null;
+  captionState?: CaptionState | null;
+  captionSegments?: SubtitleSegment[];
+  message?: string;
 };
 
 interface CurrentVideoFetchOptions {
   forceRefresh?: boolean;
+  captionTrackId?: string;
   getCurrentTab?: typeof getCurrentTab;
   sendMessage?: typeof sendChromeMessage;
 }
@@ -53,16 +60,24 @@ export async function fetchCurrentVideoState(
       tabId: activeTab?.id,
       suppressErrors: true,
       ...(options.forceRefresh ? { forceRefresh: true } : {}),
+      ...(options.captionTrackId
+        ? { captionTrackId: options.captionTrackId, suppressErrors: false }
+        : {}),
     },
     TIMING.SCRAPING_TIMEOUT_MS,
   );
 
   if (response.status !== "success") {
+    if (response.status === "error" && options.captionTrackId) {
+      throw new Error(response.message || "Unable to load caption track");
+    }
     return null;
   }
 
   return {
     videoInfo: response.videoInfo ?? null,
     transcript: response.transcript ?? null,
+    captionState: response.captionState ?? null,
+    captionSegments: response.captionSegments ?? [],
   };
 }

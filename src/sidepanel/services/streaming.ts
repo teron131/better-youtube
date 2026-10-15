@@ -221,10 +221,13 @@ async function requestCaptionGeneration(
   videoId: string,
   requestId: RequestId,
   refinerModel: string,
-  options?: { forceRegenerate?: boolean },
+  options?: { forceRegenerate?: boolean; captionTrackId?: string; confirmTranslation?: boolean },
 ) {
   const activeTab = await getCurrentTab();
   const activeTabId = activeTab?.id;
+  if (!activeTabId || extractVideoId(activeTab?.url || "") !== videoId) {
+    throw new Error("Open the selected YouTube video before refining captions.");
+  }
 
   return sendChromeMessage({
     action: MESSAGE_ACTIONS.FETCH_SUBTITLES,
@@ -233,12 +236,14 @@ async function requestCaptionGeneration(
     requestId,
     modelSelection: refinerModel,
     forceRegenerate: options?.forceRegenerate,
+    captionTrackId: options?.captionTrackId,
+    confirmTranslation: options?.confirmTranslation,
   });
 }
 
 export async function triggerCaptionGeneration(
   url: string,
-  options?: { forceRegenerate?: boolean },
+  options?: { forceRegenerate?: boolean; captionTrackId?: string; confirmTranslation?: boolean },
 ): Promise<void> {
   const videoId = extractVideoId(url);
   if (!videoId) throw new Error("Invalid YouTube URL");
@@ -257,7 +262,7 @@ export async function triggerCaptionGeneration(
 }
 
 /**
- * Stream summary: Scrape → Refine (if enabled) + Summarize in parallel.
+ * Stream summary: scrape and summarize, with caption refinement only when automatic generation is enabled.
  * Scraped video details reach `onVideoInfo` before the summary finishes.
  */
 export async function streamSummary(
@@ -283,8 +288,14 @@ export async function streamSummary(
     const videoId = extractVideoId(url);
     if (!videoId) throw new Error("Invalid YouTube URL");
 
-    const { summarizerModel, refinerModel, targetLanguage, showSubtitles, summarizerProvider } =
-      await withAbort(loadConfig(), signal, runId);
+    const {
+      summarizerModel,
+      refinerModel,
+      targetLanguage,
+      showSubtitles,
+      autoGenerate,
+      summarizerProvider,
+    } = await withAbort(loadConfig(), signal, runId);
     throwIfAborted(signal, runId);
     const activeTab = await withAbort(getCurrentTab(), signal, runId);
     const activeTabId = activeTab?.id;
@@ -293,7 +304,8 @@ export async function streamSummary(
     if (!options.transcript) {
       videoInfo = await withAbort(performScrape(videoId, activeTabId), signal, runId);
       if (videoInfo && !signal?.aborted) onVideoInfo?.(normalizeVideoInfo(videoInfo, url));
-      if (showSubtitles) triggerRefinement(videoId, createRequestId("caption"), refinerModel);
+      if (showSubtitles && autoGenerate)
+        triggerRefinement(videoId, createRequestId("caption"), refinerModel);
     }
 
     throwIfAborted(signal, runId);

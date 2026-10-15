@@ -6,6 +6,8 @@ import test from "node:test";
 import {
   clearPendingTranscript,
   clearTranscriptCache,
+  getCachedTranscript,
+  getPendingTranscript,
   setCachedTranscript,
   setPendingTranscript,
 } from "../src/core/transcript/cache.ts";
@@ -33,6 +35,50 @@ test("supplied transcript text remains untrimmed", async () => {
     await resolveTranscriptText("abcdefghijk", "  Supplied transcript.\n", {}),
     "  Supplied transcript.\n",
   );
+});
+
+test("selected tracks isolate cached and pending transcripts from the default track", () => {
+  const videoId = "track-cache-test";
+  const automatic = {
+    transcript_only_text: "Automatic",
+    selectedCaptionTrackId: "a.en",
+  } as TranscriptResponse;
+  const manual = {
+    transcript_only_text: "Manual",
+    selectedCaptionTrackId: ".en",
+  } as TranscriptResponse;
+  const translated = {
+    transcript_only_text: "English translation",
+    selectedCaptionTrackId: "translated:en:.fr",
+  } as TranscriptResponse;
+  const automaticPending = Promise.resolve(automatic);
+  const manualPending = Promise.resolve(manual);
+  try {
+    setCachedTranscript(videoId, automatic);
+    setCachedTranscript(videoId, manual, ".en");
+    setCachedTranscript(videoId, translated, "translated:en:.fr");
+    assert.equal(getCachedTranscript(videoId), automatic);
+    assert.equal(getCachedTranscript(videoId, "a.en"), automatic);
+    assert.equal(getCachedTranscript(videoId, ".en"), manual);
+    assert.equal(getCachedTranscript(videoId, ".fr"), undefined);
+    assert.equal(getCachedTranscript(videoId, "translated:en:.fr"), translated);
+    setPendingTranscript(videoId, automaticPending, 1);
+    setPendingTranscript(videoId, manualPending, 1, ".en");
+    assert.equal(getPendingTranscript(videoId, 1), automaticPending);
+    assert.equal(getPendingTranscript(videoId, 1, ".en"), manualPending);
+    clearPendingTranscript(videoId, 1, ".en");
+    assert.equal(getPendingTranscript(videoId, 1), automaticPending);
+    assert.equal(getPendingTranscript(videoId, 1, ".en"), undefined);
+    clearTranscriptCache(videoId);
+    assert.equal(getCachedTranscript(videoId), undefined);
+    assert.equal(getCachedTranscript(videoId, ".en"), undefined);
+    assert.equal(getCachedTranscript(videoId, "a.en"), undefined);
+    assert.equal(getCachedTranscript(videoId, "translated:en:.fr"), undefined);
+  } finally {
+    clearTranscriptCache(videoId);
+    clearPendingTranscript(videoId, 1);
+    clearPendingTranscript(videoId, 1, ".en");
+  }
 });
 
 test("resolution joins only the explicitly requested tab's pending transcript", async () => {

@@ -10,6 +10,70 @@
   padding-right: clamp(0.75rem, 3vw, 1.5rem);
 }
 
+/* The rail browses text independently; only the current video caption receives the red accent. */
+.caption-timeline-rail {
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: ltr;
+  background: transparent;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.caption-timeline-rail::-webkit-slider-runnable-track {
+  width: 3px;
+  height: 100%;
+  border-radius: 4px;
+  background: hsl(var(--border));
+}
+.caption-timeline-rail::-webkit-slider-thumb {
+  appearance: none;
+  width: 9px;
+  height: 28px;
+  margin-left: -3px;
+  border-radius: 5px;
+  background: hsl(var(--muted-foreground));
+}
+.caption-timeline-rail::-moz-range-track {
+  width: 3px;
+  height: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: hsl(var(--border));
+}
+.caption-timeline-rail::-moz-range-thumb {
+  width: 9px;
+  height: 28px;
+  border: 0;
+  border-radius: 5px;
+  background: hsl(var(--muted-foreground));
+}
+.caption-timeline-lines {
+  scrollbar-width: none;
+}
+.caption-timeline-lines::-webkit-scrollbar {
+  display: none;
+}
+.caption-timeline-row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: hsl(var(--primary));
+}
+.caption-timeline-row[aria-current="true"] .caption-timestamp {
+  color: hsl(var(--primary));
+}
+@media (pointer: coarse) {
+  .caption-timestamp {
+    min-height: 44px;
+  }
+  .caption-timeline-gutter,
+  .caption-timeline-rail {
+    min-width: 44px;
+  }
+}
+
 .video-workspace main {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;

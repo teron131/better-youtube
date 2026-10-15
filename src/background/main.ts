@@ -60,7 +60,7 @@ createMessageListener((message, sender, sendResponse) => {
       });
       return true;
     case MESSAGE_ACTIONS.SCRAPE_VIDEO:
-      void handleScrapeVideo(message, { tabId }, sendResponse).catch((error) => {
+      void handleScrapeVideo(message, { tabId, captionWorkloads }, sendResponse).catch((error) => {
         console.error(`[handlers] ${message.action} failed`, error);
       });
       return true;

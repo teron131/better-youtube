@@ -1,8 +1,17 @@
 /** Runs caption extraction and refinement, publishing raw, priority, and final segments in order. */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import { getRefinerWorkloadStats, refineTranscriptWithLLM } from "@/core/refiner";
-import { saveSubtitles, saveVideoMetadata } from "@/core/storage";
+import {
+  getRefinerWorkloadStats,
+  refineTranscriptWithLLM,
+  translateTranscriptWithLLM,
+} from "@/core/refiner";
+import {
+  type CaptionState,
+  getCaptionState,
+  saveCaptionState,
+  saveVideoMetadata,
+} from "@/core/storage";
 import {
   clearTranscriptCache,
   extractVideoInfo,
@@ -10,6 +19,7 @@ import {
   toSubtitleSegments,
 } from "@/core/transcript";
 import type { ChromeMessage } from "@/core/utils/chrome";
+import { toTraditionalChinese } from "@/core/utils/text";
 
 import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workloads";
 
@@ -23,8 +33,28 @@ export async function handleFetchSubtitles(
 ): Promise<void> {
   const { tabId, captionWorkloads } = ctx;
   const { videoId, requestId, modelSelection, forceRegenerate } = message as any;
+  const storedCaptionState = await getCaptionState(videoId);
+  const translationConfirmed = message.confirmTranslation === true;
+  if (storedCaptionState?.translationRequired && !translationConfirmed) {
+    sendResponse({
+      status: "error",
+      message: "Choose Translate, then Confirm to translate the selected captions into English.",
+    });
+    return;
+  }
+  const captionTrackId =
+    typeof message.captionTrackId === "string"
+      ? message.captionTrackId
+      : storedCaptionState?.selectedTrackId;
+  if (message.captionTrackId && storedCaptionState?.selectedTrackId !== message.captionTrackId) {
+    sendResponse({
+      status: "error",
+      message: "The selected caption track changed. Choose it again before refining.",
+    });
+    return;
+  }
 
-  const workloadKey = `${videoId}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
+  const workloadKey = `${videoId}:${captionTrackId || "default"}:${translationConfirmed ? "translate" : "refine"}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
   const run = captionWorkloads.begin({
     videoId,
     requestId,
@@ -50,6 +80,8 @@ export async function handleFetchSubtitles(
         videoId,
         tabId,
         modelSelection,
+        captionTrackId,
+        translationConfirmed,
         forceRegenerate,
         emitCaptionError,
         run,
@@ -71,11 +103,23 @@ async function runCaptionJob(input: {
   videoId: string;
   tabId: number | undefined;
   modelSelection: unknown;
+  captionTrackId?: string;
+  translationConfirmed: boolean;
   forceRegenerate: unknown;
   emitCaptionError: (messageText: string) => void;
   run: VideoWorkloadRun;
 }): Promise<void> {
-  const { videoId, tabId, modelSelection, forceRegenerate, emitCaptionError, run } = input;
+  const {
+    videoId,
+    tabId,
+    modelSelection,
+    captionTrackId,
+    translationConfirmed,
+    forceRegenerate,
+    emitCaptionError,
+    run,
+  } = input;
+  let captionState: CaptionState | null = null;
   const sendSubtitlesToTab = (subtitles: unknown[], extraPayload: Record<string, unknown> = {}) => {
     if (!tabId || !run.isCurrent()) {
       return;
@@ -96,17 +140,42 @@ async function runCaptionJob(input: {
 
     const data = await fetchTranscript(videoId, {
       tabId,
+      captionTrackId,
     });
+    if (!run.isCurrent()) return;
     if (data) {
       await saveVideoMetadata(videoId, extractVideoInfo(data, videoId));
     }
-    if (!data?.transcript?.length) {
+    if (!data?.transcript?.length || !data.selectedCaptionTrackId || !data.captionTracks?.length) {
       sendSubtitlesToTab([], { noTranscript: true });
-      emitCaptionError("No transcript available for this video.");
-      return;
+      throw new Error("No transcript available for this video.");
     }
 
     const segments = toSubtitleSegments(data.transcript);
+    if (data.translationRequired && !translationConfirmed) {
+      await saveCaptionState(
+        videoId,
+        {
+          tracks: data.captionTracks,
+          selectedTrackId: data.selectedCaptionTrackId,
+          status: "original",
+          translationRequired: true,
+        },
+        [],
+        run.signal,
+      );
+      sendSubtitlesToTab([], { isRawFallback: true });
+      emitCaptionError(
+        "YouTube translation is unavailable. Choose Translate, then Confirm to use your caption model.",
+      );
+      return;
+    }
+    captionState = {
+      tracks: data.captionTracks,
+      selectedTrackId: data.selectedCaptionTrackId,
+      status: "refining",
+      ...(data.translationRequired ? { translationRequired: true } : {}),
+    };
     const workload = getRefinerWorkloadStats(segments);
     console.log("[refine] transcript workload", {
       videoId,
@@ -115,8 +184,9 @@ async function runCaptionJob(input: {
       chunkCount: workload.chunkCount,
     });
     if (!run.isCurrent()) return;
-    await saveSubtitles(videoId, segments);
-    sendSubtitlesToTab(segments, {
+    const initialSegments = data.translationRequired ? [] : toTraditionalChinese(segments);
+    await saveCaptionState(videoId, captionState, initialSegments, run.signal);
+    sendSubtitlesToTab(initialSegments, {
       isRawFallback: true,
     });
 
@@ -125,23 +195,33 @@ async function runCaptionJob(input: {
       requestId: run.effectiveRequestId,
       chunkCount: workload.chunkCount,
     });
-    const refinedSegments = await refineTranscriptWithLLM(
-      segments,
-      data.title,
-      data.description,
-      String(modelSelection),
-      (prioritySegments) => {
-        console.log("[refine] partial emitted", {
-          videoId,
-          requestId: run.effectiveRequestId,
-          segmentCount: prioritySegments.length,
-        });
-        sendSubtitlesToTab(prioritySegments, { isPartial: true });
-      },
+    const processCaptions = data.translationRequired
+      ? translateTranscriptWithLLM
+      : refineTranscriptWithLLM;
+    const refinedSegments = toTraditionalChinese(
+      await processCaptions(
+        segments,
+        data.title,
+        data.description,
+        String(modelSelection),
+        (prioritySegments) => {
+          console.log("[refine] partial emitted", {
+            videoId,
+            requestId: run.effectiveRequestId,
+            segmentCount: prioritySegments.length,
+          });
+          sendSubtitlesToTab(toTraditionalChinese(prioritySegments), { isPartial: true });
+        },
+      ),
     );
 
     if (!run.isCurrent()) return;
-    await saveSubtitles(videoId, refinedSegments);
+    await saveCaptionState(
+      videoId,
+      { ...captionState, status: "refined" },
+      refinedSegments,
+      run.signal,
+    );
     console.log("[refine] completed", {
       videoId,
       requestId: run.effectiveRequestId,
@@ -149,7 +229,18 @@ async function runCaptionJob(input: {
     });
     sendSubtitlesToTab(refinedSegments);
   } catch (error) {
+    if (!run.isCurrent()) return;
     console.error("Refinement error:", error);
-    emitCaptionError(error instanceof Error ? error.message : "Caption refinement failed.");
+    const message = error instanceof Error ? error.message : "Caption refinement failed.";
+    const failedState = captionState ?? (await getCaptionState(videoId));
+    if (failedState)
+      await saveCaptionState(
+        videoId,
+        { ...failedState, status: "error", error: message },
+        undefined,
+        run.signal,
+      );
+    if (failedState?.translationRequired) sendSubtitlesToTab([]);
+    emitCaptionError(message);
   }
 }

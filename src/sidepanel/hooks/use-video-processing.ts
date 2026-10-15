@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+import type { CaptionState, SubtitleSegment } from "@/core/storage";
 import type { ApiError, StreamingProcessingResult, VideoInfoResponse } from "@/core/types";
 import { streamSummary } from "@/sidepanel/services/streaming";
 
@@ -20,6 +21,8 @@ export interface VideoProcessingState {
   summaryResult: StreamingProcessingResult | null;
   scrapedVideoInfo: VideoInfoResponse | null;
   scrapedTranscript: string | null;
+  captionState: CaptionState | null;
+  captionSegments: SubtitleSegment[];
 }
 
 const INITIAL_STATE: VideoProcessingState = {
@@ -28,6 +31,8 @@ const INITIAL_STATE: VideoProcessingState = {
   summaryResult: null,
   scrapedVideoInfo: null,
   scrapedTranscript: null,
+  captionState: null,
+  captionSegments: [],
 };
 
 const LOADING_STATE: VideoProcessingState = { ...INITIAL_STATE, isLoading: true };
@@ -46,7 +51,12 @@ type Action =
 function reducer(state: VideoProcessingState, action: Action): VideoProcessingState {
   switch (action.type) {
     case "START":
-      return LOADING_STATE;
+      return {
+        ...LOADING_STATE,
+        scrapedTranscript: state.scrapedTranscript,
+        captionState: state.captionState,
+        captionSegments: state.captionSegments,
+      };
 
     case "VIDEO_INFO":
       return { ...state, scrapedVideoInfo: action.payload };

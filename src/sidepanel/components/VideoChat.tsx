@@ -1,6 +1,6 @@
 /** Owns the video conversation and bottom composer; successful summary edits are committed by the background agent. */
 
-import { ArrowUp, FileText, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowUp, Captions, FileText, Loader2, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -311,7 +311,7 @@ export function VideoChat({
                   size="sm"
                   className="h-9 gap-1.5 px-2 text-[13px]"
                   aria-label="Caption"
-                  title="Caption"
+                  title="Choose a caption track"
                   disabled={working || !videoReady || preview}
                   onClick={() => {
                     if (busy.current) return;
@@ -323,7 +323,7 @@ export function VideoChat({
                           setError(
                             cause instanceof Error
                               ? cause.message
-                              : "Could not regenerate captions.",
+                              : "Could not open caption tracks.",
                           );
                       })
                       .finally(() => {
@@ -332,7 +332,7 @@ export function VideoChat({
                       });
                   }}
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <Captions className="h-4 w-4" />
                   Caption
                 </Button>
                 <div className="ml-auto flex shrink-0 items-center gap-1">

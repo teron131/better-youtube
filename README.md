@@ -39,6 +39,13 @@ Until the first packaged release is published, build from source using the comma
 ## Transcript Sources
 
 Better YouTube reads captions from the video open in your browser, using the existing YouTube session.
+Open **Caption** or expand **Transcript** to choose a caption track by language and source (**Manual** or **Auto**).
+**English · Translation** is available for any non-English source, including videos without a native English track.
+The extension tries YouTube translation first where supported; if it is unavailable, click the translate icon, then **Confirm** to translate the selected source into English with the configured caption model.
+Source text awaiting AI translation is not displayed or copied as completed English captions.
+The existing default priority is English auto-generated, English manual, other auto-generated languages, then other manual languages.
+Choosing a track loads it for the overlay, transcript search, and both copy actions without starting refinement.
+Choosing an English option that needs AI translation prepares the source without calling the caption model until confirmation.
 Standalone fetchers can run into anti-bot checks, while Gemini's direct YouTube support has been unreliable on long videos in our testing.
 
 | Approach | How it works | Trade-off |
@@ -98,7 +105,15 @@ flowchart TD
 
 ### Caption Refinement
 
+The transcript keeps each caption's timestamp in a separate column and highlights the current video caption.
+Drag the vertical rail or use its arrow keys to browse without seeking; click a timestamp to seek the active video without changing its paused or playing state.
+Search and copying use the caption text, and live playback tracking stops when the transcript is closed.
 Caption refinement runs independently of the agent and processes transcript chunks concurrently.
+Click the wand icon, then **Confirm** beside the selected track to run the caption model on that source alone.
+AI English translation requires a result for each source segment and retains the original timestamps; failed batches report an error rather than substituting untranslated source text.
+These checks enforce output structure; wording and faithful alignment with the source still depend on the selected caption model.
+The separate **Auto-generate captions** setting remains opt-in and uses the saved track selection when available.
+Generating a summary does not start caption refinement unless automatic generation is enabled.
 
 ```mermaid
 flowchart LR

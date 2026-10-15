@@ -28,18 +28,16 @@ import {
   FEED_HIDE_FILTER_KEYS,
   hasActiveHideFilters,
 } from "@/core/recommendationFilters";
-import { getStorageValue, getSubtitles, getVideoMetadata, setStorageValue } from "@/core/storage";
+import { getStorageValue, setStorageValue } from "@/core/storage";
 import type { ChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
 import { SIDEPANEL_ROUTE_HREFS } from "../lib/routes";
 import {
-  createTranscriptOnlyState,
   EMPTY_VIDEO_STATE,
   getTrackedStorageKeys,
   isVideoInfoForVideo,
   loadCachedVideoState,
-  segmentsToTranscript,
 } from "./index/cachedVideoState";
 
 interface VideoSyncRequest {
@@ -55,6 +53,9 @@ const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set(
 
 const Index = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const transcriptSectionRef = useRef<HTMLDivElement | null>(null);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [isCaptionTrackLoading, setIsCaptionTrackLoading] = useState(false);
   const summaryRef = useRef<HTMLDivElement | null>(null);
   const summaryStartRef = useRef(false);
   const currentUrlVideoIdRef = useRef<string | null>(null);
@@ -81,6 +82,8 @@ const Index = () => {
     summaryResult,
     scrapedVideoInfo,
     scrapedTranscript,
+    captionState,
+    captionSegments,
     cancelCurrentRun,
     updateState,
     processVideo,
@@ -268,6 +271,8 @@ const Index = () => {
         setLastProcessedUrl(initialUrl);
         if (videoChanged) {
           setLastOptions(undefined);
+          setIsTranscriptOpen(false);
+          setIsCaptionTrackLoading(false);
           updateState(EMPTY_VIDEO_STATE);
         } else if (isManualRefresh) {
           updateState(EMPTY_VIDEO_STATE);
@@ -305,6 +310,8 @@ const Index = () => {
         updateState({
           scrapedVideoInfo: fetchedState.videoInfo,
           scrapedTranscript: fetchedState.transcript,
+          captionState: fetchedState.captionState,
+          captionSegments: fetchedState.captionSegments,
         });
       } catch (error) {
         console.error("Failed to sync current video state:", error);
@@ -340,12 +347,20 @@ const Index = () => {
     return subscribeToStoredVideoState({
       relevantKeys: getTrackedStorageKeys(videoId),
       loadState: () => loadCachedVideoState(videoId),
-      updateState: ({ summaryResult, scrapedVideoInfo, scrapedTranscript }) => {
+      updateState: ({
+        summaryResult,
+        scrapedVideoInfo,
+        scrapedTranscript,
+        captionState,
+        captionSegments,
+      }) => {
         // Storage owns content, not the foreground request's loading or error state.
         updateState({
           ...(summaryResult ? { summaryResult } : {}),
           ...(scrapedVideoInfo ? { scrapedVideoInfo } : {}),
           ...(typeof scrapedTranscript === "string" ? { scrapedTranscript } : {}),
+          captionState,
+          captionSegments: captionSegments ?? [],
         });
       },
       addStorageListener: (listener) => chrome.storage.onChanged.addListener(listener),
@@ -405,6 +420,8 @@ const Index = () => {
     updateState({
       scrapedVideoInfo: exampleData.videoInfo,
       scrapedTranscript: exampleData.transcript,
+      captionState: null,
+      captionSegments: [],
       summaryResult: exampleData,
       isLoading: false,
       error: null,
@@ -515,42 +532,60 @@ const Index = () => {
     }
   };
 
-  const handleCaptionSubmit = async (url: string) => {
-    setIsExampleMode(false);
-
-    const videoUrl = await resolveVideoSource(url);
-    if (!videoUrl) return;
-
-    setLastProcessedUrl(videoUrl);
-
-    const videoId = extractVideoId(videoUrl);
-    if (videoId) {
-      try {
-        const [storedSubtitles, storedVideoInfo] = await Promise.all([
-          getSubtitles(videoId),
-          getVideoMetadata(videoId),
-        ]);
-        updateState(
-          createTranscriptOnlyState(segmentsToTranscript(storedSubtitles), storedVideoInfo),
-        );
-      } catch (error) {
-        console.error("Failed to load cached caption state:", error);
-      }
-    }
-
+  const handleCaptionTrackChange = async (captionTrackId: string) => {
+    const videoId = currentUrlVideoIdRef.current;
+    if (!videoId || isCaptionTrackLoading) return;
+    setIsCaptionTrackLoading(true);
     try {
-      await triggerCaptionGeneration(videoUrl, { forceRegenerate: true });
-      toast({
-        title: "Regenerating captions",
-        description: "Fetching the transcript again and rerunning caption refinement.",
+      const state = await fetchCurrentVideoState(videoId, { captionTrackId });
+      if (currentUrlVideoIdRef.current !== videoId) return;
+      if (!state) throw new Error("The active video changed before the track could load.");
+      updateState({
+        scrapedVideoInfo: state.videoInfo,
+        scrapedTranscript: state.transcript,
+        captionState: state.captionState,
+        captionSegments: state.captionSegments,
+      });
+    } finally {
+      if (currentUrlVideoIdRef.current === videoId) setIsCaptionTrackLoading(false);
+    }
+  };
+
+  const handleCaptionSubmit = async () => {
+    const videoId = currentUrlVideoIdRef.current;
+    if (!videoId || !captionState || isCaptionTrackLoading || captionState.status === "refining")
+      return;
+    updateState({ captionState: { ...captionState, status: "refining", error: undefined } });
+    try {
+      await triggerCaptionGeneration(initialUrl || lastProcessedUrl, {
+        forceRegenerate: true,
+        captionTrackId: captionState.selectedTrackId,
+        confirmTranslation: captionState.translationRequired === true,
       });
     } catch (error) {
-      toast({
-        title: "Caption failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
+      if (currentUrlVideoIdRef.current === videoId) {
+        updateState({
+          captionState: {
+            ...captionState,
+            status: "error",
+            error: error instanceof Error ? error.message : "Caption refinement failed.",
+          },
+        });
+      }
+      throw error;
     }
+  };
+
+  const openCaptions = async () => {
+    if (!captionState?.tracks.length) {
+      toast({
+        title: "No caption tracks available",
+        description: "Refresh the active video to check for available captions.",
+      });
+      return;
+    }
+    setIsTranscriptOpen(true);
+    transcriptSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleRegenerate = async () => {
@@ -586,7 +621,8 @@ const Index = () => {
     ? scrapedVideoInfo
     : null;
   const videoInfo = cachedVideoInfo || summaryVideoInfo;
-  const transcript = scrapedTranscript || summaryResult?.transcript;
+  const translationPending = captionState?.translationRequired && captionState.status !== "refined";
+  const transcript = translationPending ? null : scrapedTranscript || summaryResult?.transcript;
 
   const openSummary = async (model: string, language: string) => {
     if (!isExampleMode && (!hasActiveVideo || isResolvingVideo || chatBusy || isLoading)) return;
@@ -676,7 +712,7 @@ const Index = () => {
         preview={isExampleMode}
         hasSummary={Boolean(summaryResult?.summary)}
         onSummary={openSummary}
-        onCaptions={() => handleCaptionSubmit(initialUrl || lastProcessedUrl)}
+        onCaptions={openCaptions}
       >
         <div ref={resultsRef}>
           <div className="space-y-4">
@@ -701,7 +737,23 @@ const Index = () => {
               />
             )}
 
-            {transcript && <TranscriptPanel transcript={transcript} metadata={videoInfo} />}
+            {Boolean(transcript || captionState?.tracks.length) && (
+              <div ref={transcriptSectionRef} className="scroll-mt-4">
+                <TranscriptPanel
+                  key={activeVideoId || "example"}
+                  transcript={transcript || ""}
+                  metadata={videoInfo}
+                  captionState={captionState}
+                  segments={translationPending ? [] : captionSegments}
+                  videoId={isExampleMode ? null : activeVideoId}
+                  onCaptionTrackChange={handleCaptionTrackChange}
+                  onRefineCaptions={handleCaptionSubmit}
+                  isCaptionTrackLoading={isCaptionTrackLoading || isResolvingVideo || isLoading}
+                  isOpen={isTranscriptOpen}
+                  onOpenChange={setIsTranscriptOpen}
+                />
+              </div>
+            )}
 
             {summaryResult?.summary && (
               <div ref={summaryRef} className="scroll-mt-4">

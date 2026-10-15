@@ -10,6 +10,7 @@ import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/core/constant
 import { createRequestId } from "@/core/requestId";
 import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
+import { VIDEO_HISTORY_CHANGE_EVENT } from "@/core/videoPlayback";
 
 import {
   AUTO_GENERATION_STORAGE_KEYS,
@@ -29,8 +30,8 @@ import {
   startSubtitleDisplay,
 } from "./subtitleRenderer";
 import { executeScrapeForAutoGen, isCurrentVideo, validateLoadContext } from "./videoHelpers";
+import { setupVideoPlayback } from "./videoPlayback";
 
-const HISTORY_CHANGE_EVENT = "better-youtube:history-change";
 const CAPTION_BOOTSTRAP_STORAGE_KEYS = [
   STORAGE_KEYS.CAPTION_FONT_SIZE,
   STORAGE_KEYS.SHOW_SUBTITLES,
@@ -39,7 +40,7 @@ const CAPTION_BOOTSTRAP_STORAGE_KEYS = [
 let historyChangeMonitoringInstalled = false;
 
 function dispatchHistoryChangeEvent(): void {
-  window.dispatchEvent(new Event(HISTORY_CHANGE_EVENT));
+  window.dispatchEvent(new Event(VIDEO_HISTORY_CHANGE_EVENT));
 }
 
 function installHistoryChangeMonitoring(): void {
@@ -133,7 +134,7 @@ class ContentManager {
     document.addEventListener("yt-page-data-updated", this.scheduleUrlCheck);
     window.addEventListener("popstate", this.scheduleUrlCheck);
     window.addEventListener("hashchange", this.scheduleUrlCheck);
-    window.addEventListener(HISTORY_CHANGE_EVENT, this.scheduleUrlCheck);
+    window.addEventListener(VIDEO_HISTORY_CHANGE_EVENT, this.scheduleUrlCheck);
     document.addEventListener("visibilitychange", this.scheduleUrlCheck);
   }
 
@@ -286,6 +287,7 @@ class ContentManager {
 
   // Setup message listener exactly once
   setupMessageListener(manager.state, manager.checkAndTriggerAutoGeneration);
+  setupVideoPlayback();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);

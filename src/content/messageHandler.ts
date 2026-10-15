@@ -5,8 +5,7 @@
 import type { FontSize } from "@/core/constants";
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/core/constants";
 import type { RequestId } from "@/core/requestId";
-import { saveSubtitles, setStorageValue, type SubtitleSegment } from "@/core/storage";
-import { toTraditionalChinese } from "@/core/utils/text";
+import { setStorageValue, type SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
 import { AUTO_GENERATION_STORAGE_KEYS, clearAutoGenTrigger } from "./autoGeneration";
@@ -78,6 +77,9 @@ function handleSubtitlesGenerated(
   }
 
   // Stale guard: ignore any caption results not matching the latest request for this video.
+  if (message.isRawFallback === true && messageRequestId) {
+    state.currentCaptionRequestId = messageRequestId;
+  }
   if (
     messageVideoId &&
     state.currentCaptionRequestId &&
@@ -101,35 +103,17 @@ function handleSubtitlesGenerated(
     return;
   }
 
-  const convertedSubtitles = toTraditionalChinese(subtitles);
-  handleConvertedSubtitles(
-    convertedSubtitles,
-    messageVideoId,
-    messageRequestId,
-    isPartial,
-    state,
-    sendResponse,
-  );
+  displaySubtitles(subtitles, messageVideoId, isPartial, state, sendResponse);
 }
 
-function handleConvertedSubtitles(
-  convertedSubtitles: SubtitleSegment[],
+/** The background persists captions and their track identity atomically before publishing display updates. */
+function displaySubtitles(
+  subtitles: SubtitleSegment[],
   messageVideoId: string | undefined,
-  messageRequestId: RequestId | undefined,
   isPartial: boolean,
   state: ContentScriptState,
   sendResponse: (response: any) => void,
 ): void {
-  const isCurrentRequest =
-    !messageRequestId ||
-    !state.currentCaptionRequestId ||
-    messageRequestId === state.currentCaptionRequestId;
-  const shouldPersistForMessageVideo =
-    !isPartial && messageVideoId && convertedSubtitles.length > 0 && isCurrentRequest;
-  if (shouldPersistForMessageVideo) {
-    saveSubtitles(messageVideoId, convertedSubtitles).catch(console.error);
-  }
-
   // Only display if the subtitles are for the CURRENT video
   if (messageVideoId && !isCurrentVideo(messageVideoId)) {
     console.log(
@@ -140,8 +124,8 @@ function handleConvertedSubtitles(
   }
 
   state.currentSubtitles = isPartial
-    ? mergeSubtitleSegments(state.currentSubtitles, convertedSubtitles)
-    : convertedSubtitles;
+    ? mergeSubtitleSegments(state.currentSubtitles, subtitles)
+    : subtitles;
   if (state.currentSubtitles.length === 0) {
     state.currentSubtitles = [];
     clearRenderer();
@@ -151,13 +135,6 @@ function handleConvertedSubtitles(
 
   startDisplayIfReady(state, messageVideoId);
 
-  // Fallback save using current URL ID if message ID was missing (final only)
-  if (!isPartial && !messageVideoId) {
-    const currentVideoId = extractVideoId(window.location.href);
-    if (currentVideoId) {
-      saveSubtitles(currentVideoId, convertedSubtitles).catch(console.error);
-    }
-  }
   sendResponse({ status: "success" });
 }
 
