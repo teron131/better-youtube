@@ -17,7 +17,9 @@ interface InfoItemProps {
 
 const InfoItem = ({ icon, value, title }: InfoItemProps) => (
   <div className="flex min-w-0 items-center gap-1.5" title={title}>
-    <div className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</div>
+    <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+      {icon}
+    </div>
     <span className="min-w-0 break-words">{value}</span>
   </div>
 );
@@ -253,8 +255,8 @@ export const VideoInfo = ({
   if (!title) return null;
 
   return (
-    <section className="py-2">
-      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 min-[480px]:grid-cols-[144px_minmax(0,1fr)] md:grid-cols-[192px_minmax(0,1fr)]">
+    <section className="py-1">
+      <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 min-[480px]:grid-cols-[144px_minmax(0,1fr)] md:grid-cols-[192px_minmax(0,1fr)]">
         <div className="w-full">
           <div className="overflow-hidden rounded-lg bg-muted/30">
             {displayThumbnail ? (
@@ -271,16 +273,16 @@ export const VideoInfo = ({
         </div>
 
         <div className="min-w-0">
-          <h3 className="line-clamp-3 break-words text-lg font-semibold leading-snug tracking-tight text-foreground min-[480px]:text-xl">
+          <h1 className="line-clamp-3 break-words text-[17px] font-semibold leading-snug tracking-tight text-foreground min-[480px]:text-xl">
             {displayTitle || "Title not available"}
-          </h3>
+          </h1>
         </div>
-        <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] leading-5 text-muted-foreground">
+        <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
           {primaryInfoItems.map(({ key, ...item }) => (
             <InfoItem key={key} {...item} />
           ))}
           {metricItems.length > 0 && (
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-3">
               {metricItems.map(({ key, ...item }) => (
                 <InfoItem key={key} {...item} />
               ))}

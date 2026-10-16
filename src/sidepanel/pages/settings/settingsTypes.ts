@@ -1,8 +1,9 @@
+/** Shared editable settings, field descriptions, and storage mappings used by the page and its sections. */
+
 import type { ModelSortMetric } from "@ui/lib/model-sort";
 import type { AvailableModel } from "@ui/services/config";
 
 import type { LlmModelPrefixMode } from "@/core/clients/config";
-import type { FontSize } from "@/core/constants";
 import { DEFAULTS, STORAGE_KEYS } from "@/core/constants";
 
 export type ModelCostLimitKey = "summarizerModelCostLimit" | "refinerModelCostLimit";
@@ -18,8 +19,8 @@ export const DEFAULT_SETTINGS = {
   summarizerModelCostLimit: Number(DEFAULTS.SUMMARIZER_MODEL_COST_LIMIT),
   refinerModelCostLimit: Number(DEFAULTS.REFINER_MODEL_COST_LIMIT),
   targetLanguage: "auto",
-  captionFontSize: "M",
-  summaryFontSize: "M",
+  captionFontSize: Number(DEFAULTS.CAPTION_FONT_SIZE),
+  summaryFontSize: Number(DEFAULTS.SUMMARY_FONT_SIZE),
   autoGenerate: false,
 };
 
@@ -62,7 +63,6 @@ export type ApiField = {
   type?: "password" | "url";
 };
 
-export const FONT_SIZE_OPTIONS: FontSize[] = ["S", "M", "L"];
 export const LLM_MODEL_PREFIX_OPTIONS: Array<{
   value: LlmModelPrefixMode;
   label: string;
@@ -83,7 +83,7 @@ export const API_KEY_FIELDS: ApiField[] = [
   {
     key: STORAGE_KEYS.LLM_BASE_URL,
     label: "LLM base URL",
-    placeholder: "Any OpenAI API compatible base URL, e.g. https://api.openai.com/v1",
+    placeholder: "https://api.openai.com/v1",
     type: "url",
   },
   {

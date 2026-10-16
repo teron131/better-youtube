@@ -14,6 +14,8 @@ import {
 import type { SubtitleSegment } from "@/core/storage";
 import { formatTimestamp } from "@/core/utils/date";
 
+import { Button } from "./ui/button";
+
 interface TranscriptTimelineProps {
   segments: readonly SubtitleSegment[];
   content: readonly ReactNode[];
@@ -169,11 +171,11 @@ export function TranscriptTimeline({
             }}
             data-caption-index={index}
             aria-current={activeIndex === index ? "true" : undefined}
-            className="caption-timeline-row relative grid grid-cols-[3.25rem_minmax(0,1fr)] items-start gap-x-3 rounded-md px-2 py-2.5 aria-[current=true]:bg-primary/5"
+            className="caption-timeline-row relative grid grid-cols-[3.25rem_minmax(0,1fr)] items-start gap-x-2 rounded-md px-1 py-1.5 aria-[current=true]:bg-primary/5"
           >
             <button
               type="button"
-              className="caption-timestamp min-h-7 select-none rounded-sm text-left font-mono text-xs leading-6 tabular-nums text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:text-muted-foreground"
+              className="caption-timestamp min-h-6 select-none rounded-sm text-left font-mono text-xs leading-6 tabular-nums text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:text-muted-foreground"
               aria-label={`Seek video to ${timestamp}`}
               title={canSeek ? `Seek to ${timestamp}` : "Open this video to seek"}
               disabled={!canSeek}
@@ -194,11 +196,25 @@ export function TranscriptTimeline({
   );
 
   return (
-    <div className="caption-timeline pt-1">
-      {/* Bounded by the panel height; the sync control sits at the top edge, which stays visible above the composer. */}
-      <div className="flex h-[min(24rem,55dvh)] gap-1">
+    <div className="caption-timeline flex h-[min(24rem,55dvh)] flex-col">
+      {/* The sync action has its own row within the bounded timeline, so it cannot cover captions or move the composer. */}
+      {!following && currentTimeMs !== null && (
+        <div className="flex shrink-0 justify-end pb-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setFollowing(true)}
+          >
+            <LocateFixed aria-hidden="true" />
+            Sync to video · <span className="tabular-nums">{formatTimestamp(currentTimeMs)}</span>
+          </Button>
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 gap-1">
         {lastTime > firstTime && (
-          <div className="caption-timeline-gutter flex w-6 shrink-0 justify-center py-3">
+          <div className="caption-timeline-gutter flex w-6 shrink-0 justify-center py-1.5">
             <input
               type="range"
               className="caption-timeline-rail h-full w-6 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -218,7 +234,7 @@ export function TranscriptTimeline({
             />
           </div>
         )}
-        <div className="relative min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
           <div
             ref={listRef}
             role="region"
@@ -231,16 +247,6 @@ export function TranscriptTimeline({
           >
             {rows}
           </div>
-          {!following && currentTimeMs !== null && (
-            <button
-              type="button"
-              className="absolute left-1/2 top-2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-popover px-3 py-1.5 text-xs font-medium text-foreground shadow-lg shadow-black/40 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => setFollowing(true)}
-            >
-              <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
-              Sync to video · <span className="tabular-nums">{formatTimestamp(currentTimeMs)}</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

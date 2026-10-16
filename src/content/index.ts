@@ -5,8 +5,8 @@
  */
 
 import { loadConfig } from "@/core/config";
-import type { FontSize } from "@/core/constants";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/core/constants";
+import { MESSAGE_ACTIONS, STORAGE_KEYS, TIMING } from "@/core/constants";
+import { resolveStoredFontScale } from "@/core/fontSize";
 import { createRequestId } from "@/core/requestId";
 import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
@@ -199,10 +199,16 @@ class ContentManager {
         return;
       }
 
-      // Apply font size
-      const fontSize = (result?.[STORAGE_KEYS.CAPTION_FONT_SIZE] ||
-        DEFAULTS.CAPTION_FONT_SIZE) as FontSize;
-      applyCaptionFontSize(fontSize);
+      void resolveStoredFontScale(
+        STORAGE_KEYS.CAPTION_FONT_SIZE,
+        result[STORAGE_KEYS.CAPTION_FONT_SIZE],
+      )
+        .then((scale) => {
+          if (isCurrentVideo(videoId) && this.state.currentVideoId === videoId) {
+            applyCaptionFontSize(scale);
+          }
+        })
+        .catch((error) => console.error("Failed to load caption font size:", error));
 
       if (!this.state.userInteractedWithToggle) {
         this.state.showSubtitlesEnabled = result[STORAGE_KEYS.SHOW_SUBTITLES] !== false;

@@ -8,7 +8,6 @@ import { useToast } from "@ui/hooks/use-toast";
 import { useEffect, useMemo, useState } from "react";
 
 import { loadConfig, normalizeModelCostLimit, normalizeModelSelection } from "@/core/config";
-import type { FontSize } from "@/core/constants";
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { ensureLlmBaseUrlHostPermission } from "@/core/llmHostPermissions";
 import { clearStoredDataExceptSettings, setStorageValue } from "@/core/storage";
@@ -120,7 +119,7 @@ const Settings = () => {
           summarizerModelCostLimit: String(nextSettings.summarizerModelCostLimit),
           refinerModelCostLimit: String(nextSettings.refinerModelCostLimit),
         });
-        applySummaryFontSize(nextSettings.summaryFontSize as FontSize);
+        applySummaryFontSize(nextSettings.summaryFontSize);
       } catch (error) {
         console.error("Failed to load settings:", error);
         toast({
@@ -135,7 +134,7 @@ const Settings = () => {
     loadSettings();
   }, [toast]);
 
-  const notifyCaptionFontSizeChange = (fontSize: FontSize) => {
+  const notifyCaptionFontSizeChange = (fontSize: number) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       tabs.forEach((tab) => {
         if (!tab.id) return;
@@ -217,7 +216,7 @@ const Settings = () => {
               if (event.key !== "Enter") return;
               event.currentTarget.blur();
             }}
-            className="h-6 w-14 rounded-sm border-0 bg-transparent px-1 text-right text-xs shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-7 w-16 rounded-sm border-0 bg-transparent px-2 text-left text-xs shadow-none hover:bg-transparent focus-visible:ring-1 focus-visible:ring-offset-0"
             aria-label={selectorConfig.costLimitAriaLabel}
           />
         </TooltipTrigger>
@@ -298,9 +297,9 @@ const Settings = () => {
         setModelCostLimitInput(key, String(resolvedValue));
       }
       if (key === "summaryFontSize") {
-        applySummaryFontSize(nextValue as FontSize);
+        applySummaryFontSize(nextValue as number);
       } else if (key === "captionFontSize") {
-        notifyCaptionFontSizeChange(nextValue as FontSize);
+        notifyCaptionFontSizeChange(nextValue as number);
       }
     } catch (error) {
       console.error(`Failed to auto-save setting ${key}:`, error);
@@ -376,7 +375,7 @@ const Settings = () => {
     <div className="settings-page pb-8">
       <SettingsTopbar />
 
-      <div className="sidepanel-container py-6">
+      <main aria-label="Settings" className="sidepanel-container py-5">
         <div className="grid min-w-0 grid-cols-1 gap-6">
           <ApiConfigurationSection
             settings={settings}
@@ -400,7 +399,7 @@ const Settings = () => {
             }}
           />
         </div>
-      </div>
+      </main>
     </div>
   );
 };

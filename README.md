@@ -36,6 +36,10 @@ Until the first packaged release is published, build from source using the comma
 - Caches transcripts, subtitles, metadata, and summaries in Chrome storage.
 - Filters recommendation feeds with saved rules such as views, duration, age, keywords, and subscription preservation.
 
+In **Settings → Reading**, use **−** and **+** to adjust captions and summary/chat text independently in 10% steps from 50% to 200%.
+The percentage button resets that setting to its 100% default.
+Existing S/M/L preferences migrate to the nearest percentage scale; the default appearance stays the same.
+
 ## Transcript Sources
 
 Better YouTube reads captions from the video open in your browser, using the existing YouTube session.

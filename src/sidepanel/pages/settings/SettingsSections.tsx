@@ -13,17 +13,16 @@ import {
 } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { toModelComboboxOption } from "@ui/lib/model-options";
-import { ArrowLeft, Cpu, Key, Loader2, Trash2, Type } from "lucide-react";
+import { ArrowLeft, Cpu, Key, Loader2, Minus, Plus, RotateCcw, Trash2, Type } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { resolveLlmRequestModel } from "@/core/clients/config";
-import type { FontSize } from "@/core/constants";
-import { STORAGE_KEYS, TARGET_LANGUAGES } from "@/core/constants";
+import { FONT_SCALE, STORAGE_KEYS, TARGET_LANGUAGES } from "@/core/constants";
+import { normalizeFontScale } from "@/core/fontSize";
 
 import { SIDEPANEL_ROUTE_HREFS } from "../../lib/routes";
 import {
   API_KEY_FIELDS,
-  FONT_SIZE_OPTIONS,
   LLM_MODEL_PREFIX_OPTIONS,
   type ModelSelectorConfig,
   SETTINGS_SECTION_CLASSNAME,
@@ -45,7 +44,7 @@ export function SettingsLoadingView() {
 
 export function SettingsTopbar() {
   return (
-    <div className="border-b border-border/70">
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-background">
       <div className="sidepanel-container">
         <div className="flex h-14 w-full items-center gap-1">
           <Button
@@ -61,7 +60,7 @@ export function SettingsTopbar() {
           <h1 className="text-lg font-semibold tracking-tight text-foreground">Settings</h1>
         </div>
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -91,7 +90,7 @@ function LlmModelPrefixControls({
               className="grid min-h-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-2"
             >
               <span className="font-semibold text-muted-foreground">{preview.label}</span>
-              <code className="break-all text-right text-xs leading-5 text-foreground">
+              <code className="min-w-0 text-xs leading-5 text-foreground [overflow-wrap:anywhere]">
                 {preview.value}
               </code>
             </div>
@@ -130,20 +129,25 @@ export function ApiConfigurationSection({
   onLlmBaseUrlBlur: (baseUrl: string) => void;
 }) {
   return (
-    <section className="space-y-4 pt-5">
+    <section className="space-y-4">
       <h2 className="flex items-center gap-2 text-base font-semibold">
         <Key className="h-4 w-4 text-muted-foreground" />
         <span>Connection</span>
       </h2>
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div className="settings-field">
           <div className="contents">
-            <div className="text-sm font-semibold">Provider</div>
+            <Label htmlFor="summary-provider" className="text-sm font-semibold">
+              Provider
+            </Label>
             <Select
               value={settings.summarizerProvider}
               onValueChange={(value) => onChange("summarizerProvider", value)}
             >
-              <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
+              <SelectTrigger
+                id="summary-provider"
+                className="h-10 rounded-md border-border/70 bg-background"
+              >
                 <SelectValue placeholder="Auto" />
               </SelectTrigger>
               <SelectContent className="rounded-md">
@@ -211,7 +215,7 @@ export function ModelConfigurationSection({
         <Cpu className="h-4 w-4 text-muted-foreground" />
         <span>Models &amp; generation</span>
       </h2>
-      <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
+      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
         {selectorConfigs.map((selectorConfig) => (
           <ModelSelector
             key={selectorConfig.modelKey}
@@ -239,14 +243,19 @@ function GenerationControls({
   onChange: SettingsChangeHandler;
 }) {
   return (
-    <div className="space-y-5 pt-2">
+    <div className="space-y-4">
       <div className="settings-field">
-        <div className="text-sm font-semibold">Target language</div>
+        <Label htmlFor="target-language" className="text-sm font-semibold">
+          Target language
+        </Label>
         <Select
           value={settings.targetLanguage}
           onValueChange={(value) => onChange("targetLanguage", value)}
         >
-          <SelectTrigger className="h-10 rounded-md border-border/70 bg-background">
+          <SelectTrigger
+            id="target-language"
+            className="h-10 rounded-md border-border/70 bg-background"
+          >
             <SelectValue placeholder="Language" />
           </SelectTrigger>
           <SelectContent className="rounded-md">
@@ -309,30 +318,57 @@ export function StorageSettingsSection({
   );
 }
 
-function FontSizeSelector({
+/** Repeated actions adjust the reading scale; the current percentage doubles as the default reset. */
+function FontSizeControl({
+  label,
   value,
   onChange,
 }: {
-  value: FontSize;
-  onChange: (value: FontSize) => void;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 rounded-md border border-border/70 bg-background p-1">
-      {FONT_SIZE_OPTIONS.map((size) => (
-        <button
-          key={size}
-          type="button"
-          onClick={() => onChange(size)}
-          aria-pressed={value === size}
-          className={`h-9 rounded-sm text-sm font-semibold transition-colors ${
-            value === size
-              ? "bg-primary text-white"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          {size}
-        </button>
-      ))}
+    <div
+      role="group"
+      aria-label={label}
+      className="flex shrink-0 items-center rounded-md border border-border/70 bg-background p-0.5"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        aria-label={`Decrease ${label.toLowerCase()}`}
+        title="Decrease size"
+        disabled={value <= FONT_SCALE.MIN}
+        onClick={() => onChange(normalizeFontScale(value - FONT_SCALE.STEP))}
+      >
+        <Minus aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-9 w-20 gap-1.5 px-1 tabular-nums"
+        aria-label={`Reset ${label.toLowerCase()} to default (${FONT_SCALE.DEFAULT}%); current ${value}%`}
+        title={`Reset to default (${FONT_SCALE.DEFAULT}%)`}
+        onClick={() => onChange(FONT_SCALE.DEFAULT)}
+      >
+        <span>{value}%</span>
+        <RotateCcw aria-hidden="true" className="!size-3" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        aria-label={`Increase ${label.toLowerCase()}`}
+        title="Increase size"
+        disabled={value >= FONT_SCALE.MAX}
+        onClick={() => onChange(normalizeFontScale(value + FONT_SCALE.STEP))}
+      >
+        <Plus aria-hidden="true" />
+      </Button>
     </div>
   );
 }
@@ -350,18 +386,20 @@ export function ReadingSettingsSection({
         <Type className="h-4 w-4 text-muted-foreground" />
         <span>Reading</span>
       </h2>
-      <div className="space-y-5">
-        <div className="settings-field">
+      <div className="space-y-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <Label className="text-sm font-medium text-foreground">Captions</Label>
-          <FontSizeSelector
-            value={settings.captionFontSize as FontSize}
+          <FontSizeControl
+            label="Caption font size"
+            value={settings.captionFontSize}
             onChange={(value) => onChange("captionFontSize", value)}
           />
         </div>
-        <div className="settings-field">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <Label className="text-sm font-medium text-foreground">Summary and chat</Label>
-          <FontSizeSelector
-            value={settings.summaryFontSize as FontSize}
+          <FontSizeControl
+            label="Summary and chat font size"
+            value={settings.summaryFontSize}
             onChange={(value) => onChange("summaryFontSize", value)}
           />
         </div>
