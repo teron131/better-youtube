@@ -18,7 +18,7 @@ interface WorkspaceHeaderProps {
 
 // Active toggles carry state through the red icon and tint; labels stay readable foreground text.
 const toggleClassName = (active: boolean) =>
-  `h-9 gap-2 px-2.5 text-[13px] font-medium ${
+  `h-9 gap-1.5 px-2 text-[13px] font-medium ${
     active
       ? "bg-primary/15 text-foreground hover:bg-primary/25 [&_svg]:text-primary"
       : "text-muted-foreground hover:text-foreground"
@@ -34,9 +34,9 @@ export function WorkspaceHeader({
   onRefreshVideo,
 }: WorkspaceHeaderProps) {
   return (
-    <header className="shrink-0 border-b border-border/50">
+    <header className="shrink-0 border-b border-border/60 bg-background">
       <div className="sidepanel-container">
-        <div className="flex h-14 w-full items-center justify-between">
+        <div className="flex h-14 w-full items-center justify-between gap-1">
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -63,7 +63,7 @@ export function WorkspaceHeader({
               <span>Filters</span>
             </Button>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center border-l border-border/60 pl-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -75,7 +75,7 @@ export function WorkspaceHeader({
               className="h-9 gap-2 px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground"
             >
               <SquarePen />
-              <span className="hidden min-[400px]:inline">New chat</span>
+              <span className="hidden min-[440px]:inline">New chat</span>
             </Button>
             <Button
               variant="ghost"

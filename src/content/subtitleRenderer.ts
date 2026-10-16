@@ -3,8 +3,8 @@
  * Handles creation, display, and updates of subtitle elements on the YouTube video player.
  */
 
-import type { FontSize } from "@/core/constants";
-import { ELEMENT_IDS, FONT_SIZES, YOUTUBE } from "@/core/constants";
+import { ELEMENT_IDS, YOUTUBE } from "@/core/constants";
+import { getCaptionFontSizes } from "@/core/fontSize";
 import type { SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
 
@@ -103,8 +103,8 @@ class SubtitleView {
     }
   }
 
-  applyFontSize(size: FontSize): void {
-    const sizeConfig = FONT_SIZES.CAPTION[size] || FONT_SIZES.CAPTION.M;
+  applyFontSize(scale: number): void {
+    const sizeConfig = getCaptionFontSizes(scale);
 
     document.documentElement.style.setProperty("--caption-font-size-base", sizeConfig.base);
     document.documentElement.style.setProperty("--caption-font-size-max", sizeConfig.max);
@@ -118,9 +118,8 @@ class SubtitleView {
       sizeConfig.fullscreenMax,
     );
 
-    if (this.textElement) {
-      this.textElement.style.fontSize = `clamp(${sizeConfig.min}, ${sizeConfig.base}, ${sizeConfig.max})`;
-    }
+    // The stylesheet chooses normal or fullscreen constraints; remove the previous renderer's inline override.
+    this.textElement?.style.removeProperty("font-size");
   }
 }
 
@@ -371,9 +370,9 @@ export function createSubtitleElements(): void {
 /**
  * Apply caption font size
  */
-export function applyCaptionFontSize(size: FontSize): void {
+export function applyCaptionFontSize(scale: number): void {
   if (!subtitleView) createSubtitleElements();
-  subtitleView?.applyFontSize(size);
+  subtitleView?.applyFontSize(scale);
 }
 
 /**

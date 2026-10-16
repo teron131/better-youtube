@@ -88,14 +88,17 @@ export const STORAGE_CLEANUP = {
 // Model Configuration
 // ============================================================================
 
+/** Reading sizes are percentages of the default, adjusted in ten-point steps. */
+export const FONT_SCALE = { MIN: 50, MAX: 200, STEP: 10, DEFAULT: 100 } as const;
+
 export const DEFAULTS = {
   // Fallback models when the OpenRouter catalog is unavailable.
   MODEL_SUMMARIZER: "google/gemini-3-flash",
   MODEL_REFINER: "google/gemini-2.5-flash-lite-preview-09-2025",
   AUTO_GENERATE: false,
   SHOW_SUBTITLES: true,
-  CAPTION_FONT_SIZE: "M" as const,
-  SUMMARY_FONT_SIZE: "M" as const,
+  CAPTION_FONT_SIZE: FONT_SCALE.DEFAULT,
+  SUMMARY_FONT_SIZE: FONT_SCALE.DEFAULT,
   TARGET_LANGUAGE_RECOMMENDED: "auto",
   SUMMARIZER_PROVIDER: "auto" as const,
   SUMMARIZER_MODEL_COST_LIMIT: 5,
@@ -135,37 +138,6 @@ export const TARGET_LANGUAGES = [
   { value: "en", label: "English" },
   { value: "zh-TW", label: "Chinese" },
 ] as const;
-
-export const FONT_SIZES = {
-  CAPTION: {
-    S: {
-      base: "1.4vw",
-      max: "22px",
-      min: "12px",
-      fullscreen: "1.7vw",
-      fullscreenMax: "28px",
-    },
-    M: {
-      base: "1.8vw",
-      max: "28px",
-      min: "14px",
-      fullscreen: "2.2vw",
-      fullscreenMax: "36px",
-    },
-    L: {
-      base: "2.2vw",
-      max: "34px",
-      min: "16px",
-      fullscreen: "2.7vw",
-      fullscreenMax: "44px",
-    },
-  },
-  SUMMARY: {
-    S: { base: "16px", h2: "22px", h3: "19px" },
-    M: { base: "18px", h2: "26px", h3: "22px" },
-    L: { base: "20px", h2: "30px", h3: "24px" },
-  },
-} as const;
 
 // ============================================================================
 // Messaging & Elements
@@ -209,9 +181,3 @@ export const SEGMENT_PARSER_CONFIG = {
   MAX_REFINED_LENGTH_RATIO: 2.25,
   MAX_REFINED_LENGTH_EXTRA_CHARS: 80,
 } as const;
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type FontSize = "S" | "M" | "L";

@@ -224,14 +224,14 @@ export const TranscriptPanel = ({
   }, [currentMatchIndex, deferredSearchQuery, segments.length]);
 
   return (
-    <section className="contain-layout">
+    <section className="contain-layout border-y border-border/60">
       <Collapsible open={isOpen} onOpenChange={onOpenChange}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full px-0 py-3 h-auto justify-between hover:bg-transparent"
+            className="h-11 w-full justify-between rounded-none px-0 text-muted-foreground hover:bg-muted/30 hover:text-foreground focus-visible:ring-inset"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="flex items-center justify-center text-muted-foreground">
                 <FileText className="w-4 h-4" />
               </div>
@@ -244,14 +244,17 @@ export const TranscriptPanel = ({
                 </span>
               )}
             </div>
-            <ChevronDown
-              className={`text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
-            />
+            <div className="ml-3 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+              <span>{isOpen ? "Hide" : "Show"}</span>
+              <ChevronDown
+                className={`transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+              />
+            </div>
           </Button>
         </CollapsibleTrigger>
 
         <CollapsibleContent className="pb-4">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {!!captionState?.tracks.length && (
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">

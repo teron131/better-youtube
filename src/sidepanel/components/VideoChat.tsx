@@ -213,7 +213,7 @@ export function VideoChat({
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         aria-label="Video workspace"
       >
-        <div className="sidepanel-container space-y-5 py-3">
+        <div className="sidepanel-container space-y-6 py-4">
           {children}
           <div className="space-y-6" role="log" aria-label="Video conversation" aria-live="polite">
             {messages.map((message, index) => (

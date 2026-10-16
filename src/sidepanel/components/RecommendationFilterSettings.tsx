@@ -358,32 +358,29 @@ export function RecommendationFilterSettings() {
         />
       </summary>
 
-      <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2 md:gap-y-5">
+      <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
         {TOGGLE_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
-            <div key={item.key} className="flex items-start justify-between gap-3 py-2.5 md:gap-4">
-              <div className="min-w-0 space-y-1.5">
-                <div className="flex items-center gap-2">
+            <div key={item.key} className="min-w-0 space-y-2 border-b border-border/50 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="text-sm font-semibold leading-5">{item.title}</div>
                 </div>
-                <div className="pl-6">
-                  <div className="text-sm font-medium leading-6 text-foreground/95">
-                    {renderMergedSettingSentence(item.key)}
-                  </div>
-                  {item.description ? (
-                    <div className="mt-2 text-sm font-medium leading-6 text-foreground/95">
-                      {item.description}
-                    </div>
-                  ) : null}
-                </div>
+                <Switch
+                  aria-label={item.title}
+                  checked={settings[item.key]}
+                  onCheckedChange={(checked) => void handleSettingChange(item.key, checked)}
+                  className="shrink-0 data-[state=checked]:bg-primary"
+                />
               </div>
-              <Switch
-                checked={settings[item.key]}
-                onCheckedChange={(checked) => void handleSettingChange(item.key, checked)}
-                className="mt-0.5 shrink-0 data-[state=checked]:bg-primary"
-              />
+              <div className="pl-6">
+                {renderMergedSettingSentence(item.key)}
+                {item.description && (
+                  <p className="text-sm leading-5 text-muted-foreground">{item.description}</p>
+                )}
+              </div>
             </div>
           );
         })}

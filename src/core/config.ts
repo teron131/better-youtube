@@ -1,8 +1,8 @@
 /** Owns validation and storage-backed loading for extension configuration across browser contexts. */
 
 import type { LlmModelPrefixMode } from "./clients/config.ts";
-import type { FontSize } from "./constants.ts";
 import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
+import { resolveStoredFontScale } from "./fontSize.ts";
 import { getStorageValues, removeStorageValue, setStorageValue } from "./storage.ts";
 
 // ============================================================================
@@ -31,8 +31,10 @@ export interface AppConfig {
   targetLanguage: string;
   autoGenerate: boolean;
   showSubtitles: boolean;
-  captionFontSize: FontSize;
-  summaryFontSize: FontSize;
+  /** Percentage of the default caption size. */
+  captionFontSize: number;
+  /** Percentage of the default summary/chat size. */
+  summaryFontSize: number;
 }
 
 type StoredValues = Record<string, any>;
@@ -173,6 +175,10 @@ export async function loadConfig(): Promise<AppConfig> {
   await Promise.all(
     retiredKeys.filter((key) => key in result).map((key) => removeStorageValue(key)),
   );
+  const [captionFontSize, summaryFontSize] = await Promise.all([
+    resolveStoredFontScale(STORAGE_KEYS.CAPTION_FONT_SIZE, result[STORAGE_KEYS.CAPTION_FONT_SIZE]),
+    resolveStoredFontScale(STORAGE_KEYS.SUMMARY_FONT_SIZE, result[STORAGE_KEYS.SUMMARY_FONT_SIZE]),
+  ]);
 
   const providerRaw = String(
     result[STORAGE_KEYS.SUMMARIZER_PROVIDER] ?? DEFAULTS.SUMMARIZER_PROVIDER,
@@ -210,7 +216,7 @@ export async function loadConfig(): Promise<AppConfig> {
       DEFAULTS.TARGET_LANGUAGE_RECOMMENDED,
     autoGenerate: result[STORAGE_KEYS.AUTO_GENERATE] ?? DEFAULTS.AUTO_GENERATE,
     showSubtitles: result[STORAGE_KEYS.SHOW_SUBTITLES] ?? DEFAULTS.SHOW_SUBTITLES,
-    captionFontSize: result[STORAGE_KEYS.CAPTION_FONT_SIZE] ?? DEFAULTS.CAPTION_FONT_SIZE,
-    summaryFontSize: result[STORAGE_KEYS.SUMMARY_FONT_SIZE] ?? DEFAULTS.SUMMARY_FONT_SIZE,
+    captionFontSize,
+    summaryFontSize,
   };
 }

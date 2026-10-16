@@ -99,14 +99,12 @@ export function ModelSelector({
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col items-start gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:justify-between">
-        <div className="flex min-h-9 min-w-0 flex-1 items-center text-sm font-semibold text-foreground">
-          {label}
-        </div>
+    <div role="group" aria-label={label} className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="text-sm font-semibold text-foreground">{label}</div>
 
         {enableSorting && (
-          <div className="flex shrink-0 items-center rounded-md min-[480px]:ml-auto border border-border/60 bg-background/80 p-0.5">
+          <div className="flex shrink-0 items-center rounded-md border border-border/60 bg-background/80 p-0.5">
             {MODEL_SORT_OPTIONS.map(({ metric, icon: MetricIcon, label }) => (
               <Tooltip key={metric} delayDuration={0}>
                 <TooltipTrigger asChild>
@@ -114,12 +112,13 @@ export function ModelSelector({
                     type="button"
                     onPointerDown={handleSortPointerDown}
                     onClick={(event) => handleSortClick(event, metric)}
-                    className={`flex h-6 w-6 items-center justify-center rounded-sm transition-colors sm:h-7 sm:w-7 ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       effectiveSortMetric === metric
                         ? "bg-primary text-white"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                     aria-label={label}
+                    aria-pressed={effectiveSortMetric === metric}
                   >
                     <MetricIcon className="h-3.5 w-3.5" />
                   </button>

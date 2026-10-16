@@ -2,8 +2,8 @@
  * Routes content-script messages into subtitle generation, rendering, and persisted toggle behavior.
  */
 
-import type { FontSize } from "@/core/constants";
-import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/core/constants";
+import { MESSAGE_ACTIONS, STORAGE_KEYS, YOUTUBE } from "@/core/constants";
+import { normalizeFontScale } from "@/core/fontSize";
 import type { RequestId } from "@/core/requestId";
 import { setStorageValue, type SubtitleSegment } from "@/core/storage";
 import { extractVideoId } from "@/core/utils/url";
@@ -228,7 +228,7 @@ function triggerAutoGenOnToggle(
 }
 
 function handleUpdateCaptionFontSize(message: any, sendResponse: (response: any) => void): void {
-  applyCaptionFontSize((message.fontSize || DEFAULTS.CAPTION_FONT_SIZE) as FontSize);
+  applyCaptionFontSize(normalizeFontScale(message.fontSize));
   sendResponse({ status: "success" });
 }
 
