@@ -1,4 +1,4 @@
-/** Exercises indexed English translation batches without model calls or correction-parser alignment. */
+/** Exercises indexed English translation batches, plus caption-correction fallbacks, through a stubbed model without real model calls. */
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, test } from "node:test";
@@ -13,10 +13,16 @@ type TranslationInput = {
 };
 const requests: TranslationInput[] = [];
 let reply: (input: TranslationInput) => Promise<unknown>;
+let correctionCalls = 0;
+let correctionReply: () => Promise<unknown>;
 
 Object.assign(globalThis, {
   translationTestBoundary: {
     invoke: async (messages: Array<{ content: string }>) => {
+      if (messages[0].content.startsWith("Correct the segments")) {
+        correctionCalls++;
+        return correctionReply();
+      }
       assert.match(messages[0].content, /Translate.*English/);
       const input = JSON.parse(messages[1].content) as TranslationInput;
       requests.push(input);
@@ -67,11 +73,49 @@ registerHooks({
   },
 });
 
-const { translateTranscriptWithLLM } = await import("../src/core/refiner/refiner.ts");
+const { refineTranscriptWithLLM, translateTranscriptWithLLM } =
+  await import("../src/core/refiner/refiner.ts");
 
 beforeEach(() => {
   requests.length = 0;
   reply = async (input) => englishTranslations(input);
+  correctionCalls = 0;
+});
+
+const originalCaption: SubtitleSegment = {
+  text: "hello world",
+  startTime: 0,
+  endTime: 1000,
+  startTimeText: "0:00",
+};
+
+test("correction strips answer labels, so a label-only reply keeps the original caption", async () => {
+  for (const label of [
+    "Here's the transcript:",
+    "Here is the transcript",
+    "Here's transcript:",
+    "Corrected transcript:",
+    "Transcript:",
+  ]) {
+    correctionReply = async () => ({ parsed: { transcript: label } });
+    const [segment] = await refineTranscriptWithLLM([originalCaption], "", "", "test-model");
+    assert.equal(segment.text, "hello world", label);
+  }
+
+  correctionReply = async () => ({ parsed: { transcript: "the transcript shows a hello world" } });
+  const [segment] = await refineTranscriptWithLLM([originalCaption], "", "", "test-model");
+  assert.equal(segment.text, "the transcript shows a hello world");
+});
+
+test("correction retries a 401 immediately instead of backing off", async () => {
+  correctionReply = async () => {
+    throw new Error("401 Unauthorized");
+  };
+  const started = Date.now();
+  const [segment] = await refineTranscriptWithLLM([originalCaption], "", "", "test-model");
+  assert.ok(Date.now() - started < 900, "401 must not wait between attempts");
+  assert.equal(correctionCalls, 3);
+  assert.equal(segment.text, "hello world");
 });
 
 function englishTranslations(input: TranslationInput) {

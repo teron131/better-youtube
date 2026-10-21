@@ -1,3 +1,5 @@
+/** shadcn/ui switch over Radix Switch; the checked track uses the primary token and the unchecked track the input token. */
+
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as React from "react";
 

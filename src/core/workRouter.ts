@@ -18,7 +18,7 @@ export interface ResolvedSummarizationRoute {
   provider: "gemini" | "llm";
 }
 
-/** Uses explicit Gemini when available; otherwise prefers LLM and falls back to a valid Gemini model. */
+/** Honors an explicit Gemini preference only when a Gemini key and model are both present; otherwise prefers the LLM endpoint, then Gemini, and throws when neither can serve. */
 export function resolveSummarizationRoute(
   input: ResolveSummarizationRouteInput,
 ): ResolvedSummarizationRoute {

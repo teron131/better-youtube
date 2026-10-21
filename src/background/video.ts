@@ -1,5 +1,5 @@
 /**
- * Answers video preview requests with transcript-backed metadata from the requested watch tab.
+ * Answers video preview requests with transcript-backed metadata from the requested watch tab, saving original captions whenever the selected track changes.
  */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
@@ -45,9 +45,7 @@ function sendScrapeFailure(
   });
 }
 
-/**
- * Handle scrape video request
- */
+/** Replies "skipped" both when `suppressErrors` hides a failure and when a newer track selection superseded this request. */
 export async function handleScrapeVideo(
   message: ChromeMessage,
   ctx: { tabId?: number; captionWorkloads: VideoWorkloadLifecycle },

@@ -6,6 +6,7 @@ import {
   fetchTranscriptFromChromeTab,
   getChromeTabTrackPriority,
   getChromeTabTrackType,
+  parseJson3Captions,
 } from "../src/core/transcript/chromeTab.ts";
 
 const videoId = "VeizK1M7V7E";
@@ -34,6 +35,22 @@ test("prefers auto-generated English tracks over manual English tracks", () => {
   assert.equal(sortedTracks[0], autoEnglishTrack);
   assert.equal(getChromeTabTrackType(autoEnglishTrack), "auto");
   assert.equal(getChromeTabTrackType(manualEnglishTrack), "manual");
+});
+
+test("caption timestamps gain an hour field only from one hour on", () => {
+  const segments = parseJson3Captions(
+    JSON.stringify({
+      events: [
+        { tStartMs: 65_000, dDurationMs: 1000, segs: [{ utf8: "Early" }] },
+        { tStartMs: 3_599_000, dDurationMs: 1000, segs: [{ utf8: "Just under" }] },
+        { tStartMs: 3_725_000, dDurationMs: 1000, segs: [{ utf8: "Later" }] },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    segments.map((segment) => segment.startTimeText),
+    ["1:05", "59:59", "1:02:05"],
+  );
 });
 
 test("recognizes auto-generated tracks from metadata when kind is missing", () => {

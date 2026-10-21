@@ -1,3 +1,5 @@
+/** shadcn/ui tooltip over Radix Tooltip; it needs the TooltipProvider that App mounts at the root. */
+
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as React from "react";
 

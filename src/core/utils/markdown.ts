@@ -1,4 +1,4 @@
-/** Formats copied summary text with optional video attribution, without imposing a summary structure. */
+/** Formats copied summary text with optional video attribution and the same Traditional Chinese conversion the panel displays, without imposing a summary structure. */
 
 import type { VideoInfoResponse } from "@/core/types";
 

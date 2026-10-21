@@ -1,5 +1,6 @@
 /**
- * Recommendation filtering runtime for YouTube recommendation surfaces.
+ * Hides recommendation cards that trip the saved feed filters as YouTube renders them, recording hidden cards in session storage for the side panel.
+ * Subscriptions, history, and channel pages are never filtered.
  */
 
 import { STORAGE_KEYS } from "@/core/constants";

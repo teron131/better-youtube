@@ -1,3 +1,5 @@
+/** Drives card extraction and filter policy with plain-object stand-ins for YouTube card elements, so no DOM is needed. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

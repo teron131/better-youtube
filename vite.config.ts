@@ -28,7 +28,7 @@ export default defineConfig(() => {
         },
         output: {
           entryFileNames: (chunkInfo) => {
-            // Output background script to root of dist
+            // The manifest loads background.js from the extension root, so it gets no hash or folder.
             if (chunkInfo.name === "background") {
               return "[name].js";
             }

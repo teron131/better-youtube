@@ -1,5 +1,5 @@
 /**
- * Reusable selector component for choosing AI models with icon and label.
+ * Model picker on the editable combobox, with optional intelligence, speed, or price sorting that appends the active score to each label.
  */
 
 import {

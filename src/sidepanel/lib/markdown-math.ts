@@ -14,7 +14,7 @@ const mathOrCurrencyPattern = new RegExp(
   "g",
 );
 
-/** Escape unpaired price markers before Markdown math parsing; explicit equations retain their delimiters. */
+/** "$5 and $x^2$" → "\$5 and $x^2$"; "\(a\)" → "$a$"; "\[c\]" becomes its own `$$` display block; code spans and fences pass through unchanged. */
 export function normalizeMathDelimiters(markdown: string): string {
   return markdown
     .split(codePattern)

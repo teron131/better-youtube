@@ -1,3 +1,5 @@
+/** Checks through injected tab and messaging stubs that the side panel scrapes only the active tab's matching video. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

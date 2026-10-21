@@ -1,10 +1,8 @@
-/**
- * URL Utility Functions
- */
+/** Parses YouTube video IDs from URLs and builds watch and thumbnail URLs. */
 
 /**
- * Extract video ID from YouTube URL
- * Supports both youtube.com and youtu.be formats
+ * Lenient: accepts `v=` on any youtube.com host, youtu.be paths, and bare `v=` or `youtu.be/` fragments that fail URL parsing.
+ * Use getWatchVideoId to confirm a real watch page.
  */
 export function extractVideoId(url: string): string | null {
   if (!url) return null;
@@ -47,9 +45,6 @@ export function getWatchVideoId(url: string | undefined): string | null {
   }
 }
 
-/**
- * Get video thumbnail URL
- */
 const QUALITY_MAP = {
   default: "default",
   hq: "hqdefault",

@@ -1,3 +1,5 @@
+/** Pins how each model-prefix mode rewrites the saved model ID sent to the endpoint. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

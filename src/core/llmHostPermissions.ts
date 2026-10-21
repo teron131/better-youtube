@@ -1,6 +1,6 @@
 /// <reference types="chrome" />
 
-/** Host permission helpers for user-provided OpenAI-compatible endpoints. */
+/** Requests runtime host access for a user-provided OpenAI-compatible base URL, within the manifest's optional host permissions. */
 
 export type LlmHostPermissionStatus =
   | "granted"
@@ -49,6 +49,7 @@ function requestHostPermission(origin: string): Promise<boolean> {
   });
 }
 
+/** Reduces a base URL to the match pattern Chrome grants ("http://localhost:8080/v1" → "http://localhost/*"); non-HTTP or unparsable URLs give null. */
 export function createLlmHostPermissionPattern(baseUrl: string): string | null {
   const trimmedBaseUrl = baseUrl.trim();
   if (!trimmedBaseUrl) return null;
@@ -67,6 +68,7 @@ export function createLlmHostPermissionPattern(baseUrl: string): string | null {
   return `${parsedUrl.protocol}//${parsedUrl.hostname}/*`;
 }
 
+/** Can open Chrome's permission prompt, which Chrome allows only during a user gesture. */
 export async function ensureLlmBaseUrlHostPermission(
   baseUrl: string,
 ): Promise<LlmHostPermissionStatus> {

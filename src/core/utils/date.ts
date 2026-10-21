@@ -1,54 +1,35 @@
-/**
- * Time, Date and Duration formatting utilities
- */
+/** Formats caption timestamps, upload dates, and video durations for display. */
 
-/**
- * Format milliseconds as MM:SS timestamp
- */
+/** 65_000 → "1:05". */
 export function formatTimestamp(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds}`
+    : `${minutes}:${seconds}`;
 }
 
-/**
- * Format date string to readable format
- */
+/** Accepts YouTube's compact `20240105` upload dates as well as ISO date strings. */
 export function formatDate(dateStr?: string | null): string | null {
   if (!dateStr) return null;
 
-  // Handle YYYYMMDD format
-  if (/^\d{8}$/.test(dateStr)) {
-    const year = dateStr.substring(0, 4);
-    const month = dateStr.substring(4, 6);
-    const day = dateStr.substring(6, 8);
-    try {
-      return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  }
+  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(dateStr);
+  const isoDate = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : dateStr;
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return dateStr;
 
-  // Handle ISO 8601 or other standard date strings
-  try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: compact ? "long" : "short",
+    day: "numeric",
+    // Date-only strings parse as UTC midnight, so reading them in UTC keeps their calendar day in every timezone.
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? { timeZone: "UTC" } : {}),
+  });
 }
 
-/**
- * Trim leading zeros from duration string (e.g. 00:45:30 -> 0:45:30)
- */
+/** Drops a zero hour field ("00:45:30" → "45:30"); nonzero hours such as "01:45:30" stay as they are. */
 export function trimLeadingZeros(duration?: string | null): string | null {
   if (!duration) return null;
   return duration.replace(/^0{1,2}:/, "");

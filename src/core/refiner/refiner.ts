@@ -12,10 +12,6 @@ import type { SubtitleSegment } from "@/core/storage";
 import { chunkSegmentsByCount, parseRefinedSegments } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const SYSTEM_PROMPT = `Correct the segments of a YouTube video transcript. These segments could be from anywhere in the video (beginning, middle, or end). Use the video title and description for context.
 
 CRITICAL CONSTRAINTS:
@@ -49,12 +45,9 @@ type RefinedTranscriptRawResponse = {
 };
 
 const MAX_BATCH_RETRIES = 3;
+// Label lines a model may add above its answer, such as "Transcript:" or "Corrected transcript".
 const TRANSCRIPT_LABEL_PATTERN =
-  /^(?:here(?:'| i)?s(?: the)?|(?:corrected|refined)\s+)?transcript:?$/i;
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
+  /^(?:here(?:'| i)?s(?: the)?\s+|(?:corrected|refined)\s+)?transcript:?$/i;
 
 function normalizeSegmentText(text: string): string {
   return (text || "").replace(/\s+/g, " ");
@@ -93,7 +86,7 @@ function normalizeRefinedOutputLines(text: string): string[] {
 
 function isTransientBatchError(error: unknown): boolean {
   const message = String(error);
-  return message.includes("401") || message.includes("429");
+  return message.includes("429");
 }
 
 function createFallbackResponse(originalChunk: SubtitleSegment[]): RefinedTranscriptResponse {
@@ -103,7 +96,8 @@ function createFallbackResponse(originalChunk: SubtitleSegment[]): RefinedTransc
 }
 
 /**
- * Dispatches batches in input order with bounded concurrency, retries, and per-item fallback.
+ * Starts items in input order with bounded concurrency and tries each up to MAX_BATCH_RETRIES times, backing off only after errors isTransientBatchError recognizes.
+ * A fallback that throws rejects the whole batch instead of filling the item's slot.
  */
 async function runConcurrentBatch<T, R>(
   items: T[],
@@ -155,10 +149,6 @@ async function runConcurrentBatch<T, R>(
   return results as R[];
 }
 
-// ============================================================================
-// Main Refinement Logic
-// ============================================================================
-
 interface PriorityWindow {
   splitIndex: number;
   priorityRangeCount: number;
@@ -168,10 +158,7 @@ interface SegmentChunk {
   segments: SubtitleSegment[];
 }
 
-/**
- * Calculate the priority window for early subtitle delivery
- * Returns the index where priority ends and how many chunks it spans
- */
+/** Segments before splitIndex form the opening window: the first five minutes, or the first half of a video under ten minutes; priorityRangeCount chunks cover it. */
 function calculatePriorityWindow(
   segments: SubtitleSegment[],
   maxSegmentsPerChunk: number,
@@ -186,9 +173,7 @@ function calculatePriorityWindow(
   return { splitIndex, priorityRangeCount };
 }
 
-/**
- * Validate and extract refined text from response with line count checking
- */
+/** A line-count mismatch only warns, because parseRefinedSegments realigns lines to segments; an empty answer falls back to the original chunk. */
 function validateAndExtractChunk(
   response: RefinedTranscriptResponse,
   chunkIndex: number,
@@ -232,10 +217,6 @@ function parseChunkResponses(
   );
 }
 
-/**
- * Create a handler for priority chunk completion
- * Calls the callback once all priority chunks are processed
- */
 function createPriorityHandler(
   priorityRangeCount: number,
   splitIndex: number,
@@ -270,7 +251,7 @@ function createPriorityHandler(
   };
 }
 
-/** Shares provider resolution and browser-safe transport between correction and translation. */
+/** Outside the browser, a missing saved key falls back to the `LLM_API_KEY` environment variable. */
 async function createCaptionModel(model: string, operation: "Refiner" | "Translator") {
   const config = await loadConfig();
   const connection = resolveLlmConnection(model, {
@@ -291,7 +272,7 @@ async function createCaptionModel(model: string, operation: "Refiner" | "Transla
   });
 }
 
-/** Corrects timed captions in bounded batches while delivering the opening window first. */
+/** Corrects timed captions in bounded batches, reporting the opening window early through onPriorityComplete; a chunk that keeps failing keeps its original text instead of failing the run. */
 export async function refineTranscriptWithLLM(
   segments: SubtitleSegment[],
   title: string,
@@ -401,7 +382,7 @@ function keyedTranslationSources(
   );
 }
 
-/** Translates indexed batches into English without correction alignment or untranslated success fallbacks. */
+/** Translates keyed batches with two neighboring segments of context on each side; a batch that still fails after retries rejects the whole translation, so untranslated text never passes as English. */
 export async function translateTranscriptWithLLM(
   segments: SubtitleSegment[],
   title: string,

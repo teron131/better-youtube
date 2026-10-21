@@ -1,3 +1,5 @@
+/** shadcn/ui select over Radix Select, styled with the panel's theme tokens. */
+
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import * as React from "react";

@@ -10,7 +10,7 @@ import { isCurrentVideo } from "./videoHelpers";
 
 export { isExtensionContextValid };
 
-// Track which videos have had auto-generation triggered
+// Each video auto-generates at most once until clearAutoGenTrigger releases it.
 const autoGenTriggered = new Set<string>();
 const autoGenVisibilityWaiters = new Map<string, () => void>();
 const TAB_VISIBLE_STATE = "visible";
@@ -21,23 +21,15 @@ export const AUTO_GENERATION_STORAGE_KEYS = [
   STORAGE_KEYS.GEMINI_API_KEY,
 ] as const;
 
-/**
- * Check if auto-generation has been triggered for a video
- */
 function isAutoGenTriggered(videoId: string): boolean {
   return autoGenTriggered.has(videoId);
 }
 
-/**
- * Mark auto-generation as triggered for a video
- */
 function markAutoGenTriggered(videoId: string): void {
   autoGenTriggered.add(videoId);
 }
 
-/**
- * Clear auto-generation trigger for a video
- */
+/** Also cancels the video's pending wait for the tab to become visible. */
 export function clearAutoGenTrigger(videoId: string): void {
   autoGenTriggered.delete(videoId);
   autoGenVisibilityWaiters.get(videoId)?.();
@@ -53,9 +45,6 @@ interface ValidationResult {
   reason?: string;
 }
 
-/**
- * Check if auto-generation conditions are met
- */
 export function validateAutoGen(
   videoId: string,
   storageResult: StorageResult,
@@ -97,9 +86,7 @@ function isVideoIdSame(originalVideoId: string): boolean {
   return true;
 }
 
-/**
- * Verify captions are still enabled
- */
+/** Releases the video's trigger when captions were turned off in the meantime. */
 function areCaptionsEnabled(videoId: string): Promise<boolean> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEYS.SHOW_SUBTITLES], (checkResult) => {
@@ -115,9 +102,6 @@ function areCaptionsEnabled(videoId: string): Promise<boolean> {
   });
 }
 
-/**
- * Execute auto-generation trigger with validation
- */
 async function executeAutoGen(
   videoId: string,
   triggerFn: () => void | Promise<void>,
@@ -186,9 +170,7 @@ function triggerWhenReady(
   });
 }
 
-/**
- * Schedule auto-generation with optional delay
- */
+/** Marks the video as triggered before any wait, so validateAutoGen refuses repeats during the delay and while the tab is hidden. */
 export function scheduleAutoGen(
   videoId: string,
   triggerFn: () => void | Promise<void>,

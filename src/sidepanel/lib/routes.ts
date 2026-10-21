@@ -7,6 +7,7 @@ export const SIDEPANEL_ROUTE_HREFS = {
   settings: "#/settings",
 } as const;
 
+/** "#/settings/?tab=a" → "/settings"; "", "#", and "/sidepanel.html" → "/". */
 export function normalizeSidepanelPath(rawPath: string): string {
   if (ROOT_PATHS.has(rawPath)) {
     return "/";

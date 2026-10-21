@@ -1,4 +1,4 @@
-/** Content Script Helper Functions - Messaging Logic */
+/** Content-script state shared across modules, plus the caption refinement request sent to the background. */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import type { RequestId } from "@/core/requestId";

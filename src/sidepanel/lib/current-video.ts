@@ -1,5 +1,5 @@
 /**
- * Side panel helpers for active YouTube video navigation and fetching.
+ * Turns content-script video-change messages into watch URLs and asks the background to scrape the active tab's video for the side panel.
  */
 
 import { MESSAGE_ACTIONS, TIMING } from "../../core/constants.ts";
@@ -45,6 +45,7 @@ export function currentVideoUrlFromMessage(message: ChromeMessage): string | nul
   return videoId ? createYouTubeWatchUrl(videoId) : null;
 }
 
+/** Resolves null when the active tab is not on this video or the scrape does not succeed; only an explicit caption-track request surfaces scrape errors. */
 export async function fetchCurrentVideoState(
   videoId: string,
   options: CurrentVideoFetchOptions = {},

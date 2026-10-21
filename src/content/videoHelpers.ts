@@ -1,4 +1,4 @@
-/** Video and validation helper functions */
+/** Watch-page checks and the scrape request that auto-generation must pass before refining captions. */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import { createRequestId } from "@/core/requestId";

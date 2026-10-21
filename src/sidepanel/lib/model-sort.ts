@@ -1,3 +1,5 @@
+/** Orders model options by intelligence, speed, or price; models missing the metric sort last, and ties fall back to the cheaper model, then the label. */
+
 export type ModelSortMetric = "intelligence" | "speed" | "price";
 export type ModelSortDirection = "asc" | "desc";
 export type ModelRankKey = "intelligenceScore" | "speedMetric";

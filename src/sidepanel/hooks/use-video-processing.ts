@@ -1,5 +1,5 @@
 /**
- * Core video processing state management hook with streaming support.
+ * Owns the side panel's summary run state: starting a run aborts the previous one, and a superseded run's result comes back as cancelled instead of being applied.
  */
 
 import { useCallback, useEffect, useReducer, useRef } from "react";

@@ -1,3 +1,5 @@
+/** shadcn/ui card layout parts; Card swaps shadcn's border and shadow classes for an `app-surface` class hook. */
+
 import * as React from "react";
 
 import { cn } from "@/core/utils/text";

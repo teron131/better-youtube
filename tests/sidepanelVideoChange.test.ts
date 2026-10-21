@@ -1,3 +1,5 @@
+/** Checks which runtime messages switch the side panel to another video. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

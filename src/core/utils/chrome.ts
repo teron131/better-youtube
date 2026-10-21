@@ -1,13 +1,7 @@
 /// <reference types="chrome" />
 
-/**
- * Chrome Extension API Utilities
- * Standardized wrappers for Chrome API operations with consistent error handling
- */
+/** Promise wrappers over Chrome runtime messaging and tab lookup; message sends reject on `chrome.runtime.lastError` or an optional timeout. */
 
-/**
- * Common message structure for internal communication
- */
 export interface ChromeMessage<T = unknown> {
   action: string;
   payload?: T;
@@ -50,9 +44,7 @@ function sendMessageInternal<T>(
   });
 }
 
-/**
- * Send a message to the Chrome runtime and wait for response
- */
+/** A message no listener answers also rejects; `timeout` is in milliseconds, and leaving it unset means no deadline. */
 export async function sendChromeMessage<T = any>(
   message: ChromeMessage,
   timeout?: number,
@@ -64,9 +56,7 @@ export async function sendChromeMessage<T = any>(
   );
 }
 
-/**
- * Create a message listener with automatic cleanup
- */
+/** Registers the handler immediately; the returned function removes it. */
 export function createMessageListener(
   handler: (
     message: ChromeMessage,
@@ -78,9 +68,7 @@ export function createMessageListener(
   return () => chrome.runtime.onMessage.removeListener(handler);
 }
 
-/**
- * Helper to check if Chrome runtime context is valid
- */
+/** False outside the extension, such as in the Vite preview, and in a content script orphaned by an extension reload or update. */
 export function isChromeContextValid(): boolean {
   try {
     return !!chrome?.runtime?.id;
@@ -89,9 +77,6 @@ export function isChromeContextValid(): boolean {
   }
 }
 
-/**
- * Get the currently active tab in the current window
- */
 export async function getCurrentTab(): Promise<chrome.tabs.Tab | null> {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

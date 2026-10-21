@@ -27,6 +27,7 @@ interface TranscriptTimelineProps {
 
 /**
  * Playback scrolls the list to the current caption while following; any reader-driven scroll, rail drag, keyboard browse, or search match takes over until the reader syncs back or seeks.
+ * Requires at least one segment.
  */
 export function TranscriptTimeline({
   segments,

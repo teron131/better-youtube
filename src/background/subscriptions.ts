@@ -82,6 +82,10 @@ async function runPageSubscriptionExtraction(tabId: number): Promise<Subscriptio
   return pageResult.channels as SubscriptionRecord[];
 }
 
+/**
+ * chrome.scripting.executeScript serializes only this function into the page's MAIN world, so everything it uses must be declared inside it.
+ * It scrolls the channels page until the list stops growing, then restores the reader's scroll position.
+ */
 function extractSubscriptionsInPageContext() {
   const CHANNEL_RENDERER_SELECTOR = "ytd-channel-renderer";
   const CHANNEL_LINK_SELECTOR = "a[href^='/@'], a[href^='/channel/']";

@@ -75,7 +75,10 @@ async function fetchTranscriptForTab(
   return result;
 }
 
-/** Resolves the requested track without sharing another track's cached text or pending extraction. */
+/**
+ * Resolves the requested track without sharing another track's cached text or pending extraction.
+ * Without a tab it throws when a context was passed and resolves null when none was; forceRefresh skips the cache and in-flight dedupe but still refreshes the cache.
+ */
 export async function fetchTranscript(
   videoId: string,
   context?: TranscriptFetchContext,

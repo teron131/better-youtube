@@ -1,3 +1,5 @@
+/** Checks logo resolution against the bundled 64×64 provider PNGs, including provider aliases. */
+
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";

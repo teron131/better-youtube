@@ -11,10 +11,6 @@ import type { CaptionTrack } from "./types.ts";
 export { getStorageUsage } from "./storageBrowser.ts";
 export type { StorageUsage } from "./storageBrowser.ts";
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface SubtitleSegment {
   text: string;
   startTime: number;
@@ -47,6 +43,7 @@ export interface VideoMetadata {
 export interface StoredSummary {
   summary: string;
   timestamp: number;
+  /** `<provider>::<model>`, such as `llm::openai/gpt-5`; a saved summary is reused only when this and targetLanguage match the request. */
   modelUsed: string;
   targetLanguage?: string | null;
 }
@@ -59,10 +56,6 @@ export interface ClearStoredDataResult {
 interface VideoStorageMeta {
   updatedAt: number;
 }
-
-// ============================================================================
-// Storage Keys
-// ============================================================================
 
 const METADATA_KEY_PREFIX = "video_info_";
 const SUMMARY_KEY_PREFIX = "summary_";
@@ -102,10 +95,6 @@ async function saveVideoScopedItem(
   await ensureStorageSpace();
   await setWithQuotaRetry(createVideoStoragePayload(videoId, key, value), signal);
 }
-
-// ============================================================================
-// Core Storage Operations
-// ============================================================================
 
 const WRITE_RATE_RETRY_LIMIT = 3;
 const WRITE_RATE_BACKOFF_BASE_MS = 250;
@@ -166,7 +155,10 @@ function isWriteRateQuotaError(error: unknown): error is Error {
   return error instanceof Error && error.message.includes("MAX_WRITE_OPERATIONS");
 }
 
-/** Retries recoverable quota failures within one write budget and never reports success without a write. */
+/**
+ * Write-rate limits back off and retry; a full quota evicts progressively more of the oldest cached videos before retrying.
+ * Both share one attempt budget, and exhausting it throws rather than dropping the write.
+ */
 async function setWithQuotaRetry(
   items: Record<string, unknown>,
   signal?: AbortSignal,
@@ -202,10 +194,6 @@ async function setWithQuotaRetry(
   }
 }
 
-// ============================================================================
-// Video Data Storage
-// ============================================================================
-
 export async function getSubtitles(videoId: string): Promise<SubtitleSegment[] | null> {
   return localArea.get<SubtitleSegment[]>(VideoStorageKeys.subtitles(videoId));
 }
@@ -240,6 +228,7 @@ export async function saveVideoMetadata(videoId: string, metadata: VideoMetadata
   return saveVideoScopedItem(videoId, VideoStorageKeys.metadata(videoId), metadata);
 }
 
+/** Reading a summary saved in the retired structured format rewrites it as Markdown. */
 export async function getSummary(videoId: string): Promise<StoredSummary | null> {
   const key = VideoStorageKeys.summary(videoId);
   const stored = await localArea.get<Omit<StoredSummary, "summary"> & { summary: unknown }>(key);
@@ -268,14 +257,11 @@ export async function saveSummary(
   await saveVideoScopedItem(videoId, key, storedSummary, signal);
 }
 
-// ============================================================================
-// Settings Storage
-// ============================================================================
-
 export async function getStorageValue<T>(key: string): Promise<T | null> {
   return localArea.get<T>(key);
 }
 
+/** Writing a `STORAGE_KEYS` entry first evicts old cached videos if needed, so a full video cache never blocks saving a setting. */
 export async function setStorageValue<T>(key: string, value: T): Promise<void> {
   if (isProtectedStorageKey(key)) {
     await ensureStorageHeadroom(PROTECTED_STORAGE_HEADROOM_BYTES);
@@ -304,10 +290,6 @@ export async function getStorageValues<T extends Record<string, unknown>>(
 ): Promise<Partial<T>> {
   return localArea.getMultiple<T>(keys);
 }
-
-// ============================================================================
-// Storage Cleanup & Usage
-// ============================================================================
 
 export async function clearStoredDataExceptSettings(): Promise<ClearStoredDataResult> {
   const allItems = await storageGetAll();

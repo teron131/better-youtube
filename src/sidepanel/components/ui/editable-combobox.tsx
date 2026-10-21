@@ -1,4 +1,4 @@
-/** Provides an editable combobox with exact selection display and fuzzy option filtering. */
+/** Editable combobox that accepts free-typed values and filters options by normalized substring match, ignoring punctuation, spacing, and provider prefixes such as `openai/`. */
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Button } from "@ui/components/ui/button";
@@ -115,6 +115,7 @@ function searchVariants(value: string, providerPrefixes: string[]): string[] {
   return [...variants].filter(Boolean);
 }
 
+/** Also tries the query without spaces and without a provider prefix, so "gpt5" and "openai gpt-5" both match "openai/gpt-5". */
 function matchesNormalizedSearch(
   option: ComboboxOption,
   searchText: string,
@@ -189,7 +190,7 @@ export function EditableCombobox({
     [selectedOption],
   );
 
-  // Sync searchText with value when value changes externally (only when closed)
+  // While closed, the input mirrors the selection; while open, it holds the user's query.
   React.useEffect(() => {
     if (!open) {
       setSearchText(selectedOption?.label || value || "");
@@ -202,7 +203,7 @@ export function EditableCombobox({
     }
   }, [matchesSelectedOptionQuery, open, searchText, selectedOption, value]);
 
-  // Measure trigger width for the portal content
+  // The portaled list cannot inherit the input's width.
   React.useEffect(() => {
     if (open && containerRef.current) {
       setTriggerWidth(containerRef.current.offsetWidth);
@@ -211,7 +212,7 @@ export function EditableCombobox({
 
   const isSelectedOptionQuery = matchesSelectedOptionQuery(searchText);
 
-  // Filter options: show all when searchText is empty or matches current value, otherwise filter
+  // A query equal to the current selection lists every option, so reopening the picker is not filtered down to one.
   const filteredOptions = React.useMemo(() => {
     if (!searchText) return options;
 
@@ -256,8 +257,7 @@ export function EditableCombobox({
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setOpenState(true);
-    // Don't clear search text immediately, let user see current value
-    // but select it so typing replaces it
+    // Selecting the shown value keeps it visible while letting the first keystroke replace it.
     e.target.select();
   };
 
@@ -293,7 +293,6 @@ export function EditableCombobox({
       <PopoverPrimitive.Root open={open} onOpenChange={setOpenState} modal={false}>
         <PopoverPrimitive.Anchor asChild>
           <div className="relative flex items-center">
-            {/* Render icon inside input if provided */}
             {renderIcon && (
               <div className="absolute left-3 z-10 flex h-5 w-5 items-center justify-center overflow-hidden pointer-events-none [&_img]:h-full [&_img]:w-full [&_img]:object-contain">
                 {renderIcon(value)}
@@ -355,7 +354,7 @@ export function EditableCombobox({
             sideOffset={4}
             onOpenAutoFocus={(e) => e.preventDefault()}
             onInteractOutside={(e) => {
-              // Prevent closing when clicking the input or container
+              // The input sits outside the portaled list, so clicking it would otherwise close the list.
               if (containerRef.current?.contains(e.target as Node)) {
                 e.preventDefault();
               }

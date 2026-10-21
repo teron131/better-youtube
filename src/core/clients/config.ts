@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from "../constants.ts";
 
 export type LlmModelPrefixMode = "provider" | "none";
 
-/** Translates the saved model ID for the endpoint without changing the user's selection. */
+/** With "none", strips the provider prefix for endpoints that expect bare IDs ("openai/gpt-5" → "gpt-5"); "provider" sends the saved ID unchanged. */
 export function resolveLlmRequestModel(model: string, prefixMode: LlmModelPrefixMode): string {
   const trimmed = model.trim();
   if (prefixMode === "provider") return trimmed;
@@ -17,7 +17,7 @@ export function resolveLlmRequestModel(model: string, prefixMode: LlmModelPrefix
 
 export type LlmClientConfig = Pick<AppConfig, "llmApiKey" | "llmBaseUrl" | "llmModelPrefixMode">;
 
-/** Keeps the selected model's request identity and endpoint consistent across inference frameworks. */
+/** Throws when no LLM API key is saved; an unset base URL means OpenAI's API. */
 export function resolveLlmConnection(model: string, config: LlmClientConfig) {
   if (!config.llmApiKey) throw new Error("LLM API key missing");
   return {

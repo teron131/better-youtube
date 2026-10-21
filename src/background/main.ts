@@ -1,7 +1,4 @@
-/**
- * Background Script
- * Handles API calls, message routing, and orchestrates the refinement/summarization process.
- */
+/** Service-worker entry: routes runtime messages to feature handlers and owns the caption and summary workload lifecycles. */
 
 import { CHAT_ACTION } from "@/core/agent/conversation";
 import { type AppConfig, loadConfig } from "@/core/config";
@@ -22,9 +19,9 @@ const summaryWorkloads = new VideoWorkloadLifecycle();
 
 registerContentScriptBootstrap();
 
-// Allow side panel to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
 
+// The content script records hidden recommendation cards in session storage, which is closed to content scripts by default.
 if (chrome.storage.session) {
   chrome.storage.session
     .setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" })
@@ -33,9 +30,6 @@ if (chrome.storage.session) {
     });
 }
 
-/**
- * Main message listener
- */
 createMessageListener((message, sender, sendResponse) => {
   const tabId = typeof message.tabId === "number" ? message.tabId : sender.tab?.id;
 

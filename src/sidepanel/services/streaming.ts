@@ -95,9 +95,7 @@ async function withAbort<T>(promise: Promise<T>, signal?: AbortSignal, runId?: s
   });
 }
 
-/**
- * Create a promise-based listener for summary generation
- */
+/** Settles on the first SUMMARY_GENERATED or SHOW_ERROR message for this request, on abort, or at PROCESSING_TIMEOUT_MS; `cancel` only detaches and leaves the promise pending. */
 function createSummaryListener(
   videoId: string,
   requestId: RequestId,
@@ -208,9 +206,6 @@ function createSummaryListener(
   };
 }
 
-/**
- * Trigger caption refinement
- */
 function triggerRefinement(videoId: string, requestId: RequestId, refinerModel: string): void {
   void requestCaptionGeneration(videoId, requestId, refinerModel, undefined).catch((error) =>
     console.error("Caption refinement error:", error),
@@ -262,8 +257,8 @@ export async function triggerCaptionGeneration(
 }
 
 /**
- * Stream summary: scrape and summarize, with caption refinement only when automatic generation is enabled.
- * Scraped video details reach `onVideoInfo` before the summary finishes.
+ * Scrapes, then requests a summary, also starting caption refinement when captions are shown and auto-generation is on.
+ * Scraped video details reach `onVideoInfo` before the summary finishes; failures and cancellation resolve with `success: false` instead of throwing.
  */
 export async function streamSummary(
   url: string,

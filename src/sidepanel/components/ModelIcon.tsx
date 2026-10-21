@@ -1,6 +1,5 @@
 /**
- * Model Icon component with fallback logic.
- * Resolves bundled provider logos from this extension before falling back to a badge.
+ * Tries each candidate logo in turn as images fail to load (explicit, fallback, then the resolved provider logo) and ends with a provider-initials badge.
  */
 
 import { resolveModelLogo } from "@ui/services/logo";
