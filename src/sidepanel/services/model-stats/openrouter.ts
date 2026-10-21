@@ -15,6 +15,7 @@ const OPENROUTER_STATS_BASE_URL = "https://openrouter.ai/api/frontend/v1/stats";
 const OPENROUTER_TIMEOUT_MS = 10_000;
 const OPENROUTER_CONCURRENCY = 8;
 
+/** Latencies are in seconds, converted from OpenRouter's milliseconds. */
 export type OpenRouterMetrics = {
   inputPrice: number | null;
   outputPrice: number | null;
@@ -210,6 +211,7 @@ function providerWeightedPrice(
   return totalTokens > 0 ? weightedSum / totalTokens : null;
 }
 
+/** Lowercases, drops a `:variant` suffix, and aliases xai to x-ai: " XAI/Grok-4:free" → "x-ai/grok-4". */
 export function normalizeOpenRouterModelId(value: string): string {
   const normalized = value
     .trim()

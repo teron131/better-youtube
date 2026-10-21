@@ -70,7 +70,14 @@ type ValsIndexStats = {
   logTaskCost: number | null;
 };
 
-/** Combine independently normalized source cohorts and shrink thin-evidence results toward neutral. */
+/**
+ * Scores run 0–100 relative to this catalog's cohort, with 50 neutral; catalog models that no leaderboard scores are left out.
+ * 1. Matches each leaderboard's rows to catalog IDs and min-max scales them within that source.
+ * 2. Intelligence and agentic scores are means across sources, weighted by benchmark count and relevance.
+ * 3. Value compares OpenRouter prices and per-task benchmark costs with those of similar-quality peers.
+ * 4. Speed combines log-scaled OpenRouter throughput and latency with the leaderboards' own speed scores.
+ * Value and speed shrink toward 50 when few of their components are available.
+ */
 export async function fetchAggregateStats(catalogIds: readonly string[]): Promise<ModelStats[]> {
   const uniqueCatalogIds = [...new Set(catalogIds)].sort();
   if (uniqueCatalogIds.length === 0) return [];
@@ -283,6 +290,7 @@ function buildNormalizedIndexScores<Row extends { score: number }>(
   return scoresByModel;
 }
 
+/** Maps normalized aliases (full ID, bare model ID, and the model ID without a trailing four-digit date) to catalog IDs; an alias two catalog IDs share maps to null and matches neither. */
 function buildCandidateIdIndex(catalogIds: readonly string[]): Map<string, string | null> {
   const candidateIds = new Map<string, string | null>();
   for (const catalogId of catalogIds) {
@@ -328,6 +336,7 @@ function artificialAnalysisCandidateKeys(row: JsonObject): string[] {
   return [...(provider ? names.map((name) => `${provider}/${name}`) : []), ...names];
 }
 
+/** Drops a trailing reasoning-effort note: "GPT-5 (high)" → "GPT-5". */
 function artificialAnalysisDisplayName(row: JsonObject | undefined): string | null {
   const name = firstString(row, ["shortName", "name", "slug"]);
   return (
@@ -384,6 +393,7 @@ function indexWeightedMean(scores: QualityIndexScores, dimension: QualityDimensi
   return availableWeight === 0 ? null : weightedTotal / availableWeight;
 }
 
+/** "Claude 3.5 Sonnet" → "claude-3-5-sonnet"; "google/gemini-2.5-flash:free" → "google/gemini-2-5-flash-free". */
 function normalizeModelKey(value: string): string {
   return value
     .toLowerCase()
@@ -408,7 +418,7 @@ function minMaxScale(
   };
 }
 
-/** Score cost against model-excluded peers at nearby quality and shrink weak support to neutral. */
+/** Scores each cost against the other models' costs weighted by quality similarity, so cheaper than similar-quality peers scores above 50; scores shrink to 50 as effective peers fall from three toward one. */
 function qualityLocalCostScores(
   qualities: Array<number | null>,
   costs: Array<number | null>,

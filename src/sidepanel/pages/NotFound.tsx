@@ -1,5 +1,5 @@
 /**
- * 404 error page component for handling non-existent routes.
+ * Shown for any side-panel hash route other than the workspace and Settings.
  */
 
 import { Button } from "@ui/components/ui/button";

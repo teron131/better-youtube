@@ -1,5 +1,5 @@
 /**
- * Main page component orchestrating the video processing workflow.
+ * Video workspace page: follows the active YouTube tab, restores saved summary and caption state from storage, and starts summary and caption runs.
  */
 
 import { ErrorDisplay } from "@ui/components/ErrorDisplay";
@@ -126,16 +126,13 @@ const Index = () => {
     [cancelCurrentRun, requestVideoSync, updateState],
   );
 
-  // Get current tab URL on mount and when tab changes
   useEffect(() => {
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("example") === "1") {
       setIsResolvingVideo(false);
       return;
     }
-    // Load initial URL
     void loadCurrentTabUrl();
 
-    // Listen for tab updates
     const handleTabUpdate = (
       _tabId: number,
       changeInfo: chrome.tabs.TabChangeInfo,
@@ -155,7 +152,6 @@ const Index = () => {
       chrome.tabs.onActivated.addListener(handleTabActivated);
     }
 
-    // Cleanup listeners on unmount
     return () => {
       if (typeof chrome !== "undefined" && chrome.tabs) {
         chrome.tabs.onUpdated.removeListener(handleTabUpdate);

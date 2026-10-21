@@ -1,3 +1,5 @@
+/** Checks stored video-state sync through fake storage listeners, including late reads that must not win. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

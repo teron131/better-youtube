@@ -13,9 +13,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Converts simplified Chinese to traditional Chinese
- */
+/** Converts Simplified Chinese to Taiwan Traditional; text without CJK ideographs, or a failed conversion, comes back unchanged. */
 export function s2tw(content: string): string {
   if (!content) return content;
   if (!CHINESE_CHAR_REGEX.test(content)) return content;
@@ -27,10 +25,7 @@ export function s2tw(content: string): string {
   }
 }
 
-/**
- * Convert subtitles to traditional Chinese
- * Batch processes all segments for performance
- */
+/** Runs one OpenCC pass over all segments joined by U+0001 for speed, converting segment by segment if the separators do not survive. */
 export function toTraditionalChinese(subtitles: SubtitleSegment[]): SubtitleSegment[] {
   if (!subtitles || subtitles.length === 0) return subtitles;
 

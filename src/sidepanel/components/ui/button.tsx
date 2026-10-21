@@ -1,3 +1,5 @@
+/** shadcn/ui button; `asChild` passes the variant styles to a child element, such as a link, through Radix Slot. */
+
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";

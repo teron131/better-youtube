@@ -31,6 +31,7 @@ export function isVideoInfoForVideo(
   return extractVideoId(videoInfo.url) === videoId;
 }
 
+/** Null when nothing is stored; source captions still awaiting English translation are withheld so they never show as the transcript. */
 export async function loadCachedVideoState(videoId: string): Promise<CachedVideoState | null> {
   const [storedSummary, storedVideoInfo, storedSubtitles, captionState] = await Promise.all([
     getSummary(videoId),

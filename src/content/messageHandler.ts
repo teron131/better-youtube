@@ -76,7 +76,7 @@ function handleSubtitlesGenerated(
     return;
   }
 
-  // Stale guard: ignore any caption results not matching the latest request for this video.
+  // A raw-fallback message opens a caption run and names its request ID; later results from any other request are stale.
   if (message.isRawFallback === true && messageRequestId) {
     state.currentCaptionRequestId = messageRequestId;
   }
@@ -106,7 +106,7 @@ function handleSubtitlesGenerated(
   displaySubtitles(subtitles, messageVideoId, isPartial, state, sendResponse);
 }
 
-/** The background persists captions and their track identity atomically before publishing display updates. */
+/** Display only: the background has already saved these captions together with their track before sending them. */
 function displaySubtitles(
   subtitles: SubtitleSegment[],
   messageVideoId: string | undefined,
@@ -114,7 +114,6 @@ function displaySubtitles(
   state: ContentScriptState,
   sendResponse: (response: any) => void,
 ): void {
-  // Only display if the subtitles are for the CURRENT video
   if (messageVideoId && !isCurrentVideo(messageVideoId)) {
     console.log(
       `Received subtitles for video ${messageVideoId}, but currently on another video. Not displaying.`,
@@ -180,7 +179,6 @@ function handleToggleSubtitles(
     console.error("Failed to persist subtitle toggle:", error);
   });
 
-  // Update subtitle display based on new state
   if (state.showSubtitlesEnabled && state.currentSubtitles.length > 0) {
     startDisplayIfReady(state);
   } else {
@@ -188,7 +186,6 @@ function handleToggleSubtitles(
     clearRenderer();
   }
 
-  // If enabling subtitles when previously disabled and no cached subtitles, trigger auto-gen
   if (state.showSubtitlesEnabled && !wasEnabled && state.currentSubtitles.length === 0) {
     triggerAutoGenOnToggle(state, checkAndTriggerAutoGeneration);
   }
@@ -196,9 +193,6 @@ function handleToggleSubtitles(
   sendResponse({ status: "success" });
 }
 
-/**
- * Trigger subtitle auto-generation when toggle is enabled without cached subtitles
- */
 function triggerAutoGenOnToggle(
   state: ContentScriptState,
   checkAndTriggerAutoGeneration: (
@@ -213,7 +207,6 @@ function triggerAutoGenOnToggle(
 
   const keysToFetch = [videoId, ...AUTO_GENERATION_STORAGE_KEYS];
   chrome.storage.local.get(keysToFetch, (result) => {
-    // Verify we are still on the same video
     if (!isCurrentVideo(videoId)) {
       return;
     }

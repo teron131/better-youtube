@@ -1,3 +1,5 @@
+/** shadcn/ui text input with an added `app-input` class hook. */
+
 import * as React from "react";
 
 import { cn } from "@/core/utils/text";

@@ -26,7 +26,7 @@ export const SummaryEditSchema = z.object({
     .min(1),
 });
 
-/** Keeps a run-local copy and permits a small number of complete, validated revisions. */
+/** Keeps a run-local copy and commits at most three writes or edits per run, each validated as a non-empty summary. */
 export function createSummaryArtifact(initial: string | null) {
   let draft = initial;
   let writes = 0;
@@ -90,7 +90,7 @@ export function createSummaryArtifact(initial: string | null) {
   };
 }
 
-/** Produces compact content anchors for validating the referenced lines. */
+/** 32-bit FNV-1a as eight hex digits, so a read_summary line looks like `1#638f08be:## Overview`. */
 function lineHash(line: string): string {
   let hash = 2166136261;
   for (let index = 0; index < line.length; index++)

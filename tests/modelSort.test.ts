@@ -1,3 +1,5 @@
+/** Pins model-picker ordering and the score suffix shown in sorted labels. */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 

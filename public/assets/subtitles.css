@@ -1,3 +1,4 @@
+/* Styles the caption overlay that subtitleRenderer.ts adds to the YouTube player; the caption font-size variables carry the saved reading scale. */
 #youtube-gemini-subtitles-container {
   position: absolute;
   bottom: 10%;
@@ -30,7 +31,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Fullscreen adjustments */
 ytd-player[fullscreen] #youtube-gemini-subtitles-container {
   bottom: 12%;
 }

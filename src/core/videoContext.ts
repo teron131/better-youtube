@@ -59,9 +59,7 @@ export async function resolveTranscriptText(
   throw new Error("No transcript found for this video.");
 }
 
-/**
- * Resolve video info (stored → cache → fetch)
- */
+/** Prefers stored metadata, then the runtime transcript cache, then a fresh tab fetch whose metadata it saves. */
 export async function getVideoInfo(
   videoId: string,
   fetchContext: TranscriptFetchContext,

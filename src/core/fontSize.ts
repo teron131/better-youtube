@@ -12,7 +12,7 @@ const PRESET_SCALES = {
   [STORAGE_KEYS.SUMMARY_FONT_SIZE]: { S: 90, M: 100, L: 110 },
 } as const;
 
-/** All input boundaries enforce the same percentage range and adjustment step. */
+/** Snaps to the nearest step within the allowed range (104 → 100, 105 → 110); anything but a finite number, numeric strings included, becomes the default. */
 export function normalizeFontScale(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return FONT_SCALE.DEFAULT;
   return Math.min(
@@ -21,7 +21,7 @@ export function normalizeFontScale(value: unknown): number {
   );
 }
 
-/** Rewrites old presets to the nearest scale while retaining the existing per-surface storage keys. */
+/** Persists the normalized scale whenever the saved value differs from it, which migrates old S/M/L presets in place under the same storage key. */
 export async function resolveStoredFontScale(
   key: FontSizeStorageKey,
   value: unknown,

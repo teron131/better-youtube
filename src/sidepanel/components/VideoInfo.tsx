@@ -1,5 +1,5 @@
 /**
- * Component displaying video metadata including thumbnail, title, author, and statistics.
+ * Video header card: the thumbnail with letterbox bars cropped away, then title, channel, and compact stats.
  */
 
 import { CalendarDays, Clock, Eye, ThumbsUp, User } from "lucide-react";

@@ -1,5 +1,5 @@
 /**
- * Shared recommendation-filter configuration and data contracts.
+ * Recommendation-filter settings and the hidden-card and subscription records that the content script, side panel, and background worker exchange through storage.
  */
 
 import { DEFAULTS, STORAGE_KEYS } from "./constants";

@@ -1,9 +1,5 @@
 /** Storage keys, defaults, message actions, and tuning values shared by every extension context. */
 
-// ============================================================================
-// Storage Keys
-// ============================================================================
-
 export const STORAGE_KEYS = {
   LLM_API_KEY: "llmApiKey",
   LLM_BASE_URL: "llmBaseUrl",
@@ -42,40 +38,24 @@ export const STORAGE_KEYS = {
   YOUTUBE_SUBSCRIPTIONS: "youtubeSubscriptions",
 } as const;
 
-// ============================================================================
-// API Configuration
-// ============================================================================
-
 export const API_ENDPOINTS = {
   LLM_DEFAULT_BASE_URL: "https://api.openai.com/v1",
 } as const;
-
-// ============================================================================
-// Timing Constants
-// ============================================================================
 
 export const TIMING = {
   AUTO_GENERATION_DELAY_MS: 2000,
   INIT_RETRY_DELAY_MS: 500,
   MAX_INIT_ATTEMPTS: 5,
   CONTENT_SCRIPT_INIT_DELAY_MS: 500,
-  TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000, // 2 minutes
+  TRANSCRIPT_CACHE_TTL_MS: 2 * 60 * 1000,
   AGENT_TIMEOUT_MS: 3 * 60 * 1000,
   PROCESSING_TIMEOUT_MS: 190_000, // Agent deadline plus message-delivery headroom.
   SCRAPING_TIMEOUT_MS: 120000, // 2 minutes
 } as const;
 
-// ============================================================================
-// UI Dimensions & Behavior
-// ============================================================================
-
-// ============================================================================
-// Storage & Limits
-// ============================================================================
-
 export const STORAGE = {
   QUOTA_BYTES: 10 * 1024 * 1024,
-  MAX_STORAGE_BYTES: 9.9 * 1024 * 1024, // 10 MB max
+  MAX_STORAGE_BYTES: 9.9 * 1024 * 1024,
   ESTIMATED_VIDEO_SIZE_BYTES: 30 * 1024,
   CLEANUP_BATCH_SIZE: 10,
 } as const;
@@ -84,15 +64,11 @@ export const STORAGE_CLEANUP = {
   MIN_VIDEOS_TO_KEEP: 5,
 } as const;
 
-// ============================================================================
-// Model Configuration
-// ============================================================================
-
 /** Reading sizes are percentages of the default, adjusted in ten-point steps. */
 export const FONT_SCALE = { MIN: 50, MAX: 200, STEP: 10, DEFAULT: 100 } as const;
 
 export const DEFAULTS = {
-  // Fallback models when the OpenRouter catalog is unavailable.
+  // Initial selections, and the fallback catalog when OpenRouter is unreachable.
   MODEL_SUMMARIZER: "google/gemini-3-flash",
   MODEL_REFINER: "google/gemini-2.5-flash-lite-preview-09-2025",
   AUTO_GENERATE: false,
@@ -119,10 +95,6 @@ export const DEFAULTS = {
   FILTER_KEYWORDS: ["spoiler", "clickbait", "sponsor"] as string[],
 } as const;
 
-// ============================================================================
-// YouTube & Subtitles
-// ============================================================================
-
 export const YOUTUBE = {
   VIDEO_ID_LENGTH: 11,
   SELECTORS: {
@@ -138,10 +110,6 @@ export const TARGET_LANGUAGES = [
   { value: "en", label: "English" },
   { value: "zh-TW", label: "Chinese" },
 ] as const;
-
-// ============================================================================
-// Messaging & Elements
-// ============================================================================
 
 export const MESSAGE_ACTIONS = {
   SCRAPE_VIDEO: "scrapeVideo",
@@ -163,10 +131,6 @@ export const ELEMENT_IDS = {
   SUBTITLE_CONTAINER: "youtube-gemini-subtitles-container",
   SUBTITLE_TEXT: "youtube-gemini-subtitles-text",
 } as const;
-
-// ============================================================================
-// Specialized Config
-// ============================================================================
 
 export const REFINER_CONFIG = {
   MAX_SEGMENTS_PER_CHUNK: 30,

@@ -1,3 +1,5 @@
+/** shadcn/ui toast parts over Radix Toast; use-toast owns which toasts exist and Toaster renders them. */
+
 import * as ToastPrimitives from "@radix-ui/react-toast";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";

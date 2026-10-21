@@ -10,15 +10,16 @@ interface VideoWorkloadLifecycleInput {
 
 export interface VideoWorkloadRun {
   effectiveRequestId: string;
+  /** Aborts when a workload with a different key begins for the video or its request is cancelled, the same moments isCurrent turns false. */
   signal: AbortSignal;
   isCurrent(): boolean;
+  /** The video's newest request ID, so a joined run's messages reach the view that asked most recently. */
   resolveRequestId(): string | undefined;
+  /** Joins an in-flight job with the same workload key instead of starting another. */
   runOrJoin(jobFactory: () => Promise<void>, onJoin?: () => void): Promise<"ran" | "joined">;
 }
 
-/**
- * Encapsulates all mutable lifecycle maps for one family of video workloads.
- */
+/** One instance per workload family, such as captions or summaries; each video has at most one current workload in it. */
 export class VideoWorkloadLifecycle {
   private readonly requestIds = new Map<string, string>();
   private readonly latestWorkloadKeys = new Map<string, string>();
@@ -26,16 +27,11 @@ export class VideoWorkloadLifecycle {
   private readonly controllers = new Map<string, AbortController>();
   private readonly maxEntries: number;
 
-  /**
-   * Creates lifecycle state with a cap for stale request bookkeeping.
-   */
   public constructor(maxEntries = 300) {
     this.maxEntries = maxEntries;
   }
 
-  /**
-   * Starts tracking one video workload and returns the run interface for it.
-   */
+  /** Aborts the video's previous workload when its key differs; the same key reuses one controller, so joined requests share cancellation. */
   public begin(input: VideoWorkloadLifecycleInput): VideoWorkloadRun {
     const { videoId, workloadKey } = input;
     const effectiveRequestId = input.requestId ? String(input.requestId) : "";
@@ -75,23 +71,14 @@ export class VideoWorkloadLifecycle {
     this.requestIds.delete(videoId);
   }
 
-  /**
-   * Checks whether a run still owns the latest workload slot for a video.
-   */
   private isCurrent(videoId: string, workloadKey: string): boolean {
     return this.latestWorkloadKeys.get(videoId) === workloadKey;
   }
 
-  /**
-   * Resolves the newest request id for a video, falling back to the run id.
-   */
   private resolveRequestId(videoId: string, fallbackRequestId: string): string | undefined {
     return this.requestIds.get(videoId) || fallbackRequestId || undefined;
   }
 
-  /**
-   * Runs a new workload or joins an equivalent pending workload.
-   */
   private async runOrJoin(
     videoId: string,
     requestId: string,
@@ -124,9 +111,6 @@ export class VideoWorkloadLifecycle {
     }
   }
 
-  /**
-   * Clears stale request and latest-work entries after a run completes or joins.
-   */
   private finalize(videoId: string, requestId: string): void {
     if (requestId && this.requestIds.get(videoId) === requestId) {
       this.requestIds.delete(videoId);
@@ -135,16 +119,10 @@ export class VideoWorkloadLifecycle {
     this.pruneLatestWorkloadKeys();
   }
 
-  /**
-   * Prunes old request entries when many videos have been touched.
-   */
   private pruneRequestIds(): void {
     this.pruneMapEntries(this.requestIds);
   }
 
-  /**
-   * Prunes latest-work entries only when they no longer have pending jobs.
-   */
   private pruneLatestWorkloadKeys(): void {
     this.pruneMapEntries(
       this.latestWorkloadKeys,
@@ -152,9 +130,6 @@ export class VideoWorkloadLifecycle {
     );
   }
 
-  /**
-   * Removes the oldest removable entries until the map fits the lifecycle cap.
-   */
   private pruneMapEntries<T>(
     map: Map<string, T>,
     canRemove: (key: string, value: T) => boolean = () => true,

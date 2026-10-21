@@ -1,3 +1,5 @@
+/** Maps the side panel's HSL theme variables from index.css onto Tailwind colors and radii; scanning streamdown's build keeps its Markdown classes in the CSS. */
+
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 

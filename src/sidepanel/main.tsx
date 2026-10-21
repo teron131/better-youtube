@@ -1,5 +1,5 @@
 /**
- * Application entry point and root rendering.
+ * Side-panel entry: mounts the React app into sidepanel.html's #root.
  */
 
 import { createRoot } from "react-dom/client";

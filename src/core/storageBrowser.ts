@@ -27,9 +27,6 @@ export const sessionArea = createStorageArea(
   () => sessionStorage,
 );
 
-/**
- * Low-level storage getter for everything
- */
 export async function storageGetAll(): Promise<Record<string, unknown>> {
   if (!isExtension) {
     const allItems: Record<string, unknown> = {};

@@ -2,9 +2,6 @@
 
 import { createYouTubeWatchUrl, getWatchVideoId } from "@/core/utils/url";
 
-/**
- * Get current YouTube video tab
- */
 export async function getCurrentVideoTab(): Promise<chrome.tabs.Tab | null> {
   if (typeof chrome === "undefined" || !chrome.tabs) {
     return null;

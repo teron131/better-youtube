@@ -1,5 +1,5 @@
 /**
- * Toast notification management hook with state synchronization.
+ * Module-level toast store shared by every `useToast` caller and the `toast()` function; the panel shows one toast at a time.
  */
 
 import type { ToastActionElement, ToastProps } from "@ui/components/ui/toast";

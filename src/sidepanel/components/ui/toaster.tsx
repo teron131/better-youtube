@@ -1,3 +1,5 @@
+/** Renders the use-toast store; App mounts it once beside the routes. */
+
 import {
   Toast,
   ToastClose,

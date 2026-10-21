@@ -1,6 +1,6 @@
 /**
- * Subtitle Renderer Module
- * Handles creation, display, and updates of subtitle elements on the YouTube video player.
+ * Overlays the extension's captions on the YouTube player, timing each update to the next caption boundary rather than a fixed polling interval.
+ * One overlay and one controller exist per page, held in module state.
  */
 
 import { ELEMENT_IDS, YOUTUBE } from "@/core/constants";
@@ -28,9 +28,6 @@ function getCurrentPageVideoId(): string | null {
   return cachedPageVideoId;
 }
 
-/**
- * Manages the DOM elements for subtitles (View)
- */
 class SubtitleView {
   private container: HTMLDivElement | null = null;
   private textElement: HTMLDivElement | null = null;
@@ -41,6 +38,7 @@ class SubtitleView {
     this.ensureElements();
   }
 
+  /** Reuses overlay elements already in the page, such as those left by a content script orphaned by an extension update, so the player never gets two overlays. */
   ensureElements(): void {
     const existingContainer = document.getElementById(
       ELEMENT_IDS.SUBTITLE_CONTAINER,
@@ -123,13 +121,11 @@ class SubtitleView {
   }
 }
 
-/**
- * Controller for managing subtitle display and playback synchronization
- */
 class SubtitleController {
   private syncTimeoutId: number | null = null;
   private videoPlayer: HTMLVideoElement;
   private subtitles: SubtitleSegment[] = [];
+  // Running maximum of endTime, so findSubtitleIndex can stop scanning back once no earlier caption can still be on screen.
   private maxEndTimeThroughIndex: number[] = [];
   private view: SubtitleView;
   private activeSubtitleIndex = -1;
@@ -341,9 +337,7 @@ class SubtitleController {
 let activeController: SubtitleController | null = null;
 let subtitleView: SubtitleView | null = null;
 
-/**
- * Find video elements on the YouTube page
- */
+/** Caches the player and its container in module state, which every later rendering call depends on. */
 export function findVideoElements(): boolean {
   videoPlayer = document.querySelector(YOUTUBE.SELECTORS.VIDEO_PLAYER);
   if (!videoPlayer) return false;
@@ -356,9 +350,6 @@ export function findVideoElements(): boolean {
   return !!videoContainer;
 }
 
-/**
- * Create subtitle elements and append them to the video container
- */
 export function createSubtitleElements(): void {
   if (!subtitleView) {
     subtitleView = new SubtitleView();
@@ -367,17 +358,12 @@ export function createSubtitleElements(): void {
   }
 }
 
-/**
- * Apply caption font size
- */
 export function applyCaptionFontSize(scale: number): void {
   if (!subtitleView) createSubtitleElements();
   subtitleView?.applyFontSize(scale);
 }
 
-/**
- * Start displaying subtitles
- */
+/** Updates the running controller in place for the same video; a different video restarts it. */
 export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoId: string): void {
   if (!videoPlayer) {
     console.warn("Cannot start subtitle display: Player missing.");
@@ -401,9 +387,6 @@ export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoI
   activeController.start();
 }
 
-/**
- * Stop displaying subtitles
- */
 export function stopSubtitleDisplay(): void {
   activeController?.stop();
   activeController = null;

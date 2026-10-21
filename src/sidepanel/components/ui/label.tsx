@@ -1,3 +1,5 @@
+/** shadcn/ui label over Radix Label; it dims when its `peer` control is disabled. */
+
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";

@@ -1,5 +1,6 @@
 /** Converts the retired structured storage format to Markdown once at the storage boundary. */
 
+/** Null means nothing readable remains, including for a blank string, so callers treat the summary as missing. */
 export function migrateSummaryText(value: unknown): string | null {
   if (typeof value === "string") return value.trim() ? value : null;
   if (!value || typeof value !== "object") return null;

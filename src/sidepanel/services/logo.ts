@@ -1,4 +1,4 @@
-/** Shared bundled provider-logo resolution helpers for model options. */
+/** Resolves a model option's logo, preferring logos bundled with the extension over Artificial Analysis URLs. */
 
 const ARTIFICIAL_ANALYSIS_LOGO_URL = "https://artificialanalysis.ai/img/logos";
 const BUNDLED_PROVIDER_LOGO_PATH = "provider-logos";
@@ -137,6 +137,7 @@ function providerLogoAsset(provider: string | null): string | null {
   return PROVIDER_LOGO_ASSET_BY_PROVIDER[provider] ?? null;
 }
 
+/** Returns "" when no bundled or explicit logo is available. */
 export function resolveModelLogo(options: {
   provider?: string | null;
   explicitLogo?: string | null;

@@ -81,9 +81,6 @@ function notifyCurrentVideoChanged(videoId: string | null, url: string): void {
     .catch(() => {});
 }
 
-/**
- * Manages the content script lifecycle and state
- */
 class ContentManager {
   public state: ContentScriptState = {
     currentSubtitles: [],
@@ -103,9 +100,6 @@ class ContentManager {
     this.scheduleUrlCheck = this.scheduleUrlCheck.bind(this);
   }
 
-  /**
-   * Initialize the content script
-   */
   public initialize(attempts = 0): void {
     if (!this.isUrlMonitoringStarted) {
       this.monitorUrlChanges();
@@ -125,9 +119,6 @@ class ContentManager {
     this.loadStoredSubtitles();
   }
 
-  /**
-   * Monitor URL changes on YouTube
-   */
   private monitorUrlChanges(): void {
     installHistoryChangeMonitoring();
     document.addEventListener("yt-navigate-finish", this.scheduleUrlCheck);
@@ -163,7 +154,7 @@ class ContentManager {
     const newVideoId = extractVideoId(newUrl);
     this.currentUrl = newUrl;
 
-    // Only trigger updates if the video ID actually changed
+    // Same-video URL changes, such as a `&t=` seek link, keep the current captions.
     if (oldVideoId !== newVideoId) {
       if (oldVideoId) clearAutoGenTrigger(oldVideoId);
       notifyCurrentVideoChanged(newVideoId, newUrl);
@@ -177,9 +168,7 @@ class ContentManager {
     this.initialize();
   }
 
-  /**
-   * Load subtitles from storage and initialize display
-   */
+  /** Shows the current video's stored captions, or schedules auto-generation when none are stored. */
   private loadStoredSubtitles(): void {
     if (!isExtensionContextValid()) return;
 
@@ -232,9 +221,7 @@ class ContentManager {
     clearRenderer();
   }
 
-  /**
-   * Check if auto-generation should be triggered
-   */
+  /** Schedules auto-generation when validateAutoGen allows it, and reports whether it did. */
   public async checkAndTriggerAutoGeneration(
     videoId: string,
     storageResult: Record<string, unknown>,
@@ -259,9 +246,6 @@ class ContentManager {
     return true;
   }
 
-  /**
-   * Trigger automatic processing: Scrape first, then refine
-   */
   private async triggerAutoGeneration(
     videoId: string,
     storageResult: Record<string, unknown>,
@@ -282,7 +266,6 @@ class ContentManager {
   }
 }
 
-// Start re-initialization
 (function start() {
   const manager = new ContentManager();
 
@@ -291,7 +274,7 @@ class ContentManager {
     startRecommendationFiltering();
   };
 
-  // Setup message listener exactly once
+  // Listeners register once per page; initialize() reruns on every navigation.
   setupMessageListener(manager.state, manager.checkAndTriggerAutoGeneration);
   setupVideoPlayback();
 

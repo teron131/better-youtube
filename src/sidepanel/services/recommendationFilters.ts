@@ -1,5 +1,5 @@
 /**
- * Sidepanel helpers for recommendation filtering settings and actions.
+ * Side-panel access to recommendation-filter settings, this session's hidden-card history, and subscription import.
  */
 
 import { MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
@@ -47,6 +47,7 @@ export async function getStoredSubscriptions(): Promise<StoredSubscriptions | nu
   return getStorageValue<StoredSubscriptions>(STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS);
 }
 
+/** Uses the active tab when it already shows YouTube's channels page; otherwise opens that page in a new tab and waits up to 30 seconds for it to load. */
 export async function extractSubscriptionsFromCurrentTab(): Promise<{
   count: number;
 }> {

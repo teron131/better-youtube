@@ -267,6 +267,7 @@ function checkLanguageFilter(videoData: VideoCardData, settings: FeedFilterSetti
   return { shouldFilter: false };
 }
 
+/** True when an enabled filter needs a field the card has not rendered yet, so the caller keeps the card visible and retries before judging it. */
 export function hasIncompleteMetadata(
   videoData: VideoCardData,
   settings: FeedFilterSettings,

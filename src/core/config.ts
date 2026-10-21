@@ -5,29 +5,21 @@ import { DEFAULTS, STORAGE_KEYS } from "./constants.ts";
 import { resolveStoredFontScale } from "./fontSize.ts";
 import { getStorageValues, removeStorageValue, setStorageValue } from "./storage.ts";
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type SummarizerProviderPreference = "auto" | "gemini" | "llm";
 
 export interface AppConfig {
-  // API Keys (nullable)
   llmApiKey: string | null;
   llmBaseUrl: string | null;
   llmModelPrefixMode: LlmModelPrefixMode;
   geminiApiKey: string | null;
 
-  // Routing
   summarizerProvider: SummarizerProviderPreference;
 
-  // Model selections
   summarizerModel: string;
   refinerModel: string;
   summarizerModelCostLimit: number;
   refinerModelCostLimit: number;
 
-  // UI preferences
   targetLanguage: string;
   autoGenerate: boolean;
   showSubtitles: boolean;
@@ -47,10 +39,6 @@ const MODEL_SELECTION_STORAGE_KEYS = [
 ] as const;
 const BATCH_MODEL_SUFFIX = ":batch";
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
 function normalizeKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -66,6 +54,7 @@ export function isBatchModelVariant(value: unknown): boolean {
   return model != null && hasBatchModelSuffix(model);
 }
 
+/** Trims the ID and maps a `:batch` catalog variant to its standard model: "a/b:batch" → "a/b"; blank → null. */
 export function normalizeModelSelection(value: unknown): string | null {
   const model = normalizeKey(value);
   if (!model || !hasBatchModelSuffix(model)) return model;
@@ -73,6 +62,7 @@ export function normalizeModelSelection(value: unknown): string | null {
 }
 
 function normalizeLlmModelPrefixMode(value: unknown): LlmModelPrefixMode {
+  // "custom" is the retired custom-prefix mode; its users now get bare model IDs.
   return value === "none" || value === "custom" ? "none" : "provider";
 }
 
@@ -95,9 +85,6 @@ function resolveModelCostLimit(value: unknown, defaultValue: number): number {
   return defaultValue;
 }
 
-/**
- * Resolve model from custom/recommended/default hierarchy
- */
 function resolveModel(
   customModel: string | null | undefined,
   recommendedModel: string | null | undefined,
@@ -139,13 +126,8 @@ function resolveStoredModelCostLimits(
   };
 }
 
-// ============================================================================
-// Config Loading
-// ============================================================================
-
 /**
- * Load all configuration from storage in a single batch operation
- * No caching - always fetches fresh values from storage
+ * Reads storage fresh on every call and writes migrations back: it strips `:batch` from saved model selections, deletes retired keys, and persists normalized reading scales.
  */
 export async function loadConfig(): Promise<AppConfig> {
   const retiredKeys = ["summarizerMode", "qualityModel"];

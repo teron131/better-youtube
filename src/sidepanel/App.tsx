@@ -1,5 +1,5 @@
 /**
- * Root application component with routing and global providers.
+ * Side-panel root: hash routing between the video workspace and Settings, plus the global tooltip and toast providers.
  */
 
 import { Toaster } from "@ui/components/ui/toaster";
@@ -34,7 +34,7 @@ function AppRoutes() {
     };
   }, []);
 
-  // Internal navigation hides the workspace; video navigation and panel closure still own cancellation.
+  // The workspace stays mounted once visited, so opening Settings hides it without cancelling its work; only video navigation or closing the panel cancels.
   return (
     <>
       {(visitedHome || path === "/") && (

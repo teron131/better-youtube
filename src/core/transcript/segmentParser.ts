@@ -1,14 +1,11 @@
 /**
- * Segment Parser Module
- * Advanced transcript segment alignment using dynamic programming
+ * Maps model-refined caption lines back onto the original timed segments, so a dropped, merged, or bloated line falls back to its source text instead of shifting every later caption.
  */
 
 import { SEGMENT_PARSER_CONFIG } from "@/core/constants";
 import type { SubtitleSegment } from "@/core/storage";
 
-/**
- * Compute character-level similarity ratio
- */
+/** Order-insensitive: counts the shorter string's characters that appear anywhere in the longer one, a cheap stand-in for edit similarity. */
 function computeCharSimilarity(a: string, b: string): number {
   const [longer, shorter] = a.length > b.length ? [a, b] : [b, a];
   if (!longer.length) return 1.0;
@@ -17,9 +14,7 @@ function computeCharSimilarity(a: string, b: string): number {
   return matches / longer.length;
 }
 
-/**
- * Compute token-level Jaccard similarity
- */
+/** Jaccard overlap of ASCII word tokens, so Chinese and other non-Latin lines score 0 and rely on character similarity. */
 function computeTokenSimilarity(a: string, b: string): number {
   const aTokens = new Set(a.toLowerCase().match(/[a-z0-9']+/gi) || []);
   const bTokens = new Set(b.toLowerCase().match(/[a-z0-9']+/gi) || []);
@@ -28,19 +23,12 @@ function computeTokenSimilarity(a: string, b: string): number {
   return union.size ? intersection.size / union.size : 0.0;
 }
 
-/**
- * Compute similarity between two text strings
- * Uses character-level (70%) and token-level (30%) similarity
- */
 function computeLineSimilarity(a: string, b: string): number {
   if (!a || !b) return 0.0;
   return 0.7 * computeCharSimilarity(a, b) + 0.3 * computeTokenSimilarity(a, b);
 }
 
-/**
- * Normalize line to extract text only (remove timestamps)
- * Handles format: [timestamp] text
- */
+/** Drops the timestamp prefix the refiner prompt adds and collapses whitespace: "[1:05]  hello   world" → "hello world". */
 function normalizeLineToText(line: string): string {
   const normalized = line.split(/\s+/).join(" ").trim();
   const timestampMatch = normalized.match(/^\[[^\]]+\]\s*(.*)$/);
@@ -59,7 +47,13 @@ function isSuspiciouslyLongRefinement(originalText: string, refinedText: string)
   return refinedLength > maxAllowedLength;
 }
 
-/** Align original segments to refined texts using dynamic programming */
+/**
+ * Returns one segment per original with that original's start time; only the text can come from the refinement.
+ * 1. Scores a global alignment: a pair ("M") earns its line similarity, and skipping an original ("O") or refined ("R") line costs GAP_PENALTY.
+ * 2. Backtracks into an original → refined mapping; originals left unmatched keep their own text.
+ * 3. Keeps the original text instead when a refinement balloons in length or, with applyTailGuard, changes length by more than LENGTH_TOLERANCE in the last TAIL_GUARD_SIZE segments.
+ * 4. Clamps each end time to the next start so captions never overlap.
+ */
 function dpAlignSegments(
   origSegments: SubtitleSegment[],
   refTexts: string[],
@@ -71,7 +65,6 @@ function dpAlignSegments(
 
   const { GAP_PENALTY, TAIL_GUARD_SIZE, LENGTH_TOLERANCE } = SEGMENT_PARSER_CONFIG;
 
-  // Initialize DP matrices
   const dp: number[][] = Array(nOrig + 1)
     .fill(null)
     .map(() => Array(nRef + 1).fill(-Infinity));
@@ -88,7 +81,6 @@ function dpAlignSegments(
     back[0][j] = "R";
   }
 
-  // Fill DP table
   for (let i = 1; i <= nOrig; i++) {
     const origText = origSegments[i - 1].text;
     for (let j = 1; j <= nRef; j++) {
@@ -110,7 +102,6 @@ function dpAlignSegments(
     }
   }
 
-  // Backtrack to find mapping
   const mapping: (number | null)[] = Array(nOrig).fill(null);
   let i = nOrig,
     j = nRef;
@@ -153,7 +144,6 @@ function dpAlignSegments(
     };
   });
 
-  // Ensure no overlaps in aligned segments by clamping to next segment's start
   for (let i = 0; i < aligned.length - 1; i++) {
     if (aligned[i].endTime > aligned[i + 1].startTime) {
       aligned[i].endTime = aligned[i + 1].startTime;
@@ -163,9 +153,7 @@ function dpAlignSegments(
   return aligned;
 }
 
-/**
- * Chunk segments into groups by count
- */
+/** Returns half-open [start, end) index ranges, not the segments themselves. */
 export function chunkSegmentsByCount(
   segments: SubtitleSegment[],
   maxPerChunk: number,
@@ -183,9 +171,7 @@ export function chunkSegmentsByCount(
   return ranges;
 }
 
-/**
- * Parse refined text with chunk sentinels
- */
+/** Aligns each sentinel-delimited block only against its own chunk, so one malformed chunk cannot shift captions in the others; a missing block keeps the original text. */
 function parseWithChunks(
   refinedText: string,
   originalSegments: SubtitleSegment[],
@@ -229,9 +215,6 @@ function parseWithChunks(
   return finalSegments;
 }
 
-/**
- * Parse refined text without sentinels
- */
 function parseGlobal(refinedText: string, originalSegments: SubtitleSegment[]): SubtitleSegment[] {
   const refinedTexts = refinedText
     .replace(/\r\n?/g, "\n")
@@ -250,9 +233,7 @@ function parseGlobal(refinedText: string, originalSegments: SubtitleSegment[]): 
   return dpAlignSegments(originalSegments, refinedTexts, false);
 }
 
-/**
- * Parse refined transcript back into segments with timestamps
- */
+/** Timing always comes from originalSegments; maxSegmentsPerChunk must match the chunking that produced the sentinel-joined text. */
 export function parseRefinedSegments(
   refinedText: string,
   originalSegments: SubtitleSegment[],

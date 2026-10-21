@@ -20,13 +20,6 @@ import type { VideoWorkloadLifecycle, VideoWorkloadRun } from "./workloads";
 
 type ProviderPref = AppConfig["summarizerProvider"];
 
-// ============================================================================
-// Storage Resolution Helpers
-// ============================================================================
-
-/**
- * Check if cached summary exists and is still valid for the current request
- */
 async function checkCachedSummary(
   videoId: string,
   modelUsed: string,
@@ -41,13 +34,6 @@ async function checkCachedSummary(
   return storedSummary;
 }
 
-// ============================================================================
-// Broadcasting Helpers
-// ============================================================================
-
-/**
- * Broadcast stored summary result to sidepanel
- */
 async function broadcastStoredSummary(
   videoId: string,
   storedSummary: StoredSummary,
@@ -67,9 +53,7 @@ async function broadcastStoredSummary(
   console.log(`Returned stored summary for video: ${videoId}`);
 }
 
-/**
- * Broadcast summary result to sidepanel and save to storage
- */
+/** Saves before broadcasting; a run aborted after the save keeps the stored summary but skips the broadcast. */
 async function broadcastSummaryResult(
   videoId: string,
   summary: string,
@@ -95,14 +79,10 @@ async function broadcastSummaryResult(
   console.log(`Summarization workflow completed for video: ${videoId}`);
 }
 
-// ============================================================================
-// Utility Helpers
-// ============================================================================
-
 function sendRuntimeMessage(payload: Record<string, unknown>): void {
   chrome.runtime.sendMessage(payload, () => {
     if (chrome.runtime.lastError) {
-      // Ignore when no listeners exist.
+      // Reading lastError silences Chrome's warning when no side panel is listening.
     }
   });
 }
@@ -132,10 +112,6 @@ function buildSummaryWorkloadKey(input: {
     `${input.forceRegenerate === true ? "force" : "normal"}:${transcriptFingerprint}`
   );
 }
-
-// ============================================================================
-// Main Handler
-// ============================================================================
 
 interface SummaryMessage extends ChromeMessage {
   videoId: string;
@@ -214,9 +190,6 @@ export async function handleGenerateSummary(
   );
 }
 
-/**
- * Runs one normalized summary generation job behind the lifecycle interface.
- */
 async function runSummaryJob(input: {
   videoId: string;
   msgTranscript: string | undefined;

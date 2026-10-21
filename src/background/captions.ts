@@ -1,4 +1,4 @@
-/** Runs caption extraction and refinement, publishing raw, priority, and final segments in order. */
+/** Runs caption extraction and AI refinement or English translation, publishing raw, priority, and final segments in order. */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
 import {
@@ -96,9 +96,6 @@ export async function handleFetchSubtitles(
   );
 }
 
-/**
- * Runs one caption generation job behind the lifecycle interface.
- */
 async function runCaptionJob(input: {
   videoId: string;
   tabId: number | undefined;

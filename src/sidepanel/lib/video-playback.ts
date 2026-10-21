@@ -87,6 +87,7 @@ export function connectVideoPlayback(
         }
       };
       const onDisconnect = () => {
+        // Reading lastError silences Chrome's warning for a tab that closed or navigated away.
         void chrome.runtime.lastError;
         if (port === connected) closePort();
       };

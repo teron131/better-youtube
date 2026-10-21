@@ -1,5 +1,5 @@
 /**
- * Metadata extraction helpers for YouTube recommendation cards.
+ * Reads a recommendation card's title, counts, duration, age, live state, and channel, preferring the renderer data YouTube attaches to the element and falling back to rendered text.
  */
 
 const HAN_CHARACTER_PATTERN = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g;
@@ -742,6 +742,7 @@ function getStructuredVideoData(videoElement: Element): ExtractedVideoData | nul
   return null;
 }
 
+/** Two Han characters mark text as Chinese even amid English; text with neither Han nor Latin letters, such as Japanese kana or Korean, is unknown. */
 function detectTextLanguage(text: string | null): TextLanguage {
   if (!text) {
     return "unknown";
@@ -766,6 +767,7 @@ function detectTextLanguage(text: string | null): TextLanguage {
   return "unknown";
 }
 
+/** Starts from renderer data and fills only still-missing fields from progressively broader card text, so a later source never overwrites an earlier one. */
 export function extractVideoData(videoElement: Element): VideoCardData {
   const structuredData = getStructuredVideoData(videoElement);
 

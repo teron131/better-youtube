@@ -227,7 +227,7 @@
 
     --radius: 0.5rem;
 
-    /* Summary font sizing (defaults align with M) */
+    /* Summary sizes at the 100% reading scale; lib/font-size.ts applies the saved scale on the root element. */
     --summary-font-size-base: 18px;
     --summary-font-size-h2: 26px;
     --summary-font-size-h3: 22px;
@@ -266,7 +266,7 @@
     --input: 0 0% 12%;
     --ring: 0 100% 40%;
 
-    /* Summary font sizing (defaults align with M) */
+    /* Summary sizes at the 100% reading scale. */
     --summary-font-size-base: 18px;
     --summary-font-size-h2: 26px;
     --summary-font-size-h3: 22px;

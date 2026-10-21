@@ -48,7 +48,7 @@ type SurgeIntelligenceIndexRow = {
   score: number;
 };
 
-/** Keep HTTP Link preload hints out of extension documents while preserving partial evidence and preview reads. */
+/** Fetches directly in the background worker and the preview, and only through the worker from extension pages; failed fetches yield empty lists instead of errors. */
 export async function fetchAggregateSources(): Promise<AggregateSources> {
   if (typeof document !== "undefined" && isChromeContextValid()) {
     try {
@@ -82,6 +82,7 @@ export async function fetchAggregateSources(): Promise<AggregateSources> {
   };
 }
 
+/** Finds each `"intelligenceIndex":` key in the decoded Next.js flight payload and keeps the nearest enclosing JSON object that parses and has an ID. */
 function parseArtificialAnalysisRows(pageHtml: string): JsonObject[] {
   const corpus = extractNextFlightCorpus(pageHtml);
   const rowsById = new Map<string, JsonObject>();
@@ -172,6 +173,7 @@ function parseValsIndexRows(pageHtml: string): ValsIndexRow[] {
   }
 }
 
+/** Astro serializes island props as tagged pairs, `[0, value]` for plain values and `[1, [...]]` for arrays: { score: [0, 91] } → { score: 91 }. */
 function reviveAstroValue(value: unknown): unknown {
   if (Array.isArray(value) && value.length === 2 && typeof value[0] === "number") {
     if (value[0] === 0) return reviveAstroValue(value[1]);

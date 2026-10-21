@@ -5,6 +5,7 @@ export interface ModelModalities {
   output: string[];
 }
 
+/** Prefers the explicit modality arrays and falls back to OpenRouter's combined string: "text+image->text" → { input: ["text", "image"], output: ["text"] }. */
 export function modelModalities(architecture?: {
   input_modalities?: unknown;
   output_modalities?: unknown;
