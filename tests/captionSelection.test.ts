@@ -5,6 +5,7 @@ import { beforeEach, test } from "node:test";
 
 import { VideoWorkloadLifecycle } from "../src/background/workloads.ts";
 import { MESSAGE_ACTIONS } from "../src/core/constants.ts";
+import type { CaptionRunHooks } from "../src/core/refiner/refiner.ts";
 import type { SubtitleSegment } from "../src/core/storage.ts";
 import type { CaptionTrack, TranscriptResponse } from "../src/core/types.ts";
 
@@ -30,7 +31,7 @@ let translateReply = async (segments: SubtitleSegment[]) =>
 let workloads: VideoWorkloadLifecycle;
 let refineReply: (
   segments: SubtitleSegment[],
-  partial: (segments: SubtitleSegment[]) => void,
+  hooks: CaptionRunHooks,
 ) => Promise<SubtitleSegment[]> = async (segments) =>
   segments.map((segment) => ({ ...segment, text: `Refined ${segment.text}` }));
 
@@ -111,10 +112,10 @@ Object.assign(globalThis, {
       _title: string,
       _description: string,
       _model: string,
-      partial: (segments: SubtitleSegment[]) => void,
+      hooks: CaptionRunHooks,
     ) => {
       refinedInputs.push(segments);
-      return refineReply(segments, partial);
+      return refineReply(segments, hooks);
     },
     translate: async (segments: SubtitleSegment[]) => {
       translatedInputs.push(segments);
@@ -252,8 +253,8 @@ test("background owns Traditional Chinese persistence and content display never 
   const selected = await select(".zh");
   assert.equal(selected.transcript, "漢語字幕");
   assert.equal((await getSubtitles(videoId))?.[0].text, "漢語字幕");
-  refineReply = async (segments, partial) => {
-    partial(segments.map((segment) => ({ ...segment, text: "正在处理" })));
+  refineReply = async (segments, { onPriorityComplete }) => {
+    onPriorityComplete(segments.map((segment) => ({ ...segment, text: "正在处理" })));
     return segments.map((segment) => ({ ...segment, text: "字幕已经修正" }));
   };
   await refine(".zh");
@@ -407,10 +408,10 @@ test("a superseded refinement cannot publish partials or replace a newly selecte
   const paused = new Promise<void>((resolve) => {
     release = resolve;
   });
-  refineReply = async (segments, partial) => {
+  refineReply = async (segments, { onPriorityComplete }) => {
     entered();
     await paused;
-    partial(segments.map((segment) => ({ ...segment, text: "Stale partial" })));
+    onPriorityComplete(segments.map((segment) => ({ ...segment, text: "Stale partial" })));
     return segments.map((segment) => ({ ...segment, text: "Stale final" }));
   };
   const pending = refine("a.en");
@@ -424,4 +425,27 @@ test("a superseded refinement cannot publish partials or replace a newly selecte
   assert.equal((await getCaptionState(videoId))?.status, "original");
   assert.equal((await getSubtitles(videoId))?.[0].text, "Raw .fr");
   assert.equal(notifications.length, 0);
+});
+
+test("refinement stores batch progress while running and drops it once refined", async () => {
+  await select("a.en");
+  let refiningState: unknown;
+  refineReply = async (segments, { onProgress }) => {
+    onProgress({ completedBatches: 1, totalBatches: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    refiningState = await getCaptionState(videoId);
+    return segments.map((segment) => ({ ...segment, text: "Refined" }));
+  };
+  await refine("a.en");
+  assert.deepEqual(refiningState, {
+    tracks,
+    selectedTrackId: "a.en",
+    status: "refining",
+    progress: { completedBatches: 1, totalBatches: 1 },
+  });
+  assert.deepEqual(await getCaptionState(videoId), {
+    tracks,
+    selectedTrackId: "a.en",
+    status: "refined",
+  });
 });

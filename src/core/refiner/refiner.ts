@@ -8,7 +8,7 @@ import { resolveLlmConnection } from "@/core/clients/config";
 import { createBrowserSafeOpenAiFetch, isBrowserRuntime } from "@/core/clients/transport";
 import { loadConfig } from "@/core/config";
 import { REFINER_CONFIG } from "@/core/constants";
-import type { SubtitleSegment } from "@/core/storage";
+import type { CaptionProgress, SubtitleSegment } from "@/core/storage";
 import { chunkSegmentsByCount, parseRefinedSegments } from "@/core/transcript/segmentParser";
 import { formatTimestamp } from "@/core/utils/date";
 
@@ -43,6 +43,14 @@ type RefinedTranscriptResponse = z.infer<typeof RefinedTranscriptSchema>;
 type RefinedTranscriptRawResponse = {
   parsed: RefinedTranscriptResponse | null;
 };
+
+export interface CaptionRunHooks {
+  /** Aborting stops in-flight model calls and rejects the run with the abort reason. */
+  signal?: AbortSignal;
+  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void;
+  /** Called after each batch settles, including batches that fell back to the original text. */
+  onProgress?: (progress: CaptionProgress) => void;
+}
 
 const MAX_BATCH_RETRIES = 3;
 // Label lines a model may add above its answer, such as "Transcript:" or "Corrected transcript".
@@ -98,21 +106,25 @@ function createFallbackResponse(originalChunk: SubtitleSegment[]): RefinedTransc
 /**
  * Starts items in input order with bounded concurrency and tries each up to MAX_BATCH_RETRIES times, backing off only after errors isTransientBatchError recognizes.
  * A fallback that throws rejects the whole batch instead of filling the item's slot.
+ * An aborted signal is not an item failure: it skips retries and fallbacks and rejects the whole batch.
  */
 async function runConcurrentBatch<T, R>(
   items: T[],
   concurrency: number,
   fn: (item: T, index: number) => Promise<R>,
   fallback: (item: T, index: number, error: unknown) => R,
-  onEachComplete?: (result: R, index: number, allResults: readonly (R | undefined)[]) => void,
+  onEachComplete: (result: R, index: number, allResults: readonly (R | undefined)[]) => void,
+  { signal, onProgress }: Pick<CaptionRunHooks, "signal" | "onProgress">,
 ): Promise<R[]> {
   const results = new Array<R | undefined>(items.length);
   let cursor = 0;
+  let completedBatches = 0;
 
   const workers = Array.from({
     length: Math.min(concurrency, items.length),
   }).map(async () => {
     while (cursor < items.length) {
+      signal?.throwIfAborted();
       const index = cursor++;
       const item = items[index];
       let lastError: unknown = null;
@@ -122,10 +134,11 @@ async function runConcurrentBatch<T, R>(
         try {
           const result = await fn(item, index);
           results[index] = result;
-          onEachComplete?.(result, index, results);
+          onEachComplete(result, index, results);
           success = true;
           break;
         } catch (error) {
+          signal?.throwIfAborted();
           lastError = error;
           if (isTransientBatchError(error) && attempt < MAX_BATCH_RETRIES - 1) {
             await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
@@ -140,8 +153,9 @@ async function runConcurrentBatch<T, R>(
         );
         const fallbackResult = fallback(item, index, lastError);
         results[index] = fallbackResult;
-        onEachComplete?.(fallbackResult, index, results);
+        onEachComplete(fallbackResult, index, results);
       }
+      onProgress?.({ completedBatches: ++completedBatches, totalBatches: items.length });
     }
   });
 
@@ -278,7 +292,7 @@ export async function refineTranscriptWithLLM(
   title: string,
   description: string,
   model: string,
-  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
+  { signal, onPriorityComplete, onProgress }: CaptionRunHooks = {},
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
@@ -318,11 +332,14 @@ export async function refineTranscriptWithLLM(
     batchMessages,
     REFINER_CONFIG.CONCURRENCY_LIMIT,
     async (messages, idx) => {
-      const response = (await structuredLlm.invoke(messages)) as RefinedTranscriptRawResponse;
+      const response = (await structuredLlm.invoke(messages, {
+        signal,
+      })) as RefinedTranscriptRawResponse;
       return response.parsed ?? createFallbackResponse(chunks[idx].segments);
     },
     (_messages, idx) => createFallbackResponse(chunks[idx].segments),
     priorityHandler,
+    { signal, onProgress },
   );
 
   return parseChunkResponses(chunks, responses, segments);
@@ -388,7 +405,7 @@ export async function translateTranscriptWithLLM(
   title: string,
   description: string,
   model: string,
-  onPriorityComplete?: (prioritySegments: SubtitleSegment[]) => void,
+  { signal, onPriorityComplete, onProgress }: CaptionRunHooks = {},
 ): Promise<SubtitleSegment[]> {
   if (!segments.length) return [];
 
@@ -413,24 +430,27 @@ export async function translateTranscriptWithLLM(
         includeRaw: true,
       });
       const precedingStart = Math.max(0, chunk.start - 2);
-      const response = (await structuredLlm.invoke([
-        new SystemMessage({ content: ENGLISH_TRANSLATION_PROMPT }),
-        new HumanMessage({
-          content: JSON.stringify({
-            title,
-            description,
-            segments: keyedTranslationSources(chunk.segments, chunk.start),
-            precedingContext: keyedTranslationSources(
-              segments.slice(precedingStart, chunk.start),
-              precedingStart,
-            ),
-            followingContext: keyedTranslationSources(
-              segments.slice(chunk.end, chunk.end + 2),
-              chunk.end,
-            ),
+      const response = (await structuredLlm.invoke(
+        [
+          new SystemMessage({ content: ENGLISH_TRANSLATION_PROMPT }),
+          new HumanMessage({
+            content: JSON.stringify({
+              title,
+              description,
+              segments: keyedTranslationSources(chunk.segments, chunk.start),
+              precedingContext: keyedTranslationSources(
+                segments.slice(precedingStart, chunk.start),
+                precedingStart,
+              ),
+              followingContext: keyedTranslationSources(
+                segments.slice(chunk.end, chunk.end + 2),
+                chunk.end,
+              ),
+            }),
           }),
-        }),
-      ])) as { parsed: unknown };
+        ],
+        { signal },
+      )) as { parsed: unknown };
       return validateTranslatedChunk(response.parsed, chunk.segments, chunk.start, schema);
     },
     (_chunk, index, error) => {
@@ -448,6 +468,7 @@ export async function translateTranscriptWithLLM(
       priorityReported = true;
       onPriorityComplete((priorityResults as SubtitleSegment[][]).flat().slice(0, splitIndex));
     },
+    { signal, onProgress },
   );
   return responses.flat();
 }

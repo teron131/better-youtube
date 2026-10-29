@@ -25,7 +25,14 @@ export interface CaptionState {
   status: "original" | "refining" | "refined" | "error";
   /** This source needs AI translation; only a refined result contains completed English captions. */
   translationRequired?: boolean;
+  /** Present only while a run is refining, once its batches are known. */
+  progress?: CaptionProgress;
   error?: string;
+}
+
+export interface CaptionProgress {
+  completedBatches: number;
+  totalBatches: number;
 }
 
 export interface VideoMetadata {

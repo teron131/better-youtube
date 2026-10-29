@@ -1,5 +1,6 @@
 /**
  * Displays, searches, and copies the selected caption track, with explicit confirmation before refinement.
+ * Choosing another track while a run is refining cancels that run in the background.
  */
 
 import { Button } from "@ui/components/ui/button";
@@ -75,13 +76,18 @@ export const TranscriptPanel = ({
   const isTranslation = captionState?.translationRequired === true;
   const translationPending = isTranslation && captionState?.status !== "refined";
   const isBusy = isCaptionTrackLoading || isRefining;
+  const progress = captionState?.progress;
+  const progressPercent = progress
+    ? Math.round((progress.completedBatches / progress.totalBatches) * 100)
+    : null;
   const selectedTrackLabel = selectedTrack ? captionTrackLabel(selectedTrack) : "Selected captions";
+  const refiningLabel = isTranslation ? "Translating captions" : "Refining captions";
   const captionActionLabel = isCaptionTrackLoading
     ? "Loading captions"
     : isRefining
-      ? isTranslation
-        ? "Translating captions"
-        : "Refining captions"
+      ? progressPercent === null
+        ? refiningLabel
+        : `${refiningLabel} ${progressPercent}%`
       : isConfirmingRefinement
         ? `Confirm ${isTranslation ? "translation" : "refinement"} of ${selectedTrackLabel}`
         : isTranslation
@@ -261,7 +267,7 @@ export const TranscriptPanel = ({
                   <Select
                     value={selectedCaptionTrackId}
                     onValueChange={(trackId) => void changeCaptionTrack(trackId)}
-                    disabled={isBusy}
+                    disabled={isCaptionTrackLoading}
                   >
                     <SelectTrigger
                       aria-label="Caption track"
@@ -329,11 +335,38 @@ export const TranscriptPanel = ({
                 {captionState.error}
               </p>
             )}
-            {translationPending && (
+            {isRefining && (
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+                  <span className="min-w-0 truncate">
+                    {progress
+                      ? `${refiningLabel} · ${progress.completedBatches} of ${progress.totalBatches} batches`
+                      : `${refiningLabel}…`}
+                  </span>
+                  {progressPercent !== null && (
+                    <span className="shrink-0 font-mono tabular-nums text-foreground">
+                      {progressPercent}%
+                    </span>
+                  )}
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label={refiningLabel}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPercent ?? undefined}
+                  className="h-1 overflow-hidden rounded-full bg-muted"
+                >
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
+                    style={{ width: `${progressPercent ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {translationPending && !isRefining && (
               <p role="status" className="text-xs text-muted-foreground">
-                {isRefining
-                  ? "Translating captions into English…"
-                  : "YouTube translation is unavailable. Use the translate icon to translate with AI."}
+                YouTube translation is unavailable. Use the translate icon to translate with AI.
               </p>
             )}
             <div className="flex flex-wrap gap-2 items-center">

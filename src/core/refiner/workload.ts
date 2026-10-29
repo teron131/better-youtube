@@ -1,4 +1,4 @@
-/** Sizes a caption job for workload logs before any model call, using the refiner's own chunk size. */
+/** Sizes a caption job before any model call, using the refiner's own chunk size so the initial progress total matches the batches it runs. */
 
 import { REFINER_CONFIG } from "../constants.ts";
 import type { SubtitleSegment } from "../storage.ts";

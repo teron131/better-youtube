@@ -7,6 +7,7 @@ import {
   translateTranscriptWithLLM,
 } from "@/core/refiner";
 import {
+  type CaptionProgress,
   type CaptionState,
   getCaptionState,
   saveCaptionState,
@@ -117,6 +118,8 @@ async function runCaptionJob(input: {
     run,
   } = input;
   let captionState: CaptionState | null = null;
+  // Progress saves run one at a time and are awaited before any final save, so a late one can never overwrite the finished or failed state.
+  let progressSaves = Promise.resolve();
   const sendSubtitlesToTab = (subtitles: unknown[], extraPayload: Record<string, unknown> = {}) => {
     if (!tabId || !run.isCurrent()) {
       return;
@@ -187,7 +190,12 @@ async function runCaptionJob(input: {
     });
     if (!run.isCurrent()) return;
     const initialSegments = data.translationRequired ? [] : toTraditionalChinese(segments);
-    await saveCaptionState(videoId, captionState, initialSegments, run.signal);
+    await saveCaptionState(
+      videoId,
+      { ...captionState, progress: { completedBatches: 0, totalBatches: workload.chunkCount } },
+      initialSegments,
+      run.signal,
+    );
     sendSubtitlesToTab(initialSegments, {
       isRawFallback: true,
     });
@@ -200,13 +208,20 @@ async function runCaptionJob(input: {
     const processCaptions = data.translationRequired
       ? translateTranscriptWithLLM
       : refineTranscriptWithLLM;
+    const refiningState = captionState;
+    const saveProgress = (progress: CaptionProgress) => {
+      progressSaves = progressSaves
+        .then(() =>
+          saveCaptionState(videoId, { ...refiningState, progress }, undefined, run.signal),
+        )
+        .catch((error) => {
+          if (!run.signal.aborted) console.warn("[refine] progress save failed", error);
+        });
+    };
     const refinedSegments = toTraditionalChinese(
-      await processCaptions(
-        segments,
-        data.title,
-        data.description,
-        String(modelSelection),
-        (prioritySegments) => {
+      await processCaptions(segments, data.title, data.description, String(modelSelection), {
+        signal: run.signal,
+        onPriorityComplete: (prioritySegments) => {
           console.log("[refine] partial emitted", {
             videoId,
             requestId: run.effectiveRequestId,
@@ -214,9 +229,11 @@ async function runCaptionJob(input: {
           });
           sendSubtitlesToTab(toTraditionalChinese(prioritySegments), { isPartial: true });
         },
-      ),
+        onProgress: saveProgress,
+      }),
     );
 
+    await progressSaves;
     if (!run.isCurrent()) return;
     await saveCaptionState(
       videoId,
@@ -231,6 +248,7 @@ async function runCaptionJob(input: {
     });
     sendSubtitlesToTab(refinedSegments);
   } catch (error) {
+    await progressSaves;
     if (!run.isCurrent()) return;
     console.error("Refinement error:", error);
     const message = error instanceof Error ? error.message : "Caption refinement failed.";
