@@ -14,14 +14,14 @@ type TranslationInput = {
 const requests: TranslationInput[] = [];
 let reply: (input: TranslationInput) => Promise<unknown>;
 let correctionCalls = 0;
-let correctionReply: () => Promise<unknown>;
+let correctionReply: (signal?: AbortSignal) => Promise<unknown>;
 
 Object.assign(globalThis, {
   translationTestBoundary: {
-    invoke: async (messages: Array<{ content: string }>) => {
+    invoke: async (messages: Array<{ content: string }>, config?: { signal?: AbortSignal }) => {
       if (messages[0].content.startsWith("Correct the segments")) {
         correctionCalls++;
-        return correctionReply();
+        return correctionReply(config?.signal);
       }
       assert.match(messages[0].content, /Translate.*English/);
       const input = JSON.parse(messages[1].content) as TranslationInput;
@@ -118,6 +118,35 @@ test("correction retries a 401 immediately instead of backing off", async () => 
   assert.equal(segment.text, "hello world");
 });
 
+test("an aborted correction rejects without retrying or keeping original text, after reporting settled batches", async () => {
+  const controller = new AbortController();
+  const progress: Array<{ completedBatches: number; totalBatches: number }> = [];
+  correctionReply = (signal) =>
+    correctionCalls === 1
+      ? Promise.resolve({ parsed: { transcript: "fixed" } })
+      : new Promise((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason));
+        });
+  await assert.rejects(
+    refineTranscriptWithLLM(
+      sourceSegments(REFINER_CONFIG.MAX_SEGMENTS_PER_CHUNK + 1),
+      "",
+      "",
+      "test-model",
+      {
+        signal: controller.signal,
+        onProgress: (update) => {
+          progress.push(update);
+          controller.abort();
+        },
+      },
+    ),
+    { name: "AbortError" },
+  );
+  assert.deepEqual(progress, [{ completedBatches: 1, totalBatches: 2 }]);
+  assert.equal(correctionCalls, 2);
+});
+
 function englishTranslations(input: TranslationInput) {
   return {
     translations: Object.fromEntries(
@@ -183,9 +212,11 @@ test("concurrent batches retain global indexes and wait for all opening batches 
     return englishTranslations(input);
   };
   const partials: SubtitleSegment[][] = [];
-  const output = await translateTranscriptWithLLM(source, "", "", "test-model", (partial) => {
-    assert.ok(completed.includes(0));
-    partials.push(partial);
+  const output = await translateTranscriptWithLLM(source, "", "", "test-model", {
+    onPriorityComplete: (partial) => {
+      assert.ok(completed.includes(0));
+      partials.push(partial);
+    },
   });
   assert.notEqual(completed[0], 0);
   assert.equal(partials.length, 1);
