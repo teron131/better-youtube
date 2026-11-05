@@ -366,7 +366,6 @@ export function applyCaptionFontSize(scale: number): void {
 /** Updates the running controller in place for the same video; a different video restarts it. */
 export function startSubtitleDisplay(currentSubtitles: SubtitleSegment[], videoId: string): void {
   if (!videoPlayer) {
-    console.warn("Cannot start subtitle display: Player missing.");
     return;
   }
 

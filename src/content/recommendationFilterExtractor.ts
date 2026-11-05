@@ -96,7 +96,7 @@ export interface VideoCardData {
 }
 
 export const VIDEO_CARD_SELECTOR =
-  "ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model";
+  "ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model:not(ytd-rich-item-renderer yt-lockup-view-model)";
 
 export function normalizeText(text: unknown): string | null {
   if (typeof text !== "string") {
@@ -718,11 +718,15 @@ function fillChannelInfoFromLink(videoElement: Element, videoData: ExtractedVide
 }
 
 function fillLockupChannelNameFromText(videoElement: Element, videoData: ExtractedVideoData) {
-  if (videoData.channelName || videoElement.tagName !== "YT-LOCKUP-VIEW-MODEL") {
+  if (videoData.channelName) {
     return;
   }
 
-  const lines = ((videoElement as HTMLElement).innerText || "")
+  const lockup =
+    videoElement.tagName === "YT-LOCKUP-VIEW-MODEL"
+      ? videoElement
+      : videoElement.querySelector("yt-lockup-view-model");
+  const lines = ((lockup as HTMLElement | null)?.innerText || "")
     .split("\n")
     .map((line) => normalizeText(line))
     .filter((line): line is string => Boolean(line));

@@ -233,7 +233,7 @@ function isYouTubePremiumPromoSection(sectionElement: Element): boolean {
   const sectionText = normalizeText(sectionElement.textContent)?.toLowerCase();
   return Boolean(
     sectionText?.includes("youtube featured") &&
-    (sectionText.includes("youtube premium") || sectionText.includes("try 1 month")),
+    (sectionText.includes("premium") || sectionText.includes("try 1 month")),
   );
 }
 
@@ -302,9 +302,7 @@ class FeedFilterController {
     resetProcessedVideoCards();
 
     if (!shouldSkipFilteringForPage()) {
-      window.setTimeout(() => {
-        this.runAllFiltersSafely(true, "initial load");
-      }, 1000);
+      this.runAllFiltersSafely(true, "initial load");
       this.scheduleSettlingRescans("initial load");
     }
 
@@ -565,13 +563,6 @@ class FeedFilterController {
       markVideoCardProcessed(videoElement);
     }
 
-    if (filteredEntries.length > 0) {
-      await Promise.all([
-        this.appendFilteredVideos(filteredEntries),
-        this.persistRecordedFilterKeys(),
-      ]);
-    }
-
     updateRecommendationSectionVisibility();
 
     this.metadataRetryVideoCards = nextMetadataRetryVideoCards;
@@ -589,6 +580,13 @@ class FeedFilterController {
         }
         this.runAllFiltersSafely(false, "metadata retry", retryVideoCards);
       }, METADATA_RETRY_DELAY_MS);
+    }
+
+    if (filteredEntries.length > 0) {
+      await Promise.all([
+        this.appendFilteredVideos(filteredEntries),
+        this.persistRecordedFilterKeys(),
+      ]);
     }
   }
 
@@ -629,21 +627,17 @@ class FeedFilterController {
       queuedAny = this.queueVideoCardsFromNode(node) || queuedAny;
     }
 
-    if (mutation.type === "attributes" || mutation.type === "characterData") {
-      const videoCard = getContainingVideoCard(mutation.target);
-      if (videoCard) {
-        this.queueVideoCard(videoCard);
-        queuedAny = true;
-      }
+    const videoCard = getContainingVideoCard(mutation.target);
+    if (videoCard) {
+      this.queueVideoCard(videoCard);
+      queuedAny = true;
     }
 
     return queuedAny;
   }
 
   private scheduleQueuedCardFiltering(action: string): void {
-    if (this.filterTimeout) {
-      window.clearTimeout(this.filterTimeout);
-    }
+    if (this.filterTimeout !== null) return;
 
     this.filterTimeout = window.setTimeout(() => {
       this.filterTimeout = null;
@@ -655,7 +649,7 @@ class FeedFilterController {
       }
 
       this.runAllFiltersSafely(false, action, pendingVideoCards);
-    }, 800);
+    }, 100);
   }
 
   /** Discards queued and processed card state so every visible card is judged by the new rules. */
