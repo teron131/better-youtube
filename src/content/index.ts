@@ -29,7 +29,7 @@ import {
   findVideoElements,
   startSubtitleDisplay,
 } from "./subtitleRenderer";
-import { executeScrapeForAutoGen, isCurrentVideo, validateLoadContext } from "./videoHelpers";
+import { isCurrentVideo, scrapeVideoCaptions, validateLoadContext } from "./videoHelpers";
 import { setupVideoPlayback } from "./videoPlayback";
 
 const CAPTION_BOOTSTRAP_STORAGE_KEYS = [
@@ -168,7 +168,7 @@ class ContentManager {
     this.initialize();
   }
 
-  /** Shows the current video's stored captions, or schedules auto-generation when none are stored. */
+  /** Loads original captions when needed, with AI refinement only when auto-generation is eligible. */
   private loadStoredSubtitles(): void {
     if (!isExtensionContextValid()) return;
 
@@ -209,7 +209,16 @@ class ContentManager {
         if (this.state.showSubtitlesEnabled)
           startSubtitleDisplay(this.state.currentSubtitles, videoId);
       } else {
-        this.checkAndTriggerAutoGeneration(videoId, result, true, true);
+        void this.checkAndTriggerAutoGeneration(videoId, result, true, true).then((scheduled) => {
+          if (
+            !scheduled &&
+            this.state.showSubtitlesEnabled &&
+            isCurrentVideo(videoId) &&
+            this.state.currentVideoId === videoId
+          ) {
+            void scrapeVideoCaptions(videoId);
+          }
+        });
       }
     });
   }
@@ -253,7 +262,7 @@ class ContentManager {
     this.clearSubtitles();
     this.state.currentVideoId = videoId;
 
-    if (await executeScrapeForAutoGen(videoId)) {
+    if (await scrapeVideoCaptions(videoId)) {
       if (storageResult[STORAGE_KEYS.SHOW_SUBTITLES] !== false) {
         const refinerModel = (await loadConfig()).refinerModel;
         const requestId = createRequestId("caption");

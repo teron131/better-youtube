@@ -49,6 +49,7 @@ The extension tries YouTube translation first where supported; if it is unavaila
 Source text awaiting AI translation is not displayed or copied as completed English captions.
 The existing default priority is English auto-generated, English manual, other auto-generated languages, then other manual languages.
 Choosing a track loads it for the overlay, transcript search, and both copy actions without starting refinement.
+When captions are enabled, the watch page also attempts to load the original captions without opening the side panel.
 Choosing an English option that needs AI translation prepares the source without calling the caption model until confirmation.
 Standalone fetchers can run into anti-bot checks, while Gemini's direct YouTube support has been unreliable on long videos in our testing.
 

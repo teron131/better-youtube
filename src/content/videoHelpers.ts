@@ -1,18 +1,16 @@
-/** Watch-page checks and the scrape request that auto-generation must pass before refining captions. */
+/** Watch-page checks and caption scraping for display and automatic refinement. */
 
-import { MESSAGE_ACTIONS } from "@/core/constants";
+import { MESSAGE_ACTIONS, TIMING } from "@/core/constants";
 import { createRequestId } from "@/core/requestId";
 import { sendChromeMessage } from "@/core/utils/chrome";
 import { extractVideoId } from "@/core/utils/url";
 
-type AutoGenScrapeResponse = {
+type ScrapeResponse = {
   status: string;
-  message?: string;
 };
 
-const AUTO_GEN_SCRAPE_FALLBACK: AutoGenScrapeResponse = {
+const SCRAPE_FALLBACK: ScrapeResponse = {
   status: "skipped",
-  message: "Request failed",
 };
 
 export function isCurrentVideo(videoId: string): boolean {
@@ -32,18 +30,15 @@ export function validateLoadContext(): { isValid: boolean; videoId?: string } {
   return { isValid: true, videoId };
 }
 
-export async function executeScrapeForAutoGen(videoId: string): Promise<boolean> {
-  console.log(`[Auto-gen] Step 1: Scraping video data for ${videoId}...`);
-  const result = await sendChromeMessage<AutoGenScrapeResponse>({
-    action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
-    videoId,
-    requestId: createRequestId("scrape"),
-    suppressErrors: true,
-  }).catch(() => AUTO_GEN_SCRAPE_FALLBACK);
-  if (result.status !== "success") {
-    console.log(`[Auto-gen] Scrape skipped for ${videoId}; stopping auto-caption generation.`);
-    return false;
-  }
-  console.log(`[Auto-gen] Step 2: Scrape complete. Starting refine + summarize...`);
-  return true;
+export async function scrapeVideoCaptions(videoId: string): Promise<boolean> {
+  const result = await sendChromeMessage<ScrapeResponse>(
+    {
+      action: MESSAGE_ACTIONS.SCRAPE_VIDEO,
+      videoId,
+      requestId: createRequestId("scrape"),
+      suppressErrors: true,
+    },
+    TIMING.SCRAPING_TIMEOUT_MS,
+  ).catch(() => SCRAPE_FALLBACK);
+  return result.status === "success";
 }
