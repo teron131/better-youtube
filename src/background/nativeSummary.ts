@@ -5,6 +5,7 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { SummaryTextSchema } from "../core/agent/artifact.ts";
 import { SKILLS } from "../core/agent/skills.ts";
 import type { AppConfig } from "../core/config.ts";
+import { describeLanguage } from "../core/language.ts";
 
 type GeminiInput =
   | {
@@ -57,16 +58,10 @@ export async function summarizeGemini(
 
 /** Keeps native video input's visual grounding rules separate from transcript-only agent instructions. */
 function summaryPrompt(targetLanguage: string, kind: GeminiInput["kind"]): string {
-  const languages: Record<string, string> = {
-    auto: "Use the same language as the transcript, or English if the transcript language is unclear",
-    en: "English (US)",
-    "zh-TW": "Traditional Chinese (繁體中文)",
-  };
-  const language = languages[targetLanguage] || targetLanguage;
   const instruction =
     targetLanguage === "auto"
-      ? language
-      : `Write ALL output in ${language}. Do not use English or any other language.`;
+      ? "Use the same language as the transcript, or English if the transcript language is unclear"
+      : `Write ALL output in ${describeLanguage(targetLanguage)}. Do not use English or any other language.`;
   const sourceRule =
     kind === "youtube_url"
       ? "You are given the full video. Use BOTH spoken content and visuals (on-screen text/slides/charts/code/UI). Do not invent details that are not clearly supported by what you can see/hear."

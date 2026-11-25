@@ -108,25 +108,28 @@ flowchart TD
     SAVE --> DISPLAY
 ```
 
-### Caption Refinement
+### Caption Rewriting
 
 The transcript keeps each caption's timestamp in a separate column and highlights the current video caption.
 Drag the vertical rail or use its arrow keys to browse without seeking; click a timestamp to seek the active video without changing its paused or playing state.
 Search and copying use the caption text, and live playback tracking stops when the transcript is closed.
-Caption refinement runs independently of the agent and processes transcript chunks concurrently.
-Click the wand icon, then **Confirm** beside the selected track to run the caption model on that source alone.
-AI English translation requires a result for each source segment and retains the original timestamps; failed batches report an error rather than substituting untranslated source text.
+Caption rewriting runs independently of the agent and processes batches of 20 caption lines concurrently.
+Each request numbers its lines with IDs such as `[LINE3]`, shows four neighbouring lines on each side as context, and lists the names the transcript repeats so the model spells them consistently; each reply line comes back under its ID and keeps that line's timestamps.
+A reply that leaves out an ID is read as the model merging that line into its neighbour, so the merged caption spans both lines' times; a cleanup keeps the original line wherever the reply is too unlike it to be a correction.
+Rewriting runs the caption model over the selected track with one of three options: **Refine in the same language** fixes typos, punctuation, and filler; **Translate to English** uses the model instead of YouTube's own translation; and **Translate to…** takes any language you type, such as `Japanese`, which reaches the model as written.
+Click the wand icon beside the selected track, choose the option, then **Rewrite**; the option starts as a translation into the **Target language** setting when that differs from the track's language, and as **Refine** otherwise.
+A translation batch that returns nothing after three attempts fails the run rather than substituting untranslated source text.
 These checks enforce output structure; wording and faithful alignment with the source still depend on the selected caption model.
 The separate **Auto-generate captions** setting remains opt-in and uses the saved track selection when available.
 Generating a summary does not start caption refinement unless automatic generation is enabled.
 
 ```mermaid
 flowchart LR
-    accTitle: Independent caption refinement pipeline
-    accDescr: Captions are extracted or reused, saved as a raw fallback, then refined in concurrent LangChain batches with priority and final updates.
+    accTitle: Independent caption rewrite pipeline
+    accDescr: Captions are extracted or reused, saved as a raw fallback, then refined or translated in concurrent batches of numbered lines with priority and final updates.
     REQUEST["Caption request"] --> SOURCE["Extract or reuse transcript"]
     SOURCE --> RAW["Save and display raw captions"]
-    RAW --> REFINE["Concurrent LangChain refinement"]
+    RAW --> REFINE["Numbered-line batches: refine or translate"]
     REFINE --> PARTIAL["Display priority updates"]
     REFINE --> FINAL["Save and display final captions"]
 ```

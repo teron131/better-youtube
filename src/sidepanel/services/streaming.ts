@@ -212,11 +212,19 @@ function triggerRefinement(videoId: string, requestId: RequestId, refinerModel: 
   );
 }
 
+interface CaptionGenerationOptions {
+  forceRegenerate?: boolean;
+  captionTrackId?: string;
+  confirmTranslation?: boolean;
+  /** The language to translate into; absent or null refines in the captions' own language. */
+  rewriteLanguage?: string | null;
+}
+
 async function requestCaptionGeneration(
   videoId: string,
   requestId: RequestId,
   refinerModel: string,
-  options?: { forceRegenerate?: boolean; captionTrackId?: string; confirmTranslation?: boolean },
+  options?: CaptionGenerationOptions,
 ) {
   const activeTab = await getCurrentTab();
   const activeTabId = activeTab?.id;
@@ -233,12 +241,13 @@ async function requestCaptionGeneration(
     forceRegenerate: options?.forceRegenerate,
     captionTrackId: options?.captionTrackId,
     confirmTranslation: options?.confirmTranslation,
+    rewriteLanguage: options?.rewriteLanguage,
   });
 }
 
 export async function triggerCaptionGeneration(
   url: string,
-  options?: { forceRegenerate?: boolean; captionTrackId?: string; confirmTranslation?: boolean },
+  options?: CaptionGenerationOptions,
 ): Promise<void> {
   const videoId = extractVideoId(url);
   if (!videoId) throw new Error("Invalid YouTube URL");

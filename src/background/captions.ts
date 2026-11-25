@@ -1,11 +1,7 @@
-/** Runs caption extraction and AI refinement or English translation, publishing raw, priority, and final segments in order. */
+/** Runs caption extraction and an AI rewrite, refining or translating into the requested language, publishing raw, priority, and final segments in order. */
 
 import { MESSAGE_ACTIONS } from "@/core/constants";
-import {
-  getRefinerWorkloadStats,
-  refineTranscriptWithLLM,
-  translateTranscriptWithLLM,
-} from "@/core/refiner";
+import { getRefinerWorkloadStats, rewriteCaptions } from "@/core/refiner";
 import {
   type CaptionProgress,
   type CaptionState,
@@ -55,7 +51,10 @@ export async function handleFetchSubtitles(
     return;
   }
 
-  const workloadKey = `${videoId}:${captionTrackId || "default"}:${translationConfirmed ? "translate" : "refine"}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
+  // Absent means refine; a source awaiting AI translation is always translated into English.
+  const rewriteLanguage =
+    typeof message.rewriteLanguage === "string" ? message.rewriteLanguage : null;
+  const workloadKey = `${videoId}:${captionTrackId || "default"}:${translationConfirmed ? "translate" : "refine"}:${rewriteLanguage ?? "same"}:${String(modelSelection)}:${forceRegenerate === true ? "force" : "normal"}`;
   const run = captionWorkloads.begin({
     videoId,
     requestId,
@@ -83,6 +82,7 @@ export async function handleFetchSubtitles(
         modelSelection,
         captionTrackId,
         translationConfirmed,
+        rewriteLanguage,
         forceRegenerate,
         emitCaptionError,
         run,
@@ -103,6 +103,7 @@ async function runCaptionJob(input: {
   modelSelection: unknown;
   captionTrackId?: string;
   translationConfirmed: boolean;
+  rewriteLanguage: string | null;
   forceRegenerate: unknown;
   emitCaptionError: (messageText: string) => void;
   run: VideoWorkloadRun;
@@ -113,6 +114,7 @@ async function runCaptionJob(input: {
     modelSelection,
     captionTrackId,
     translationConfirmed,
+    rewriteLanguage,
     forceRegenerate,
     emitCaptionError,
     run,
@@ -175,11 +177,13 @@ async function runCaptionJob(input: {
       );
       return;
     }
+    const translatedInto = data.translationRequired ? "en" : rewriteLanguage;
     captionState = {
       tracks: data.captionTracks,
       selectedTrackId: data.selectedCaptionTrackId,
       status: "refining",
       ...(data.translationRequired ? { translationRequired: true } : {}),
+      ...(translatedInto ? { translatedInto } : {}),
     };
     const workload = getRefinerWorkloadStats(segments);
     console.log("[refine] transcript workload", {
@@ -205,9 +209,6 @@ async function runCaptionJob(input: {
       requestId: run.effectiveRequestId,
       chunkCount: workload.chunkCount,
     });
-    const processCaptions = data.translationRequired
-      ? translateTranscriptWithLLM
-      : refineTranscriptWithLLM;
     const refiningState = captionState;
     const saveProgress = (progress: CaptionProgress) => {
       progressSaves = progressSaves
@@ -219,18 +220,24 @@ async function runCaptionJob(input: {
         });
     };
     const refinedSegments = toTraditionalChinese(
-      await processCaptions(segments, data.title, data.description, String(modelSelection), {
-        signal: run.signal,
-        onPriorityComplete: (prioritySegments) => {
-          console.log("[refine] partial emitted", {
-            videoId,
-            requestId: run.effectiveRequestId,
-            segmentCount: prioritySegments.length,
-          });
-          sendSubtitlesToTab(toTraditionalChinese(prioritySegments), { isPartial: true });
+      await rewriteCaptions(
+        segments,
+        { title: data.title, description: data.description },
+        String(modelSelection),
+        translatedInto,
+        {
+          signal: run.signal,
+          onPriorityComplete: (prioritySegments) => {
+            console.log("[refine] partial emitted", {
+              videoId,
+              requestId: run.effectiveRequestId,
+              segmentCount: prioritySegments.length,
+            });
+            sendSubtitlesToTab(toTraditionalChinese(prioritySegments), { isPartial: true });
+          },
+          onProgress: saveProgress,
         },
-        onProgress: saveProgress,
-      }),
+      ),
     );
 
     await progressSaves;

@@ -1,4 +1,4 @@
-/** Public caption refinement and English translation workflows, plus their workload estimates. */
+/** Public caption rewrite, refining or translating timed captions, plus its workload estimate. */
 
-export { refineTranscriptWithLLM, translateTranscriptWithLLM } from "./refiner.ts";
+export { rewriteCaptions } from "./workflow.ts";
 export { getRefinerWorkloadStats } from "./workload.ts";

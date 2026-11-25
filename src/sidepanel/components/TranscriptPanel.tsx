@@ -1,5 +1,5 @@
 /**
- * Displays, searches, and copies the selected caption track, with explicit confirmation before refinement.
+ * Displays, searches, and copies the selected caption track, and rewrites it with the caption model after the user picks refine or a translation language and confirms.
  * Choosing another track while a run is refining cancels that run in the background.
  */
 
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@ui/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
+import { useUserPreferences } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoPlayback } from "@ui/hooks/use-video-playback";
 import { buildTranscriptWithMetadata, type TranscriptCopyMetadata } from "@ui/lib/transcript-copy";
@@ -39,6 +40,7 @@ import {
   useState,
 } from "react";
 
+import { describeLanguage, isSameLanguage, preferredRewriteLanguage } from "@/core/language";
 import type { CaptionState, SubtitleSegment } from "@/core/storage";
 import type { CaptionTrack } from "@/core/types";
 
@@ -51,7 +53,8 @@ interface TranscriptPanelProps {
   metadata?: TranscriptCopyMetadata | null;
   captionState: CaptionState | null;
   onCaptionTrackChange: (trackId: string) => Promise<void>;
-  onRefineCaptions: () => Promise<void>;
+  /** `rewriteLanguage` is the language to translate into, or null to refine in the captions' own language. */
+  onRefineCaptions: (rewriteLanguage: string | null) => Promise<void>;
   isCaptionTrackLoading: boolean;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -70,18 +73,30 @@ export const TranscriptPanel = ({
   onOpenChange,
 }: TranscriptPanelProps) => {
   const [isConfirmingRefinement, setIsConfirmingRefinement] = useState(false);
+  const [rewriteChoice, setRewriteChoice] = useState<RewriteChoice>("refine");
+  const [customLanguage, setCustomLanguage] = useState("");
+  const { preferences } = useUserPreferences();
   const selectedCaptionTrackId = captionState?.selectedTrackId;
   const selectedTrack = captionState?.tracks.find((track) => track.id === selectedCaptionTrackId);
   const isRefining = captionState?.status === "refining";
-  const isTranslation = captionState?.translationRequired === true;
-  const translationPending = isTranslation && captionState?.status !== "refined";
+  const translationRequired = captionState?.translationRequired === true;
+  const translationPending = translationRequired && captionState?.status !== "refined";
+  const rewriteChoices: RewriteChoice[] = translationRequired
+    ? ["english"]
+    : selectedTrack && isSameLanguage("en", selectedTrack.languageCode)
+      ? ["refine", "custom"]
+      : ["refine", "english", "custom"];
+  const rewriteLanguage =
+    rewriteChoice === "refine" ? null : rewriteChoice === "english" ? "en" : customLanguage.trim();
   const isBusy = isCaptionTrackLoading || isRefining;
   const progress = captionState?.progress;
   const progressPercent = progress
     ? Math.round((progress.completedBatches / progress.totalBatches) * 100)
     : null;
   const selectedTrackLabel = selectedTrack ? captionTrackLabel(selectedTrack) : "Selected captions";
-  const refiningLabel = isTranslation ? "Translating captions" : "Refining captions";
+  const refiningLabel = captionState?.translatedInto
+    ? `Translating captions into ${describeLanguage(captionState.translatedInto)}`
+    : "Refining captions";
   const captionActionLabel = isCaptionTrackLoading
     ? "Loading captions"
     : isRefining
@@ -89,10 +104,10 @@ export const TranscriptPanel = ({
         ? refiningLabel
         : `${refiningLabel} ${progressPercent}%`
       : isConfirmingRefinement
-        ? `Confirm ${isTranslation ? "translation" : "refinement"} of ${selectedTrackLabel}`
-        : isTranslation
+        ? `Rewrite ${selectedTrackLabel}: ${rewriteLanguage ? `translate to ${describeLanguage(rewriteLanguage)}` : rewriteChoice === "custom" ? "type a language first" : "refine in the same language"}`
+        : translationPending
           ? "Translate selected captions into English"
-          : "Refine selected captions";
+          : "Rewrite captions";
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -130,14 +145,29 @@ export const TranscriptPanel = ({
     }
   };
 
-  /** Refinement starts only after the user confirms the currently selected source. */
+  /** Opens the rewrite options, preselecting a translation into the Target language when it differs from the captions'. */
+  const startRewrite = () => {
+    const preferred = selectedTrack
+      ? preferredRewriteLanguage(
+          selectedTrack.languageCode,
+          translationRequired,
+          preferences.targetLanguage,
+        )
+      : null;
+    setRewriteChoice(preferred === null ? "refine" : preferred === "en" ? "english" : "custom");
+    if (preferred && preferred !== "en") setCustomLanguage(describeLanguage(preferred));
+    setIsConfirmingRefinement(true);
+  };
+
+  /** A rewrite starts only after the user confirms the option for the currently selected source. */
   const confirmRefinement = async () => {
     setIsConfirmingRefinement(false);
     try {
-      await onRefineCaptions();
-    } catch {
+      await onRefineCaptions(rewriteLanguage);
+    } catch (error) {
       toast({
-        title: isTranslation ? "Caption translation failed" : "Caption refinement failed",
+        title: rewriteLanguage ? "Caption translation failed" : "Caption refinement failed",
+        description: error instanceof Error ? error.message : undefined,
         variant: "destructive",
       });
     }
@@ -246,7 +276,9 @@ export const TranscriptPanel = ({
               </div>
               {captionState?.status === "refined" && (
                 <span className="text-xs text-muted-foreground">
-                  {isTranslation ? "Translated" : "Refined"}
+                  {captionState.translatedInto || captionState.translationRequired
+                    ? "Translated"
+                    : "Refined"}
                 </span>
               )}
             </div>
@@ -291,20 +323,23 @@ export const TranscriptPanel = ({
                       variant={isConfirmingRefinement ? "default" : "outline"}
                       size={isConfirmingRefinement ? "sm" : "icon"}
                       className={`h-9 shrink-0 ${isConfirmingRefinement ? "" : "w-9 border-border/60"}`}
-                      disabled={isBusy || !selectedTrack || (!captionText && !translationPending)}
+                      disabled={
+                        isBusy ||
+                        !selectedTrack ||
+                        (!captionText && !translationPending) ||
+                        (isConfirmingRefinement && rewriteLanguage === "")
+                      }
                       aria-label={captionActionLabel}
                       aria-busy={isBusy}
                       onClick={() =>
-                        isConfirmingRefinement
-                          ? void confirmRefinement()
-                          : setIsConfirmingRefinement(true)
+                        isConfirmingRefinement ? void confirmRefinement() : startRewrite()
                       }
                     >
                       {isBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                       ) : isConfirmingRefinement ? (
-                        "Confirm"
-                      ) : isTranslation ? (
+                        "Rewrite"
+                      ) : translationPending ? (
                         <Languages className="h-4 w-4" aria-hidden="true" />
                       ) : (
                         <WandSparkles className="h-4 w-4" aria-hidden="true" />
@@ -321,12 +356,46 @@ export const TranscriptPanel = ({
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 shrink-0"
-                    aria-label={isTranslation ? "Cancel translation" : "Cancel refinement"}
-                    title={isTranslation ? "Cancel translation" : "Cancel refinement"}
+                    aria-label="Cancel rewrite"
+                    title="Cancel rewrite"
                     onClick={() => setIsConfirmingRefinement(false)}
                   >
                     <X className="h-4 w-4" />
                   </Button>
+                )}
+              </div>
+            )}
+            {isConfirmingRefinement && (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={rewriteChoice}
+                  onValueChange={(choice) => setRewriteChoice(choice as RewriteChoice)}
+                  disabled={rewriteChoices.length < 2}
+                >
+                  <SelectTrigger aria-label="Rewrite option" className="h-9 min-w-0 flex-1 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    {rewriteChoices.map((choice) => (
+                      <SelectItem key={choice} value={choice}>
+                        {REWRITE_CHOICE_LABELS[choice]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {rewriteChoice === "custom" && (
+                  <Input
+                    type="text"
+                    placeholder="Language, such as Japanese"
+                    aria-label="Translation language"
+                    value={customLanguage}
+                    onChange={(event) => setCustomLanguage(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && rewriteLanguage) void confirmRefinement();
+                    }}
+                    className="h-9 min-w-0 flex-1 text-sm border-border/60"
+                    autoFocus
+                  />
                 )}
               </div>
             )}
@@ -483,6 +552,15 @@ export const TranscriptPanel = ({
       </Collapsible>
     </section>
   );
+};
+
+// "custom" translates into the language typed beside the option, passed to the model as written.
+type RewriteChoice = "refine" | "english" | "custom";
+
+const REWRITE_CHOICE_LABELS: Record<RewriteChoice, string> = {
+  refine: "Refine in the same language",
+  english: "Translate to English",
+  custom: "Translate to…",
 };
 
 function captionTrackLabel(track: CaptionTrack): string {

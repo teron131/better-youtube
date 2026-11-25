@@ -25,6 +25,8 @@ export interface CaptionState {
   status: "original" | "refining" | "refined" | "error";
   /** This source needs AI translation; only a refined result contains completed English captions. */
   translationRequired?: boolean;
+  /** The language the run translates into, or the refined result was translated into, as a code or a typed name; absent when the captions keep their own language. */
+  translatedInto?: string;
   /** Present only while a run is refining, once its batches are known. */
   progress?: CaptionProgress;
   error?: string;

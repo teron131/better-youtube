@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { type LlmClientConfig, resolveLlmConnection } from "../clients/config.ts";
 import { createBrowserSafeOpenAiFetch } from "../clients/transport.ts";
 import { TIMING } from "../constants.ts";
+import { describeLanguage } from "../language.ts";
 import { createSummaryArtifact } from "./artifact.ts";
 import type { AgentResult, ChatMessage } from "./conversation.ts";
 import { SKILLS } from "./skills.ts";
@@ -58,7 +59,7 @@ export async function runAgent(
         : [
             "Keep replies conversational. Use read_skill for relevant guidance. Do not edit the summary to answer ordinary questions. When asked to edit it, read_summary provides LINE#HASH anchors for targeted edit_summary changes; copy anchors exactly and use refreshed anchors after edits. Use write_summary only if no summary exists.",
           ]),
-      `Output language: ${input.targetLanguage || "auto (match the transcript or user's question)"}.`,
+      `Output language: ${input.targetLanguage && input.targetLanguage !== "auto" ? describeLanguage(input.targetLanguage) : "auto (match the transcript or user's question)"}.`,
       ...(generatingSummary
         ? []
         : [

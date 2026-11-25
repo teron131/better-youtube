@@ -5,7 +5,7 @@ import { beforeEach, test } from "node:test";
 
 import { VideoWorkloadLifecycle } from "../src/background/workloads.ts";
 import { MESSAGE_ACTIONS } from "../src/core/constants.ts";
-import type { CaptionRunHooks } from "../src/core/refiner/refiner.ts";
+import type { CaptionRunHooks } from "../src/core/refiner/workflow.ts";
 import type { SubtitleSegment } from "../src/core/storage.ts";
 import type { CaptionTrack, TranscriptResponse } from "../src/core/types.ts";
 
@@ -22,6 +22,7 @@ const notifications: any[] = [];
 const extractedTracks: Array<string | undefined> = [];
 const refinedInputs: SubtitleSegment[][] = [];
 const translatedInputs: SubtitleSegment[][] = [];
+const translatedLanguages: string[] = [];
 let translationRequired = false;
 let sourceText: string | null = null;
 let storageWrites = 0;
@@ -107,18 +108,13 @@ Object.assign(globalThis, {
           : {}),
       };
     },
-    refine: async (
-      segments: SubtitleSegment[],
-      _title: string,
-      _description: string,
-      _model: string,
-      hooks: CaptionRunHooks,
-    ) => {
+    refine: async (segments: SubtitleSegment[], hooks: CaptionRunHooks) => {
       refinedInputs.push(segments);
       return refineReply(segments, hooks);
     },
-    translate: async (segments: SubtitleSegment[]) => {
+    translate: async (segments: SubtitleSegment[], language: string) => {
       translatedInputs.push(segments);
+      translatedLanguages.push(language);
       return translateReply(segments);
     },
   },
@@ -166,12 +162,12 @@ registerHooks({
           "export const fetchTranscriptFromChromeTab = (...args) => globalThis.captionTestBoundaries.fetch(...args);",
       };
     }
-    if (url.endsWith("/core/refiner/refiner.ts")) {
+    if (url.endsWith("/core/refiner/workflow.ts")) {
       return {
         format: "module",
         shortCircuit: true,
         source:
-          "export const refineTranscriptWithLLM = (...args) => globalThis.captionTestBoundaries.refine(...args); export const translateTranscriptWithLLM = (...args) => globalThis.captionTestBoundaries.translate(...args);",
+          "export const rewriteCaptions = (segments, _video, _model, language, hooks) => language ? globalThis.captionTestBoundaries.translate(segments, language) : globalThis.captionTestBoundaries.refine(segments, hooks); export const writeArticle = async () => [];",
       };
     }
     return nextLoad(url, context);
@@ -189,7 +185,7 @@ const { loadCachedVideoState, EMPTY_VIDEO_STATE } =
 beforeEach(() => {
   for (const key of Object.keys(local)) delete local[key];
   overlays.length = notifications.length = extractedTracks.length = refinedInputs.length = 0;
-  translatedInputs.length = 0;
+  translatedInputs.length = translatedLanguages.length = 0;
   translationRequired = false;
   sourceText = null;
   storageWrites = 0;
@@ -213,7 +209,11 @@ async function select(captionTrackId?: string) {
   return responses[0];
 }
 
-async function refine(captionTrackId?: string, confirmTranslation = false) {
+async function refine(
+  captionTrackId?: string,
+  confirmTranslation = false,
+  rewriteLanguage?: string,
+) {
   const responses: any[] = [];
   await handleFetchSubtitles(
     {
@@ -223,6 +223,7 @@ async function refine(captionTrackId?: string, confirmTranslation = false) {
       modelSelection: "test-model",
       captionTrackId,
       confirmTranslation,
+      rewriteLanguage,
     },
     { tabId: 7, captionWorkloads: workloads },
     (response) => responses.push(response),
@@ -448,4 +449,17 @@ test("refinement stores batch progress while running and drops it once refined",
     selectedTrackId: "a.en",
     status: "refined",
   });
+});
+
+test("a rewrite into another language translates the captions and records the language, while no language refines them", async () => {
+  await select(".fr");
+  await refine(".fr", false, "zh-TW");
+  assert.equal(refinedInputs.length, 0);
+  assert.deepEqual(translatedLanguages, ["zh-TW"]);
+  assert.equal((await getCaptionState(videoId))?.translatedInto, "zh-TW");
+  assert.equal((await getCaptionState(videoId))?.status, "refined");
+
+  await refine(".fr");
+  assert.equal(refinedInputs.length, 1);
+  assert.equal((await getCaptionState(videoId))?.translatedInto, undefined);
 });

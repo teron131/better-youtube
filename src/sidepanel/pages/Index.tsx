@@ -546,7 +546,7 @@ const Index = () => {
     }
   };
 
-  const handleCaptionSubmit = async () => {
+  const handleCaptionSubmit = async (rewriteLanguage: string | null) => {
     const videoId = currentUrlVideoIdRef.current;
     if (!videoId || !captionState || isCaptionTrackLoading || captionState.status === "refining")
       return;
@@ -556,6 +556,7 @@ const Index = () => {
         forceRegenerate: true,
         captionTrackId: captionState.selectedTrackId,
         confirmTranslation: captionState.translationRequired === true,
+        rewriteLanguage,
       });
     } catch (error) {
       if (currentUrlVideoIdRef.current === videoId) {

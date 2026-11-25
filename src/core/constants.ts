@@ -133,15 +133,8 @@ export const ELEMENT_IDS = {
 } as const;
 
 export const REFINER_CONFIG = {
-  MAX_SEGMENTS_PER_CHUNK: 30,
-  CHUNK_SENTINEL: "<<<__CHUNK_END__>>>",
+  MAX_SEGMENTS_PER_CHUNK: 20,
+  // A caption line is often a fragment, and its neighbours show the sentence it belongs to.
+  CONTEXT_LINES: 4,
   CONCURRENCY_LIMIT: 8,
-} as const;
-
-export const SEGMENT_PARSER_CONFIG = {
-  GAP_PENALTY: -0.5,
-  TAIL_GUARD_SIZE: 3,
-  LENGTH_TOLERANCE: 0.5,
-  MAX_REFINED_LENGTH_RATIO: 2.25,
-  MAX_REFINED_LENGTH_EXTRA_CHARS: 80,
 } as const;
