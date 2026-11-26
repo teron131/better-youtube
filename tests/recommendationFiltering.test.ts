@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS: FeedFilterSettings = {
   viewsFilterEnabled: false,
   liveViewerFilterEnabled: false,
   mixFilterEnabled: false,
+  membersOnlyFilterEnabled: false,
+  podcastFilterEnabled: false,
   durationFilterEnabled: false,
   keywordFilterEnabled: false,
   ageFilterEnabled: false,
@@ -44,6 +46,8 @@ function videoData(overrides: Partial<VideoCardData>): VideoCardData {
     isLiveContent: false,
     isActiveLiveContent: false,
     isGeneratedMix: false,
+    isMembersOnly: false,
+    isPodcast: false,
     videoId: "video-id",
     channelName: "Example channel",
     channelLanguage: "en",
@@ -248,4 +252,108 @@ test("filters generated YouTube Mix cards when mix filter is enabled", () => {
   if (result.shouldFilter) {
     assert.equal(result.reason, "mix");
   }
+});
+
+function lockupCard(lockupViewModel: Record<string, unknown>): Element {
+  return {
+    tagName: "YTD-RICH-ITEM-RENDERER",
+    data: { content: { lockupViewModel } },
+    textContent: "",
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  } as unknown as Element;
+}
+
+function lockupMetadataRows(metadataRows: unknown[]): Record<string, unknown> {
+  return {
+    metadata: {
+      lockupMetadataViewModel: {
+        title: { content: "Example video" },
+        metadata: { contentMetadataViewModel: { metadataRows } },
+      },
+    },
+  };
+}
+
+test("filters members-first lockups only when the members-only filter is enabled", () => {
+  const extracted = extractVideoData(
+    lockupCard({
+      contentType: "LOCKUP_CONTENT_TYPE_VIDEO",
+      contentId: "RWZjTdmuvBM",
+      ...lockupMetadataRows([
+        { metadataParts: [{ text: { content: "Parkev Tatevosian, CFA" } }] },
+        {
+          badges: [
+            { badgeViewModel: { badgeText: "Members first", badgeStyle: "BADGE_MEMBERS_ONLY" } },
+          ],
+        },
+      ]),
+    }),
+  );
+
+  assert.equal(extracted.isMembersOnly, true);
+  assert.equal(getTriggeredFilter(extracted, settings({})).shouldFilter, false);
+  assert.deepEqual(getTriggeredFilter(extracted, settings({ membersOnlyFilterEnabled: true })), {
+    shouldFilter: true,
+    reason: "members-only",
+    details: "Members-only video",
+  });
+});
+
+test("recognizes members-only badges rendered without renderer data", () => {
+  const card = {
+    tagName: "YT-LOCKUP-VIEW-MODEL",
+    textContent: "Example video Members only",
+    querySelector: () => null,
+    querySelectorAll: (selector: string) =>
+      selector === "badge-shape"
+        ? [
+            { textContent: "7:48", getAttribute: () => null },
+            { textContent: " Members only ", getAttribute: () => null },
+          ]
+        : [],
+  } as unknown as Element;
+
+  assert.equal(extractVideoData(card).isMembersOnly, true);
+});
+
+test("filters podcast show lockups when the podcast filter is enabled", () => {
+  const extracted = extractVideoData(
+    lockupCard({
+      contentType: "LOCKUP_CONTENT_TYPE_PODCAST",
+      contentId: "PLn5MTSAqaf8peDZQ57QkJBzewJU1aUokl",
+      ...lockupMetadataRows([]),
+    }),
+  );
+
+  assert.equal(extracted.isPodcast, true);
+  assert.equal(
+    getTriggeredFilter(extracted, settings({ podcastFilterEnabled: true })).shouldFilter,
+    true,
+  );
+});
+
+test("treats a Mix badge as a Mix whatever the title, but not a bare radio link", () => {
+  const mixBadge = { textContent: "Mix", getAttribute: () => null };
+  const myMix = {
+    tagName: "YT-LOCKUP-VIEW-MODEL",
+    textContent: "Mix My Mix",
+    querySelector: (selector: string) =>
+      selector === "h3[title]" ? { textContent: "My Mix" } : null,
+    querySelectorAll: (selector: string) => (selector === "badge-shape" ? [mixBadge] : []),
+  } as unknown as Element;
+  const musicVideo = {
+    tagName: "YTD-VIDEO-RENDERER",
+    textContent: "Travis Scott Mix V2 [Visualizer]",
+    querySelector: (selector: string) => {
+      if (selector === "#video-title") return { textContent: "Travis Scott Mix V2 [Visualizer]" };
+      if (selector.includes("a#thumbnail"))
+        return { getAttribute: () => "/watch?v=EJ7nPRfuaOE&list=RDEJ7nPRfuaOE&start_radio=1" };
+      return null;
+    },
+    querySelectorAll: () => [],
+  } as unknown as Element;
+
+  assert.equal(extractVideoData(myMix).isGeneratedMix, true);
+  assert.equal(extractVideoData(musicVideo).isGeneratedMix, false);
 });

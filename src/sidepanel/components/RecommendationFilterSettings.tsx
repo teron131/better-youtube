@@ -19,6 +19,8 @@ import {
   History,
   Languages,
   ListFilter,
+  Lock,
+  Podcast,
   Radio,
   RefreshCw,
   ShieldCheck,
@@ -30,6 +32,7 @@ import { useCallback, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "@/core/constants";
 import type {
   FeedFilterSettings,
+  FeedFilterToggleKey,
   FilteredVideoRecord,
   StoredSubscriptions,
 } from "@/core/recommendationFilters";
@@ -39,15 +42,7 @@ import {
 } from "@/core/recommendationFilters";
 
 type ToggleConfig = {
-  key:
-    | "viewsFilterEnabled"
-    | "liveViewerFilterEnabled"
-    | "mixFilterEnabled"
-    | "durationFilterEnabled"
-    | "keywordFilterEnabled"
-    | "ageFilterEnabled"
-    | "englishOnlyTitles"
-    | "preserveSubscribedChannels";
+  key: FeedFilterToggleKey;
   icon: typeof TrendingDown;
   title: string;
   description: string;
@@ -94,13 +89,26 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
     key: "preserveSubscribedChannels",
     icon: ShieldCheck,
     title: "Keep subscriptions",
-    description: "Subscriptions are immune to filters.",
+    description: "Subscriptions are immune to filters, except members-only videos.",
   },
   {
     key: "mixFilterEnabled",
     icon: Shuffle,
     title: "YouTube Mixes",
     description: "Remove YouTube-generated Mix recommendation cards.",
+  },
+  {
+    key: "membersOnlyFilterEnabled",
+    icon: Lock,
+    title: "Members-only videos",
+    description:
+      "Remove videos marked Members only or Members first, unless you bought the channel's membership.",
+  },
+  {
+    key: "podcastFilterEnabled",
+    icon: Podcast,
+    title: "Podcasts",
+    description: "Remove podcast show cards; individual episodes stay.",
   },
 ];
 const RECOMMENDATION_SETTING_STORAGE_KEYS = new Set<string>(
@@ -114,6 +122,10 @@ export function RecommendationFilterSettings() {
   const [subscriptions, setSubscriptions] = useState<StoredSubscriptions | null>(null);
   const [newKeyword, setNewKeyword] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const memberCount = subscriptions?.channels.filter((channel) => channel.isMember).length ?? 0;
+  const previewChannels = [...(subscriptions?.channels ?? [])]
+    .sort((left, right) => Number(Boolean(right.isMember)) - Number(Boolean(left.isMember)))
+    .slice(0, 8);
 
   const refresh = useCallback(async () => {
     const [nextSettings, nextHistory, nextSubscriptions] = await Promise.all([
@@ -434,10 +446,12 @@ export function RecommendationFilterSettings() {
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="text-sm font-semibold">Subscribed channels</div>
             <div className="text-[13px] leading-5 text-muted-foreground">
-              Import your YouTube subscriptions to make the videos immune to the filters.
+              Import your YouTube subscriptions to make the videos immune to the filters. Channels
+              marked Purchased also keep their members-only videos.
             </div>
             <div className="text-xs font-medium text-muted-foreground">
-              {subscriptions?.count || 0} channels saved
+              {subscriptions?.count || 0} channels saved • {memberCount}{" "}
+              {memberCount === 1 ? "membership" : "memberships"}
               {subscriptions?.extracted
                 ? ` • Updated ${new Date(subscriptions.extracted).toLocaleString()}`
                 : ""}
@@ -455,13 +469,14 @@ export function RecommendationFilterSettings() {
             {isExtracting ? "Importing…" : "Import"}
           </Button>
         </div>
-        {subscriptions?.channels?.length ? (
+        {previewChannels.length ? (
           <div className="flex flex-wrap gap-2 border-t border-border/60 pt-4">
-            {subscriptions.channels.slice(0, 8).map((channel, index) => (
+            {previewChannels.map((channel, index) => (
               <div
                 key={channel.channelId || channel.channelPath || `${channel.name}-${index}`}
-                className="rounded-md border border-border/70 px-2.5 py-1 text-xs text-muted-foreground"
+                className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2.5 py-1 text-xs text-muted-foreground"
               >
+                {channel.isMember && <Lock aria-label="Membership" className="h-3 w-3" />}
                 {channel.name || channel.handle || channel.channelPath}
               </div>
             ))}

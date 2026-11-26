@@ -2,7 +2,7 @@
  * Pure recommendation-filter policy for extracted YouTube video metadata.
  */
 
-import type { FeedFilterSettings } from "@/core/recommendationFilters";
+import type { FeedFilterSettings, FeedFilterToggleKey } from "@/core/recommendationFilters";
 
 import type { VideoCardData } from "./recommendationFilterExtractor";
 
@@ -10,6 +10,8 @@ export type FilterReason =
   | "views"
   | "live-viewers"
   | "mix"
+  | "members-only"
+  | "podcast"
   | "keywords"
   | "duration"
   | "age"
@@ -131,16 +133,40 @@ function checkViewsFilter(videoData: VideoCardData, settings: FeedFilterSettings
   return { shouldFilter: false };
 }
 
-function checkMixFilter(videoData: VideoCardData, settings: FeedFilterSettings): FilterResult {
-  if (!settings.mixFilterEnabled || !videoData.isGeneratedMix) {
-    return { shouldFilter: false };
-  }
-
-  return {
-    shouldFilter: true,
+const CARD_KIND_FILTERS = [
+  {
+    setting: "mixFilterEnabled",
+    flag: "isGeneratedMix",
     reason: "mix",
     details: "YouTube Mix card",
-  };
+  },
+  {
+    setting: "membersOnlyFilterEnabled",
+    flag: "isMembersOnly",
+    reason: "members-only",
+    details: "Members-only video",
+  },
+  {
+    setting: "podcastFilterEnabled",
+    flag: "isPodcast",
+    reason: "podcast",
+    details: "Podcast card",
+  },
+] as const satisfies readonly {
+  setting: FeedFilterToggleKey;
+  flag: keyof VideoCardData;
+  reason: FilterReason;
+  details: string;
+}[];
+
+function checkCardKindFilters(
+  videoData: VideoCardData,
+  settings: FeedFilterSettings,
+): FilterResult {
+  const match = CARD_KIND_FILTERS.find(({ setting, flag }) => settings[setting] && videoData[flag]);
+  return match
+    ? { shouldFilter: true, reason: match.reason, details: match.details }
+    : { shouldFilter: false };
 }
 
 function checkLiveViewerFilter(
@@ -297,7 +323,7 @@ export function getTriggeredFilter(
 ): FilterResult {
   return (
     [
-      checkMixFilter(videoData, settings),
+      checkCardKindFilters(videoData, settings),
       checkLiveViewerFilter(videoData, settings),
       checkViewsFilter(videoData, settings),
       checkDurationFilter(videoData, settings),

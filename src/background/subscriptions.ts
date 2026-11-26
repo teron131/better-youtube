@@ -101,6 +101,7 @@ function extractSubscriptionsInPageContext() {
     channelUrl: string | null;
     handle: string | null;
     description: string | null;
+    isMember: boolean;
   };
 
   function sleep(ms: number) {
@@ -223,6 +224,7 @@ function extractSubscriptionsInPageContext() {
     channelId: string | null;
     channelPath: string | null;
     description: string | null;
+    isMember: boolean;
   }): PageSubscriptionRecord | null {
     const normalizedName = isPlausibleChannelName(input.name) ? normalizeText(input.name) : null;
     const normalizedPath = normalizeChannelPath(input.channelPath);
@@ -244,6 +246,7 @@ function extractSubscriptionsInPageContext() {
       channelUrl: normalizedPath ? new URL(normalizedPath, window.location.origin).href : null,
       handle: extractHandle(normalizedPath),
       description: normalizeText(input.description),
+      isMember: input.isMember,
     };
   }
 
@@ -258,6 +261,7 @@ function extractSubscriptionsInPageContext() {
       channelUrl: nextChannel.channelUrl || existingChannel.channelUrl || null,
       handle: nextChannel.handle || existingChannel.handle || null,
       description: nextChannel.description || existingChannel.description || null,
+      isMember: nextChannel.isMember || existingChannel.isMember,
     };
   }
 
@@ -308,6 +312,7 @@ function extractSubscriptionsInPageContext() {
         }>;
       };
       descriptionSnippet?: unknown;
+      subscribeButton?: { subscribeButtonRenderer?: unknown };
     } | null;
 
     const endpoint =
@@ -327,6 +332,8 @@ function extractSubscriptionsInPageContext() {
         renderer.querySelector(CHANNEL_LINK_SELECTOR)?.getAttribute("href") ||
         null,
       description: textFromNode(data?.descriptionSnippet),
+      // The channels page shows "Purchased" for a bought membership and gives that channel no Subscribe button, while plain subscriptions have one.
+      isMember: data !== null && !data.subscribeButton?.subscribeButtonRenderer,
     });
   }
 
@@ -344,6 +351,7 @@ function extractSubscriptionsInPageContext() {
       description: normalizeText(
         renderer.querySelector("#description-text, #metadata")?.textContent,
       ),
+      isMember: false,
     });
   }
 

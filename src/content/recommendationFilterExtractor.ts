@@ -1,5 +1,5 @@
 /**
- * Reads a recommendation card's title, counts, duration, age, live state, and channel, preferring the renderer data YouTube attaches to the element and falling back to rendered text.
+ * Reads a recommendation card's title, counts, duration, age, live state, card kind (Mix, members-only, podcast), and channel, preferring the renderer data YouTube attaches to the element and falling back to rendered text.
  */
 
 const HAN_CHARACTER_PATTERN = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g;
@@ -47,6 +47,11 @@ const MIX_BADGE_SELECTORS = [
   ".yt-badge-shape__text",
   "[aria-label]",
 ];
+/** YouTube gives both "Members only" and "Members first" badges this style. */
+const MEMBERS_ONLY_BADGE_STYLE = "BADGE_MEMBERS_ONLY";
+const MEMBERS_ONLY_BADGE_TEXT_PATTERN = /^members (?:only|first)$/i;
+const PODCAST_CONTENT_TYPE = "LOCKUP_CONTENT_TYPE_PODCAST";
+const PODCAST_LINK_TEXT = "View full podcast";
 const LIVE_INDICATOR_SELECTOR =
   "badge-shape .yt-badge-shape__text, .yt-badge-shape__text, yt-thumbnail-badge-view-model, [overlay-style='LIVE'], [aria-label]";
 const CHANNEL_PATH_PREFIXES = ["/@", "/channel/"];
@@ -88,6 +93,8 @@ export interface VideoCardData {
   isLiveContent: boolean;
   isActiveLiveContent: boolean;
   isGeneratedMix: boolean;
+  isMembersOnly: boolean;
+  isPodcast: boolean;
   videoId: string | null;
   channelName: string | null;
   channelLanguage: TextLanguage;
@@ -466,6 +473,8 @@ function extractSearchVideo(rendererData: Record<string, unknown>): ExtractedVid
     isLiveContent: hasLiveMetadata({ publishTime, viewCount }) || hasActiveLiveOverlay,
     isActiveLiveContent: hasActiveLiveMetadata({ viewCount }) || hasActiveLiveOverlay,
     isGeneratedMix: false,
+    isMembersOnly: false,
+    isPodcast: false,
     channelName: firstNonEmpty(
       textFromNode(rendererData.ownerText),
       textFromNode(rendererData.longBylineText),
@@ -513,10 +522,30 @@ function extractLockupVideo(lockupViewModel: Record<string, unknown>): Extracted
     isLiveContent: hasLiveMetadata({ publishTime, viewCount: null }) || hasActiveLiveOverlay,
     isActiveLiveContent: hasActiveLiveOverlay,
     isGeneratedMix: false,
+    isMembersOnly: hasMembersOnlyBadgeData(metadataRows),
+    isPodcast: lockupViewModel.contentType === PODCAST_CONTENT_TYPE,
     channelName: metadataTexts[0] || null,
     channelId: homeChannelInfo.channelId,
     channelPath: homeChannelInfo.channelPath,
   };
+}
+
+function hasMembersOnlyBadgeData(metadataRows: unknown): boolean {
+  if (!Array.isArray(metadataRows)) {
+    return false;
+  }
+
+  return metadataRows.some((row) => {
+    const badges = (row as { badges?: unknown } | null)?.badges;
+    return (
+      Array.isArray(badges) &&
+      badges.some(
+        (badge) =>
+          (badge as { badgeViewModel?: { badgeStyle?: unknown } } | null)?.badgeViewModel
+            ?.badgeStyle === MEMBERS_ONLY_BADGE_STYLE,
+      )
+    );
+  });
 }
 
 function extractVideoFromRenderer(rendererData: unknown): ExtractedVideoData | null {
@@ -681,21 +710,35 @@ function detectActiveLiveContentFromElement(videoElement: Element): boolean {
   return false;
 }
 
+/** The "Mix" thumbnail badge alone marks a Mix, which catches titles such as "My Mix"; a radio link alone does not, because ordinary music videos also link into their own radio playlist. */
 function isYouTubeGeneratedMixCard(videoElement: Element, title: string | null): boolean {
+  const hasMixBadge = MIX_BADGE_SELECTORS.some((selector) =>
+    Array.from(videoElement.querySelectorAll(selector)).some((element) => {
+      const text = normalizeText(element.getAttribute("aria-label") || element.textContent);
+      return text === "Mix";
+    }),
+  );
+  if (hasMixBadge) {
+    return true;
+  }
+
   if (!title || !/^mix\s*-/i.test(title)) {
     return false;
   }
 
   const linkHref = videoElement.querySelector(WATCH_LINK_SELECTOR)?.getAttribute("href");
-  if (linkHref?.includes("list=RD") || linkHref?.includes("start_radio=1")) {
-    return true;
-  }
+  return Boolean(linkHref?.includes("list=RD") || linkHref?.includes("start_radio=1"));
+}
 
-  return MIX_BADGE_SELECTORS.some((selector) =>
-    Array.from(videoElement.querySelectorAll(selector)).some((element) => {
-      const text = normalizeText(element.getAttribute("aria-label") || element.textContent);
-      return text === "Mix";
-    }),
+function hasMembersOnlyBadgeElement(videoElement: Element): boolean {
+  return Array.from(videoElement.querySelectorAll("badge-shape")).some((element) =>
+    MEMBERS_ONLY_BADGE_TEXT_PATTERN.test(getNormalizedElementText(element) || ""),
+  );
+}
+
+function hasPodcastLink(videoElement: Element): boolean {
+  return Array.from(videoElement.querySelectorAll("a[href^='/playlist']")).some(
+    (element) => getNormalizedElementText(element) === PODCAST_LINK_TEXT,
   );
 }
 
@@ -783,6 +826,8 @@ export function extractVideoData(videoElement: Element): VideoCardData {
     isLiveContent: structuredData?.isLiveContent || false,
     isActiveLiveContent: structuredData?.isActiveLiveContent || false,
     isGeneratedMix: structuredData?.isGeneratedMix || false,
+    isMembersOnly: structuredData?.isMembersOnly || false,
+    isPodcast: structuredData?.isPodcast || false,
     videoId: structuredData?.videoId || null,
     channelName: structuredData?.channelName || null,
     channelId: structuredData?.channelId || null,
@@ -823,6 +868,12 @@ export function extractVideoData(videoElement: Element): VideoCardData {
     }
     if (!data.isGeneratedMix) {
       data.isGeneratedMix = isYouTubeGeneratedMixCard(videoElement, data.title);
+    }
+    if (!data.isMembersOnly) {
+      data.isMembersOnly = hasMembersOnlyBadgeElement(videoElement);
+    }
+    if (!data.isPodcast) {
+      data.isPodcast = hasPodcastLink(videoElement);
     }
     fillChannelInfoFromLink(videoElement, data);
     fillLockupChannelNameFromText(videoElement, data);

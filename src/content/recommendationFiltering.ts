@@ -42,7 +42,7 @@ const RECOMMENDATION_SECTION_SELECTOR = "ytd-rich-section-renderer";
 const FILTERED_RECOMMENDATION_SECTION_SELECTOR = `${RECOMMENDATION_SECTION_SELECTOR}[data-filtered-section]`;
 const FEED_FILTER_STORAGE_KEY_SET = new Set<string>(Object.values(FEED_FILTER_STORAGE_KEYS));
 
-type SubscriptionLookup = {
+type ChannelLookup = {
   ids: Set<string>;
   paths: Set<string>;
   names: Set<string>;
@@ -67,7 +67,7 @@ function logFilteringError(action: string, error: unknown): void {
   console.error(`[recommendation-filter] ${action} failed`, error);
 }
 
-function createEmptySubscriptionLookup(): SubscriptionLookup {
+function createEmptyChannelLookup(): ChannelLookup {
   return {
     ids: new Set(),
     paths: new Set(),
@@ -99,8 +99,8 @@ function buildFilterRecordKey(videoData: VideoCardData, filterReason: FilterReas
   ].join(":");
 }
 
-function buildSubscriptionLookup(channels: StoredSubscriptions["channels"] = []) {
-  const lookup = createEmptySubscriptionLookup();
+function buildChannelLookup(channels: StoredSubscriptions["channels"]): ChannelLookup {
+  const lookup = createEmptyChannelLookup();
 
   for (const channel of channels) {
     if (!channel) {
@@ -130,18 +130,15 @@ function buildSubscriptionLookup(channels: StoredSubscriptions["channels"] = [])
   return lookup;
 }
 
-function isSubscribedChannel(
-  videoData: VideoCardData,
-  subscribedChannels: SubscriptionLookup,
-): boolean {
+function matchesChannel(videoData: VideoCardData, channels: ChannelLookup): boolean {
   const channelId = getNormalizedChannelId(videoData);
   const channelPath = normalizeChannelPath(videoData.channelPath)?.toLowerCase();
   const channelName = normalizeText(videoData.channelName)?.toLowerCase();
 
   return Boolean(
-    (channelId && subscribedChannels.ids.has(channelId)) ||
-    (channelPath && subscribedChannels.paths.has(channelPath)) ||
-    (channelName && subscribedChannels.names.has(channelName)),
+    (channelId && channels.ids.has(channelId)) ||
+    (channelPath && channels.paths.has(channelPath)) ||
+    (channelName && channels.names.has(channelName)),
   );
 }
 
@@ -287,7 +284,8 @@ function applyChannelLanguageState(
 
 class FeedFilterController {
   private filterSettings: FeedFilterSettings | null = null;
-  private subscribedChannels: SubscriptionLookup = createEmptySubscriptionLookup();
+  private subscribedChannels: ChannelLookup = createEmptyChannelLookup();
+  private memberChannels: ChannelLookup = createEmptyChannelLookup();
   private recordedFilterKeys = new Set<string>();
   private pendingVideoCards = new Set<Element>();
   private metadataRetryVideoCards = new Set<Element>();
@@ -320,13 +318,18 @@ class FeedFilterController {
     ]);
 
     this.filterSettings = settings;
-    this.subscribedChannels = buildSubscriptionLookup(subscriptions?.channels);
+    this.setSubscriptions(subscriptions?.channels ?? []);
     this.recordedFilterKeys = new Set([
       ...(recordedFilterKeys || []),
       ...(filteredVideos || [])
         .map((entry) => entry.key)
         .filter((key): key is string => Boolean(key)),
     ]);
+  }
+
+  private setSubscriptions(channels: StoredSubscriptions["channels"]): void {
+    this.subscribedChannels = buildChannelLookup(channels);
+    this.memberChannels = buildChannelLookup(channels.filter((channel) => channel.isMember));
   }
 
   private clearSettlingRescans(): void {
@@ -502,15 +505,23 @@ class FeedFilterController {
       const wasFiltered = videoElement.hasAttribute("data-filtered");
       const videoData = extractVideoData(videoElement);
       const title = videoData.title || "Unknown title";
-      const isSubscribed = isSubscribedChannel(videoData, this.subscribedChannels);
+      const isSubscribed = matchesChannel(videoData, this.subscribedChannels);
 
       applySubscribedChannelState(videoElement, isSubscribed);
       applyTitleLanguageState(videoElement, videoData.titleLanguage);
       applyChannelLanguageState(videoElement, videoData.channelLanguage);
 
-      const triggeredFilter = getTriggeredFilter(videoData, this.filterSettings);
+      const isMember = matchesChannel(videoData, this.memberChannels);
+      // A membership unlocks members-only videos, so a member's card is judged as an ordinary video.
+      const triggeredFilter = getTriggeredFilter(
+        isMember ? { ...videoData, isMembersOnly: false } : videoData,
+        this.filterSettings,
+      );
+      // Subscribing unlocks nothing, so Keep subscriptions never exempts a members-only match.
       const shouldPreserveSubscribedVideo =
-        isSubscribed && this.filterSettings.preserveSubscribedChannels;
+        isSubscribed &&
+        this.filterSettings.preserveSubscribedChannels &&
+        !(triggeredFilter.shouldFilter && triggeredFilter.reason === "members-only");
       const retryCount = Number((videoElement as HTMLElement).dataset.filterRetryCount || 0);
       const shouldRetryForMetadata =
         !triggeredFilter.shouldFilter &&
@@ -670,9 +681,7 @@ class FeedFilterController {
       }
 
       if (changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS]) {
-        this.subscribedChannels = buildSubscriptionLookup(
-          changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS].newValue?.channels,
-        );
+        this.setSubscriptions(changes[STORAGE_KEYS.YOUTUBE_SUBSCRIPTIONS].newValue?.channels ?? []);
         this.rescanAfterRuleChange("subscription update");
         return;
       }

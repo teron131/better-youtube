@@ -9,6 +9,8 @@ export interface FeedFilterSettings {
   viewsFilterEnabled: boolean;
   liveViewerFilterEnabled: boolean;
   mixFilterEnabled: boolean;
+  membersOnlyFilterEnabled: boolean;
+  podcastFilterEnabled: boolean;
   durationFilterEnabled: boolean;
   keywordFilterEnabled: boolean;
   ageFilterEnabled: boolean;
@@ -21,6 +23,10 @@ export interface FeedFilterSettings {
   maxAgeYears: number;
   keywords: string[];
 }
+
+export type FeedFilterToggleKey = {
+  [K in keyof FeedFilterSettings]: FeedFilterSettings[K] extends boolean ? K : never;
+}[keyof FeedFilterSettings];
 
 export interface FilteredVideoRecord {
   key?: string;
@@ -36,6 +42,8 @@ export interface SubscriptionRecord {
   channelUrl?: string | null;
   handle?: string | null;
   description?: string | null;
+  /** True for channels whose membership you bought; absent on subscriptions imported before memberships were recorded, which count as non-members until re-imported. */
+  isMember?: boolean;
 }
 
 export interface StoredSubscriptions {
@@ -49,6 +57,8 @@ export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
   viewsFilterEnabled: DEFAULTS.VIEWS_FILTER_ENABLED,
   liveViewerFilterEnabled: DEFAULTS.LIVE_VIEWER_FILTER_ENABLED,
   mixFilterEnabled: DEFAULTS.MIX_FILTER_ENABLED,
+  membersOnlyFilterEnabled: DEFAULTS.MEMBERS_ONLY_FILTER_ENABLED,
+  podcastFilterEnabled: DEFAULTS.PODCAST_FILTER_ENABLED,
   durationFilterEnabled: DEFAULTS.DURATION_FILTER_ENABLED,
   keywordFilterEnabled: DEFAULTS.KEYWORD_FILTER_ENABLED,
   ageFilterEnabled: DEFAULTS.AGE_FILTER_ENABLED,
@@ -66,6 +76,8 @@ export const FEED_HIDE_FILTER_KEYS = [
   "viewsFilterEnabled",
   "liveViewerFilterEnabled",
   "mixFilterEnabled",
+  "membersOnlyFilterEnabled",
+  "podcastFilterEnabled",
   "durationFilterEnabled",
   "keywordFilterEnabled",
   "ageFilterEnabled",
@@ -76,6 +88,8 @@ export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> 
   viewsFilterEnabled: STORAGE_KEYS.VIEWS_FILTER_ENABLED,
   liveViewerFilterEnabled: STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED,
   mixFilterEnabled: STORAGE_KEYS.MIX_FILTER_ENABLED,
+  membersOnlyFilterEnabled: STORAGE_KEYS.MEMBERS_ONLY_FILTER_ENABLED,
+  podcastFilterEnabled: STORAGE_KEYS.PODCAST_FILTER_ENABLED,
   durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
   keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
   ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
@@ -97,54 +111,35 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
   const result = await getStorageValues<Record<string, unknown>>(
     Object.values(FEED_FILTER_STORAGE_KEYS),
   );
+  const stored = (key: keyof FeedFilterSettings) => result[FEED_FILTER_STORAGE_KEYS[key]];
+  const toggle = (key: FeedFilterToggleKey) =>
+    normalizeBoolean(stored(key), DEFAULT_FEED_FILTER_SETTINGS[key]);
 
   return {
-    viewsFilterEnabled:
-      (result[STORAGE_KEYS.VIEWS_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.viewsFilterEnabled,
-    liveViewerFilterEnabled:
-      (result[STORAGE_KEYS.LIVE_VIEWER_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.liveViewerFilterEnabled,
-    mixFilterEnabled:
-      (result[STORAGE_KEYS.MIX_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.mixFilterEnabled,
-    durationFilterEnabled:
-      (result[STORAGE_KEYS.DURATION_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.durationFilterEnabled,
-    keywordFilterEnabled:
-      (result[STORAGE_KEYS.KEYWORD_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.keywordFilterEnabled,
-    ageFilterEnabled:
-      (result[STORAGE_KEYS.AGE_FILTER_ENABLED] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.ageFilterEnabled,
-    englishOnlyTitles:
-      (result[STORAGE_KEYS.ENGLISH_ONLY_TITLES] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.englishOnlyTitles,
-    preserveSubscribedChannels:
-      (result[STORAGE_KEYS.PRESERVE_SUBSCRIBED_CHANNELS] as boolean | undefined) ??
-      DEFAULT_FEED_FILTER_SETTINGS.preserveSubscribedChannels,
-    minViews: normalizeNumber(
-      result[STORAGE_KEYS.MIN_VIEWS],
-      DEFAULT_FEED_FILTER_SETTINGS.minViews,
-    ),
+    viewsFilterEnabled: toggle("viewsFilterEnabled"),
+    liveViewerFilterEnabled: toggle("liveViewerFilterEnabled"),
+    mixFilterEnabled: toggle("mixFilterEnabled"),
+    membersOnlyFilterEnabled: toggle("membersOnlyFilterEnabled"),
+    podcastFilterEnabled: toggle("podcastFilterEnabled"),
+    durationFilterEnabled: toggle("durationFilterEnabled"),
+    keywordFilterEnabled: toggle("keywordFilterEnabled"),
+    ageFilterEnabled: toggle("ageFilterEnabled"),
+    englishOnlyTitles: toggle("englishOnlyTitles"),
+    preserveSubscribedChannels: toggle("preserveSubscribedChannels"),
+    minViews: normalizeNumber(stored("minViews"), DEFAULT_FEED_FILTER_SETTINGS.minViews),
     minLiveViewers: normalizeNumber(
-      result[STORAGE_KEYS.MIN_LIVE_VIEWERS],
+      stored("minLiveViewers"),
       DEFAULT_FEED_FILTER_SETTINGS.minLiveViewers,
     ),
-    minDuration: normalizeNumber(
-      result[STORAGE_KEYS.MIN_DURATION],
-      DEFAULT_FEED_FILTER_SETTINGS.minDuration,
-    ),
-    maxDuration: normalizeNumber(
-      result[STORAGE_KEYS.MAX_DURATION],
-      DEFAULT_FEED_FILTER_SETTINGS.maxDuration,
-    ),
-    maxAgeYears: normalizeNumber(
-      result[STORAGE_KEYS.MAX_AGE_YEARS],
-      DEFAULT_FEED_FILTER_SETTINGS.maxAgeYears,
-    ),
-    keywords: normalizeKeywords(result[STORAGE_KEYS.FILTER_KEYWORDS]),
+    minDuration: normalizeNumber(stored("minDuration"), DEFAULT_FEED_FILTER_SETTINGS.minDuration),
+    maxDuration: normalizeNumber(stored("maxDuration"), DEFAULT_FEED_FILTER_SETTINGS.maxDuration),
+    maxAgeYears: normalizeNumber(stored("maxAgeYears"), DEFAULT_FEED_FILTER_SETTINGS.maxAgeYears),
+    keywords: normalizeKeywords(stored("keywords")),
   };
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function normalizeNumber(value: unknown, fallback: number): number {
