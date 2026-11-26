@@ -1,0 +1,184 @@
+<!--
+Evidence (re-verify on update):
+  Watch page and read route: src/core/transcript/chromeTab.ts fetchTranscriptFromChromeTab runs chrome.scripting.executeScript in the page's MAIN world, reading ytInitialPlayerResponse and the track's json3 with the page's own session; src/core/transcript/service.ts fetchTranscript; background/video.ts and background/captions.ts are its callers
+  Side panel labels: sidepanel/components/CaptionControls.tsx (Captions, Show on video, English · Auto track label, Refine in the same language, Refine), TranscriptPanel.tsx (Transcript, Copy, Show), SummaryPanel.tsx (Summary, Summarize), VideoChat.tsx (Ask about this video…); section order from sidepanel/pages/Index.tsx
+  Transcript to panel: background/video.ts answers the panel's scrape with the transcript text and caption segments
+  Caption model: background/captions.ts runCaptionJob calls core/refiner rewriteCaptions; constants.ts REFINER_CONFIG MAX_SEGMENTS_PER_CHUNK 20, CONTEXT_LINES 4, CONCURRENCY_LIMIT 8; refiner/workflow.ts createCaptionModel (LangChain ChatOpenAI on an OpenAI-compatible endpoint)
+  Request text: refiner/requests.ts requestHeader (Title, Description, Names said more than once) and request (<before>, <lines count>, [LINEn], <after>); transcript/names.ts repeatedNames; batch 1 has no <before> lines, so none is drawn
+  Times not sent: refiner/lines.ts rewriteLines sends only text; aligned() gives each reply the timing of the line its ID names
+  Three options: CaptionControls.tsx REWRITE_CHOICE_LABELS
+  Back on the video: captions.ts publishes the original lines first (isRawFallback), then onPriorityComplete when the first five minutes' batches settle (workflow.ts priorityLineCount), then the final segments; content/messageHandler.ts and content/subtitleRenderer.ts draw them over the player
+  Summary and chat model: background/summaryGeneration.ts generateSummary (core/agent/runtime.ts runAgent on the OpenAI Agents SDK, or background/nativeSummary.ts summarizeGemini); background/chat.ts handleVideoChat; runtime.ts puts "Video source: {videoId, title, description, transcript}" in the instructions of every request
+  Saved on success: background/summary.ts saves only after generateSummary resolves; chat.ts saves only a changed summary from a finished run
+  Example: Big Think, "One of the world's greatest mathematicians explains 6 essential concepts of math | Terence Tao" (OOMx2BHHWtE), English auto-generated track parsed with chromeTab.ts parseJson3Captions: 2,666 lines, 134 batches, 153 lines (8 batches) end within five minutes; names from repeatedNames over the joined text; the same lines show in static/hero.jpg
+  Illustration only: the moment drawn (paused at 0:00 with the original line on the video) is one state of the overlay, not a model reply; no model output is shown
+  Left out: native Gemini summarizing the watch URL when the panel has no transcript (nativeSummary.ts youtube_url), translation-required English tracks, Chrome storage caching (core/storage.ts), the in-memory transcript cache (transcript/cache.ts), recommendation filtering (content/recommendationFiltering.ts), settings
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="851" viewBox="0 0 1120 851" role="img" aria-labelledby="title desc">
+  <title id="title">One transcript feeds the captions, the summary, and the chat</title>
+  <desc id="desc">A YouTube watch page with the Better YouTube side panel beside it. The transcript, 2,666 timed lines read from the open page, runs as one red band beneath them, starting with 0:00 My name is Terence Tao. I'm a professor. It feeds the panel's Transcript section and two models. The caption model gets the lines in 134 batches of 20, eight at a time; each request carries the title, the names the transcript repeats, numbered lines such as [LINE1], and four neighbouring lines for context, while the timestamps stay behind; replies come back by ID onto the video, the first five minutes first. Its three options are Refine in the same language, Translate to English, and Translate to another language. The summary and chat model gets the whole transcript in every request and returns a Markdown summary, saved only on success, and answers in the chat.</desc>
+  <defs>
+    <style>
+    .sans { font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .mono { font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; }
+    .url { font: 400 12px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #aaaaaa; }
+    .vtitle { font: 500 15px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .cap { font: 400 18px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #ffffff; }
+    .time { font: 400 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #dddddd; }
+    .brand { font: 600 14px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .sect { font: 500 15px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .ctl { font: 400 13px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .act { font: 500 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #aaaaaa; }
+    .btn { font: 500 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .hint { font: 400 14px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #8a8a8a; }
+    .ts { font: 500 12.5px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #ffc2c2; }
+    .line { font: 500 15px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #ffffff; }
+    .count { font: 700 12.5px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #ffffff; }
+    .note { font: 400 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #aaaaaa; }
+    .model { font: 700 18px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .meta { font: 400 11.5px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #8a8a8a; }
+    .opt { font: 400 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #aaaaaa; }
+    .opt-on { fill: #f1f1f1; }
+    .code { font: 400 12.5px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #f1f1f1; }
+    .code-dim { fill: #8f8f8f; }
+    .code-tag { fill: #6f6f6f; }
+    .side { font: 400 12px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #aaaaaa; }
+    .side-head { font: 400 11px ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; fill: #6f6f6f; }
+    .ctx { font: italic 400 12px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #8f8f8f; }
+    .out { font: 400 12.5px Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #f1f1f1; }
+    .read { fill: none; stroke: #ff3b3b; stroke-width: 2.5; stroke-linejoin: round; }
+    .back { fill: none; stroke: #f1f1f1; stroke-width: 2.5; stroke-linejoin: round; }
+    .hair { stroke: #2a2a2a; stroke-width: 1; }
+    .icon { fill: none; stroke: #aaaaaa; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+    <marker id="head-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#ff3b3b"/></marker>
+    <marker id="head-white" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#f1f1f1"/></marker>
+    <linearGradient id="band-fade" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#cc0000" stop-opacity="0"/><stop offset="1" stop-color="#cc0000"/></linearGradient>
+    <clipPath id="band-clip"><rect x="72" y="412" width="848" height="50"/></clipPath>
+  </defs>
+<rect x="0.5" y="0.5" width="1119" height="850" rx="20" fill="#0f0f0f" stroke="#262626"/>
+  <g id="routes">
+    <path id="read" class="read" d="M300 368 V411.5" marker-end="url(#head-red)"/>
+    <path id="to-transcript" class="read" d="M632 412 V204 H651" marker-end="url(#head-red)"/>
+    <path id="summary-back" class="back" d="M1048 766 H1078 V244 H1049.5" marker-end="url(#head-white)"/>
+    <path id="answers-back" class="back" d="M1078 310 H1049.5" marker-end="url(#head-white)"/>
+    <circle cx="1078" cy="310" r="3.5" fill="#f1f1f1"/>
+<text x="312" y="394" class="note">read from the open page</text>
+  </g>
+  <g id="watch-page">
+<rect x="72" y="28" width="250" height="24" rx="12" fill="#1c1c1c"/>
+<text x="86" y="44" class="url">youtube.com/watch?v=OOMx2BHHWtE</text>
+<rect x="72" y="64" width="540" height="304" rx="10" fill="#181818" stroke="#2a2a2a"/>
+<text x="92" y="94" class="vtitle">One of the world's greatest mathematicians explains 6 essential…</text>
+<rect x="310" y="184" width="64" height="44" rx="12" fill="#050505" fill-opacity="0.85"/>
+<path d="M335 196 L354 206 L335 216 Z" fill="#f1f1f1"/>
+<rect x="152" y="288" width="380" height="32" rx="3" fill="#050505" fill-opacity="0.9"/>
+<text x="342" y="310" class="cap" text-anchor="middle">My name is Terence Tao. I'm a professor</text>
+<g id="chapters"><rect x="88.00" y="342.5" width="6.41" height="3" fill="#4a4a4a"/><rect x="96.41" y="342.5" width="26.22" height="3" fill="#4a4a4a"/><rect x="124.63" y="342.5" width="32.33" height="3" fill="#4a4a4a"/><rect x="158.96" y="342.5" width="9.11" height="3" fill="#4a4a4a"/><rect x="170.06" y="342.5" width="19.02" height="3" fill="#4a4a4a"/><rect x="191.08" y="342.5" width="40.73" height="3" fill="#4a4a4a"/><rect x="233.81" y="342.5" width="46.54" height="3" fill="#4a4a4a"/><rect x="282.35" y="342.5" width="11.81" height="3" fill="#4a4a4a"/><rect x="296.16" y="342.5" width="80.77" height="3" fill="#4a4a4a"/><rect x="378.93" y="342.5" width="35.23" height="3" fill="#4a4a4a"/><rect x="416.16" y="342.5" width="76.96" height="3" fill="#4a4a4a"/><rect x="495.12" y="342.5" width="44.04" height="3" fill="#4a4a4a"/><rect x="541.16" y="342.5" width="53.84" height="3" fill="#4a4a4a"/></g>
+<circle cx="90" cy="344" r="6" fill="#ff0000"/>
+<text x="88" y="362" class="time">0:00 / 1:24:35</text>
+  </g>
+  <g id="side-panel">
+<rect x="652" y="28" width="396" height="340" rx="12" fill="#000000" stroke="#2a2a2a"/>
+<rect x="668" y="40" width="20" height="14" rx="4" fill="#f1f1f1"/>
+<path d="M676 43.5 L682.5 47 L676 50.5 Z" fill="#000000"/>
+<text x="696" y="52" class="brand">Better YouTube</text>
+<line x1="652" y1="64" x2="1048" y2="64" class="hair"/>
+<rect x="668" y="79" width="16" height="12" rx="2.5" fill="none" class="icon"/>
+<path d="M672 85.5 H675 M678 85.5 H680" class="icon"/>
+<text x="692" y="90" class="sect">Captions</text>
+<text x="990" y="89" class="act" text-anchor="end">Show on video</text>
+<rect x="998" y="77" width="34" height="18" rx="9" fill="#f1f1f1"/>
+<circle cx="1023" cy="86" r="6.5" fill="#000000"/>
+<rect x="668" y="102" width="364" height="30" rx="7" fill="#0b0b0b" stroke="#2a2a2a"/>
+<text x="680" y="121.5" class="ctl">English · Auto</text>
+<path d="M1014 115 L1018 119 L1022 115" class="icon"/>
+<rect x="668" y="140" width="274" height="30" rx="7" fill="#0b0b0b" stroke="#2a2a2a"/>
+<text x="680" y="159.5" class="ctl">Refine in the same language</text>
+<path d="M924 153 L928 157 L932 153" class="icon"/>
+<rect x="950" y="140" width="82" height="30" rx="7" fill="#262626" stroke="#3a3a3a"/>
+<text x="991" y="159.5" class="btn" text-anchor="middle">Refine</text>
+<line x1="668" y1="184" x2="1032" y2="184" class="hair"/>
+<path d="M669 197 H683 M669 202 H683 M669 207 H678" class="icon"/>
+<text x="692" y="208" class="sect">Transcript</text>
+<text x="976" y="207" class="act" text-anchor="end">Copy</text>
+<text x="1032" y="207" class="act" text-anchor="end">Show</text>
+<line x1="668" y1="224" x2="1032" y2="224" class="hair"/>
+<path d="M670 236 H679 L683 240 V252 H670 Z M673 244 H680 M673 248 H678" class="icon"/>
+<text x="692" y="248" class="sect">Summary</text>
+<rect x="946" y="232" width="86" height="26" rx="7" fill="#262626" stroke="#3a3a3a"/>
+<text x="989" y="249.5" class="btn" text-anchor="middle">Summarize</text>
+<rect x="668" y="270" width="364" height="82" rx="14" fill="#121212" stroke="#2a2a2a"/>
+<text x="684" y="296" class="hint">Ask about this video…</text>
+<circle cx="1010" cy="330" r="12" fill="#262626"/>
+<path d="M1010 336 V324 M1005 329 L1010 324 L1015 329" class="icon" stroke="#dddddd"/>
+  </g>
+  <g id="transcript">
+<rect x="72" y="412" width="976" height="50" rx="6" fill="#cc0000"/>
+  <g clip-path="url(#band-clip)">
+<text x="90" y="442"><tspan class="ts">0:00</tspan><tspan class="line" dx="12">My name is Terence Tao. I'm a professor</tspan><tspan class="ts" dx="22">0:01</tspan><tspan class="line" dx="12">of mathematics at the University of</tspan><tspan class="ts" dx="22">0:03</tspan><tspan class="line" dx="12">California, Los Angeles, and I have a</tspan></text>
+  </g>
+<rect x="840" y="412" width="80" height="50" rx="0" fill="url(#band-fade)"/>
+<text x="1034" y="442" class="count" text-anchor="end">2,666 lines</text>
+  </g>
+  <g id="caption-model">
+<rect x="72" y="496" width="540" height="327" rx="12" fill="#181818" stroke="#2a2a2a"/>
+<g id="batches"><rect x="92.00" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="95.73" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="99.46" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="103.19" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="106.93" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="110.66" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="114.39" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="118.12" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="121.85" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="125.58" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="129.31" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="133.04" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="136.78" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="140.51" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="144.24" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="147.97" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="151.70" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="155.43" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="159.16" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="162.90" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="166.63" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="170.36" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="174.09" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="177.82" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="181.55" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="185.28" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="189.01" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="192.75" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="196.48" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="200.21" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="203.94" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="207.67" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="211.40" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="215.13" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="218.87" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="222.60" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="226.33" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="230.06" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="233.79" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="237.52" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="241.25" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="244.99" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="248.72" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="252.45" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="256.18" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="259.91" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="263.64" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="267.37" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="271.10" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="274.84" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="278.57" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="282.30" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="286.03" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="289.76" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="293.49" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="297.22" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="300.96" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="304.69" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="308.42" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="312.15" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="315.88" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="319.61" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="323.34" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="327.07" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="330.81" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="334.54" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="338.27" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="342.00" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="345.73" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="349.46" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="353.19" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="356.93" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="360.66" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="364.39" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="368.12" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="371.85" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="375.58" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="379.31" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="383.04" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="386.78" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="390.51" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="394.24" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="397.97" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="401.70" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="405.43" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="409.16" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="412.90" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="416.63" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="420.36" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="424.09" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="427.82" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="431.55" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="435.28" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="439.01" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="442.75" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="446.48" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="450.21" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="453.94" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="457.67" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="461.40" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="465.13" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="468.87" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="472.60" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="476.33" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="480.06" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="483.79" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="487.52" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="491.25" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="494.99" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="498.72" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="502.45" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="506.18" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="509.91" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="513.64" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="517.37" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="521.10" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="524.84" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="528.57" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="532.30" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="536.03" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="539.76" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="543.49" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="547.22" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="550.96" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="554.69" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="558.42" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="562.15" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="565.88" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="569.61" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="573.34" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="577.07" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="580.81" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="584.54" y="512" width="2.5" height="14" fill="#cc0000"/><rect x="588.27" y="512" width="2.5" height="14" fill="#cc0000"/></g>
+<path d="M92 531 V535 H120.62 V531" fill="none" stroke="#aaaaaa" stroke-width="1.2"/>
+<text x="128" y="540" class="note">first 5 min, back on the video first</text>
+<text x="592" y="540" class="note" text-anchor="end">134 batches of 20 lines, 8 at a time</text>
+<path d="M101 561 C102 568 103 569 110 570 C103 571 102 572 101 579 C100 572 99 571 92 570 C99 569 100 568 101 561Z" fill="#f1f1f1"/>
+<text x="118" y="576.5" class="model">Caption model</text>
+<text x="92" y="597" class="meta">any OpenAI-compatible model</text>
+<circle cx="386" cy="564" r="4.5" fill="#f1f1f1"/>
+<text x="398" y="568" class="opt opt-on">Refine in the same language</text>
+<circle cx="386" cy="583" r="4" fill="none" stroke="#6a6a6a" stroke-width="1.3"/>
+<text x="398" y="587" class="opt">Translate to English</text>
+<circle cx="386" cy="602" r="4" fill="none" stroke="#6a6a6a" stroke-width="1.3"/>
+<text x="398" y="606" class="opt">Translate to another language</text>
+<rect x="92" y="624" width="436" height="183" rx="8" fill="#0d0d0d" stroke="#2a2a2a"/>
+<text x="106" y="642" class="code code-dim">Title: One of the world's greatest mathematicians…</text>
+<text x="106" y="659" class="code code-dim">Description: Become a Big Think member to unlock…</text>
+<text x="106" y="676" class="code code-dim">Names said more than once: AIs, AI, Kepler, Newton…</text>
+<text x="106" y="693" class="code code-tag">&lt;lines count="20"&gt;</text>
+<text x="106" y="710" class="code">[LINE1] My name is Terence Tao. I'm a professor</text>
+<text x="106" y="727" class="code">[LINE2] of mathematics at the University of</text>
+<text x="106" y="744" class="code">[LINE3] California, Los Angeles, and I have a</text>
+<text x="166" y="761" class="code code-dim">⋮</text>
+<text x="106" y="778" class="code">[LINE20] Big Think is [music] for curious people</text>
+<text x="106" y="795"><tspan class="code code-tag">&lt;after&gt;</tspan><tspan class="ctx" dx="10">next 4 lines, for context only</tspan></text>
+<text x="516" y="693" class="side-head" text-anchor="end">batch 1 of 134</text>
+<text x="592" y="693" class="side-head" text-anchor="end">not sent</text>
+<text x="592" y="710" class="side" text-anchor="end">0:00</text>
+<text x="592" y="727" class="side" text-anchor="end">0:01</text>
+<text x="592" y="744" class="side" text-anchor="end">0:03</text>
+<text x="592" y="778" class="side" text-anchor="end">0:34</text>
+  </g>
+  <g id="summary-model">
+<rect x="652" y="496" width="396" height="327" rx="12" fill="#181818" stroke="#2a2a2a"/>
+<rect x="672" y="512" width="356" height="14" rx="2" fill="#cc0000"/>
+<text x="672" y="540" class="note">all 2,666 lines in every request</text>
+<path d="M681 561 C682 568 683 569 690 570 C683 571 682 572 681 579 C680 572 679 571 672 570 C679 569 680 568 681 561Z" fill="#f1f1f1"/>
+<text x="698" y="576.5" class="model">Summary and chat model</text>
+<text x="672" y="597" class="meta">OpenAI Agents SDK · Gemini API for summaries</text>
+<rect x="672" y="612" width="356" height="96" rx="8" fill="#0d0d0d" stroke="#2a2a2a"/>
+<text x="686" y="630" class="code code-dim">Video source: {"videoId": "OOMx2BHHWtE",</text>
+<text x="693.5" y="647" class="code code-dim">"title": "One of the world's greatest…", …</text>
+<text x="693.5" y="664" class="code">"transcript": "My name is Terence Tao.</text>
+<text x="693.5" y="681" class="code">I'm a professor of mathematics at the</text>
+<text x="693.5" y="698" class="code">University of California, Los Angeles, …"}</text>
+<rect x="672" y="734" width="84" height="26" rx="7" fill="#262626" stroke="#3a3a3a"/>
+<text x="714" y="751.5" class="btn" text-anchor="middle">Summarize</text>
+<path d="M763 747 H777 M772 742 L777 747 L772 752" class="icon"/>
+<text x="785" y="751.5" class="out">Markdown summary, saved on success</text>
+<rect x="672" y="772" width="158" height="26" rx="13" fill="#121212" stroke="#2a2a2a"/>
+<text x="684" y="789.5" class="opt">Ask about this video…</text>
+<path d="M837 785 H851 M846 780 L851 785 L846 790" class="icon"/>
+<text x="859" y="789.5" class="out">answers, or summary edits</text>
+  </g>
+  <g id="routes-into-nodes">
+    <path id="to-caption-model" class="read" d="M342 462 V510" marker-end="url(#head-red)"/>
+    <path id="to-summary-model" class="read" d="M850 462 V510" marker-end="url(#head-red)"/>
+    <path id="captions-back" class="back" d="M72 519 H42 V304 H151" marker-end="url(#head-white)"/>
+  </g>
+</svg>

@@ -16,11 +16,12 @@ import { applySummaryFontSize } from "../lib/font-size";
 import { clampModelCostLimit, modelCostLimitBounds } from "./settings/modelCostLimit";
 import {
   ApiConfigurationSection,
-  ModelConfigurationSection,
-  ReadingSettingsSection,
+  CaptionSettingsSection,
+  LanguageSettingsSection,
   SettingsLoadingView,
   SettingsTopbar,
   StorageSettingsSection,
+  SummarySettingsSection,
 } from "./settings/SettingsSections";
 import {
   DEFAULT_MODEL_COST_LIMIT_INPUTS,
@@ -62,29 +63,29 @@ const Settings = () => {
       ),
     [allRefinerModels, settings.refinerModelCostLimit],
   );
-  const selectorConfigs = useMemo(
-    () => [
-      {
+  const modelSelectors = useMemo(
+    () => ({
+      summary: {
         modelKey: "summarizerModel" as const,
         costLimitKey: "summarizerModelCostLimit" as const,
-        label: "Summary model",
+        label: "Summary and chat model",
         options: visibleSummarizerModels,
         priceRange: summarizerModelPriceRange,
         costLimitBounds: summarizerCostLimitBounds,
         defaultSortMetric: "intelligence" as const,
-        costLimitAriaLabel: "Summary model cost limit",
+        costLimitAriaLabel: "Summary and chat model cost limit",
       },
-      {
+      caption: {
         modelKey: "refinerModel" as const,
         costLimitKey: "refinerModelCostLimit" as const,
-        label: "Caption refinement model",
+        label: "Caption model",
         options: visibleRefinerModels,
         priceRange: refinerModelPriceRange,
         costLimitBounds: refinerCostLimitBounds,
         defaultSortMetric: "speed" as const,
-        costLimitAriaLabel: "Caption refinement model cost limit",
+        costLimitAriaLabel: "Caption model cost limit",
       },
-    ],
+    }),
     [
       refinerCostLimitBounds,
       refinerModelPriceRange,
@@ -384,13 +385,19 @@ const Settings = () => {
               void ensureLlmBaseUrlPermission(baseUrl);
             }}
           />
-          <ModelConfigurationSection
+          <LanguageSettingsSection settings={settings} onChange={handleChange} />
+          <CaptionSettingsSection
             settings={settings}
-            selectorConfigs={selectorConfigs}
-            renderModelCostLimitControl={renderModelCostLimitControl}
+            modelSelector={modelSelectors.caption}
+            costLimitControl={renderModelCostLimitControl(modelSelectors.caption)}
             onChange={handleChange}
           />
-          <ReadingSettingsSection settings={settings} onChange={handleChange} />
+          <SummarySettingsSection
+            settings={settings}
+            modelSelector={modelSelectors.summary}
+            costLimitControl={renderModelCostLimitControl(modelSelectors.summary)}
+            onChange={handleChange}
+          />
           <RecommendationFilterSettings />
           <StorageSettingsSection
             isClearingStorage={isClearingStorage}

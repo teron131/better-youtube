@@ -2,7 +2,7 @@
  * Video workspace page: follows the active YouTube tab, restores saved summary and caption state from storage, and starts summary and caption runs.
  */
 
-import { ErrorDisplay } from "@ui/components/ErrorDisplay";
+import { CaptionControls } from "@ui/components/CaptionControls";
 import { SummaryPanel } from "@ui/components/SummaryPanel";
 import { TranscriptPanel } from "@ui/components/TranscriptPanel";
 import { VideoChat } from "@ui/components/VideoChat";
@@ -18,7 +18,6 @@ import {
   setRecommendationFilterSetting,
 } from "@ui/services/recommendationFilters";
 import { triggerCaptionGeneration } from "@ui/services/streaming";
-import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULTS, MESSAGE_ACTIONS, STORAGE_KEYS } from "@/core/constants";
@@ -52,10 +51,8 @@ const RECOMMENDATION_FILTER_STORAGE_KEYS = new Set(
 
 const Index = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const transcriptSectionRef = useRef<HTMLDivElement | null>(null);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
   const [isCaptionTrackLoading, setIsCaptionTrackLoading] = useState(false);
-  const summaryRef = useRef<HTMLDivElement | null>(null);
   const summaryStartRef = useRef(false);
   const currentUrlVideoIdRef = useRef<string | null>(null);
   const activeTabLookupRef = useRef(0);
@@ -572,18 +569,6 @@ const Index = () => {
     }
   };
 
-  const openCaptions = async () => {
-    if (!captionState?.tracks.length) {
-      toast({
-        title: "No caption tracks available",
-        description: "Refresh the active video to check for available captions.",
-      });
-      return;
-    }
-    setIsTranscriptOpen(true);
-    transcriptSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   const handleRegenerate = async () => {
     if (!lastProcessedUrl) return;
     await handleVideoSubmit(lastProcessedUrl, {
@@ -620,17 +605,8 @@ const Index = () => {
   const translationPending = captionState?.translationRequired && captionState.status !== "refined";
   const transcript = translationPending ? null : scrapedTranscript || summaryResult?.transcript;
 
-  const openSummary = async (model: string, language: string) => {
-    if (!isExampleMode && (!hasActiveVideo || isResolvingVideo || chatBusy || isLoading)) return;
-    if (summaryResult?.summary) {
-      summaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    await handleVideoSubmit(initialUrl || lastProcessedUrl, {
-      summaryModel: model,
-      targetLanguage: language,
-    });
-  };
+  const isTrackLoading = isCaptionTrackLoading || isResolvingVideo || isLoading;
+  const canRunSummary = hasActiveVideo && !isResolvingVideo && !chatBusy && !isLoading;
 
   return (
     <div className="video-workspace flex h-dvh flex-col overflow-hidden bg-background">
@@ -643,13 +619,8 @@ const Index = () => {
         contextLoading={isResolvingVideo}
         onBusyChange={setChatBusy}
         preview={isExampleMode}
-        hasSummary={Boolean(summaryResult?.summary)}
-        onSummary={openSummary}
-        onCaptions={openCaptions}
         header={(startNewChat) => (
           <WorkspaceHeader
-            showSubtitles={showSubtitles}
-            onToggleSubtitles={() => handleToggleSubtitles(!showSubtitles)}
             recommendationFiltersEnabled={recommendationFiltersEnabled}
             onToggleRecommendationFilters={() => void handleToggleRecommendationFilters()}
             onNewChat={startNewChat}
@@ -681,46 +652,50 @@ const Index = () => {
               />
             )}
 
-            {Boolean(transcript || captionState?.tracks.length) && (
-              <div ref={transcriptSectionRef} className="scroll-mt-4">
-                <TranscriptPanel
-                  key={activeVideoId || "example"}
-                  transcript={transcript || ""}
-                  metadata={videoInfo}
-                  captionState={captionState}
-                  segments={translationPending ? [] : captionSegments}
-                  videoId={isExampleMode ? null : activeVideoId}
-                  onCaptionTrackChange={handleCaptionTrackChange}
-                  onRefineCaptions={handleCaptionSubmit}
-                  isCaptionTrackLoading={isCaptionTrackLoading || isResolvingVideo || isLoading}
-                  isOpen={isTranscriptOpen}
-                  onOpenChange={setIsTranscriptOpen}
-                />
-              </div>
+            {!!captionState?.tracks.length && (
+              <CaptionControls
+                key={`captions-${activeVideoId}`}
+                captionState={captionState}
+                isTrackLoading={isTrackLoading}
+                hasTranscript={Boolean(transcript)}
+                showOnVideo={showSubtitles}
+                onShowOnVideoChange={(show) => void handleToggleSubtitles(show)}
+                onTrackChange={handleCaptionTrackChange}
+                onRewrite={handleCaptionSubmit}
+              />
             )}
 
-            {summaryResult?.summary && (
-              <div ref={summaryRef} className="scroll-mt-4">
-                <SummaryPanel
-                  summary={summaryResult.summary}
-                  videoInfo={summaryResult.videoInfo}
-                  onRegenerate={isExampleMode ? undefined : handleRegenerate}
-                  isRegenerating={isLoading || chatBusy || isResolvingVideo || !hasActiveVideo}
-                />
-              </div>
-            )}
+            {transcript ? (
+              <TranscriptPanel
+                key={activeVideoId || "example"}
+                transcript={transcript}
+                metadata={videoInfo}
+                selectedTrackId={captionState?.selectedTrackId}
+                segments={translationPending ? [] : captionSegments}
+                videoId={isExampleMode ? null : activeVideoId}
+                isCaptionTrackLoading={isTrackLoading}
+                isOpen={isTranscriptOpen}
+                onOpenChange={setIsTranscriptOpen}
+              />
+            ) : null}
 
-            {isLoading && (
-              <p
-                role="status"
-                className="flex items-center gap-2 py-4 text-sm text-muted-foreground"
-              >
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Preparing your summary…
-              </p>
+            {(activeVideoId || isExampleMode) && (
+              <SummaryPanel
+                summary={summaryResult?.summary}
+                videoInfo={summaryResult?.videoInfo}
+                isGenerating={isLoading}
+                canRun={canRunSummary}
+                onGenerate={(summaryModel, targetLanguage) =>
+                  void handleVideoSubmit(initialUrl || lastProcessedUrl, {
+                    summaryModel,
+                    targetLanguage,
+                  })
+                }
+                onRegenerate={isExampleMode ? undefined : () => void handleRegenerate()}
+                error={error}
+                onLoadExample={loadExample}
+              />
             )}
-
-            {error && !isLoading && <ErrorDisplay error={error} onLoadExample={loadExample} />}
           </div>
         </div>
       </VideoChat>

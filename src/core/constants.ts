@@ -71,8 +71,8 @@ export const FONT_SCALE = { MIN: 50, MAX: 200, STEP: 10, DEFAULT: 100 } as const
 
 export const DEFAULTS = {
   // Initial selections, and the fallback catalog when OpenRouter is unreachable.
-  MODEL_SUMMARIZER: "google/gemini-3-flash",
-  MODEL_REFINER: "google/gemini-2.5-flash-lite-preview-09-2025",
+  MODEL_SUMMARIZER: "openai/gpt-6-luna",
+  MODEL_REFINER: "openai/gpt-6-luna",
   AUTO_GENERATE: false,
   SHOW_SUBTITLES: true,
   CAPTION_FONT_SIZE: FONT_SCALE.DEFAULT,

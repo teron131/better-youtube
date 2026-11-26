@@ -1,13 +1,11 @@
-/** Video workspace top bar: page-level toggles on the left, conversation and panel actions on the right. */
+/** Video workspace top bar: the recommendation filter toggle on the left, conversation and panel actions on the right. */
 
 import { Button } from "@ui/components/ui/button";
-import { Captions, ListFilter, RefreshCw, Settings, SquarePen } from "lucide-react";
+import { ListFilter, RefreshCw, Settings, SquarePen } from "lucide-react";
 
 import { SIDEPANEL_ROUTE_HREFS } from "../../lib/routes";
 
 interface WorkspaceHeaderProps {
-  showSubtitles: boolean;
-  onToggleSubtitles: () => void;
   recommendationFiltersEnabled: boolean;
   onToggleRecommendationFilters: () => void;
   /** Unset while there is no idle conversation to discard, which disables New chat. */
@@ -25,8 +23,6 @@ const toggleClassName = (active: boolean) =>
   }`;
 
 export function WorkspaceHeader({
-  showSubtitles,
-  onToggleSubtitles,
   recommendationFiltersEnabled,
   onToggleRecommendationFilters,
   onNewChat,
@@ -38,18 +34,6 @@ export function WorkspaceHeader({
       <div className="sidepanel-container">
         <div className="flex h-14 w-full items-center justify-between gap-1">
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={onToggleSubtitles}
-              aria-pressed={showSubtitles}
-              className={toggleClassName(showSubtitles)}
-              title="Toggle subtitles overlay"
-            >
-              <Captions />
-              <span>Overlay</span>
-            </Button>
             <Button
               variant="ghost"
               size="sm"

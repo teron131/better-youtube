@@ -1,6 +1,6 @@
 /** Owns the video conversation and bottom composer; successful summary edits are committed by the background agent. */
 
-import { ArrowUp, Captions, FileText, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -29,9 +29,6 @@ interface VideoChatProps {
   contextLoading: boolean;
   onBusyChange: (busy: boolean) => void;
   preview?: boolean;
-  hasSummary: boolean;
-  onSummary: (model: string, language: string) => Promise<void>;
-  onCaptions: () => Promise<void>;
   /** Renders the panel top bar; startNewChat is unset while there is no idle conversation to discard. */
   header: (startNewChat?: () => void) => ReactNode;
   children: ReactNode;
@@ -62,9 +59,6 @@ export function VideoChat({
   contextLoading,
   onBusyChange,
   preview,
-  hasSummary,
-  onSummary,
-  onCaptions,
   header,
   children,
 }: VideoChatProps) {
@@ -72,7 +66,6 @@ export function VideoChat({
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages(storageKey));
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { preferences, updatePreferences } = useUserPreferences();
   const { summarizerModels } = useModelSelection();
@@ -97,8 +90,7 @@ export function VideoChat({
   const bottom = useRef<HTMLDivElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const canChat = Boolean(videoReady && videoId && transcript.trim()) || preview;
-  const canSummarize = Boolean(videoReady && videoId) || Boolean(preview && hasSummary);
-  const working = Boolean(disabled || pending || actionPending);
+  const working = Boolean(disabled || pending);
 
   useEffect(() => {
     active.current = true;
@@ -190,22 +182,6 @@ export function VideoChat({
     setError(null);
   }
 
-  async function openSummary() {
-    if (disabled || busy.current || !canSummarize) return;
-    busy.current = true;
-    setActionPending(true);
-    setError(null);
-    try {
-      await onSummary(preferences.summaryModel, preferences.targetLanguage);
-    } catch (cause) {
-      if (active.current)
-        setError(cause instanceof Error ? cause.message : "Could not open the summary.");
-    } finally {
-      busy.current = false;
-      if (active.current) setActionPending(false);
-    }
-  }
-
   return (
     <>
       {header(messages.length > 0 && !pending ? startNewChat : undefined)}
@@ -286,8 +262,8 @@ export function VideoChat({
                 }
               }}
             />
-            <div className="mt-1 flex flex-col gap-1">
-              <div className="min-w-0 w-full">
+            <div className="mt-1 flex items-center gap-2">
+              <div className="min-w-0 flex-1">
                 <EditableCombobox
                   value={preferences.summaryModel}
                   onChange={(model) => updatePreferences({ summaryModel: model })}
@@ -298,71 +274,19 @@ export function VideoChat({
                   contentClassName="max-w-[calc(100vw-2rem)]"
                 />
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-1.5 px-2 text-[13px]"
-                  disabled={working || !canSummarize}
-                  onClick={() => void openSummary()}
-                  title={
-                    !canSummarize
-                      ? contextLoading
-                        ? "Loading video context"
-                        : "Open a YouTube video to generate a summary"
-                      : hasSummary
-                        ? "Jump to summary"
-                        : "Generate summary"
-                  }
-                >
-                  <FileText className="h-4 w-4" />
-                  Summary
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-1.5 px-2 text-[13px]"
-                  aria-label="Caption"
-                  title="Choose a caption track"
-                  disabled={working || !videoReady || preview}
-                  onClick={() => {
-                    if (busy.current) return;
-                    busy.current = true;
-                    setActionPending(true);
-                    void onCaptions()
-                      .catch((cause) => {
-                        if (active.current)
-                          setError(
-                            cause instanceof Error
-                              ? cause.message
-                              : "Could not open caption tracks.",
-                          );
-                      })
-                      .finally(() => {
-                        busy.current = false;
-                        if (active.current) setActionPending(false);
-                      });
-                  }}
-                >
-                  <Captions className="h-4 w-4" />
-                  Caption
-                </Button>
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="ml-auto h-9 w-9 shrink-0 rounded-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                  aria-label="Send message"
-                  disabled={!draft.trim() || working || contextLoading || !canChat}
-                >
-                  {working ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ArrowUp className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+              <Button
+                type="submit"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                aria-label="Send message"
+                disabled={!draft.trim() || working || contextLoading || !canChat}
+              >
+                {working ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </form>
           <p className="mt-2 text-balance text-center text-xs text-muted-foreground">

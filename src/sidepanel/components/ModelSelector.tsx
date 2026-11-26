@@ -114,7 +114,7 @@ export function ModelSelector({
                     onClick={(event) => handleSortClick(event, metric)}
                     className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       effectiveSortMetric === metric
-                        ? "bg-primary text-white"
+                        ? "bg-foreground text-background"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                     aria-label={label}

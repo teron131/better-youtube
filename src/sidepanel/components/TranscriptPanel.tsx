@@ -1,60 +1,34 @@
-/**
- * Displays, searches, and copies the selected caption track, and rewrites it with the caption model after the user picks refine or a translation language and confirms.
- * Choosing another track while a run is refining cancels that run in the background.
- */
+/** Displays, searches, and copies the selected caption track's transcript, and seeks the video from its timestamps. */
 
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Button } from "@ui/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@ui/components/ui/collapsible";
 import { Input } from "@ui/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@ui/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/components/ui/tooltip";
-import { useUserPreferences } from "@ui/hooks/use-config";
 import { useToast } from "@ui/hooks/use-toast";
 import { useVideoPlayback } from "@ui/hooks/use-video-playback";
 import { buildTranscriptWithMetadata, type TranscriptCopyMetadata } from "@ui/lib/transcript-copy";
-import {
-  ChevronDown,
-  ChevronUp,
-  ClipboardList,
-  Copy,
-  FileText,
-  Languages,
-  Loader2,
-  Search,
-  WandSparkles,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList, Copy, ScrollText, Search, X } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
   useDeferredValue,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { describeLanguage, isSameLanguage, preferredRewriteLanguage } from "@/core/language";
-import type { CaptionState, SubtitleSegment } from "@/core/storage";
-import type { CaptionTrack } from "@/core/types";
+import type { SubtitleSegment } from "@/core/storage";
 
 import { TranscriptTimeline } from "./TranscriptTimeline";
+import { sectionActionClassName, WorkspaceSection } from "./WorkspaceSection";
 
 interface TranscriptPanelProps {
   transcript: string;
   segments: readonly SubtitleSegment[];
   videoId: string | null;
   metadata?: TranscriptCopyMetadata | null;
-  captionState: CaptionState | null;
-  onCaptionTrackChange: (trackId: string) => Promise<void>;
-  /** `rewriteLanguage` is the language to translate into, or null to refine in the captions' own language. */
-  onRefineCaptions: (rewriteLanguage: string | null) => Promise<void>;
+  selectedTrackId: string | undefined;
   isCaptionTrackLoading: boolean;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -65,52 +39,16 @@ export const TranscriptPanel = ({
   segments,
   videoId,
   metadata,
-  captionState,
-  onCaptionTrackChange,
-  onRefineCaptions,
+  selectedTrackId,
   isCaptionTrackLoading,
   isOpen,
   onOpenChange,
 }: TranscriptPanelProps) => {
-  const [isConfirmingRefinement, setIsConfirmingRefinement] = useState(false);
-  const [rewriteChoice, setRewriteChoice] = useState<RewriteChoice>("refine");
-  const [customLanguage, setCustomLanguage] = useState("");
-  const { preferences } = useUserPreferences();
-  const selectedCaptionTrackId = captionState?.selectedTrackId;
-  const selectedTrack = captionState?.tracks.find((track) => track.id === selectedCaptionTrackId);
-  const isRefining = captionState?.status === "refining";
-  const translationRequired = captionState?.translationRequired === true;
-  const translationPending = translationRequired && captionState?.status !== "refined";
-  const rewriteChoices: RewriteChoice[] = translationRequired
-    ? ["english"]
-    : selectedTrack && isSameLanguage("en", selectedTrack.languageCode)
-      ? ["refine", "custom"]
-      : ["refine", "english", "custom"];
-  const rewriteLanguage =
-    rewriteChoice === "refine" ? null : rewriteChoice === "english" ? "en" : customLanguage.trim();
-  const isBusy = isCaptionTrackLoading || isRefining;
-  const progress = captionState?.progress;
-  const progressPercent = progress
-    ? Math.round((progress.completedBatches / progress.totalBatches) * 100)
-    : null;
-  const selectedTrackLabel = selectedTrack ? captionTrackLabel(selectedTrack) : "Selected captions";
-  const refiningLabel = captionState?.translatedInto
-    ? `Translating captions into ${describeLanguage(captionState.translatedInto)}`
-    : "Refining captions";
-  const captionActionLabel = isCaptionTrackLoading
-    ? "Loading captions"
-    : isRefining
-      ? progressPercent === null
-        ? refiningLabel
-        : `${refiningLabel} ${progressPercent}%`
-      : isConfirmingRefinement
-        ? `Rewrite ${selectedTrackLabel}: ${rewriteLanguage ? `translate to ${describeLanguage(rewriteLanguage)}` : rewriteChoice === "custom" ? "type a language first" : "refine in the same language"}`
-        : translationPending
-          ? "Translate selected captions into English"
-          : "Rewrite captions";
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+  const bodyId = useId();
   const transcriptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { currentTimeMs, isAvailable, seekTo } = useVideoPlayback(
@@ -128,52 +66,7 @@ export const TranscriptPanel = ({
   );
   const { text: captionText, matchCount } = searchResult;
 
-  useEffect(() => {
-    setIsConfirmingRefinement(false);
-  }, [selectedCaptionTrackId]);
-
-  const changeCaptionTrack = async (trackId: string) => {
-    setIsConfirmingRefinement(false);
-    try {
-      await onCaptionTrackChange(trackId);
-    } catch (error) {
-      toast({
-        title: "Unable to load caption track",
-        description: error instanceof Error ? error.message : undefined,
-        variant: "destructive",
-      });
-    }
-  };
-
-  /** Opens the rewrite options, preselecting a translation into the Target language when it differs from the captions'. */
-  const startRewrite = () => {
-    const preferred = selectedTrack
-      ? preferredRewriteLanguage(
-          selectedTrack.languageCode,
-          translationRequired,
-          preferences.targetLanguage,
-        )
-      : null;
-    setRewriteChoice(preferred === null ? "refine" : preferred === "en" ? "english" : "custom");
-    if (preferred && preferred !== "en") setCustomLanguage(describeLanguage(preferred));
-    setIsConfirmingRefinement(true);
-  };
-
-  /** A rewrite starts only after the user confirms the option for the currently selected source. */
-  const confirmRefinement = async () => {
-    setIsConfirmingRefinement(false);
-    try {
-      await onRefineCaptions(rewriteLanguage);
-    } catch (error) {
-      toast({
-        title: rewriteLanguage ? "Caption translation failed" : "Caption refinement failed",
-        description: error instanceof Error ? error.message : undefined,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const copyTranscript = async (withDetails = false) => {
+  const copyTranscript = async (withDetails: boolean) => {
     try {
       await navigator.clipboard.writeText(
         withDetails ? buildTranscriptWithMetadata(captionText, metadata) : captionText,
@@ -260,314 +153,148 @@ export const TranscriptPanel = ({
   }, [currentMatchIndex, deferredSearchQuery, segments.length]);
 
   return (
-    <section className="contain-layout border-y border-border/60">
-      <Collapsible open={isOpen} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild>
+    <WorkspaceSection
+      icon={ScrollText}
+      title="Transcript"
+      bodyId={bodyId}
+      actions={
+        <>
+          <PopoverPrimitive.Root open={isCopyMenuOpen} onOpenChange={setIsCopyMenuOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={sectionActionClassName}
+                disabled={isCaptionTrackLoading || !captionText}
+              >
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                Copy
+                <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
+              </Button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                align="end"
+                sideOffset={4}
+                className="z-50 min-w-[12rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+              >
+                {COPY_CHOICES.map(({ withDetails, label, icon: ChoiceIcon }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+                    onClick={() => {
+                      setIsCopyMenuOpen(false);
+                      void copyTranscript(withDetails);
+                    }}
+                  >
+                    <ChoiceIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    {label}
+                  </button>
+                ))}
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
           <Button
             variant="ghost"
-            className="h-11 w-full justify-between rounded-none px-0 text-muted-foreground hover:bg-muted/30 hover:text-foreground focus-visible:ring-inset"
+            size="sm"
+            className={sectionActionClassName}
+            aria-expanded={isOpen}
+            aria-controls={bodyId}
+            onClick={() => onOpenChange(!isOpen)}
           >
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex items-center justify-center text-muted-foreground">
-                <FileText className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <span className="text-sm font-medium text-foreground block">Transcript</span>
-              </div>
-              {captionState?.status === "refined" && (
-                <span className="text-xs text-muted-foreground">
-                  {captionState.translatedInto || captionState.translationRequired
-                    ? "Translated"
-                    : "Refined"}
-                </span>
-              )}
-            </div>
-            <div className="ml-3 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-              <span>{isOpen ? "Hide" : "Show"}</span>
-              <ChevronDown
-                className={`transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
-              />
-            </div>
+            {isOpen ? "Hide" : "Show"}
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
           </Button>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent className="pb-4">
-          <div className="space-y-2">
-            {!!captionState?.tracks.length && (
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <Select
-                    value={selectedCaptionTrackId}
-                    onValueChange={(trackId) => void changeCaptionTrack(trackId)}
-                    disabled={isCaptionTrackLoading}
-                  >
-                    <SelectTrigger
-                      aria-label="Caption track"
-                      title={selectedTrackLabel}
-                      className="h-9 min-w-0 text-sm"
-                    >
-                      <SelectValue placeholder="Choose captions" />
-                    </SelectTrigger>
-                    <SelectContent className="max-w-[calc(100vw-2rem)]">
-                      {captionState.tracks.map((track) => (
-                        <SelectItem key={track.id} value={track.id}>
-                          {captionTrackLabel(track)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={isConfirmingRefinement ? "default" : "outline"}
-                      size={isConfirmingRefinement ? "sm" : "icon"}
-                      className={`h-9 shrink-0 ${isConfirmingRefinement ? "" : "w-9 border-border/60"}`}
-                      disabled={
-                        isBusy ||
-                        !selectedTrack ||
-                        (!captionText && !translationPending) ||
-                        (isConfirmingRefinement && rewriteLanguage === "")
-                      }
-                      aria-label={captionActionLabel}
-                      aria-busy={isBusy}
-                      onClick={() =>
-                        isConfirmingRefinement ? void confirmRefinement() : startRewrite()
-                      }
-                    >
-                      {isBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                      ) : isConfirmingRefinement ? (
-                        "Rewrite"
-                      ) : translationPending ? (
-                        <Languages className="h-4 w-4" aria-hidden="true" />
-                      ) : (
-                        <WandSparkles className="h-4 w-4" aria-hidden="true" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{captionActionLabel}</TooltipContent>
-                </Tooltip>
-                <span role="status" className="sr-only">
-                  {isBusy ? captionActionLabel : ""}
-                </span>
-                {isConfirmingRefinement && (
+        </>
+      }
+    >
+      {isOpen && (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search transcript"
+                aria-label="Search transcript"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="h-9 border-border/60 pl-10 pr-24 text-sm focus:border-primary/50"
+              />
+              {searchQuery && (
+                <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : "No matches"}
+                  </span>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    aria-label="Cancel rewrite"
-                    title="Cancel rewrite"
-                    onClick={() => setIsConfirmingRefinement(false)}
+                    size="sm"
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                    className="h-6 w-6 p-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                )}
-              </div>
-            )}
-            {isConfirmingRefinement && (
-              <div className="flex items-center gap-2">
-                <Select
-                  value={rewriteChoice}
-                  onValueChange={(choice) => setRewriteChoice(choice as RewriteChoice)}
-                  disabled={rewriteChoices.length < 2}
-                >
-                  <SelectTrigger aria-label="Rewrite option" className="h-9 min-w-0 flex-1 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-w-[calc(100vw-2rem)]">
-                    {rewriteChoices.map((choice) => (
-                      <SelectItem key={choice} value={choice}>
-                        {REWRITE_CHOICE_LABELS[choice]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {rewriteChoice === "custom" && (
-                  <Input
-                    type="text"
-                    placeholder="Language, such as Japanese"
-                    aria-label="Translation language"
-                    value={customLanguage}
-                    onChange={(event) => setCustomLanguage(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && rewriteLanguage) void confirmRefinement();
-                    }}
-                    className="h-9 min-w-0 flex-1 text-sm border-border/60"
-                    autoFocus
-                  />
-                )}
-              </div>
-            )}
-            {captionState?.error && (
-              <p role="alert" className="text-xs text-destructive break-words">
-                {captionState.error}
-              </p>
-            )}
-            {isRefining && (
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
-                  <span className="min-w-0 truncate">
-                    {progress
-                      ? `${refiningLabel} · ${progress.completedBatches} of ${progress.totalBatches} batches`
-                      : `${refiningLabel}…`}
-                  </span>
-                  {progressPercent !== null && (
-                    <span className="shrink-0 font-mono tabular-nums text-foreground">
-                      {progressPercent}%
-                    </span>
-                  )}
-                </div>
-                <div
-                  role="progressbar"
-                  aria-label={refiningLabel}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={progressPercent ?? undefined}
-                  className="h-1 overflow-hidden rounded-full bg-muted"
-                >
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
-                    style={{ width: `${progressPercent ?? 0}%` }}
-                  />
-                </div>
-              </div>
-            )}
-            {translationPending && !isRefining && (
-              <p role="status" className="text-xs text-muted-foreground">
-                YouTube translation is unavailable. Use the translate icon to translate with AI.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative min-w-[10rem] flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search"
-                  aria-label="Search transcript"
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="pl-10 pr-24 h-9 text-sm border-border/60 focus:border-primary/50"
-                />
-                {searchQuery && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : "No matches"}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSearch}
-                      aria-label="Clear search"
-                      className="h-6 w-6 p-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {searchQuery && matchCount > 0 && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigateMatches("prev")}
-                    aria-label="Previous search match"
-                    className="h-9 w-9 border-border/60 text-foreground"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigateMatches("next")}
-                    aria-label="Next search match"
-                    className="h-9 w-9 border-border/60 text-foreground"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
                 </div>
               )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Copy transcript"
-                    onClick={() => void copyTranscript()}
-                    disabled={isCaptionTrackLoading || !captionText}
-                    className="h-9 w-9 border-border/60 text-foreground"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy transcript</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Copy transcript with video details"
-                    onClick={() => void copyTranscript(true)}
-                    disabled={isCaptionTrackLoading || !captionText}
-                    className="h-9 w-9 border-border/60 text-foreground"
-                  >
-                    <ClipboardList className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy with details</p>
-                </TooltipContent>
-              </Tooltip>
             </div>
 
-            {segments.length ? (
-              <TranscriptTimeline
-                key={selectedCaptionTrackId || "captions"}
-                segments={segments}
-                content={searchResult.content}
-                activeMatchIndex={
-                  deferredSearchQuery.trim() && matchCount ? currentMatchIndex : null
-                }
-                currentTimeMs={currentTimeMs}
-                canSeek={isAvailable && !isCaptionTrackLoading}
-                onSeek={seekToCaption}
-              />
-            ) : (
-              <div ref={transcriptRef} className="py-3 max-h-96 overflow-y-auto contain-layout">
-                <div className="select-text text-sm leading-6 text-foreground whitespace-pre-wrap break-words">
-                  {searchResult.content[0]}
-                </div>
-              </div>
+            {searchQuery && matchCount > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigateMatches("prev")}
+                  aria-label="Previous search match"
+                  className="h-9 w-9 shrink-0 border-border/60 text-foreground"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigateMatches("next")}
+                  aria-label="Next search match"
+                  className="h-9 w-9 shrink-0 border-border/60 text-foreground"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </section>
+
+          {segments.length ? (
+            <TranscriptTimeline
+              key={selectedTrackId || "captions"}
+              segments={segments}
+              content={searchResult.content}
+              activeMatchIndex={deferredSearchQuery.trim() && matchCount ? currentMatchIndex : null}
+              currentTimeMs={currentTimeMs}
+              canSeek={isAvailable && !isCaptionTrackLoading}
+              onSeek={seekToCaption}
+            />
+          ) : (
+            <div ref={transcriptRef} className="contain-layout max-h-96 overflow-y-auto py-3">
+              <div className="select-text whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
+                {searchResult.content[0]}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </WorkspaceSection>
   );
 };
 
-// "custom" translates into the language typed beside the option, passed to the model as written.
-type RewriteChoice = "refine" | "english" | "custom";
-
-const REWRITE_CHOICE_LABELS: Record<RewriteChoice, string> = {
-  refine: "Refine in the same language",
-  english: "Translate to English",
-  custom: "Translate to…",
-};
-
-function captionTrackLabel(track: CaptionTrack): string {
-  if (track.kind === "translated") return "English · Translation";
-  const name = track.name.replace(/\s*\(auto-generated\)\s*$/i, "") || track.languageCode;
-  return `${name} · ${track.kind === "manual" ? "Manual" : "Auto"}`;
-}
+const COPY_CHOICES = [
+  { withDetails: false, label: "Transcript only", icon: Copy },
+  { withDetails: true, label: "With video details", icon: ClipboardList },
+] as const;
 
 /** Keeps search matches continuous across caption boundaries while rendering timestamps separately. */
 function highlightTranscriptLines(lines: string[], query: string, activeMatchIndex: number) {

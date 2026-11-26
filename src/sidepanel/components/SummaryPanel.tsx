@@ -1,30 +1,51 @@
-/** Presents the saved Markdown summary as a reading section with discoverable copy and regeneration actions. */
+/** The workspace's Summary section: starts a summary with the chat model and Target language, then shows it with copy and regenerate actions, or the failure. */
 
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, FileText, Loader2, RefreshCw } from "lucide-react";
 
-import type { VideoInfoResponse } from "@/core/types";
+import { describeLanguage } from "@/core/language";
+import type { ApiError, VideoInfoResponse } from "@/core/types";
 import { generateSummaryMarkdown } from "@/core/utils/markdown";
 import { s2tw } from "@/core/utils/text";
 
+import { useUserPreferences } from "../hooks/use-config";
 import { useToast } from "../hooks/use-toast";
+import { ErrorDisplay } from "./ErrorDisplay";
 import { Markdown } from "./Markdown";
 import { Button } from "./ui/button";
+import { sectionActionClassName, WorkspaceSection } from "./WorkspaceSection";
 
 interface SummaryPanelProps {
-  summary: string;
+  summary: string | undefined;
   videoInfo?: VideoInfoResponse;
+  isGenerating: boolean;
+  /** False while a run can't start, such as before the active video resolves or while chat is answering. */
+  canRun: boolean;
+  onGenerate: (model: string, language: string) => void;
+  /** Unset in the example preview, which has nothing to regenerate. */
   onRegenerate?: () => void;
-  isRegenerating?: boolean;
+  error: ApiError | null;
+  onLoadExample: () => void;
 }
 
 export function SummaryPanel({
   summary,
   videoInfo,
+  isGenerating,
+  canRun,
+  onGenerate,
   onRegenerate,
-  isRegenerating,
+  error,
+  onLoadExample,
 }: SummaryPanelProps) {
   const { toast } = useToast();
+  const { preferences } = useUserPreferences();
+  const language =
+    preferences.targetLanguage === "auto"
+      ? "the transcript's language"
+      : describeLanguage(preferences.targetLanguage);
+
   async function copy() {
+    if (!summary) return;
     try {
       await navigator.clipboard.writeText(generateSummaryMarkdown(summary, videoInfo));
       toast({ title: "Summary copied" });
@@ -32,41 +53,75 @@ export function SummaryPanel({
       toast({ title: "Could not copy summary", variant: "destructive" });
     }
   }
+
+  const actions = summary ? (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={sectionActionClassName}
+        onClick={() => void copy()}
+      >
+        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+        Copy
+      </Button>
+      {onRegenerate && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={sectionActionClassName}
+          disabled={!canRun}
+          onClick={onRegenerate}
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`}
+            aria-hidden="true"
+          />
+          Regenerate
+        </Button>
+      )}
+    </>
+  ) : (
+    <Button
+      type="button"
+      size="sm"
+      className="h-8 gap-1.5"
+      aria-busy={isGenerating}
+      disabled={!canRun}
+      onClick={() => onGenerate(preferences.summaryModel, preferences.targetLanguage)}
+    >
+      {isGenerating ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : (
+        <FileText className="h-4 w-4" aria-hidden="true" />
+      )}
+      Summarize
+    </Button>
+  );
+
   return (
-    <article aria-label="Video summary" className="min-w-0 pb-2">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Summary</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground"
-            aria-label="Copy summary"
-            title="Copy summary"
-            onClick={() => void copy()}
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-          {onRegenerate && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground"
-              aria-label="Regenerate summary"
-              title="Regenerate summary"
-              disabled={isRegenerating}
-              onClick={onRegenerate}
-            >
-              <RefreshCw className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`} />
-            </Button>
-          )}
+    <WorkspaceSection icon={FileText} title="Summary" actions={actions}>
+      {isGenerating && (
+        <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          Preparing your summary…
+        </p>
+      )}
+      {error && !isGenerating && <ErrorDisplay error={error} onLoadExample={onLoadExample} />}
+      {summary ? (
+        <div className="summary-text min-w-0">
+          <Markdown>{s2tw(summary)}</Markdown>
         </div>
-      </div>
-      <div className="summary-text">
-        <Markdown>{s2tw(summary)}</Markdown>
-      </div>
-    </article>
+      ) : (
+        !isGenerating &&
+        !error && (
+          <p className="text-xs text-muted-foreground">
+            Summarizes this video in {language} with the model picked below.
+          </p>
+        )
+      )}
+    </WorkspaceSection>
   );
 }

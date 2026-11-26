@@ -13,7 +13,18 @@ import {
 } from "@ui/components/ui/select";
 import { Switch } from "@ui/components/ui/switch";
 import { toModelComboboxOption } from "@ui/lib/model-options";
-import { ArrowLeft, Cpu, Key, Loader2, Minus, Plus, RotateCcw, Trash2, Type } from "lucide-react";
+import {
+  ArrowLeft,
+  Captions,
+  FileText,
+  Key,
+  Languages,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { resolveLlmRequestModel } from "@/core/clients/config";
@@ -73,7 +84,7 @@ function LlmModelPrefixControls({
 }) {
   const modelPreviews = [
     { label: "Summary", model: settings.summarizerModel },
-    { label: "Refiner", model: settings.refinerModel },
+    { label: "Captions", model: settings.refinerModel },
   ].map(({ label, model }) => ({
     label,
     value: resolveLlmRequestModel(model, settings.llmModelPrefixMode),
@@ -106,7 +117,7 @@ function LlmModelPrefixControls({
               aria-pressed={settings.llmModelPrefixMode === option.value}
               className={`h-full whitespace-nowrap rounded-sm px-1.5 text-xs font-medium transition-colors ${
                 settings.llmModelPrefixMode === option.value
-                  ? "bg-primary text-white"
+                  ? "bg-foreground text-background"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
@@ -198,52 +209,19 @@ export function ApiConfigurationSection({
   );
 }
 
-export function ModelConfigurationSection({
+export function LanguageSettingsSection({
   settings,
-  selectorConfigs,
-  renderModelCostLimitControl,
   onChange,
 }: {
   settings: SettingsState;
-  selectorConfigs: ModelSelectorConfig[];
-  renderModelCostLimitControl: (selectorConfig: ModelSelectorConfig) => ReactNode;
   onChange: SettingsChangeHandler;
 }) {
   return (
     <section className={SETTINGS_SECTION_CLASSNAME}>
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Cpu className="h-4 w-4 text-muted-foreground" />
-        <span>Models &amp; generation</span>
+        <Languages className="h-4 w-4 text-muted-foreground" />
+        <span>Language</span>
       </h2>
-      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
-        {selectorConfigs.map((selectorConfig) => (
-          <ModelSelector
-            key={selectorConfig.modelKey}
-            label={selectorConfig.label}
-            value={settings[selectorConfig.modelKey]}
-            onChange={(value) => onChange(selectorConfig.modelKey, value)}
-            options={selectorConfig.options.map((model) => toModelComboboxOption(model))}
-            placeholder="Select or type model..."
-            enableSorting
-            defaultSortMetric={selectorConfig.defaultSortMetric}
-            sortControlsTrailing={renderModelCostLimitControl(selectorConfig)}
-          />
-        ))}
-      </div>
-      <GenerationControls settings={settings} onChange={onChange} />
-    </section>
-  );
-}
-
-function GenerationControls({
-  settings,
-  onChange,
-}: {
-  settings: SettingsState;
-  onChange: SettingsChangeHandler;
-}) {
-  return (
-    <div className="space-y-4">
       <div className="settings-field">
         <Label htmlFor="target-language" className="text-sm font-semibold">
           Target language
@@ -266,18 +244,115 @@ function GenerationControls({
             ))}
           </SelectContent>
         </Select>
+        <p className="text-[13px] leading-5 text-muted-foreground">
+          {
+            "Summaries and answers are written in it, and captions in another language start with a translation into it. Auto follows the video."
+          }
+        </p>
       </div>
+    </section>
+  );
+}
 
-      <div className="flex items-center justify-between gap-4 pt-1">
-        <div className="text-sm font-semibold">Auto-generate captions</div>
+export function CaptionSettingsSection({
+  settings,
+  modelSelector,
+  costLimitControl,
+  onChange,
+}: {
+  settings: SettingsState;
+  modelSelector: ModelSelectorConfig;
+  costLimitControl: ReactNode;
+  onChange: SettingsChangeHandler;
+}) {
+  return (
+    <section className={SETTINGS_SECTION_CLASSNAME}>
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <Captions className="h-4 w-4 text-muted-foreground" />
+        <span>Captions</span>
+      </h2>
+      <ModelField
+        settings={settings}
+        selectorConfig={modelSelector}
+        costLimitControl={costLimitControl}
+        onChange={onChange}
+      />
+      <div className="flex items-center justify-between gap-4">
+        <Label htmlFor="auto-generate" className="text-sm font-semibold">
+          Auto-generate captions
+        </Label>
         <Switch
+          id="auto-generate"
           checked={settings.autoGenerate}
           onCheckedChange={(checked) => onChange("autoGenerate", checked)}
-          aria-label="Auto-generate captions"
-          className="shrink-0 data-[state=checked]:bg-primary"
+          className="shrink-0"
         />
       </div>
-    </div>
+      <FontSizeField
+        label="Text size on video"
+        controlLabel="Caption font size"
+        value={settings.captionFontSize}
+        onChange={(value) => onChange("captionFontSize", value)}
+      />
+    </section>
+  );
+}
+
+export function SummarySettingsSection({
+  settings,
+  modelSelector,
+  costLimitControl,
+  onChange,
+}: {
+  settings: SettingsState;
+  modelSelector: ModelSelectorConfig;
+  costLimitControl: ReactNode;
+  onChange: SettingsChangeHandler;
+}) {
+  return (
+    <section className={SETTINGS_SECTION_CLASSNAME}>
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        <span>Summary &amp; chat</span>
+      </h2>
+      <ModelField
+        settings={settings}
+        selectorConfig={modelSelector}
+        costLimitControl={costLimitControl}
+        onChange={onChange}
+      />
+      <FontSizeField
+        label="Text size"
+        controlLabel="Summary and chat font size"
+        value={settings.summaryFontSize}
+        onChange={(value) => onChange("summaryFontSize", value)}
+      />
+    </section>
+  );
+}
+
+function ModelField({
+  settings,
+  selectorConfig,
+  costLimitControl,
+  onChange,
+}: {
+  settings: SettingsState;
+  selectorConfig: ModelSelectorConfig;
+  costLimitControl: ReactNode;
+  onChange: SettingsChangeHandler;
+}) {
+  return (
+    <ModelSelector
+      label={selectorConfig.label}
+      value={settings[selectorConfig.modelKey]}
+      onChange={(value) => onChange(selectorConfig.modelKey, value)}
+      options={selectorConfig.options.map((model) => toModelComboboxOption(model))}
+      placeholder="Select or type model..."
+      enableSorting
+      defaultSortMetric={selectorConfig.defaultSortMetric}
+      sortControlsTrailing={costLimitControl}
+    />
   );
 }
 
@@ -373,37 +448,21 @@ function FontSizeControl({
   );
 }
 
-export function ReadingSettingsSection({
-  settings,
+function FontSizeField({
+  label,
+  controlLabel,
+  value,
   onChange,
 }: {
-  settings: SettingsState;
-  onChange: SettingsChangeHandler;
+  label: string;
+  controlLabel: string;
+  value: number;
+  onChange: (value: number) => void;
 }) {
   return (
-    <section className={SETTINGS_SECTION_CLASSNAME}>
-      <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Type className="h-4 w-4 text-muted-foreground" />
-        <span>Reading</span>
-      </h2>
-      <div className="space-y-3">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <Label className="text-sm font-medium text-foreground">Captions</Label>
-          <FontSizeControl
-            label="Caption font size"
-            value={settings.captionFontSize}
-            onChange={(value) => onChange("captionFontSize", value)}
-          />
-        </div>
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <Label className="text-sm font-medium text-foreground">Summary and chat</Label>
-          <FontSizeControl
-            label="Summary and chat font size"
-            value={settings.summaryFontSize}
-            onChange={(value) => onChange("summaryFontSize", value)}
-          />
-        </div>
-      </div>
-    </section>
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <Label className="text-sm font-semibold">{label}</Label>
+      <FontSizeControl label={controlLabel} value={value} onChange={onChange} />
+    </div>
   );
 }
