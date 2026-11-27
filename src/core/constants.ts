@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   MIX_FILTER_ENABLED: "mixFilterEnabled",
   MEMBERS_ONLY_FILTER_ENABLED: "membersOnlyFilterEnabled",
   PODCAST_FILTER_ENABLED: "podcastFilterEnabled",
+  COURSE_FILTER_ENABLED: "courseFilterEnabled",
   DURATION_FILTER_ENABLED: "durationFilterEnabled",
   KEYWORD_FILTER_ENABLED: "keywordFilterEnabled",
   AGE_FILTER_ENABLED: "ageFilterEnabled",
@@ -34,6 +35,7 @@ export const STORAGE_KEYS = {
   MIN_DURATION: "minDuration",
   MAX_DURATION: "maxDuration",
   MAX_AGE_YEARS: "maxAgeYears",
+  MEMBER_VIDEOS_PER_CHANNEL: "memberVideosPerChannel",
   FILTER_KEYWORDS: "filterKeywords",
   FILTERED_VIDEOS: "filteredVideos",
   FILTERED_VIDEO_KEYS: "filteredVideoKeys",
@@ -86,6 +88,7 @@ export const DEFAULTS = {
   MIX_FILTER_ENABLED: false,
   MEMBERS_ONLY_FILTER_ENABLED: false,
   PODCAST_FILTER_ENABLED: false,
+  COURSE_FILTER_ENABLED: false,
   DURATION_FILTER_ENABLED: false,
   KEYWORD_FILTER_ENABLED: false,
   AGE_FILTER_ENABLED: false,
@@ -96,6 +99,7 @@ export const DEFAULTS = {
   MIN_DURATION: 60,
   MAX_DURATION: 3600,
   MAX_AGE_YEARS: 5,
+  MEMBER_VIDEOS_PER_CHANNEL: 3,
   FILTER_KEYWORDS: ["spoiler", "clickbait", "sponsor"] as string[],
 } as const;
 

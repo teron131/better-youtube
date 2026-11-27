@@ -11,6 +11,7 @@ export interface FeedFilterSettings {
   mixFilterEnabled: boolean;
   membersOnlyFilterEnabled: boolean;
   podcastFilterEnabled: boolean;
+  courseFilterEnabled: boolean;
   durationFilterEnabled: boolean;
   keywordFilterEnabled: boolean;
   ageFilterEnabled: boolean;
@@ -21,6 +22,8 @@ export interface FeedFilterSettings {
   minDuration: number;
   maxDuration: number;
   maxAgeYears: number;
+  /** Members-only videos kept per channel whose membership you bought; the rest of that channel's are hidden when the members-only filter is on. */
+  memberVideosPerChannel: number;
   keywords: string[];
 }
 
@@ -59,6 +62,7 @@ export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
   mixFilterEnabled: DEFAULTS.MIX_FILTER_ENABLED,
   membersOnlyFilterEnabled: DEFAULTS.MEMBERS_ONLY_FILTER_ENABLED,
   podcastFilterEnabled: DEFAULTS.PODCAST_FILTER_ENABLED,
+  courseFilterEnabled: DEFAULTS.COURSE_FILTER_ENABLED,
   durationFilterEnabled: DEFAULTS.DURATION_FILTER_ENABLED,
   keywordFilterEnabled: DEFAULTS.KEYWORD_FILTER_ENABLED,
   ageFilterEnabled: DEFAULTS.AGE_FILTER_ENABLED,
@@ -69,6 +73,7 @@ export const DEFAULT_FEED_FILTER_SETTINGS: FeedFilterSettings = {
   minDuration: DEFAULTS.MIN_DURATION,
   maxDuration: DEFAULTS.MAX_DURATION,
   maxAgeYears: DEFAULTS.MAX_AGE_YEARS,
+  memberVideosPerChannel: DEFAULTS.MEMBER_VIDEOS_PER_CHANNEL,
   keywords: [...DEFAULTS.FILTER_KEYWORDS],
 };
 
@@ -78,6 +83,7 @@ export const FEED_HIDE_FILTER_KEYS = [
   "mixFilterEnabled",
   "membersOnlyFilterEnabled",
   "podcastFilterEnabled",
+  "courseFilterEnabled",
   "durationFilterEnabled",
   "keywordFilterEnabled",
   "ageFilterEnabled",
@@ -90,6 +96,7 @@ export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> 
   mixFilterEnabled: STORAGE_KEYS.MIX_FILTER_ENABLED,
   membersOnlyFilterEnabled: STORAGE_KEYS.MEMBERS_ONLY_FILTER_ENABLED,
   podcastFilterEnabled: STORAGE_KEYS.PODCAST_FILTER_ENABLED,
+  courseFilterEnabled: STORAGE_KEYS.COURSE_FILTER_ENABLED,
   durationFilterEnabled: STORAGE_KEYS.DURATION_FILTER_ENABLED,
   keywordFilterEnabled: STORAGE_KEYS.KEYWORD_FILTER_ENABLED,
   ageFilterEnabled: STORAGE_KEYS.AGE_FILTER_ENABLED,
@@ -100,6 +107,7 @@ export const FEED_FILTER_STORAGE_KEYS: Record<keyof FeedFilterSettings, string> 
   minDuration: STORAGE_KEYS.MIN_DURATION,
   maxDuration: STORAGE_KEYS.MAX_DURATION,
   maxAgeYears: STORAGE_KEYS.MAX_AGE_YEARS,
+  memberVideosPerChannel: STORAGE_KEYS.MEMBER_VIDEOS_PER_CHANNEL,
   keywords: STORAGE_KEYS.FILTER_KEYWORDS,
 };
 
@@ -121,6 +129,7 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
     mixFilterEnabled: toggle("mixFilterEnabled"),
     membersOnlyFilterEnabled: toggle("membersOnlyFilterEnabled"),
     podcastFilterEnabled: toggle("podcastFilterEnabled"),
+    courseFilterEnabled: toggle("courseFilterEnabled"),
     durationFilterEnabled: toggle("durationFilterEnabled"),
     keywordFilterEnabled: toggle("keywordFilterEnabled"),
     ageFilterEnabled: toggle("ageFilterEnabled"),
@@ -134,6 +143,10 @@ export async function loadFeedFilterSettings(): Promise<FeedFilterSettings> {
     minDuration: normalizeNumber(stored("minDuration"), DEFAULT_FEED_FILTER_SETTINGS.minDuration),
     maxDuration: normalizeNumber(stored("maxDuration"), DEFAULT_FEED_FILTER_SETTINGS.maxDuration),
     maxAgeYears: normalizeNumber(stored("maxAgeYears"), DEFAULT_FEED_FILTER_SETTINGS.maxAgeYears),
+    memberVideosPerChannel: normalizeNumber(
+      stored("memberVideosPerChannel"),
+      DEFAULT_FEED_FILTER_SETTINGS.memberVideosPerChannel,
+    ),
     keywords: normalizeKeywords(stored("keywords")),
   };
 }

@@ -11,7 +11,9 @@ export type FilterReason =
   | "live-viewers"
   | "mix"
   | "members-only"
+  | "members-only-limit"
   | "podcast"
+  | "course"
   | "keywords"
   | "duration"
   | "age"
@@ -151,6 +153,12 @@ const CARD_KIND_FILTERS = [
     flag: "isPodcast",
     reason: "podcast",
     details: "Podcast card",
+  },
+  {
+    setting: "courseFilterEnabled",
+    flag: "isCourse",
+    reason: "course",
+    details: "Course card",
   },
 ] as const satisfies readonly {
   setting: FeedFilterToggleKey;
@@ -332,4 +340,19 @@ export function getTriggeredFilter(
       checkKeywordsFilter(videoData, settings),
     ].find((result) => result.shouldFilter) ?? { shouldFilter: false }
   );
+}
+
+/** Card-kind matches hide a subscribed channel's card even under Keep subscriptions, which shields videos only from the quality thresholds: a subscription neither unlocks a members-only video nor makes a podcast show or course card a video. */
+export function overridesSubscription(reason: FilterReason): boolean {
+  return CARD_KIND_FILTERS.some((filter) => filter.reason === reason);
+}
+
+/** For members-only cards from channels whose membership you bought, given in feed order by channel, whether each is past that channel's first `limit`. */
+export function exceedsMemberVideoLimit(channels: readonly string[], limit: number): boolean[] {
+  const counts = new Map<string, number>();
+  return channels.map((channel) => {
+    const count = (counts.get(channel) ?? 0) + 1;
+    counts.set(channel, count);
+    return count > limit;
+  });
 }

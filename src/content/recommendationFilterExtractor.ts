@@ -1,5 +1,5 @@
 /**
- * Reads a recommendation card's title, counts, duration, age, live state, card kind (Mix, members-only, podcast), and channel, preferring the renderer data YouTube attaches to the element and falling back to rendered text.
+ * Reads a recommendation card's title, counts, duration, age, live state, card kind (Mix, members-only, podcast, course), and channel, preferring the renderer data YouTube attaches to the element and falling back to rendered text.
  */
 
 const HAN_CHARACTER_PATTERN = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g;
@@ -52,6 +52,8 @@ const MEMBERS_ONLY_BADGE_STYLE = "BADGE_MEMBERS_ONLY";
 const MEMBERS_ONLY_BADGE_TEXT_PATTERN = /^members (?:only|first)$/i;
 const PODCAST_CONTENT_TYPE = "LOCKUP_CONTENT_TYPE_PODCAST";
 const PODCAST_LINK_TEXT = "View full podcast";
+// Course cards are recognised only by this English link text; no renderer content type for them is verified.
+const COURSE_LINK_TEXT = "View full course";
 const LIVE_INDICATOR_SELECTOR =
   "badge-shape .yt-badge-shape__text, .yt-badge-shape__text, yt-thumbnail-badge-view-model, [overlay-style='LIVE'], [aria-label]";
 const CHANNEL_PATH_PREFIXES = ["/@", "/channel/"];
@@ -95,6 +97,7 @@ export interface VideoCardData {
   isGeneratedMix: boolean;
   isMembersOnly: boolean;
   isPodcast: boolean;
+  isCourse: boolean;
   videoId: string | null;
   channelName: string | null;
   channelLanguage: TextLanguage;
@@ -475,6 +478,7 @@ function extractSearchVideo(rendererData: Record<string, unknown>): ExtractedVid
     isGeneratedMix: false,
     isMembersOnly: false,
     isPodcast: false,
+    isCourse: false,
     channelName: firstNonEmpty(
       textFromNode(rendererData.ownerText),
       textFromNode(rendererData.longBylineText),
@@ -524,6 +528,7 @@ function extractLockupVideo(lockupViewModel: Record<string, unknown>): Extracted
     isGeneratedMix: false,
     isMembersOnly: hasMembersOnlyBadgeData(metadataRows),
     isPodcast: lockupViewModel.contentType === PODCAST_CONTENT_TYPE,
+    isCourse: false,
     channelName: metadataTexts[0] || null,
     channelId: homeChannelInfo.channelId,
     channelPath: homeChannelInfo.channelPath,
@@ -736,9 +741,9 @@ function hasMembersOnlyBadgeElement(videoElement: Element): boolean {
   );
 }
 
-function hasPodcastLink(videoElement: Element): boolean {
-  return Array.from(videoElement.querySelectorAll("a[href^='/playlist']")).some(
-    (element) => getNormalizedElementText(element) === PODCAST_LINK_TEXT,
+function hasLinkWithText(videoElement: Element, text: string): boolean {
+  return Array.from(videoElement.querySelectorAll("a")).some(
+    (element) => getNormalizedElementText(element) === text,
   );
 }
 
@@ -828,6 +833,7 @@ export function extractVideoData(videoElement: Element): VideoCardData {
     isGeneratedMix: structuredData?.isGeneratedMix || false,
     isMembersOnly: structuredData?.isMembersOnly || false,
     isPodcast: structuredData?.isPodcast || false,
+    isCourse: structuredData?.isCourse || false,
     videoId: structuredData?.videoId || null,
     channelName: structuredData?.channelName || null,
     channelId: structuredData?.channelId || null,
@@ -873,7 +879,10 @@ export function extractVideoData(videoElement: Element): VideoCardData {
       data.isMembersOnly = hasMembersOnlyBadgeElement(videoElement);
     }
     if (!data.isPodcast) {
-      data.isPodcast = hasPodcastLink(videoElement);
+      data.isPodcast = hasLinkWithText(videoElement, PODCAST_LINK_TEXT);
+    }
+    if (!data.isCourse) {
+      data.isCourse = hasLinkWithText(videoElement, COURSE_LINK_TEXT);
     }
     fillChannelInfoFromLink(videoElement, data);
     fillLockupChannelNameFromText(videoElement, data);

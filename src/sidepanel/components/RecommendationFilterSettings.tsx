@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Clock3,
   ExternalLink,
+  GraduationCap,
   History,
   Languages,
   ListFilter,
@@ -89,7 +90,8 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
     key: "preserveSubscribedChannels",
     icon: ShieldCheck,
     title: "Keep subscriptions",
-    description: "Subscriptions are immune to filters, except members-only videos.",
+    description:
+      "Subscriptions are immune to filters, except members-only videos, podcast shows, and courses.",
   },
   {
     key: "mixFilterEnabled",
@@ -101,14 +103,19 @@ const TOGGLE_ITEMS: ToggleConfig[] = [
     key: "membersOnlyFilterEnabled",
     icon: Lock,
     title: "Members-only videos",
-    description:
-      "Remove videos marked Members only or Members first, unless you bought the channel's membership.",
+    description: "Remove videos marked Members only or Members first.",
   },
   {
     key: "podcastFilterEnabled",
     icon: Podcast,
     title: "Podcasts",
     description: "Remove podcast show cards; individual episodes stay.",
+  },
+  {
+    key: "courseFilterEnabled",
+    icon: GraduationCap,
+    title: "Courses",
+    description: "Remove course cards; individual lessons stay.",
   },
 ];
 const RECOMMENDATION_SETTING_STORAGE_KEYS = new Set<string>(
@@ -354,6 +361,32 @@ export function RecommendationFilterSettings() {
             </span>
           </label>
         );
+      case "membersOnlyFilterEnabled":
+        return (
+          <label
+            htmlFor="recommendation-filter-memberVideosPerChannel"
+            className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-medium leading-6 text-foreground/95"
+          >
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <span>Keep up to</span>
+              <Input
+                id="recommendation-filter-memberVideosPerChannel"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={settings.memberVideosPerChannel}
+                onChange={(event) =>
+                  void handleSettingChange(
+                    "memberVideosPerChannel",
+                    Math.max(0, Number(event.target.value) || 0),
+                  )
+                }
+                className="h-9 w-24 rounded-md border-border/70 bg-background px-3 text-sm font-semibold"
+              />
+            </span>
+            <span>per channel whose membership you bought.</span>
+          </label>
+        );
       default:
         return null;
     }
@@ -388,10 +421,10 @@ export function RecommendationFilterSettings() {
                 />
               </div>
               <div className="pl-6">
-                {renderMergedSettingSentence(item.key)}
                 {item.description && (
                   <p className="text-sm leading-5 text-muted-foreground">{item.description}</p>
                 )}
+                {renderMergedSettingSentence(item.key)}
               </div>
             </div>
           );
@@ -446,8 +479,9 @@ export function RecommendationFilterSettings() {
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="text-sm font-semibold">Subscribed channels</div>
             <div className="text-[13px] leading-5 text-muted-foreground">
-              Import your YouTube subscriptions to make the videos immune to the filters. Channels
-              marked Purchased also keep their members-only videos.
+              {
+                "Import your YouTube subscriptions so Keep subscriptions knows them. Channels marked Purchased also keep members-only videos, up to the limit under Members-only videos."
+              }
             </div>
             <div className="text-xs font-medium text-muted-foreground">
               {subscriptions?.count || 0} channels saved • {memberCount}{" "}

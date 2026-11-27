@@ -12,7 +12,7 @@ Better YouTube is a Chrome side panel for YouTube. Open a video and it reads the
 </p>
 <p align="center">
   <img src="static/settings.jpg" width="49%" alt="Settings: Connection with the provider and keys, Language with Target language, and Captions with the caption model, Auto-generate captions, and Text size on video">
-  <img src="static/filters.jpg" width="49%" alt="Recommendation filters for views, live viewers, duration, keywords, age, language, Mixes, members-only videos, and podcasts, all switched on, with Keep subscriptions sparing subscribed channels">
+  <img src="static/filters.jpg" width="49%" alt="Recommendation filters for views, live viewers, duration, keywords, age, language, Mixes, members-only videos with up to 3 kept per channel you are a member of, podcasts, and courses, all switched on">
 </p>
 
 ## How It Works

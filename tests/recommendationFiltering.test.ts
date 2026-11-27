@@ -7,7 +7,11 @@ import {
   extractVideoData,
   type VideoCardData,
 } from "../src/content/recommendationFilterExtractor.ts";
-import { getTriggeredFilter } from "../src/content/recommendationFilterPolicy.ts";
+import {
+  exceedsMemberVideoLimit,
+  getTriggeredFilter,
+  overridesSubscription,
+} from "../src/content/recommendationFilterPolicy.ts";
 import type { FeedFilterSettings } from "../src/core/recommendationFilters.ts";
 
 const DEFAULT_SETTINGS: FeedFilterSettings = {
@@ -16,6 +20,7 @@ const DEFAULT_SETTINGS: FeedFilterSettings = {
   mixFilterEnabled: false,
   membersOnlyFilterEnabled: false,
   podcastFilterEnabled: false,
+  courseFilterEnabled: false,
   durationFilterEnabled: false,
   keywordFilterEnabled: false,
   ageFilterEnabled: false,
@@ -26,6 +31,7 @@ const DEFAULT_SETTINGS: FeedFilterSettings = {
   minDuration: 0,
   maxDuration: 3600,
   maxAgeYears: 10,
+  memberVideosPerChannel: 3,
   keywords: [],
 };
 
@@ -48,6 +54,7 @@ function videoData(overrides: Partial<VideoCardData>): VideoCardData {
     isGeneratedMix: false,
     isMembersOnly: false,
     isPodcast: false,
+    isCourse: false,
     videoId: "video-id",
     channelName: "Example channel",
     channelLanguage: "en",
@@ -275,6 +282,22 @@ function lockupMetadataRows(metadataRows: unknown[]): Record<string, unknown> {
   };
 }
 
+test("Keep subscriptions shields subscribed videos from quality filters but not from card-kind filters", () => {
+  for (const reason of ["mix", "members-only", "podcast", "course"] as const) {
+    assert.equal(overridesSubscription(reason), true, reason);
+  }
+  for (const reason of [
+    "views",
+    "live-viewers",
+    "keywords",
+    "duration",
+    "age",
+    "language",
+  ] as const) {
+    assert.equal(overridesSubscription(reason), false, reason);
+  }
+});
+
 test("filters members-first lockups only when the members-only filter is enabled", () => {
   const extracted = extractVideoData(
     lockupCard({
@@ -356,4 +379,30 @@ test("treats a Mix badge as a Mix whatever the title, but not a bare radio link"
 
   assert.equal(extractVideoData(myMix).isGeneratedMix, true);
   assert.equal(extractVideoData(musicVideo).isGeneratedMix, false);
+});
+
+test("filters course cards by their View full course link when the course filter is enabled", () => {
+  const courseLink = { textContent: " View full course " };
+  const course = {
+    tagName: "YTD-RICH-ITEM-RENDERER",
+    textContent:
+      "Machine Learning Specialization by Andrew Ng DeepLearningAI Course View full course",
+    querySelector: () => null,
+    querySelectorAll: (selector: string) => (selector === "a" ? [courseLink] : []),
+  } as unknown as Element;
+
+  const extracted = extractVideoData(course);
+  assert.equal(extracted.isCourse, true);
+  assert.equal(getTriggeredFilter(extracted, settings({})).shouldFilter, false);
+  assert.deepEqual(getTriggeredFilter(extracted, settings({ courseFilterEnabled: true })), {
+    shouldFilter: true,
+    reason: "course",
+    details: "Course card",
+  });
+});
+
+test("keeps each member channel's first members-only videos up to the limit, in feed order", () => {
+  const channels = ["UC-a", "UC-a", "UC-b", "UC-a", "UC-a", "UC-b"];
+  assert.deepEqual(exceedsMemberVideoLimit(channels, 3), [false, false, false, false, true, false]);
+  assert.deepEqual(exceedsMemberVideoLimit(channels, 0), [true, true, true, true, true, true]);
 });

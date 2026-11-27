@@ -25,9 +25,11 @@ import {
   type VideoCardData,
 } from "./recommendationFilterExtractor";
 import {
+  exceedsMemberVideoLimit,
   type FilterReason,
   getTriggeredFilter,
   hasIncompleteMetadata,
+  overridesSubscription,
 } from "./recommendationFilterPolicy";
 
 const SUBSCRIPTIONS_PAGE_PATH = "/feed/channels";
@@ -40,6 +42,9 @@ const HISTORY_LIMIT = 100;
 const VIDEO_CARD_METADATA_ATTRIBUTES = ["aria-label", "data-video-id", "href", "title"];
 const RECOMMENDATION_SECTION_SELECTOR = "ytd-rich-section-renderer";
 const FILTERED_RECOMMENDATION_SECTION_SELECTOR = `${RECOMMENDATION_SECTION_SELECTOR}[data-filtered-section]`;
+// Set on members-only cards from channels whose membership you bought, holding the channel they count toward.
+const MEMBER_VIDEO_CHANNEL_ATTRIBUTE = "data-member-video-channel";
+const MEMBER_VIDEO_LIMIT_REASON: FilterReason = "members-only-limit";
 const FEED_FILTER_STORAGE_KEY_SET = new Set<string>(Object.values(FEED_FILTER_STORAGE_KEYS));
 
 type ChannelLookup = {
@@ -200,6 +205,7 @@ function resetProcessedVideoCards(root: ParentNode = document): void {
     videoElement.removeAttribute("data-filtered");
     videoElement.removeAttribute("data-filter-reason");
     videoElement.removeAttribute("data-subscribed-channel");
+    videoElement.removeAttribute(MEMBER_VIDEO_CHANNEL_ATTRIBUTE);
     delete (videoElement as HTMLElement).dataset.titleLanguage;
     delete (videoElement as HTMLElement).dataset.channelLanguage;
     delete (videoElement as HTMLElement).dataset.filterRetryCount;
@@ -456,6 +462,65 @@ class FeedFilterController {
     );
   }
 
+  /** Runs over the whole page rather than one pass's cards, so the per-channel limit holds as YouTube appends more; cards another filter hid don't count toward it. */
+  private limitMemberVideos(limit: number, filteredEntries: FilterRecordEntry[]): void {
+    const cards = Array.from(
+      document.querySelectorAll(`[${MEMBER_VIDEO_CHANNEL_ATTRIBUTE}]`),
+    ).filter(
+      (card) =>
+        !card.hasAttribute("data-filtered") ||
+        card.getAttribute("data-filter-reason") === MEMBER_VIDEO_LIMIT_REASON,
+    );
+    const overLimit = exceedsMemberVideoLimit(
+      cards.map((card) => card.getAttribute(MEMBER_VIDEO_CHANNEL_ATTRIBUTE) ?? ""),
+      limit,
+    );
+
+    cards.forEach((card, index) => {
+      const isLimited = card.hasAttribute("data-filtered");
+      if (!overLimit[index]) {
+        if (isLimited) {
+          card.removeAttribute("data-filtered");
+          card.removeAttribute("data-filter-reason");
+          showVideoCard(card);
+        }
+        return;
+      }
+      if (isLimited) {
+        return;
+      }
+
+      hideVideoCard(card, MEMBER_VIDEO_LIMIT_REASON);
+      const videoData = extractVideoData(card);
+      this.recordHiddenCard(
+        filteredEntries,
+        videoData,
+        MEMBER_VIDEO_LIMIT_REASON,
+        `Over ${limit} members-only videos from ${videoData.channelName || "one channel"}`,
+        false,
+      );
+    });
+  }
+
+  /** Lists a hidden card in the side panel's history once: by its record key, or, for a card without one, only as it goes from shown to hidden. */
+  private recordHiddenCard(
+    filteredEntries: FilterRecordEntry[],
+    videoData: VideoCardData,
+    reason: FilterReason,
+    details: string,
+    wasFiltered: boolean,
+  ): void {
+    const key = buildFilterRecordKey(videoData, reason);
+    if (key ? this.recordedFilterKeys.has(key) : wasFiltered) {
+      return;
+    }
+    if (key) {
+      this.recordedFilterKeys.add(key);
+    }
+    const title = videoData.title || "Unknown title";
+    filteredEntries.push({ key: key ?? `${reason}:fallback:${title}`, title, reason: details });
+  }
+
   private getTargetVideoCards(forceFullScan = false, videoCards?: Element[]): Element[] {
     const sourceCards =
       videoCards && videoCards.length > 0
@@ -504,7 +569,6 @@ class FeedFilterController {
     for (const videoElement of targetCards) {
       const wasFiltered = videoElement.hasAttribute("data-filtered");
       const videoData = extractVideoData(videoElement);
-      const title = videoData.title || "Unknown title";
       const isSubscribed = matchesChannel(videoData, this.subscribedChannels);
 
       applySubscribedChannelState(videoElement, isSubscribed);
@@ -512,16 +576,23 @@ class FeedFilterController {
       applyChannelLanguageState(videoElement, videoData.channelLanguage);
 
       const isMember = matchesChannel(videoData, this.memberChannels);
-      // A membership unlocks members-only videos, so a member's card is judged as an ordinary video.
+      // A membership unlocks members-only videos, so a member's card is judged as an ordinary video here and only capped per channel afterwards.
       const triggeredFilter = getTriggeredFilter(
         isMember ? { ...videoData, isMembersOnly: false } : videoData,
         this.filterSettings,
       );
-      // Subscribing unlocks nothing, so Keep subscriptions never exempts a members-only match.
+      if (isMember && videoData.isMembersOnly && this.filterSettings.membersOnlyFilterEnabled) {
+        videoElement.setAttribute(
+          MEMBER_VIDEO_CHANNEL_ATTRIBUTE,
+          videoData.channelId || videoData.channelPath || videoData.channelName || "",
+        );
+      } else {
+        videoElement.removeAttribute(MEMBER_VIDEO_CHANNEL_ATTRIBUTE);
+      }
       const shouldPreserveSubscribedVideo =
         isSubscribed &&
         this.filterSettings.preserveSubscribedChannels &&
-        !(triggeredFilter.shouldFilter && triggeredFilter.reason === "members-only");
+        !(triggeredFilter.shouldFilter && overridesSubscription(triggeredFilter.reason));
       const retryCount = Number((videoElement as HTMLElement).dataset.filterRetryCount || 0);
       const shouldRetryForMetadata =
         !triggeredFilter.shouldFilter &&
@@ -539,29 +610,15 @@ class FeedFilterController {
       nextMetadataRetryVideoCards.delete(videoElement);
 
       if (triggeredFilter.shouldFilter && !shouldPreserveSubscribedVideo) {
-        const filterRecordKey = buildFilterRecordKey(videoData, triggeredFilter.reason);
-        const shouldRecordFilter =
-          (filterRecordKey && !this.recordedFilterKeys.has(filterRecordKey)) ||
-          (!filterRecordKey && !wasFiltered);
-
         hideVideoCard(videoElement, triggeredFilter.reason);
         markVideoCardProcessed(videoElement);
-        if (shouldRecordFilter) {
-          if (filterRecordKey) {
-            this.recordedFilterKeys.add(filterRecordKey);
-            filteredEntries.push({
-              key: filterRecordKey,
-              title,
-              reason: triggeredFilter.details,
-            });
-          } else {
-            filteredEntries.push({
-              key: `${triggeredFilter.reason}:fallback:${title}`,
-              title,
-              reason: triggeredFilter.details,
-            });
-          }
-        }
+        this.recordHiddenCard(
+          filteredEntries,
+          videoData,
+          triggeredFilter.reason,
+          triggeredFilter.details,
+          wasFiltered,
+        );
         continue;
       }
 
@@ -574,6 +631,7 @@ class FeedFilterController {
       markVideoCardProcessed(videoElement);
     }
 
+    this.limitMemberVideos(this.filterSettings.memberVideosPerChannel, filteredEntries);
     updateRecommendationSectionVisibility();
 
     this.metadataRetryVideoCards = nextMetadataRetryVideoCards;
